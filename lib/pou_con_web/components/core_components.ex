@@ -252,6 +252,7 @@ defmodule PouConWeb.CoreComponents do
       <label>
         <span :if={@label} class="label mb-1">{@label}</span>
         <input
+        phx-hook="SimpleKeyboard"
           type={@type}
           name={@name}
           id={@id}
