@@ -27,7 +27,7 @@ defmodule PouConWeb.Router do
     live("/", LandingLive.Index, :index)
     live("/login", AuthLive.Login, :index)
     live("/setup", AuthLive.Setup, :index)
-    
+
     # Logout route
     post("/logout", AuthController, :logout)
   end
@@ -36,8 +36,16 @@ defmodule PouConWeb.Router do
     pipe_through([:browser, :authenticated])
 
     # Protected routes
-    live("/dashboard", DashboardLive.Index, :index)
+    live("/dashboard", DashboardLive)
     # Add more protected routes here
-    live("/slave_id_changer", SlaveIdChangerLive, :index)
+    live("/setup_device", SetupDeviceLive)
+
+    live "/devices", DeviceLive.Index, :index
+    live "/devices/new", DeviceLive.Form, :new
+    live "/devices/:id/edit", DeviceLive.Form, :edit
+
+    live "/ports", PortLive.Index, :index
+    live "/ports/new", PortLive.Form, :new
+    live "/ports/:id/edit", PortLive.Form, :edit
   end
 end

@@ -10,6 +10,8 @@ defmodule PouCon.Application do
     children = [
       PouConWeb.Telemetry,
       PouCon.Repo,
+      PouCon.PortSupervisor,
+      PouCon.DeviceManager,
       {Ecto.Migrator,
        repos: Application.fetch_env!(:pou_con, :ecto_repos), skip: skip_migrations?()},
       {DNSCluster, query: Application.get_env(:pou_con, :dns_cluster_query) || :ignore},

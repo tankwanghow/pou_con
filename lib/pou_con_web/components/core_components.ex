@@ -252,7 +252,7 @@ defmodule PouConWeb.CoreComponents do
       <label>
         <span :if={@label} class="label mb-1">{@label}</span>
         <input
-        phx-hook="SimpleKeyboard"
+          phx-hook="SimpleKeyboard"
           type={@type}
           name={@name}
           id={@id}
@@ -389,6 +389,205 @@ defmodule PouConWeb.CoreComponents do
         </div>
       </li>
     </ul>
+    """
+  end
+
+  attr :labels, :list, default: ["On", "Off"]
+  attr :value, :string, required: true
+  attr :device, :string, required: true
+  attr :click, :string, default: "toggle"
+  attr :color, :string, default: "blue"
+
+  def toggle_button(assigns) do
+    ~H"""
+    <label class="flex flex-col items-center cursor-pointer">
+      <input
+        type="checkbox"
+        class="sr-only peer"
+        phx-click={@click}
+        phx-value-device={@device}
+        checked={@value == Enum.at(@labels, 0)}
+      />
+
+      <div class={[
+        "relative w-9 h-5 bg-gray-400 peer-focus:outline-none",
+        "peer-focus:ring-1 rounded-full peer-checked:after:translate-x-full",
+        "rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-['']",
+        "after:absolute after:top-[2px] after:start-[2px] after:bg-white",
+        "after:border after:rounded-full after:h-4 after:w-4 after:transition-all",
+        "peer-focus:ring-#{@color}-300 peer-checked:bg-#{@color}-600 after:border-#{@color}-300"
+      ]}>
+      </div>
+      <div class="mt-1 text-sm font-medium text-gray-900">
+        {if @value == Enum.at(@labels, 0), do: Enum.at(@labels, 0), else: Enum.at(@labels, 1)}
+      </div>
+    </label>
+    """
+  end
+
+  defp get_device_data({:ok, data}, device_name) do
+    data[device_name]
+  end
+
+  attr :device_name, :string, required: true
+  attr :click, :string, required: true
+  attr :data, :any, required: true
+
+  def fan(assigns) do
+    onoff_status_device_name = "#{assigns.device_name}_onoff_status"
+    a_m_flag_device_name = "#{assigns.device_name}_a_m_flag"
+    cmd_status_device_name = "#{assigns.device_name}_cmd_status"
+
+    on_off_status = get_device_data(assigns.data, onoff_status_device_name)
+    am_status = get_device_data(assigns.data, a_m_flag_device_name)
+    cmd_status = get_device_data(assigns.data, cmd_status_device_name)
+
+    color =
+      if cmd_status != on_off_status do
+        "rose"
+      else
+        case on_off_status do
+          %{state: 1} -> "green"
+          %{state: 0} -> "blue"
+          _ -> "gray"
+        end
+      end
+
+    assigns =
+      assigns
+      |> assign(:onoff_status_device_name, onoff_status_device_name)
+      |> assign(:a_m_flag_device_name, a_m_flag_device_name)
+      |> assign(:cmd_status_device_name, cmd_status_device_name)
+      |> assign(
+        :command_status,
+        case cmd_status do
+          %{state: 1} -> "On"
+          %{state: 0} -> "Off"
+          _ -> "error"
+        end
+      )
+      |> assign(
+        :auto_manual_status,
+        case am_status do
+          %{state: 1} -> "Auto"
+          %{state: 0} -> "Manual"
+          _ -> "error"
+        end
+      )
+      |> assign(
+        :on_off_status,
+        case on_off_status do
+          %{state: 1} -> "On"
+          %{state: 0} -> "Off"
+          _ -> "error"
+        end
+      )
+      |> assign(:color, color)
+
+    ~H"""
+    <div
+      id={@device_name}
+      class={"h-38 w-20 border-4 bg-#{@color}-200 border-#{@color}-600 rounded-xl p-2"}
+    >
+      <.toggle_button
+        :if={@auto_manual_status != "error"}
+        device={@a_m_flag_device_name}
+        value={@auto_manual_status}
+        labels={["Auto", "Manual"]}
+        color={@color}
+      />
+
+      <div class={[
+        "my-2 ml-3",
+        "relative h-8 w-8 rounded-full border-2 border-#{@color}-600",
+        (@on_off_status == "On" && "animate-spin") || ""
+      ]}>
+        <div class="absolute inset-0 flex justify-center">
+          <div class={"h-4 w-1 border-2 rounded-full border-#{@color}-600"}></div>
+        </div>
+        <div class="absolute inset-0 flex justify-center rotate-[120deg]">
+          <div class={"h-4 w-1 border-2 rounded-full border-#{@color}-600"}></div>
+        </div>
+        <div class="absolute inset-0 flex justify-center rotate-[240deg]">
+          <div class={"h-4 w-1 border-2 rounded-full border-#{@color}-600"}></div>
+        </div>
+      </div>
+
+      <.toggle_button
+        :if={@auto_manual_status != "Auto" and @on_off_status != "error"}
+        device={@cmd_status_device_name}
+        value={@command_status}
+        labels={["On", "Off"]}
+        color={@color}
+      />
+
+      <div :if={@auto_manual_status == "Auto"} class="text-center">{@command_status}</div>
+    </div>
+    """
+  end
+
+  attr :device_name, :string, required: true
+  attr :data, :any, required: true
+
+  def temperature(assigns) do
+    temp =
+      case get_device_data(assigns.data, assigns.device_name) do
+        %{humidity: _, temperature: x} -> "#{Float.to_charlist(x)}°C"
+        _ -> "ERR"
+      end
+
+    assigns =
+      assigns
+      |> assign(:temp, temp)
+      |> assign(:color, if(temp == "ERR", do: "gray", else: "blue"))
+
+    ~H"""
+    <div class={"text-#{@color}-600 flex"}>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="36"
+        height="36"
+        fill="currentColor"
+        viewBox="0 0 16 16"
+      >
+        <path d="M9.5 12.5a1.5 1.5 0 1 1-2-1.415V6.5a.5.5 0 0 1 1 0v4.585a1.5 1.5 0 0 1 1 1.415" />
+        <path d="M5.5 2.5a2.5 2.5 0 0 1 5 0v7.55a3.5 3.5 0 1 1-5 0zM8 1a1.5 1.5 0 0 0-1.5 1.5v7.987l-.167.15a2.5 2.5 0 1 0 3.333 0l-.166-.15V2.5A1.5 1.5 0 0 0 8 1" />
+      </svg>
+      <span class="text-xl mt-1 -ml-1">{@temp}</span>
+    </div>
+    """
+  end
+
+  attr :device_name, :string, required: true
+  attr :data, :any, required: true
+
+  def humidity(assigns) do
+    hum =
+      case get_device_data(assigns.data, assigns.device_name) do
+        %{humidity: x, temperature: _} -> "#{Float.to_charlist(x)}%"
+        _ -> "ERR"
+      end
+
+    assigns =
+      assigns
+      |> assign(:hum, hum)
+      |> assign(:color, if(hum == "ERR", do: "gray", else: "blue"))
+
+    ~H"""
+    <div class={"text-#{@color}-600 flex"}>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 100 100"
+        width="36"
+        height="36"
+      >
+        <path
+          d="M50 6 C68 30 88 52 88 72 C88 86 76 94 50 94 C24 94 12 86 12 72 C12 52 32 30 50 6 Z"
+          fill="currentColor"
+        />
+      </svg>
+      <span class="text-xl mt-1">{@hum}</span>
+    </div>
     """
   end
 

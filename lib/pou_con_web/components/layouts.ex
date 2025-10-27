@@ -35,7 +35,7 @@ defmodule PouConWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
+    <%!-- <header class="navbar px-4 sm:px-6 lg:px-8">
       <div class="flex-1">
         <a href="/" class="flex-1 flex w-fit items-center gap-2">
           <img src={~p"/images/logo.svg"} width="36" />
@@ -60,10 +60,10 @@ defmodule PouConWeb.Layouts do
           </li>
         </ul>
       </div>
-    </header>
+    </header> --%>
 
     <main class="px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
+      <div class="mx-auto">
         {render_slot(@inner_block)}
       </div>
     </main>
