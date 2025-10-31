@@ -2,7 +2,7 @@ defmodule PouCon.Ports.Port do
   use Ecto.Schema
   import Ecto.Changeset
 
-schema "ports" do
+  schema "ports" do
     field :device_path, :string
     field :speed, :integer
     field :parity, :string

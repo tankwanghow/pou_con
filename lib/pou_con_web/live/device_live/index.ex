@@ -10,9 +10,10 @@ defmodule PouConWeb.DeviceLive.Index do
       <.header>
         Listing Devices
         <:actions>
-          <.button variant="primary" navigate={~p"/app/devices/new"}>
+          <.button :if={!@readonly} variant="primary" navigate={~p"/admin/devices/new"}>
             <.icon name="hero-plus" /> New Device
           </.button>
+          <.navigate to="/dashboard" label="Dashboard"/>
         </:actions>
       </.header>
 
@@ -27,7 +28,7 @@ defmodule PouConWeb.DeviceLive.Index do
       </div>
 
       <div
-        :if={Enum.count(@streams.devices) > 0 or @page > 1}
+        :if={Enum.count(@streams.devices) > 0}
         id="devices_list"
         phx-update="stream"
       >
@@ -39,9 +40,9 @@ defmodule PouConWeb.DeviceLive.Index do
             <div class="w-[10%]">{device.slave_id}/{device.register}/{device.channel}</div>
             <div class="w-[20%]">{device.read_fn}</div>
             <div class="w-[20%]">{device.write_fn}</div>
-            <div class="w-[20%]">
+            <div  :if={!@readonly} class="w-[20%]">
               <.link
-                navigate={~p"/app/devices/#{device.id}/edit"}
+                navigate={~p"/admin/devices/#{device.id}/edit"}
                 class="p-1 border-1 rounded-xl border-blue-600 bg-blue-200"
               >
                 Edit
@@ -70,10 +71,20 @@ defmodule PouConWeb.DeviceLive.Index do
   end
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, %{"current_role" => :admin}, socket) do
     {:ok,
      socket
      |> assign(:page_title, "Listing Devices")
+     |> assign(readonly: false)
+     |> stream(:devices, list_devices())}
+  end
+
+    @impl true
+  def mount(_params, %{"current_role" => :user}, socket) do
+    {:ok,
+     socket
+     |> assign(:page_title, "Listing Devices")
+     |> assign(readonly: true)
      |> stream(:devices, list_devices())}
   end
 
@@ -86,7 +97,7 @@ defmodule PouConWeb.DeviceLive.Index do
   end
 
   def handle_event("copy", %{"id" => id}, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/app/devices/new?id=#{id}")}
+    {:noreply, push_navigate(socket, to: ~p"/admin/devices/new?id=#{id}")}
   end
 
   defp list_devices() do

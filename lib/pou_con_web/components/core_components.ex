@@ -392,6 +392,21 @@ defmodule PouConWeb.CoreComponents do
     """
   end
 
+  attr :to, :string, required: true
+  attr :label, :string, required: true
+
+  def navigate(assigns) do
+    ~H"""
+    <.link
+      navigate={@to}
+      replace={true}
+      class="inline-flex items-center gap-2 px-4 py-2 bg-gray-300 hover:bg-gray-300 font-medium rounded-md transition"
+    >
+      {@label}
+    </.link>
+    """
+  end
+
   attr :labels, :list, default: ["On", "Off"]
   attr :value, :string, required: true
   attr :device, :string, required: true
@@ -528,18 +543,35 @@ defmodule PouConWeb.CoreComponents do
 
   attr :device_name, :string, required: true
   attr :data, :any, required: true
+  attr :temp_ranges, :list, default: [38.0, 32.0, 24.0]
 
   def temperature(assigns) do
-    temp =
+    {temp, color} =
       case get_device_data(assigns.data, assigns.device_name) do
-        %{humidity: _, temperature: x} -> "#{Float.to_charlist(x)}°C"
-        _ -> "ERR"
+        %{humidity: _, temperature: x} ->
+          {"#{Float.to_charlist(x)}°C",
+           cond do
+             x >= Enum.at(assigns.temp_ranges, 0) ->
+               "rose"
+
+             x < Enum.at(assigns.temp_ranges, 0) and x >= Enum.at(assigns.temp_ranges, 1) ->
+               "yellow"
+
+             x <= Enum.at(assigns.temp_ranges, 2) ->
+               "blue"
+
+             true ->
+               "green"
+           end}
+
+        _ ->
+          {"ERR", "gray"}
       end
 
     assigns =
       assigns
       |> assign(:temp, temp)
-      |> assign(:color, if(temp == "ERR", do: "gray", else: "blue"))
+      |> assign(:color, color)
 
     ~H"""
     <div class={"text-#{@color}-600 flex"}>
@@ -560,18 +592,35 @@ defmodule PouConWeb.CoreComponents do
 
   attr :device_name, :string, required: true
   attr :data, :any, required: true
+  attr :hum_ranges, :list, default: [90.0, 70.0, 40.0]
 
   def humidity(assigns) do
-    hum =
+    {hum, color} =
       case get_device_data(assigns.data, assigns.device_name) do
-        %{humidity: x, temperature: _} -> "#{Float.to_charlist(x)}%"
-        _ -> "ERR"
+        %{humidity: x, temperature: _} ->
+          {"#{Float.to_charlist(x)}°%",
+           cond do
+             x >= Enum.at(assigns.hum_ranges, 0) ->
+               "rose"
+
+             x < Enum.at(assigns.hum_ranges, 0) and x >= Enum.at(assigns.hum_ranges, 1) ->
+               "yellow"
+
+             x <= Enum.at(assigns.hum_ranges, 2) ->
+               "rose"
+
+             true ->
+               "green"
+           end}
+
+        _ ->
+          {"ERR", "gray"}
       end
 
     assigns =
       assigns
       |> assign(:hum, hum)
-      |> assign(:color, if(hum == "ERR", do: "gray", else: "blue"))
+      |> assign(:color, color)
 
     ~H"""
     <div class={"text-#{@color}-600 flex"}>
@@ -587,6 +636,61 @@ defmodule PouConWeb.CoreComponents do
         />
       </svg>
       <span class="text-xl mt-1">{@hum}</span>
+    </div>
+    """
+  end
+
+  # attr :front, :boolean, required: true
+  # attr :back, :boolean, required: true
+  # attr :forward, :boolean, required: true
+  # attr :backward, :boolean, required: true
+  # attr :pulse, :boolean, required: true
+
+  def feeding(assigns) do
+    ~H"""
+    <div class={"text-#{@color}-600 flex"}>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 400 400"
+        width="36"
+        height="36"
+        class="animate-pulse"
+      >
+        <path
+          fill="currentColor"
+          d="M264 167c21 11 63 8 94-23 31-31 43-77 13-107l-1-1c-30-29-76-18-107
+           13-31 31-35 73-23 94-3 18-27 37-49 49-17-10-38-28-40-65 2-15-3-30-14-41l-4-4L53 19l-7
+           7 88 83-10 10L39 34l-8 8 85 85-8 8L23 50l-7 7 85 85-10 10L8 64 0 72l67 85 2 2c10 9 22
+           13 34 12h1c32 0 52 20 64 37-30 31-125 126-125 126v1c-8 8-8 20 0 28l2 2c8 8 20 8 28
+           0v1s88-88 122-122c32 32 121 121 121 121v-1c8 8 20 8 28 0s8-20 0-28c0 0-98-98-125-125
+           12-20 29-41 45-44zm-10-59c0-5 2-11 3-18 1-3 2-6 3-10 2-3 3-6 5-10 4-6 10-11 15-15 5-4 10-7
+           15-10 5-2 9-4 12-5 3-1 5-1 5-1s-2 1-4 3c-2 2-5 5-9 8-7 7-17 16-24 26-2 2-3 5-5 8-1 3-3 6-4
+           8-2 6-4 11-6 16-2 5-3 9-4 11-1 3-1 5-1 5 0 0-1-2-1-5 0-3-1-7 0-12z"
+        />
+      </svg>
+    </div>
+    """
+  end
+
+  def filling(assigns) do
+    ~H"""
+    <div class={"text-#{@color}-600 flex"}>
+      <svg
+        <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 250 250"
+        width="36"
+        height="36"
+        class="animate-bounce"
+      >
+        <path
+          fill="currentColor"
+          d="M74.34 85.66A8 8 0 0 1 85.66 74.34L120 108.69V24a8 8 0 0 1 16
+               0v84.69l34.34-34.34a8 8 0 1 1 11.32 11.31l-48
+               48c-.02.02-.05.04-.07.06-.17.16-.34.32-.52.47-.1.08-.2.15-.3.22-.11.08-.22.17-.33.24-.12.08-.24.15-.36.22-.1.06-.21.13-.31.19-.12.06-.25.12-.37.18-.11.05-.23.11-.34.16-.12.05-.24.09-.36.13-.13.05-.25.09-.38.13-.12.04-.24.06-.36.09-.13.03-.26.07-.4.1-.14.03-.28.04-.42.06-.12.02-.23.04-.35.05-.27.03-.53.04-.79.04s-.53-.01-.79-.04c-.12-.01-.23-.03-.35-.05-.14-.02-.28-.04-.42-.06-.13-.03-.27-.06-.4-.1-.12-.03-.24-.06-.36-.09-.13-.04-.25-.09-.38-.13-.12-.04-.24-.08-.36-.13-.12-.05-.23-.11-.34-.16-.12-.06-.25-.11-.37-.18-.11-.06-.21-.12-.31-.19-.12-.07-.24-.14-.36-.22-.11-.08-.22-.16-.33-.24-.1-.08-.2-.15-.3-.23-.17-.14-.34-.3-.5-.45-.03-.03-.06-.05-.08-.07ZM240
+               136v64a16 16 0 0 1-16 16H32a16 16 0 0 1-16-16v-64a16 16 0 0 1 16-16h54.06l25 25a24 24 0 0 0 33.94 0l25-25H224a16 16 0 0 1 16 16zm-40 32a12 12 0 1 0-12 12 12 12 0 0 0 12-12Z"
+        />
+      </svg>
     </div>
     """
   end

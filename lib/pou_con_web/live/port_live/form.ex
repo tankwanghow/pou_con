@@ -92,6 +92,7 @@ defmodule PouConWeb.PortLive.Form do
     case Ports.update_port(socket.assigns.port, port_params) do
       {:ok, port} ->
         PouCon.DeviceManager.reload()
+
         {:noreply,
          socket
          |> put_flash(:info, "Port updated successfully")
@@ -106,6 +107,7 @@ defmodule PouConWeb.PortLive.Form do
     case Ports.create_port(port_params) do
       {:ok, port} ->
         PouCon.DeviceManager.reload()
+
         {:noreply,
          socket
          |> put_flash(:info, "Port created successfully")
@@ -116,5 +118,5 @@ defmodule PouConWeb.PortLive.Form do
     end
   end
 
-  defp return_path("index", _port), do: ~p"/app/ports"
+  defp return_path("index", _port), do: ~p"/ports"
 end

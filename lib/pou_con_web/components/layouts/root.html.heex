@@ -31,12 +31,17 @@
     </script>
   </head>
   <body>
+    <div class="flex justify-center mt-2">
+      <span class="inline-block font-bold text-4xl border-4 rounded-xl bg-yellow-200 px-4 py-2 shadow-xl">
+        {PouCon.Auth.get_house_id()}
+      </span>
+    </div>
     {@inner_content}
     <div class="simple-keyboard"></div>
     <div
       style="display: none;"
       class={[
-        "peer-focus:ring-rose-300 peer-checked:bg-rose-600 after:border-rose-300",
+        "peer-focus:ring-rose-300 peer-checked:bg-rose-600 after:border-rose-300 text-yellow-600 text-rose-600 text-green-600 text-orange-600 text-blue-600",
         "peer-focus:ring-green-300 peer-checked:bg-green-600 after:border-green-300",
         "peer-focus:ring-blue-300 peer-checked:bg-blue-600 after:border-blue-300"
       ]}

@@ -1,58 +1,55 @@
+# lib/pou_con_web/live/auth_live/login.ex
 defmodule PouConWeb.AuthLive.Login do
   use PouConWeb, :live_view
   alias PouCon.Auth
 
   @impl true
   def mount(_params, _session, socket) do
-    # Check if password exists, if not redirect to setup
-    if not Auth.password_exists?() do
-      {:ok, push_navigate(socket, to: "/setup")}
-    else
-      {:ok,
-       socket
-       |> assign(:password, "")
-       |> assign(:error, nil)
-       |> assign(:form, to_form(%{"password" => ""}))}
+    cond do
+      !Auth.password_exists?(:admin) ->
+        {:ok, push_navigate(socket, to: "/setup")}
+
+      true ->
+        {:ok, assign(socket, form: to_form(%{"password" => ""}), error: nil)}
     end
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="min-h-screen flex items-center justify-center bg-gray-50">
+    <div class="flex items-center justify-center bg-gray-50 px-4">
       <div class="max-w-md w-full space-y-8">
         <div>
           <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to PouCon
+            Sign In
           </h2>
+          <p class="mt-2 text-center text-sm text-gray-600">
+            Enter your assigned password to continue
+          </p>
         </div>
 
         <.form for={@form} phx-submit="login" class="mt-8 space-y-6">
           <%= if @error do %>
-            <div class="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
+            <div class="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
               {@error}
             </div>
           <% end %>
 
-          <div>
-            <.input
-              field={@form[:password]}
-              type="password"
-              label="Password"
-              required
-              placeholder="Enter your password"
-              phx-change="validate"
-            />
-          </div>
+          <.input
+            field={@form[:password]}
+            type="password"
+            label="Password"
+            required
+            placeholder="Enter your password"
+            autocomplete="current-password"
+          />
 
-          <div>
-            <button
-              type="submit"
-              class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Sign in
-            </button>
-          </div>
+          <button
+            type="submit"
+            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            Sign In
+          </button>
         </.form>
       </div>
     </div>
@@ -60,27 +57,36 @@ defmodule PouConWeb.AuthLive.Login do
   end
 
   @impl true
-  def handle_event("validate", %{"password" => password}, socket) do
-    {:noreply, assign(socket, :password, password)}
-  end
-
-  @impl true
   def handle_event("login", %{"password" => password}, socket) do
-    case Auth.verify_password(password) do
-      {:ok, :authenticated} ->
-        # We need to set the session through a controller
-        token = Phoenix.Token.sign(PouConWeb.Endpoint, "auth_token", true)
+    case authenticate_password(password) do
+      {:ok, role} ->
+        return_to = URI.encode("/dashboard")
 
         {:noreply,
-         socket
-         |> put_flash(:info, "Welcome back!")
-         |> redirect(to: "/auth/session?token=#{token}")}
+         redirect(socket,
+           to: "/auth/session?role=#{role}&return_to=#{return_to}"
+         )}
 
       {:error, :invalid_password} ->
-        {:noreply, assign(socket, :error, "Invalid password. Please try again.")}
+        {:noreply, assign(socket, error: "Invalid password. Please try again.")}
+    end
+  end
 
-      {:error, :no_password_set} ->
-        {:noreply, push_navigate(socket, to: "/setup")}
+  # --------------------------------------------------------------------
+  # Private: Determine role by password
+  # --------------------------------- -----------------------------------
+  defp authenticate_password(password) do
+    cond do
+      Auth.verify_password(password, :admin) == {:ok, :admin} ->
+        {:ok, :admin}
+
+      Auth.verify_password(password, :user) == {:ok, :user} ->
+        {:ok, :user}
+
+      true ->
+        # Simulate password check delay to prevent timing attacks
+        Auth.verify_password("dummy", :admin)
+        {:error, :invalid_password}
     end
   end
 end

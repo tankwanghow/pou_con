@@ -133,5 +133,5 @@ defmodule PouConWeb.DeviceLive.Form do
     end
   end
 
-  defp return_path("index", _device), do: ~p"/app/devices"
+  defp return_path("index", _device), do: ~p"/devices"
 end

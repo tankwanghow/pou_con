@@ -7,11 +7,14 @@ defmodule PouConWeb.DashboardLive do
   @pubsub_topic "device_data"
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
+    role = session["current_role"] || :none
     PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
+    IO.inspect(role)
 
     {:ok,
      socket
+     |> assign(:current_role, role)
      |> assign(data: DeviceManager.get_all_cached_data())}
   end
 
@@ -50,10 +53,42 @@ defmodule PouConWeb.DashboardLive do
     <Layouts.app flash={@flash}>
       <.header>
         Poultry House Dashboard
+        <:actions>
+          <.link
+            phx-click="reload_ports"
+            class="mr-1 text-xl font-medium border-1 px-2 py-1 rounded-xl border-green-600 bg-green-200"
+          >
+            Refresh
+          </.link>
+          <%= if @current_role == :admin do %>
+            <.link
+              navigate="/admin/settings"
+              class="mr-1 text-xl font-medium border-1 px-2 py-1 rounded-xl border-yellow-600 bg-yellow-200"
+            >
+              Settings
+            </.link>
+          <% end %>
+          <.link
+            navigate={~p"/ports"}
+            class="mr-1 text-xl font-medium border-1 px-2 py-1 rounded-xl border-blue-600 bg-blue-200"
+          >
+            Ports
+          </.link>
+          <.link
+            navigate={~p"/devices"}
+            class="mr-1 text-xl font-medium border-1 px-2 py-1 rounded-xl border-blue-600 bg-blue-200"
+          >
+            Devices
+          </.link>
+          <.link
+            href={~p"/logout"}
+            class="mr-1 text-xl font-medium border-1 px-2 py-1 rounded-xl border-rose-600 bg-rose-200"
+            method="post"
+          >
+            Logout
+          </.link>
+        </:actions>
       </.header>
-      <div class="mb-2 w-34 border-2 border-yellow-600 bg-yellow-200 rounded-xl p-2">
-        <.link phx-click="reload_ports">Reload All Ports</.link>
-      </div>
       <div class="flex gap-1">
         <.fan device_name="fan_1" click="toggle" data={@data} />
         <.fan device_name="fan_2" click="toggle" data={@data} />
@@ -76,6 +111,8 @@ defmodule PouConWeb.DashboardLive do
         <.temperature device_name="temp_hum_2" data={@data} />
         <.humidity device_name="temp_hum_2" data={@data} />
       </div>
+      <.feeding color="blue" />
+      <.filling color="blue" />
     </Layouts.app>
     """
   end

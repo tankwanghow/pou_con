@@ -1,6 +1,9 @@
 defmodule PouConWeb.Router do
   use PouConWeb, :router
 
+  # --------------------------------------------------------------------
+  # Pipelines
+  # --------------------------------------------------------------------
   pipeline :browser do
     plug(:accepts, ["html"])
     plug(:fetch_session)
@@ -10,42 +13,78 @@ defmodule PouConWeb.Router do
     plug(:put_secure_browser_headers)
   end
 
+  # HTTP-level auth (initial request only)
   pipeline :authenticated do
     plug(PouConWeb.Plugs.Auth)
   end
 
-  scope "/auth", PouConWeb do
-    pipe_through(:browser)
-
-    get("/session", SessionController, :create)
+  pipeline :required_admin do
+    plug(:authenticate_role, :admin)
   end
 
+  # --------------------------------------------------------------------
+  # Role Check Plug (HTTP only)
+  # --------------------------------------------------------------------
+  defp authenticate_role(conn, required_role) do
+    current_role = get_session(conn, :current_role)
+
+    if current_role == required_role do
+      conn
+    else
+      conn
+      |> put_flash(:error, "Access denied. Please log in with the correct credentials.")
+      |> redirect(to: "/login")
+      |> halt()
+    end
+  end
+
+  # --------------------------------------------------------------------
+  # Public Routes (No Session)
+  # --------------------------------------------------------------------
   scope "/", PouConWeb do
     pipe_through(:browser)
 
-    # Public routes
     live("/", LandingLive.Index, :index)
-    live("/login", AuthLive.Login, :index)
     live("/setup", AuthLive.Setup, :index)
+    live("/login", AuthLive.Login, :index)
 
-    # Logout route
+    get("/auth/session", SessionController, :create)
     post("/logout", AuthController, :logout)
   end
 
-  scope "/app", PouConWeb do
+  # --------------------------------------------------------------------
+  # Authenticated Session (Admin + User)
+  # Hooks run on every mount (including live navigation)
+  # --------------------------------------------------------------------
+  scope "/", PouConWeb do
     pipe_through([:browser, :authenticated])
 
-    # Protected routes
-    live("/dashboard", DashboardLive)
-    # Add more protected routes here
-    live("/setup_device", SetupDeviceLive)
+    live_session :ensure_authenticated,
+      on_mount: [{PouConWeb.AuthHooks, :ensure_authenticated}] do
+      live("/dashboard", DashboardLive, :index)
+      live("/devices", DeviceLive.Index, :index)
+      live("/ports", PortLive.Index, :index)
+    end
+  end
 
-    live "/devices", DeviceLive.Index, :index
-    live "/devices/new", DeviceLive.Form, :new
-    live "/devices/:id/edit", DeviceLive.Form, :edit
+  # --------------------------------------------------------------------
+  # Admin-Only Session
+  # Separate session forces full reload when crossing boundary
+  # --------------------------------------------------------------------
 
-    live "/ports", PortLive.Index, :index
-    live "/ports/new", PortLive.Form, :new
-    live "/ports/:id/edit", PortLive.Form, :edit
+  scope "/admin", PouConWeb do
+    pipe_through([:browser, :required_admin])
+
+    live_session :ensure_is_admin,
+      on_mount: [
+        # {PouConWeb.AuthHooks, :ensure_authenticated},
+        {PouConWeb.AuthHooks, :ensure_is_admin}
+      ] do
+      live("/settings", AuthLive.AdminSettings)
+      live("/devices/new", DeviceLive.Form, :new)
+      live("/devices/:id/edit", DeviceLive.Form, :edit)
+      live("/ports/new", PortLive.Form, :new)
+      live("/ports/:id/edit", PortLive.Form, :edit)
+    end
   end
 end

@@ -16,8 +16,10 @@ defmodule PouCon.Devices.Device do
 
     belongs_to :port, PouCon.Ports.Port,
       foreign_key: :port_device_path,
-      references: :device_path,  # Match the referenced field in Port
-      type: :string  # Specify type if not :id
+      # Match the referenced field in Port
+      references: :device_path,
+      # Specify type if not :id
+      type: :string
 
     timestamps()
   end

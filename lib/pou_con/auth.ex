@@ -3,40 +3,63 @@ defmodule PouCon.Auth do
   alias PouCon.Repo
   alias PouCon.Auth.AppConfig
 
-  @config_key "main_password"
+  @roles %{
+    admin: "admin_password",
+    user: "user_password"
+  }
 
-  def password_exists? do
-    Repo.exists?(from c in AppConfig, where: c.key == ^@config_key)
-  end
+  def verify_password(password, role \\ :admin) do
+    key = @roles[role]
 
-  def create_password(password) do
-    %AppConfig{}
-    |> AppConfig.changeset(%{password: password, key: @config_key})
-    |> Repo.insert()
-  end
-
-  def verify_password(password) do
-    case Repo.get_by(AppConfig, key: @config_key) do
+    case Repo.get_by(AppConfig, key: key) do
       nil ->
-        {:error, :no_password_set}
+        {:error, :no_config_set}
 
       config ->
-        if Bcrypt.verify_pass(password, config.password_hash) do
-          {:ok, :authenticated}
+        if config.password_hash && Bcrypt.verify_pass(password, config.password_hash) do
+          {:ok, role}
         else
           {:error, :invalid_password}
         end
     end
   end
 
-  def update_password(new_password) do
-    case Repo.get_by(AppConfig, key: @config_key) do
+  def password_exists?(role \\ :admin) do
+    key = @roles[role]
+    Repo.exists?(from c in AppConfig, where: c.key == ^key and not is_nil(c.password_hash))
+  end
+
+  def update_password(new_password, role \\ :admin) do
+    key = @roles[role]
+
+    case Repo.get_by(AppConfig, key: key) do
       nil ->
-        {:error, :no_password_set}
+        {:error, :no_config_set}
 
       config ->
         config
         |> AppConfig.changeset(%{password: new_password})
+        |> Repo.update()
+    end
+  end
+
+  def get_house_id do
+    case Repo.get_by(AppConfig, key: "house_id") do
+      nil -> "House ID Not Set"
+      config -> config.value || "House ID Not Set"
+    end
+  end
+
+  def set_house_id(house_id) do
+    case Repo.get_by(AppConfig, key: "house_id") do
+      nil ->
+        %AppConfig{}
+        |> AppConfig.changeset(%{key: "house_id", value: house_id})
+        |> Repo.insert()
+
+      config ->
+        config
+        |> AppConfig.changeset(%{value: house_id})
         |> Repo.update()
     end
   end

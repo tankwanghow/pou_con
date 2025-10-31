@@ -5,6 +5,7 @@ defmodule PouCon.Auth.AppConfig do
   schema "app_config" do
     field :key, :string
     field :password_hash, :string
+    field :value, :string
     field :password, :string, virtual: true
 
     timestamps()
@@ -12,9 +13,16 @@ defmodule PouCon.Auth.AppConfig do
 
   def changeset(config, attrs) do
     config
-    |> cast(attrs, [:password, :key])
-    |> validate_required([:password, :key])
-    |> validate_length(:password, min: 6)
+    |> cast(attrs, [:password, :key, :value])
+    |> validate_required([:key])
+    |> validate_length(:password,
+      min: 6,
+      message: "must be at least 6 characters long",
+      if: fn changeset ->
+        get_change(changeset, :password) != nil
+      end
+    )
+    |> unique_constraint(:key)
     |> hash_password()
   end
 
