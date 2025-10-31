@@ -111,17 +111,17 @@ defmodule PouCon.DeviceManager do
   end
 
   def get_cached_data(device_name) do
-  case :ets.lookup(:device_cache, device_name) do
-    [{^device_name, {:error, _} = error}] ->
-      error
+    case :ets.lookup(:device_cache, device_name) do
+      [{^device_name, {:error, _} = error}] ->
+        error
 
-    [{^device_name, data}] ->
-      {:ok, data}
+      [{^device_name, data}] ->
+        {:ok, data}
 
-    [] ->
-      {:error, :no_data}
+      [] ->
+        {:error, :no_data}
+    end
   end
-end
 
   def get_all_cached_data do
     GenServer.call(__MODULE__, :get_all_cached_data)
