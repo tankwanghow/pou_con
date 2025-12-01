@@ -4,7 +4,6 @@ defmodule PouConWeb.AuthHooks do
   end
 
   def on_mount(:ensure_is_admin, _params, session, socket) do
-
     if session["current_role"] == :admin do
       {:cont, socket}
     else
@@ -17,7 +16,6 @@ defmodule PouConWeb.AuthHooks do
   end
 
   def on_mount(:ensure_authenticated, _params, session, socket) do
-
     if session["current_role"] in [:admin, :user] do
       {:cont, socket}
     else

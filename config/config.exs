@@ -11,6 +11,8 @@ config :pou_con,
   ecto_repos: [PouCon.Repo],
   generators: [timestamp_type: :utc_datetime]
 
+config :pou_con, :device_manager, PouCon.DeviceManager
+
 # Configures the endpoint
 config :pou_con, PouConWeb.Endpoint,
   url: [host: "localhost"],
@@ -37,6 +39,7 @@ config :tailwind,
   version: "4.1.7",
   pou_con: [
     args: ~w(
+      --config=assets/tailwind.config.js
       --input=assets/css/app.css
       --output=priv/static/assets/css/app.css
     ),

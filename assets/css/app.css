@@ -300,19 +300,52 @@ li.hg-candidate-box-list-item:active {
 
 .simple-keyboard {
   display: none;
-  z-index: 1000; /* Ensure visibility above other elements */
+  z-index: 1000;
+  /* Ensure visibility above other elements */
   /* Additional styles as needed */
 }
 
 @media (max-width: 600px) {
   .simple-keyboard {
-    width: 100vw !important; /* Full width for small screens */
-    left: 0 !important; /* Align to left edge */
-    transform: none !important; /* Disable centering transform */
+    width: 100vw !important;
+    /* Full width for small screens */
+    left: 0 !important;
+    /* Align to left edge */
+    transform: none !important;
+    /* Disable centering transform */
   }
 }
 
 .simple-keyboard .hg-button.hg-functionBtn.hg-button-space {
   min-width: 150px;
   max-width: none;
+}
+
+/* assets/css/app.css (or any CSS file processed by Tailwind) */
+@theme {
+  /* Reverse spin: clockwise */
+  --animate-spin-r: rspin 4s linear infinite;
+
+  @keyframes rspin {
+    from {
+      transform: rotate(0deg);
+    }
+
+    to {
+      transform: rotate(-360deg);
+    }
+  }
+
+  /* Forward spin: counter-clockwise (default spin direction) */
+  --animate-spin-f: fspin 4s linear infinite;
+
+  @keyframes fspin {
+    from {
+      transform: rotate(0deg);
+    }
+
+    to {
+      transform: rotate(360deg);
+    }
+  }
 }

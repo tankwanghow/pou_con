@@ -118,5 +118,5 @@ defmodule PouConWeb.PortLive.Form do
     end
   end
 
-  defp return_path("index", _port), do: ~p"/ports"
+  defp return_path("index", _port), do: ~p"/admin/ports"
 end

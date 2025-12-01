@@ -50,6 +50,7 @@ defmodule PouCon.MixProject do
       {:lazy_html, ">= 0.1.0", only: :test},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
+      {:tidewave, "~> 0.5", only: :dev},
       {:heroicons,
        github: "tailwindlabs/heroicons",
        tag: "v2.2.0",
@@ -65,7 +66,8 @@ defmodule PouCon.MixProject do
       {:bcrypt_elixir, "~> 3.0"},
       {:modbux, "~> 0.3"},
       {:circuits_uart, "~> 1.5"},
-      {:quantum, "~> 3.5"}
+      {:quantum, "~> 3.5"},
+      {:mox, "~> 1.0", only: :test}
     ]
   end
 

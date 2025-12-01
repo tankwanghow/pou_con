@@ -12,8 +12,6 @@ defmodule PouCon.Devices.Device do
     field :write_fn, :string
     field :description, :string
 
-    # field :port_device_path, :string
-
     belongs_to :port, PouCon.Ports.Port,
       foreign_key: :port_device_path,
       # Match the referenced field in Port

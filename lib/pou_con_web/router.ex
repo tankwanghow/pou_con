@@ -62,8 +62,11 @@ defmodule PouConWeb.Router do
     live_session :ensure_authenticated,
       on_mount: [{PouConWeb.AuthHooks, :ensure_authenticated}] do
       live("/dashboard", DashboardLive, :index)
-      live("/devices", DeviceLive.Index, :index)
-      live("/ports", PortLive.Index, :index)
+      live("/environment", EnvironmentLive, :index)
+      live("/egg_collection", EggCollectionLive, :index)
+      live("/light_schedule", LightScheduleLive, :index)
+      live("/dung", DungLive, :index)
+      live("/feed", FeedLive, :index)
     end
   end
 
@@ -81,10 +84,15 @@ defmodule PouConWeb.Router do
         {PouConWeb.AuthHooks, :ensure_is_admin}
       ] do
       live("/settings", AuthLive.AdminSettings)
+      live("/devices", DeviceLive.Index, :index)
+      live("/ports", PortLive.Index, :index)
+      live("/equipment", EquipmentLive.Index, :index)
       live("/devices/new", DeviceLive.Form, :new)
       live("/devices/:id/edit", DeviceLive.Form, :edit)
       live("/ports/new", PortLive.Form, :new)
       live("/ports/:id/edit", PortLive.Form, :edit)
+      live("/equipment/new", EquipmentLive.Form, :new)
+      live("/equipment/:id/edit", EquipmentLive.Form, :edit)
     end
   end
 end
