@@ -140,6 +140,7 @@ defmodule PouCon.DeviceControllers.FanController do
             updated = %State{
               state
               | actual_on: actual_on,
+                commanded_on: actual_on,
                 is_running: is_running,
                 mode: mode,
                 error: nil

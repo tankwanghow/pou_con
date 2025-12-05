@@ -178,7 +178,13 @@ defmodule PouCon.DeviceControllers.EggController do
           actual_running = running_map.state == 1
           mode = if mode_map.state == 1, do: :manual, else: :auto
 
-          {%{state | actual_on: actual_coil, is_running: actual_running, mode: mode}, nil}
+          {%{
+             state
+             | actual_on: actual_coil,
+               commanded_on: actual_coil,
+               is_running: actual_running,
+               mode: mode
+           }, nil}
         rescue
           e ->
             Logger.error("[#{state.name}] Invalid polling data: #{inspect(e)}")

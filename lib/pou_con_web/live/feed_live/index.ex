@@ -150,7 +150,11 @@ defmodule PouConWeb.FeedLive do
         <!-- Fans -->
         <div class="flex flex-wrap gap-1 mb-6">
           <%= for eq <- Enum.filter(@equipment, &(&1.type == "feeding")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component module={PouConWeb.Components.FeedingComponent} id={eq.name} equipment={eq} />
+            <.live_component
+              module={PouConWeb.Components.FeedingComponent}
+              id={eq.name}
+              equipment={eq}
+            />
           <% end %>
           <%= for eq <- Enum.filter(@equipment, &(&1.type == "feed_in")) |> Enum.sort_by(& &1.title) do %>
             <.live_component

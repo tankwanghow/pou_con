@@ -11,6 +11,7 @@ defmodule PouCon.DeviceControllers.DungExitControllerTest do
     Mox.set_mox_global(PouCon.DeviceManagerMock)
 
     id = System.unique_integer([:positive])
+
     device_names = %{
       on_off_coil: "test_dungexit_coil_#{id}",
       running_feedback: "test_dungexit_fb_#{id}"
@@ -39,6 +40,7 @@ defmodule PouCon.DeviceControllers.DungExitControllerTest do
   describe "status/1" do
     setup %{devices: devices} do
       name = "test_dungexit_status_#{System.unique_integer([:positive])}"
+
       opts = [
         name: name,
         title: "Test Status DungExit",
@@ -87,6 +89,7 @@ defmodule PouCon.DeviceControllers.DungExitControllerTest do
   describe "commands" do
     setup %{devices: devices} do
       name = "test_dungexit_cmd_#{System.unique_integer([:positive])}"
+
       opts = [
         name: name,
         on_off_coil: devices.on_off_coil,
@@ -115,6 +118,7 @@ defmodule PouCon.DeviceControllers.DungExitControllerTest do
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
+
       send(pid, :data_refreshed)
       Process.sleep(50)
 

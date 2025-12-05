@@ -1,5 +1,6 @@
 defmodule PouCon.AuthTest do
-  use PouCon.DataCase  # Remove async: true
+  # Remove async: true
+  use PouCon.DataCase
 
   alias PouCon.Auth
   alias PouCon.Auth.AppConfig

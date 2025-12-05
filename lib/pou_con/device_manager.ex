@@ -69,6 +69,9 @@ defmodule PouCon.DeviceManager do
 
   @impl true
   def list_devices, do: GenServer.call(__MODULE__, :list_devices)
+
+  def list_devices_details, do: GenServer.call(__MODULE__, :list_devices_details)
+
   @impl true
   def list_ports, do: GenServer.call(__MODULE__, :list_ports)
 
@@ -146,6 +149,17 @@ defmodule PouCon.DeviceManager do
   def reload, do: GenServer.cast(__MODULE__, :reload)
 
   # ------------------------------------------------------------------ #
+  # Simulation Control API
+  # ------------------------------------------------------------------ #
+  def simulate_input(device_name, value) do
+    GenServer.call(__MODULE__, {:simulate_input, device_name, value})
+  end
+
+  def simulate_register(device_name, value) do
+    GenServer.call(__MODULE__, {:simulate_register, device_name, value})
+  end
+
+  # ------------------------------------------------------------------ #
   # Client API – Slave ID change
   # ------------------------------------------------------------------ #
 
@@ -176,7 +190,7 @@ defmodule PouCon.DeviceManager do
     with {:ok, port} <- Map.fetch(state.ports, port_path),
          true <- port.modbus_pid != nil,
          modbus_pid <- port.modbus_pid do
-      case Modbux.Rtu.Master.request(modbus_pid, {:phr, 0, 0x4000, new_slave_id}) do
+      case PouCon.Modbus.request(modbus_pid, {:phr, 0, 0x4000, new_slave_id}) do
         :ok ->
           Repo.update_all(
             from(d in Device,
@@ -206,7 +220,7 @@ defmodule PouCon.DeviceManager do
     with {:ok, port} <- Map.fetch(state.ports, port_path),
          true <- port.modbus_pid != nil,
          modbus_pid <- port.modbus_pid do
-      case Modbux.Rtu.Master.request(modbus_pid, {:phr, old_slave_id, 0x0101, new_slave_id}) do
+      case PouCon.Modbus.request(modbus_pid, {:phr, old_slave_id, 0x0101, new_slave_id}) do
         :ok ->
           Repo.update_all(
             from(d in Device,
@@ -230,6 +244,115 @@ defmodule PouCon.DeviceManager do
   # ------------------------------------------------------------------ #
   # Generic Command
   # ------------------------------------------------------------------ #
+  @impl GenServer
+  def handle_call({:simulate_input, device_name, value}, _from, state) do
+    case get_device_and_modbus(state, device_name) do
+      {:ok, dev, modbus} ->
+        if dev.port_device_path == "virtual" do
+          # For virtual devices, we write to the DB state
+          # Reuse write_virtual_digital_input logic
+          # signature: write_virtual_digital_input(_modbus, slave_id, _reg, {:set_state, %{state: v}}, ch)
+          write_virtual_digital_input(
+            nil,
+            dev.slave_id,
+            0,
+            {:set_state, %{state: value}},
+            dev.channel
+          )
+
+          {:reply, :ok, state}
+        else
+          # For purely simulated Modbus devices
+          # In Modbus coils/discrete inputs are addressed individually.
+          # read_digital_input does `{:ri, slave_id, register, 8}`.
+
+          # If modbus is nil (shouldn't happen here if not virtual, but check)
+          if modbus do
+            address = dev.register + (dev.channel || 1) - 1
+
+            if dev.read_fn == :read_digital_output do
+              PouCon.Modbus.SimulatedAdapter.set_coil(modbus, dev.slave_id, address, value)
+            else
+              PouCon.Modbus.SimulatedAdapter.set_input(modbus, dev.slave_id, address, value)
+            end
+
+            {:reply, :ok, state}
+          else
+            {:reply, {:error, :port_not_connected}, state}
+          end
+        end
+
+      _ ->
+        {:reply, {:error, :device_not_found_or_not_simulated}, state}
+    end
+  end
+
+  @impl GenServer
+  def handle_call({:simulate_register, device_name, value}, _from, state) do
+    case get_device_and_modbus(state, device_name) do
+      {:ok, dev, modbus} ->
+        # For temp/hum, we read 2 registers starting at `register`.
+        # Temp is first, Humidity is second?
+        # read_temperature_humidity does `{:rir, slave_id, register, 2}`.
+        # Returns [temp_raw, hum_raw].
+        # So address `register` is Temp, `register + 1` is Humidity.
+        # But we don't have separate devices for temp vs flow in the DB structure shown?
+        # Wait, the device list has "temp_hum_X".
+        # If I want to set Temp, I target the device.
+        # But the device represents BOTH?
+        # Let's see the UI controls.
+        # If I want "Temperature", I need to know which register.
+        # The user will probably want to set "Temperature" or "Humidity" separately.
+        # My `simulate_register` might need to be smarter or receive offset.
+        # For now, let's assume `value` can be a map %{temperature: x, humidity: y} or just a value.
+        # Simpler: lets just expose `set_register` by address? No, user doesn't know address.
+        # Let's assume the UI sends `{:temp, val}` or `{:hum, val}` as value?
+
+        # If value is simple integer, maybe just set the first register?
+        # Let's support a tuple `{:offset, val}`?
+
+        # For this pass, let's support explicit keys if it's a temp sensor.
+
+        if dev.type == "temp_hum_sensor" or dev.read_fn == :read_temperature_humidity do
+          {temp, hum} =
+            case value do
+              %{temperature: t, humidity: h} -> {t, h}
+              %{temperature: t} -> {t, nil}
+              %{humidity: h} -> {nil, h}
+              _ -> {nil, nil}
+            end
+
+          if temp do
+            PouCon.Modbus.SimulatedAdapter.set_register(
+              modbus,
+              dev.slave_id,
+              dev.register,
+              round(temp * 10)
+            )
+          end
+
+          if hum do
+            PouCon.Modbus.SimulatedAdapter.set_register(
+              modbus,
+              dev.slave_id,
+              dev.register + 1,
+              round(hum * 10)
+            )
+          end
+
+          {:reply, :ok, state}
+        else
+          # Default behavior
+          # Just set the register directly
+          PouCon.Modbus.SimulatedAdapter.set_register(modbus, dev.slave_id, dev.register, value)
+          {:reply, :ok, state}
+        end
+
+      _ ->
+        {:reply, {:error, :device_not_found}, state}
+    end
+  end
+
   @impl GenServer
   def handle_call({:command, device_name, action, params}, _from, state) do
     case get_device_and_modbus(state, device_name) do
@@ -280,6 +403,13 @@ defmodule PouCon.DeviceManager do
   def handle_call(:list_devices, _from, state) do
     list = Enum.map(state.devices, fn {n, d} -> {n, d.description || n} end)
     {:reply, list, state}
+  end
+
+  @impl GenServer
+  def handle_call(:list_devices_details, _from, state) do
+    # Return list of maps or structs
+    devices = Enum.map(state.devices, fn {_n, d} -> d end) |> Enum.sort_by(& &1.name)
+    {:reply, devices, state}
   end
 
   @impl GenServer
@@ -521,7 +651,7 @@ defmodule PouCon.DeviceManager do
   # Generic Read/Write Functions (Pure I/O)
   # ------------------------------------------------------------------ #
   def read_digital_input(modbus, slave_id, register, _channel \\ nil) do
-    case Modbux.Rtu.Master.request(modbus, {:ri, slave_id, register, 8}) do
+    case PouCon.Modbus.request(modbus, {:ri, slave_id, register, 8}) do
       {:ok, channels} ->
         {:ok, %{channels: channels}}
 
@@ -531,7 +661,7 @@ defmodule PouCon.DeviceManager do
   end
 
   def read_digital_output(modbus, slave_id, register, _channel \\ nil) do
-    case Modbux.Rtu.Master.request(modbus, {:rc, slave_id, register, 8}) do
+    case PouCon.Modbus.request(modbus, {:rc, slave_id, register, 8}) do
       {:ok, channels} ->
         {:ok, %{channels: channels}}
 
@@ -548,7 +678,7 @@ defmodule PouCon.DeviceManager do
         channel
       )
       when value in [0, 1] do
-    case Modbux.Rtu.Master.request(modbus, {:fc, slave_id, channel - 1, value}) do
+    case PouCon.Modbus.request(modbus, {:fc, slave_id, channel - 1, value}) do
       :ok -> {:ok, :success}
       {:error, reason} -> {:error, reason}
     end
@@ -590,7 +720,7 @@ defmodule PouCon.DeviceManager do
   end
 
   def read_temperature_humidity(modbus, slave_id, register, _channel \\ nil) do
-    case Modbux.Rtu.Master.request(modbus, {:rir, slave_id, register, 2}) do
+    case PouCon.Modbus.request(modbus, {:rir, slave_id, register, 2}) do
       {:ok, [temp_raw, hum_raw]} ->
         {:ok, %{temperature: temp_raw / 10, humidity: hum_raw / 10}}
 

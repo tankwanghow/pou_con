@@ -39,6 +39,9 @@ defmodule PouCon.Application do
       # Load and start all equipment controllers
       {Task, fn -> PouCon.EquipmentLoader.load_and_start_controllers() end},
 
+      # Environment auto-control (fans/pumps based on temp/humidity)
+      PouCon.DeviceControllers.EnvironmentController,
+
       # Web endpoint — always last
       PouConWeb.Endpoint
     ]

@@ -48,7 +48,7 @@ defmodule PouCon.Ports.PortTest do
     end
 
     test "accepts common serial port speeds" do
-      speeds = [9600, 19200, 38400, 57600, 115200]
+      speeds = [9600, 19200, 38400, 57600, 115_200]
 
       for speed <- speeds do
         changeset =

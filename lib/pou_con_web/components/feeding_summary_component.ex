@@ -33,7 +33,9 @@ defmodule PouConWeb.Components.FeedingSummaryComponent do
     ~H"""
     <div
       phx-click="feed"
-      phx-target={@myself} class="bg-white shadow-md rounded-xl border border-gray-200 overflow-hidden transition-all">
+      phx-target={@myself}
+      class="bg-white shadow-md rounded-xl border border-gray-200 overflow-hidden transition-all"
+    >
       <div class="flex flex-wrap">
         <%= for eq <- @equipments do %>
           <div class="p-4 flex flex-col items-center justify-center gap-1 transition-colors">

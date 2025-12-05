@@ -11,6 +11,7 @@ defmodule PouCon.DeviceControllers.FeedingControllerTest do
     Mox.set_mox_global(PouCon.DeviceManagerMock)
 
     id = System.unique_integer([:positive])
+
     device_names = %{
       device_to_back_limit: "dev_back_#{id}",
       device_to_front_limit: "dev_front_#{id}",
@@ -47,6 +48,7 @@ defmodule PouCon.DeviceControllers.FeedingControllerTest do
   describe "status/1" do
     setup %{devices: devices} do
       name = "test_feeding_status_#{System.unique_integer([:positive])}"
+
       opts = [
         name: name,
         title: "Test Status Feeding",
@@ -77,8 +79,10 @@ defmodule PouCon.DeviceControllers.FeedingControllerTest do
       stub(DeviceManagerMock, :get_cached_data, fn
         n when n == devices.front_limit -> {:ok, %{state: 1}}
         n when n == devices.back_limit -> {:ok, %{state: 0}}
-        n when n == devices.pulse_sensor -> {:ok, %{state: 1}} # Moving
-        n when n == devices.auto_manual -> {:ok, %{state: 1}} # Manual
+        # Moving
+        n when n == devices.pulse_sensor -> {:ok, %{state: 1}}
+        # Manual
+        n when n == devices.auto_manual -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
 
@@ -106,6 +110,7 @@ defmodule PouCon.DeviceControllers.FeedingControllerTest do
   describe "commands" do
     setup %{devices: devices} do
       name = "test_feeding_cmd_#{System.unique_integer([:positive])}"
+
       opts = [
         name: name,
         device_to_back_limit: devices.device_to_back_limit,

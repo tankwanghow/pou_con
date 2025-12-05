@@ -13,6 +13,7 @@ defmodule PouCon.DeviceControllers.PumpControllerTest do
 
     # Create test device names with unique suffix
     id = System.unique_integer([:positive])
+
     device_names = %{
       on_off_coil: "test_pump_coil_#{id}",
       running_feedback: "test_pump_fb_#{id}",
@@ -49,6 +50,7 @@ defmodule PouCon.DeviceControllers.PumpControllerTest do
   describe "status/1" do
     setup %{devices: devices} do
       name = "test_pump_status_#{System.unique_integer([:positive])}"
+
       opts = [
         name: name,
         title: "Test Status Pump",
@@ -80,7 +82,8 @@ defmodule PouCon.DeviceControllers.PumpControllerTest do
       stub(DeviceManagerMock, :get_cached_data, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         n when n == devices.running_feedback -> {:ok, %{state: 1}}
-        n when n == devices.auto_manual -> {:ok, %{state: 1}} # Manual
+        # Manual
+        n when n == devices.auto_manual -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
 
@@ -124,6 +127,7 @@ defmodule PouCon.DeviceControllers.PumpControllerTest do
   describe "commands" do
     setup %{devices: devices} do
       name = "test_pump_cmd_#{System.unique_integer([:positive])}"
+
       opts = [
         name: name,
         on_off_coil: devices.on_off_coil,

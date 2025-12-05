@@ -16,7 +16,7 @@ defmodule PouCon.PortSupervisor do
 
   def start_modbus_master(port) do
     spec =
-      {Modbux.Rtu.Master,
+      {PouCon.Modbus,
        tty: port.device_path,
        uart_opts: [
          speed: port.speed,
@@ -31,8 +31,8 @@ defmodule PouCon.PortSupervisor do
   end
 
   def stop_modbus_master(pid) do
-    Modbux.Rtu.Master.close(pid)
-    Modbux.Rtu.Master.stop(pid)
+    PouCon.Modbus.close(pid)
+    PouCon.Modbus.stop(pid)
     DynamicSupervisor.terminate_child(__MODULE__, pid)
   end
 end

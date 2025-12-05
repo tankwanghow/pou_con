@@ -95,7 +95,15 @@ defmodule PouCon.DeviceControllers.DungExitController do
           try do
             {:ok, %{:state => c}} = coil_res
             {:ok, %{:state => f}} = fb_res
-            {%State{state | actual_on: c == 1, is_running: f == 1, error: nil}, nil}
+            actual_on = c == 1
+
+            {%State{
+               state
+               | actual_on: actual_on,
+                 commanded_on: actual_on,
+                 is_running: f == 1,
+                 error: nil
+             }, nil}
           rescue
             _ ->
               {%State{state | error: :invalid_data}, :invalid_data}

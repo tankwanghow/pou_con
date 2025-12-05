@@ -44,7 +44,10 @@ defmodule PouCon.Devices.EquipmentTest do
     test "requires name field" do
       changeset =
         %Equipment{}
-        |> Equipment.changeset(%{type: "fan", device_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"})
+        |> Equipment.changeset(%{
+          type: "fan",
+          device_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
+        })
 
       refute changeset.valid?
       assert %{name: ["can't be blank"]} = errors_on(changeset)
@@ -83,8 +86,18 @@ defmodule PouCon.Devices.EquipmentTest do
 
     test "validates all allowed equipment types" do
       allowed_types = [
-        "fan", "pump", "temp_sensor", "hum_sensor", "temp_hum_sensor",
-        "feeding", "egg", "dung", "dung_horz", "dung_exit", "feed_in", "light"
+        "fan",
+        "pump",
+        "temp_sensor",
+        "hum_sensor",
+        "temp_hum_sensor",
+        "feeding",
+        "egg",
+        "dung",
+        "dung_horz",
+        "dung_exit",
+        "feed_in",
+        "light"
       ]
 
       for type <- allowed_types do

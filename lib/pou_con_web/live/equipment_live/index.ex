@@ -23,30 +23,30 @@ defmodule PouConWeb.EquipmentLive.Index do
           label="Name"
           sort_field={@sort_field}
           sort_order={@sort_order}
-          width="w-[20%]"
+          width="w-[15%]"
         />
         <.sort_link
           field={:title}
           label="Title"
           sort_field={@sort_field}
           sort_order={@sort_order}
-          width="w-[20%]"
+          width="w-[15%]"
         />
         <.sort_link
           field={:type}
           label="Type"
           sort_field={@sort_field}
           sort_order={@sort_order}
-          width="w-[15%]"
+          width="w-[10%]"
         />
         <.sort_link
           field={:device_tree}
           label="Device Tree"
           sort_field={@sort_field}
           sort_order={@sort_order}
-          width="w-[25%]"
+          width="w-[45%]"
         />
-        <div class="w-[20%]">Action</div>
+        <div class="w-[15%]">Action</div>
       </div>
 
       <div
@@ -56,11 +56,11 @@ defmodule PouConWeb.EquipmentLive.Index do
       >
         <%= for {id, equipment} <- @streams.equipment do %>
           <div id={id} class="flex flex-row text-center border-b py-2">
-            <div class="w-[20%]">{equipment.name}</div>
-            <div class="w-[20%]">{equipment.title}</div>
-            <div class="w-[15%]">{equipment.type}</div>
-            <div class="w-[25%] truncate">{equipment.device_tree}</div>
-            <div :if={!@readonly} class="w-[20%]">
+            <div class="w-[15%]">{equipment.name}</div>
+            <div class="w-[15%]">{equipment.title}</div>
+            <div class="w-[10%]">{equipment.type}</div>
+            <div class="text-xs w-[45%] wrap">{equipment.device_tree}</div>
+            <div :if={!@readonly} class="w-[15%]">
               <.link
                 navigate={~p"/admin/equipment/#{equipment.id}/edit"}
                 class="p-1 border-1 rounded-xl border-blue-600 bg-blue-200"

@@ -12,6 +12,7 @@ config :pou_con,
   generators: [timestamp_type: :utc_datetime]
 
 config :pou_con, :device_manager, PouCon.DeviceManager
+config :pou_con, :modbus_adapter, PouCon.Modbus.RealAdapter
 
 # Configures the endpoint
 config :pou_con, PouConWeb.Endpoint,

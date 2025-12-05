@@ -11,6 +11,7 @@ defmodule PouCon.DeviceControllers.FeedInControllerTest do
     Mox.set_mox_global(PouCon.DeviceManagerMock)
 
     id = System.unique_integer([:positive])
+
     device_names = %{
       filling_coil: "fill_#{id}",
       running_feedback: "fb_#{id}",
@@ -51,6 +52,7 @@ defmodule PouCon.DeviceControllers.FeedInControllerTest do
   describe "status/1" do
     setup %{devices: devices} do
       name = "test_feedin_status_#{System.unique_integer([:positive])}"
+
       opts = [
         name: name,
         title: "Test Status FeedIn",
@@ -84,7 +86,8 @@ defmodule PouCon.DeviceControllers.FeedInControllerTest do
         n when n == devices.full_switch -> {:ok, %{state: 1}}
         n when n == devices.filling_coil -> {:ok, %{state: 1}}
         n when n == devices.running_feedback -> {:ok, %{state: 1}}
-        n when n == devices.auto_manual -> {:ok, %{state: 1}} # Manual
+        # Manual
+        n when n == devices.auto_manual -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
 
@@ -115,6 +118,7 @@ defmodule PouCon.DeviceControllers.FeedInControllerTest do
   describe "commands" do
     setup %{devices: devices} do
       name = "test_feedin_cmd_#{System.unique_integer([:positive])}"
+
       opts = [
         name: name,
         filling_coil: devices.filling_coil,

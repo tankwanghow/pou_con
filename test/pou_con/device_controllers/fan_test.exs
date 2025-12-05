@@ -13,6 +13,7 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
 
     # Create test device names with unique suffix
     id = System.unique_integer([:positive])
+
     device_names = %{
       on_off_coil: "test_fan_coil_#{id}",
       running_feedback: "test_fan_fb_#{id}",
@@ -65,6 +66,7 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
         {:ok, pid} ->
           Process.sleep(50)
           refute Process.alive?(pid)
+
         {:error, _} ->
           assert true
       end
@@ -74,6 +76,7 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
   describe "status/1" do
     setup %{devices: devices} do
       name = "test_fan_status_#{System.unique_integer([:positive])}"
+
       opts = [
         name: name,
         title: "Test Status Fan",
@@ -105,7 +108,8 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
       stub(DeviceManagerMock, :get_cached_data, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         n when n == devices.running_feedback -> {:ok, %{state: 1}}
-        n when n == devices.auto_manual -> {:ok, %{state: 1}} # Manual
+        # Manual
+        n when n == devices.auto_manual -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
 
@@ -152,6 +156,7 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
   describe "commands" do
     setup %{devices: devices} do
       name = "test_fan_cmd_#{System.unique_integer([:positive])}"
+
       opts = [
         name: name,
         on_off_coil: devices.on_off_coil,

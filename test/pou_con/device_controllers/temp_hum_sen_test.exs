@@ -11,11 +11,14 @@ defmodule PouCon.DeviceControllers.TempHumSenControllerTest do
     Mox.set_mox_global(PouCon.DeviceManagerMock)
 
     id = System.unique_integer([:positive])
+
     device_names = %{
       sensor: "temp_hum_#{id}"
     }
 
-    stub(DeviceManagerMock, :get_cached_data, fn _name -> {:ok, %{temperature: 25.0, humidity: 50.0}} end)
+    stub(DeviceManagerMock, :get_cached_data, fn _name ->
+      {:ok, %{temperature: 25.0, humidity: 50.0}}
+    end)
 
     %{devices: device_names}
   end
@@ -36,6 +39,7 @@ defmodule PouCon.DeviceControllers.TempHumSenControllerTest do
   describe "status/1" do
     setup %{devices: devices} do
       name = "test_th_status_#{System.unique_integer([:positive])}"
+
       opts = [
         name: name,
         title: "Test Status TH",

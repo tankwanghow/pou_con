@@ -62,7 +62,9 @@ defmodule PouConWeb.Router do
     live_session :ensure_authenticated,
       on_mount: [{PouConWeb.AuthHooks, :ensure_authenticated}] do
       live("/dashboard", DashboardLive, :index)
+      live("/simulation", SimulationLive, :index)
       live("/environment", EnvironmentLive, :index)
+      live("/environment/control", EnvironmentControlLive, :index)
       live("/egg_collection", EggCollectionLive, :index)
       live("/light_schedule", LightScheduleLive, :index)
       live("/dung", DungLive, :index)

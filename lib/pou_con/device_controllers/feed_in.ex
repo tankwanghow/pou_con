@@ -181,8 +181,7 @@ defmodule PouCon.DeviceControllers.FeedInController do
 
             commanded_on =
               if is_manual do
-                # In Manual: specific user command (state.commanded_on) AND safety check (!is_full)
-                state.commanded_on && !is_full
+                actual_on
               else
                 # In Auto: fully automatic logic
                 is_p1_ok && !is_full

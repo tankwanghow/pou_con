@@ -117,7 +117,6 @@ defmodule PouCon.DeviceControllers.FeedingController do
 
   @impl GenServer
   def handle_cast(:set_auto, state) do
-    IO.inspect("54342432423423455465654")
     Logger.info("[#{state.name}] → AUTO mode")
     @device_manager.command(state.auto_manual, :set_state, %{state: 0})
     {:noreply, sync_and_update(stop_and_reset(%{state | mode: :auto}))}
@@ -162,8 +161,8 @@ defmodule PouCon.DeviceControllers.FeedingController do
         true ->
           try do
             [
-              {:ok, _back_coil},
-              {:ok, _front_coil},
+              {:ok, %{:state => back_coil}},
+              {:ok, %{:state => front_coil}},
               {:ok, %{:state => f_lim}},
               {:ok, %{:state => b_lim}},
               {:ok, %{:state => pulse}},
@@ -175,12 +174,30 @@ defmodule PouCon.DeviceControllers.FeedingController do
             at_front = f_lim == 1
             at_back = b_lim == 1
 
+            # Infer commanded_target from hardware coil states
+            inferred_target =
+              cond do
+                back_coil == 1 -> :to_back_limit
+                front_coil == 1 -> :to_front_limit
+                true -> nil
+              end
+
+            # Set command_timestamp if we're inferring a new target
+            new_timestamp =
+              if inferred_target != nil and state.commanded_target != inferred_target do
+                DateTime.utc_now()
+              else
+                state.command_timestamp
+              end
+
             updated = %State{
               state
               | is_moving: is_moving,
                 mode: mode,
                 at_front_limit: at_front,
                 at_back_limit: at_back,
+                commanded_target: inferred_target,
+                command_timestamp: new_timestamp,
                 error: nil
             }
 

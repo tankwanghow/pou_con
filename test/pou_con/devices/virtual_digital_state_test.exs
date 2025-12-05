@@ -1,5 +1,6 @@
 defmodule PouCon.Devices.VirtualDigitalStateTest do
-  use PouCon.DataCase  # Remove async: true to avoid SQLite database busy errors
+  # Remove async: true to avoid SQLite database busy errors
+  use PouCon.DataCase
 
   alias PouCon.Devices.VirtualDigitalState
 
@@ -41,7 +42,8 @@ defmodule PouCon.Devices.VirtualDigitalStateTest do
 
       assert changeset.valid?
       # State has default value of 0, so it won't fail validation
-      assert get_change(changeset, :state) == nil  # Not changed, using default
+      # Not changed, using default
+      assert get_change(changeset, :state) == nil
     end
 
     test "validates state is 0 or 1" do

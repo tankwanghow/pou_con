@@ -97,7 +97,7 @@ defmodule PouCon.DeviceControllers.LightController do
   def handle_cast(:set_auto, state) do
     Logger.info("[#{state.name}] → AUTO mode")
 
-    case    @device_manager.command(state.auto_manual, :set_state, %{state: 0}) do
+    case @device_manager.command(state.auto_manual, :set_state, %{state: 0}) do
       {:ok, :success} ->
         :ok
 
@@ -115,7 +115,7 @@ defmodule PouCon.DeviceControllers.LightController do
   def handle_cast(:set_manual, state) do
     Logger.info("[#{state.name}] → MANUAL mode")
 
-    case    @device_manager.command(state.auto_manual, :set_state, %{state: 1}) do
+    case @device_manager.command(state.auto_manual, :set_state, %{state: 1}) do
       {:ok, :success} ->
         :ok
 
@@ -178,7 +178,13 @@ defmodule PouCon.DeviceControllers.LightController do
           actual_running = running_map.state == 1
           mode = if mode_map.state == 1, do: :manual, else: :auto
 
-          {%{state | actual_on: actual_coil, is_running: actual_running, mode: mode}, nil}
+          {%{
+             state
+             | actual_on: actual_coil,
+               commanded_on: actual_coil,
+               is_running: actual_running,
+               mode: mode
+           }, nil}
         rescue
           e ->
             Logger.error("[#{state.name}] Invalid polling data: #{inspect(e)}")
