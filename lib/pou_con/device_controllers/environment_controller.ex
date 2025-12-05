@@ -233,7 +233,7 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
   end
 
   defp try_turn_on_fan(name) do
-    alias PouCon.EnvironmentControl.DeviceRuntime
+
     config = EnvironmentControl.get_config()
     nc_fans = EnvironmentControl.Config.parse_order(config.nc_fans)
     is_nc = name in nc_fans
@@ -248,7 +248,7 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
           # Coil is ON, NC fan is OFF, need to turn OFF coil
           if status[:commanded_on] do
             FanController.turn_off(name)
-            DeviceRuntime.mark_started(name, "fan")
+
             Logger.info("[EnvironmentController] Turning ON NC fan: #{name} (coil OFF)")
             true
           else
@@ -258,7 +258,7 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
         else
           if not status[:commanded_on] do
             FanController.turn_on(name)
-            DeviceRuntime.mark_started(name, "fan")
+
             Logger.info("[EnvironmentController] Turning ON fan: #{name}")
             true
           else
@@ -278,7 +278,6 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
   end
 
   defp try_turn_off_fan(name) do
-    alias PouCon.EnvironmentControl.DeviceRuntime
     config = EnvironmentControl.get_config()
     nc_fans = EnvironmentControl.Config.parse_order(config.nc_fans)
     is_nc = name in nc_fans
@@ -293,7 +292,7 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
           # Coil is OFF, NC fan is ON, need to turn ON coil
           if not status[:commanded_on] do
             FanController.turn_on(name)
-            DeviceRuntime.mark_stopped(name, "fan")
+
             Logger.info("[EnvironmentController] Turning OFF NC fan: #{name} (coil ON)")
             true
           else
@@ -303,7 +302,7 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
         else
           if status[:commanded_on] do
             FanController.turn_off(name)
-            DeviceRuntime.mark_stopped(name, "fan")
+            
             Logger.info("[EnvironmentController] Turning OFF fan: #{name}")
             true
           else
