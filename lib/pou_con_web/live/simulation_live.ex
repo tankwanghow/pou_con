@@ -15,11 +15,17 @@ defmodule PouConWeb.SimulationLive do
 
     devices = list_devices()
 
+    # Rebuild map of id needed? No, list_devices already merges.
+    # Wait, the list_devices logic merges DeviceManager's details with Equipments.
+    # DeviceManager.list_devices_details() now returns structs with :id.
+
     socket =
       socket
       |> assign(:page_title, "Simulation Control")
       |> assign(:devices, devices)
       |> assign(:search, "")
+      |> assign(:sort_by, :equipment)
+      |> assign(:sort_order, :asc)
       # Temporary storage for inputs
       |> assign(:temp_values, %{})
 
@@ -41,6 +47,7 @@ defmodule PouConWeb.SimulationLive do
             info = %{
               equipment: eq.name,
               equipment_title: eq.title,
+              equipment_id: eq.id,
               key: key
             }
 
@@ -55,7 +62,7 @@ defmodule PouConWeb.SimulationLive do
     Enum.flat_map(devices, fn d ->
       infos =
         Map.get(device_map, d.name, [
-          %{equipment: "Unknown", equipment_title: nil, key: "Unknown"}
+          %{equipment: "Unknown", equipment_title: nil, key: "Unknown", equipment_id: nil}
         ])
 
       current_value =
@@ -86,25 +93,24 @@ defmodule PouConWeb.SimulationLive do
   end
 
   @impl true
+  def handle_event("sort", %{"sort_by" => sort_by}, socket) do
+    sort_by = String.to_existing_atom(sort_by)
+
+    sort_order =
+      if socket.assigns.sort_by == sort_by do
+        if socket.assigns.sort_order == :asc, do: :desc, else: :asc
+      else
+        :asc
+      end
+
+    {:noreply, assign(socket, sort_by: sort_by, sort_order: sort_order)}
+  end
+
+  @impl true
   def handle_event("toggle_input", %{"device" => device_name, "value" => value}, socket) do
     new_val = String.to_integer(value)
     DeviceManager.simulate_input(device_name, new_val)
     {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("update_sensor", %{"device" => device_name}, socket) do
-    # Get values from temp_values
-    values = socket.assigns.temp_values[device_name] || %{}
-    {val, _} = Float.parse(values["val"] || "0.0")
-
-    # Assume x10 scaling for sensors too? Or user meant literal 1 decimal.
-    # Modbus registers are ints. To store 12.3, we MUST scale. Assuming x10.
-    scaled_val = round(val * 10)
-
-    DeviceManager.simulate_register(device_name, scaled_val)
-
-    {:noreply, put_flash(socket, :info, "Updated #{device_name}")}
   end
 
   @impl true
@@ -130,116 +136,188 @@ defmodule PouConWeb.SimulationLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="p-6">
+    <div class="max-w-5xl mx-auto">
       <div class="flex justify-between items-center mb-4">
         <h1 class="text-xl font-bold">Device Simulation</h1>
+        <.navigate to="/dashboard" label="Dashboard" />
         <div class="form-control w-full max-w-xs">
           <input
             type="text"
             placeholder="Filter by equipment or key..."
-            class="input input-bordered input-sm w-full bg-gray-900 border-gray-600 text-white"
+            class="input input-bordered w-full bg-gray-900 border-gray-600 text-white"
             phx-keyup="search"
             value={@search}
           />
         </div>
       </div>
 
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-        <%= for device <- filter_devices(@devices, @search) do %>
-          <div class="bg-gray-800 p-2 rounded border border-gray-700">
-            <div class="mb-1">
-              <div class="flex overflow-hidden gap-1 items-center justify-between">
-                <span class="font-bold text-blue-400 truncate">
-                  {device.equipment_title || device.equipment}
-                </span>
-                <span class="text-[10px] font-bold text-gray-500 truncate">{device.key}</span>
-                <span class="text-[10px] font-bold text-white truncate">{device.name}</span>
-                <span class="text-[10px] text-yellow-400 truncate">
-                  Val: {format_value(device.current_value)}
-                </span>
-              </div>
-            </div>
+      <div class="flex mb-1 justify-between items-center bg-black p-2 rounded select-none">
+        <div
+          class="flex-1 font-bold text-blue-400 truncate cursor-pointer hover:text-blue-300"
+          phx-click="sort"
+          phx-value-sort_by="equipment"
+        >
+          Name {sort_indicator(@sort_by, @sort_order, :equipment)}
+        </div>
+        <div
+          class="flex-1 font-bold text-green-500 truncate cursor-pointer hover:text-green-400"
+          phx-click="sort"
+          phx-value-sort_by="key"
+        >
+          Key {sort_indicator(@sort_by, @sort_order, :key)}
+        </div>
+        <div
+          class="flex-1 font-bold text-white truncate cursor-pointer hover:text-gray-300"
+          phx-click="sort"
+          phx-value-sort_by="name"
+        >
+          Address {sort_indicator(@sort_by, @sort_order, :name)}
+        </div>
+        <div
+          class="flex-1 font-bold text-yellow-400 truncate cursor-pointer hover:text-yellow-300"
+          phx-click="sort"
+          phx-value-sort_by="value"
+        >
+          Current Value {sort_indicator(@sort_by, @sort_order, :value)}
+        </div>
+        <div class="flex-2 font-bold text-blue-400 truncate">Actions</div>
+      </div>
 
-            <%= cond do %>
-              <% device.type in ["digital_input", "switch", "flag", "DO", "virtual_digital_input"] or (device.read_fn == :read_digital_input) or (device.read_fn == :read_virtual_digital_input) -> %>
-                <div class="flex gap-1">
-                  <button
-                    phx-click="toggle_input"
-                    phx-value-device={device.name}
-                    value="1"
-                    class="flex-1 py-1 text-[10px] bg-green-700 hover:bg-green-600 text-white rounded"
-                  >
-                    ON
-                  </button>
-                  <button
-                    phx-click="toggle_input"
-                    phx-value-device={device.name}
-                    value="0"
-                    class="flex-1 py-1 text-[10px] bg-red-700 hover:bg-red-600 text-white rounded"
-                  >
-                    OFF
-                  </button>
-                </div>
-              <% device.type == "temp_hum_sensor" or device.read_fn == :read_temperature_humidity -> %>
-                <div class="flex space-y-1 justify-between gap-1 items-center">
-                  <div class="flex items-center">
-                    <span class="text-[10px] text-gray-400">Temp :</span>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={get_in(@temp_values, [device.name, "temp"]) || "25.0"}
-                      phx-keyup="temp_change"
-                      phx-value-device={device.name}
-                      phx-value-type="temp"
-                      class="input input-xs input-bordered flex-1 bg-gray-900 border-gray-600 text-white px-1"
-                    />
-                  </div>
-                  <div class="flex items-center">
-                    <span class="text-[10px] text-gray-400">Hum :</span>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={get_in(@temp_values, [device.name, "hum"]) || "60.0"}
-                      phx-keyup="temp_change"
-                      phx-value-device={device.name}
-                      phx-value-type="hum"
-                      class="input input-xs input-bordered flex-1 bg-gray-900 border-gray-600 text-white px-1"
-                    />
-                  </div>
-                  <button
-                    phx-click="update_temp"
-                    phx-value-device={device.name}
-                    class="px-4 text-xs bg-blue-700 hover:bg-blue-600 text-white rounded"
-                  >
-                    Set
-                  </button>
-                </div>
-              <% true -> %>
-                <p class="text-[10px] text-gray-500 italic">No controls</p>
+      <%= for device <- filter_and_sort_devices(@devices, @search, @sort_by, @sort_order) do %>
+        <div class="flex justify-between items-center bg-gray-800 p-1 rounded border border-gray-700 hover:bg-gray-500">
+          <div class="flex-1 font-bold text-blue-400 truncate">
+            <%= if Map.get(device, :equipment_id) do %>
+              <.link
+                navigate={~p"/admin/equipment/#{device.equipment_id}/edit?return_to=simulation"}
+                class="hover:underline"
+              >
+                {device.equipment_title || device.equipment}
+              </.link>
+            <% else %>
+              {device.equipment_title || device.equipment}
             <% end %>
           </div>
-        <% end %>
-      </div>
+          <div class="flex-1 text-xs font-bold text-green-500 truncate">{device.key}</div>
+          <div class="flex-1 text-xs font-bold text-white truncate">
+            <%= if Map.get(device, :id) do %>
+              <.link
+                navigate={~p"/admin/devices/#{device.id}/edit?return_to=simulation"}
+                class="hover:underline"
+              >
+                {device.name}
+              </.link>
+            <% else %>
+              {device.name}
+            <% end %>
+          </div>
+          <div class="flex-1 text-xs text-yellow-400 truncate">
+            {format_value(device.current_value)}
+          </div>
+
+          <%= cond do %>
+            <% device.type in ["digital_input", "switch", "flag", "DO", "virtual_digital_input"] or (device.read_fn == :read_digital_input) or (device.read_fn == :read_virtual_digital_input) -> %>
+              <div class="flex-2">
+                <button
+                  :if={device.current_value.state == 0}
+                  phx-click="toggle_input"
+                  phx-value-device={device.name}
+                  value="1"
+                  class="px-2 text-xs bg-green-700 hover:bg-green-600 text-white rounded"
+                >
+                  ON
+                </button>
+                <button
+                  :if={device.current_value.state == 1}
+                  phx-click="toggle_input"
+                  phx-value-device={device.name}
+                  value="0"
+                  class="px-2 text-xs bg-red-700 hover:bg-red-600 text-white rounded"
+                >
+                  OFF
+                </button>
+              </div>
+            <% device.type == "temp_hum_sensor" or device.read_fn == :read_temperature_humidity -> %>
+              <div class="flex flex-2 space-y-1 justify-between gap-1 items-center">
+                <div class="flex items-center">
+                  <span class="text-xs text-gray-400">Temp :</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={get_in(@temp_values, [device.name, "temp"]) || "25.0"}
+                    phx-keyup="temp_change"
+                    phx-value-device={device.name}
+                    phx-value-type="temp"
+                    class="input input-xs input-bordered flex-1 bg-gray-900 border-gray-600 text-white px-1"
+                  />
+                </div>
+                <div class="flex items-center">
+                  <span class="text-xs text-gray-400">Hum :</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={get_in(@temp_values, [device.name, "hum"]) || "60.0"}
+                    phx-keyup="temp_change"
+                    phx-value-device={device.name}
+                    phx-value-type="hum"
+                    class="input input-xs input-bordered flex-1 bg-gray-900 border-gray-600 text-white px-1"
+                  />
+                </div>
+                <button
+                  phx-click="update_temp"
+                  phx-value-device={device.name}
+                  class="px-4 text-xs bg-blue-700 hover:bg-blue-600 text-white rounded"
+                >
+                  Set
+                </button>
+              </div>
+            <% true -> %>
+              <p class="text-xs text-gray-500 italic">No controls</p>
+          <% end %>
+        </div>
+      <% end %>
     </div>
     """
   end
 
-  defp filter_devices(devices, search) do
-    if search == "" do
-      devices
+  defp filter_and_sort_devices(devices, search, sort_by, sort_order) do
+    filtered =
+      if search == "" do
+        devices
+      else
+        terms = search |> String.downcase() |> String.split(~r/\s+/, trim: true)
+
+        Enum.filter(devices, fn d ->
+          combined =
+            [d.equipment, d.equipment_title, d.key]
+            |> Enum.map(&((&1 || "") |> to_string() |> String.downcase()))
+            |> Enum.join(" ")
+
+          Enum.all?(terms, fn term -> String.contains?(combined, term) end)
+        end)
+      end
+
+    Enum.sort_by(filtered, &sort_value(&1, sort_by), sort_order)
+  end
+
+  defp sort_value(d, :equipment), do: {d.equipment_title || d.equipment, d.key}
+  defp sort_value(d, :key), do: {to_string(d.key), d.equipment}
+  defp sort_value(d, :name), do: d.name
+
+  defp sort_value(d, :value) do
+    case d.current_value do
+      nil -> -1
+      %{state: s} -> s
+      %{temperature: t} -> t || 0
+      map when is_map(map) -> inspect(map)
+      val -> val
+    end
+  end
+
+  defp sort_indicator(current_sort, sort_order, col_key) do
+    if current_sort == col_key do
+      if sort_order == :asc, do: "▲", else: "▼"
     else
-      terms = search |> String.downcase() |> String.split(~r/\s+/, trim: true)
-
-      Enum.filter(devices, fn d ->
-        # Combine all searchable fields into one string
-        combined =
-          [d.equipment, d.equipment_title, d.key]
-          |> Enum.map(&((&1 || "") |> to_string() |> String.downcase()))
-          |> Enum.join(" ")
-
-        # All terms must match somewhere in combined string
-        Enum.all?(terms, fn term -> String.contains?(combined, term) end)
-      end)
+      ""
     end
   end
 

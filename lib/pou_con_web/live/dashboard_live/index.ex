@@ -171,6 +171,12 @@ defmodule PouConWeb.DashboardLive do
             >
               Settings
             </.link>
+            <.link
+              navigate="/simulation"
+              class="mr-1 px-3 py-1.5 rounded-lg bg-yellow-200 border border-yellow-600 font-medium"
+            >
+              Simulation
+            </.link>
           <% end %>
           <.link
             navigate={~p"/admin/ports"}

@@ -101,7 +101,21 @@ defmodule PouConWeb.EnvironmentLive do
           }
       end)
 
-    assign(socket, equipment: equipment_with_status, now: DateTime.utc_now())
+    # Calculate averages from temp_hum_sensor equipment
+    sensors = Enum.filter(equipment_with_status, &(&1.type == "temp_hum_sensor"))
+    temps = sensors |> Enum.map(& &1.status[:temperature]) |> Enum.reject(&is_nil/1)
+    hums = sensors |> Enum.map(& &1.status[:humidity]) |> Enum.reject(&is_nil/1)
+    dews = sensors |> Enum.map(& &1.status[:dew_point]) |> Enum.reject(&is_nil/1)
+
+    avg_temp =
+      if length(temps) > 0, do: Float.round(Enum.sum(temps) / length(temps), 1), else: nil
+
+    avg_hum = if length(hums) > 0, do: Float.round(Enum.sum(hums) / length(hums), 1), else: nil
+    avg_dew = if length(dews) > 0, do: Float.round(Enum.sum(dews) / length(dews), 1), else: nil
+
+    socket
+    |> assign(equipment: equipment_with_status, now: DateTime.utc_now())
+    |> assign(avg_temp: avg_temp, avg_hum: avg_hum, avg_dew: avg_dew)
   end
 
   # Map equipment type → controller module
@@ -135,14 +149,9 @@ defmodule PouConWeb.EnvironmentLive do
     ~H"""
     <Layouts.app flash={@flash}>
       <.header>
-        Poultry House Dashboard
+        Environment Control
         <:actions>
-          <.link
-            href={~p"/dashboard"}
-            class="mr-1 px-3 py-1.5 rounded-lg bg-amber-200 border border-amber-600 font-medium"
-          >
-            Dashboard
-          </.link>
+          <.navigate to="/dashboard" label="Dashboard" />
           <.link
             phx-click="reload_ports"
             class="mr-1 px-3 py-1.5 rounded-lg bg-green-200 border border-green-600 font-medium"
@@ -150,11 +159,10 @@ defmodule PouConWeb.EnvironmentLive do
             Refresh
           </.link>
           <.link
-            href={~p"/logout"}
-            method="post"
+            href={~p"/environment/control"}
             class="mr-1 px-3 py-1.5 rounded-lg bg-rose-200 border border-rose-600 font-medium"
           >
-            Logout
+            Configure
           </.link>
         </:actions>
       </.header>
@@ -174,6 +182,29 @@ defmodule PouConWeb.EnvironmentLive do
               equipment={eq}
             />
           <% end %>
+          <!-- Averages Bar -->
+
+          <div class="align-center my-auto text-xl">
+            <div class="text-center">
+              <span class="text-gray-400">Avg Temp</span>
+              <span class="font-bold text-yellow-400">
+                {if @avg_temp, do: "#{@avg_temp}°C", else: "-"}
+              </span>
+            </div>
+
+            <div class="text-center">
+              <span class="text-gray-400">Avg Hum</span>
+              <span class="font-bold text-blue-400">
+                {if @avg_hum, do: "#{@avg_hum}%", else: "-"}
+              </span>
+            </div>
+            <div class="text-center">
+              <span class="text-gray-400">Avg DP</span>
+              <span class="font-bold text-cyan-400">
+                {if @avg_dew, do: "#{@avg_dew}°C", else: "-"}
+              </span>
+            </div>
+          </div>
         </div>
         <div class="flex flex-wrap gap-1 mb-6">
           <%= for eq <- Enum.filter(@equipment, &(&1.type == "pump")) |> Enum.sort_by(& &1.title) do %>

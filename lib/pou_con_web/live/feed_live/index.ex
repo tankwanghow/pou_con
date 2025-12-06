@@ -124,12 +124,7 @@ defmodule PouConWeb.FeedLive do
       <.header>
         Poultry House Dashboard
         <:actions>
-          <.link
-            href={~p"/dashboard"}
-            class="mr-1 px-3 py-1.5 rounded-lg bg-amber-200 border border-amber-600 font-medium"
-          >
-            Dashboard
-          </.link>
+          <.navigate to="/dashboard" label="Dashboard" />
           <.link
             phx-click="reload_ports"
             class="mr-1 px-3 py-1.5 rounded-lg bg-green-200 border border-green-600 font-medium"

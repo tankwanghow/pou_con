@@ -50,18 +50,22 @@ defmodule PouCon.Modbus.SimulatedAdapter do
   def init(_opts) do
     # State structure:
     # %{
-    #   slave_id => %{
-    #     coils: %{addr => 0/1},
-    #     registers: %{addr => int}
-    #   }
+    #   slaves: %{slave_id => %{coils: %{}, registers: %{}, inputs: %{}}},
+    #   offline: MapSet.new()  # Set of offline slave_ids
     # }
-    {:ok, %{}}
+    {:ok, %{slaves: %{}, offline: MapSet.new()}}
   end
 
   @impl true
   def handle_call({:request, cmd}, _from, state) do
-    {result, new_state} = handle_command(cmd, state)
-    {:reply, result, new_state}
+    slave_id = elem(cmd, 1)
+
+    if MapSet.member?(state.offline, slave_id) do
+      {:reply, {:error, :timeout}, state}
+    else
+      {result, new_state} = handle_command(cmd, state)
+      {:reply, result, new_state}
+    end
   end
 
   @impl true
@@ -175,7 +179,7 @@ defmodule PouCon.Modbus.SimulatedAdapter do
 
   # Helpers
   defp get_coil(state, slave_id, addr) do
-    get_in(state, [slave_id, :coils, addr]) || 0
+    get_in(state, [:slaves, slave_id, :coils, addr]) || 0
   end
 
   defp put_coil(state, slave_id, addr, value) do
@@ -183,7 +187,7 @@ defmodule PouCon.Modbus.SimulatedAdapter do
   end
 
   defp get_input(state, slave_id, addr) do
-    get_in(state, [slave_id, :inputs, addr]) || 0
+    get_in(state, [:slaves, slave_id, :inputs, addr]) || 0
   end
 
   defp put_input(state, slave_id, addr, value) do
@@ -191,7 +195,7 @@ defmodule PouCon.Modbus.SimulatedAdapter do
   end
 
   defp get_register(state, slave_id, addr, default) do
-    get_in(state, [slave_id, :registers, addr]) || default
+    get_in(state, [:slaves, slave_id, :registers, addr]) || default
   end
 
   defp put_register(state, slave_id, addr, value) do
@@ -199,10 +203,12 @@ defmodule PouCon.Modbus.SimulatedAdapter do
   end
 
   defp update_nested(state, slave_id, type, addr, value) do
-    slave_data = Map.get(state, slave_id, %{coils: %{}, inputs: %{}, registers: %{}})
+    slaves = state.slaves
+    slave_data = Map.get(slaves, slave_id, %{coils: %{}, inputs: %{}, registers: %{}})
     type_data = Map.get(slave_data, type, %{})
     new_type_data = Map.put(type_data, addr, value)
     new_slave_data = Map.put(slave_data, type, new_type_data)
-    Map.put(state, slave_id, new_slave_data)
+    new_slaves = Map.put(slaves, slave_id, new_slave_data)
+    %{state | slaves: new_slaves}
   end
 end

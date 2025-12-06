@@ -233,7 +233,6 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
   end
 
   defp try_turn_on_fan(name) do
-
     config = EnvironmentControl.get_config()
     nc_fans = EnvironmentControl.Config.parse_order(config.nc_fans)
     is_nc = name in nc_fans
@@ -302,7 +301,7 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
         else
           if status[:commanded_on] do
             FanController.turn_off(name)
-            
+
             Logger.info("[EnvironmentController] Turning OFF fan: #{name}")
             true
           else

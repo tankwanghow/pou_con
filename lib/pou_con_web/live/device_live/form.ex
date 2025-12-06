@@ -64,8 +64,6 @@ defmodule PouConWeb.DeviceLive.Form do
      |> apply_action(socket.assigns.live_action, params)}
   end
 
-  defp return_to(_), do: "index"
-
   defp apply_action(socket, :edit, %{"id" => id}) do
     device = Devices.get_device!(id)
 
@@ -133,5 +131,9 @@ defmodule PouConWeb.DeviceLive.Form do
     end
   end
 
+  defp return_to(nil), do: "index"
+  defp return_to(val), do: val
+  defp return_path("simulation", _device), do: ~p"/simulation"
   defp return_path("index", _device), do: ~p"/admin/devices"
+  defp return_path(_, _device), do: ~p"/admin/devices"
 end

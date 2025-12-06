@@ -35,6 +35,7 @@ defmodule PouCon.DeviceManager do
 
   defmodule RuntimeDevice do
     defstruct [
+      :id,
       :name,
       :type,
       :slave_id,
@@ -524,6 +525,7 @@ defmodule PouCon.DeviceManager do
       Repo.all(Device)
       |> Enum.map(fn d ->
         %RuntimeDevice{
+          id: d.id,
           name: d.name,
           type: d.type,
           slave_id: d.slave_id,

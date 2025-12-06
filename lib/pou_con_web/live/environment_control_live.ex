@@ -89,7 +89,7 @@ defmodule PouConWeb.EnvironmentControlLive do
               href={~p"/environment"}
               class="px-3 py-1 rounded bg-amber-200 border border-amber-600 text-sm font-medium"
             >
-              Dashboard
+              Back
             </.link>
           </div>
         </div>
@@ -228,7 +228,6 @@ defmodule PouConWeb.EnvironmentControlLive do
                   value={@config.stagger_delay_seconds || 5}
                   class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
                 />
-
               </div>
               <div>
                 <label class="text-gray-400 text-xs">
@@ -252,7 +251,6 @@ defmodule PouConWeb.EnvironmentControlLive do
               </div>
             </div>
             <div class="grid mb-3">
-
               <div>
                 <label class="text-gray-400 text-xs">
                   Fan Order <span class="text-gray-600">({Enum.join(@fans, ", ")})</span>
@@ -264,7 +262,6 @@ defmodule PouConWeb.EnvironmentControlLive do
                   class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
                 />
               </div>
-
             </div>
 
             <div class="grid mb-3"></div>

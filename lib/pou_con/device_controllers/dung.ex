@@ -64,7 +64,7 @@ defmodule PouCon.DeviceControllers.DungController do
   # ——————————————————————————————————————————————————————————————
   defp sync_coil(%State{commanded_on: cmd, actual_on: act, on_off_coil: coil} = state)
        when cmd != act do
-    Logger.info("[#{state.name}] #{if cmd, do: "Turning ON", else: "Turning OFF"} dung pump")
+    Logger.info("[#{state.name}] #{if cmd, do: "Turning ON", else: "Turning OFF"} dung")
 
     case @device_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)}) do
       {:ok, :success} ->
