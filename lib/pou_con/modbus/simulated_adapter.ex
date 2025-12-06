@@ -39,6 +39,10 @@ defmodule PouCon.Modbus.SimulatedAdapter do
     GenServer.call(pid, {:set_coil, slave_id, addr, value})
   end
 
+  def set_offline(pid, slave_id, offline?) do
+    GenServer.call(pid, {:set_offline, slave_id, offline?})
+  end
+
   def get_state(pid) do
     GenServer.call(pid, :get_state)
   end
@@ -89,6 +93,18 @@ defmodule PouCon.Modbus.SimulatedAdapter do
   @impl true
   def handle_call(:get_state, _from, state) do
     {:reply, state, state}
+  end
+
+  @impl true
+  def handle_call({:set_offline, slave_id, true}, _from, state) do
+    new_offline = MapSet.put(state.offline, slave_id)
+    {:reply, :ok, %{state | offline: new_offline}}
+  end
+
+  @impl true
+  def handle_call({:set_offline, slave_id, false}, _from, state) do
+    new_offline = MapSet.delete(state.offline, slave_id)
+    {:reply, :ok, %{state | offline: new_offline}}
   end
 
   # Read Input Status (ri) - Digital Inputs

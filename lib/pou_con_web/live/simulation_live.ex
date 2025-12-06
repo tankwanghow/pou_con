@@ -134,6 +134,14 @@ defmodule PouConWeb.SimulationLive do
   end
 
   @impl true
+  def handle_event("set_offline", %{"device" => device_name, "value" => offline_str}, socket) do
+    IO.inspect({device_name, offline_str})
+    offline? = offline_str == "true"
+    DeviceManager.simulate_offline(device_name, offline?)
+    {:noreply, socket}
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <div class="max-w-5xl mx-auto">
@@ -181,6 +189,7 @@ defmodule PouConWeb.SimulationLive do
           Current Value {sort_indicator(@sort_by, @sort_order, :value)}
         </div>
         <div class="flex-2 font-bold text-blue-400 truncate">Actions</div>
+        <div class="flex-1 font-bold text-blue-400 truncate">Offline</div>
       </div>
 
       <%= for device <- filter_and_sort_devices(@devices, @search, @sort_by, @sort_order) do %>
@@ -215,6 +224,8 @@ defmodule PouConWeb.SimulationLive do
           </div>
 
           <%= cond do %>
+            <% device.current_value == {:error, :timeout} -> %>
+              <div class="flex-2 text-xs text-gray-500 italic">No controls</div>
             <% device.type in ["digital_input", "switch", "flag", "DO", "virtual_digital_input"] or (device.read_fn == :read_digital_input) or (device.read_fn == :read_virtual_digital_input) -> %>
               <div class="flex-2">
                 <button
@@ -273,6 +284,18 @@ defmodule PouConWeb.SimulationLive do
             <% true -> %>
               <p class="text-xs text-gray-500 italic">No controls</p>
           <% end %>
+
+          <div class="flex-1">
+            <% is_offline = device.current_value == {:error, :timeout}%>
+            <button
+              phx-click="set_offline"
+              phx-value-device={device.name}
+              value={to_string(!is_offline)}
+              class={"px-2 py-1 text-xs rounded text-white #{if is_offline, do: "bg-red-600 hover:bg-red-500 animate-pulse", else: "bg-gray-600 hover:bg-gray-500"}"}
+            >
+              {if is_offline, do: "OFFLINE", else: "Online"}
+            </button>
+          </div>
         </div>
       <% end %>
     </div>

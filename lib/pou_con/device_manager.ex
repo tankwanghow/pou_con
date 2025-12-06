@@ -160,6 +160,10 @@ defmodule PouCon.DeviceManager do
     GenServer.call(__MODULE__, {:simulate_register, device_name, value})
   end
 
+  def simulate_offline(device_name, offline?) do
+    GenServer.call(__MODULE__, {:simulate_offline, device_name, offline?})
+  end
+
   # ------------------------------------------------------------------ #
   # Client API – Slave ID change
   # ------------------------------------------------------------------ #
@@ -289,68 +293,49 @@ defmodule PouCon.DeviceManager do
   end
 
   @impl GenServer
-  def handle_call({:simulate_register, device_name, value}, _from, state) do
+  def handle_call({:simulate_offline, device_name, offline?}, _from, state) do
     case get_device_and_modbus(state, device_name) do
-      {:ok, dev, modbus} ->
-        # For temp/hum, we read 2 registers starting at `register`.
-        # Temp is first, Humidity is second?
-        # read_temperature_humidity does `{:rir, slave_id, register, 2}`.
-        # Returns [temp_raw, hum_raw].
-        # So address `register` is Temp, `register + 1` is Humidity.
-        # But we don't have separate devices for temp vs flow in the DB structure shown?
-        # Wait, the device list has "temp_hum_X".
-        # If I want to set Temp, I target the device.
-        # But the device represents BOTH?
-        # Let's see the UI controls.
-        # If I want "Temperature", I need to know which register.
-        # The user will probably want to set "Temperature" or "Humidity" separately.
-        # My `simulate_register` might need to be smarter or receive offset.
-        # For now, let's assume `value` can be a map %{temperature: x, humidity: y} or just a value.
-        # Simpler: lets just expose `set_register` by address? No, user doesn't know address.
-        # Let's assume the UI sends `{:temp, val}` or `{:hum, val}` as value?
-
-        # If value is simple integer, maybe just set the first register?
-        # Let's support a tuple `{:offset, val}`?
-
-        # For this pass, let's support explicit keys if it's a temp sensor.
-
-        if dev.type == "temp_hum_sensor" or dev.read_fn == :read_temperature_humidity do
-          {temp, hum} =
-            case value do
-              %{temperature: t, humidity: h} -> {t, h}
-              %{temperature: t} -> {t, nil}
-              %{humidity: h} -> {nil, h}
-              _ -> {nil, nil}
-            end
-
-          if temp do
-            PouCon.Modbus.SimulatedAdapter.set_register(
-              modbus,
-              dev.slave_id,
-              dev.register,
-              round(temp * 10)
-            )
-          end
-
-          if hum do
-            PouCon.Modbus.SimulatedAdapter.set_register(
-              modbus,
-              dev.slave_id,
-              dev.register + 1,
-              round(hum * 10)
-            )
-          end
-
-          {:reply, :ok, state}
-        else
-          # Default behavior
-          # Just set the register directly
-          PouCon.Modbus.SimulatedAdapter.set_register(modbus, dev.slave_id, dev.register, value)
-          {:reply, :ok, state}
-        end
+      {:ok, dev, modbus} when modbus != nil ->
+        PouCon.Modbus.SimulatedAdapter.set_offline(modbus, dev.slave_id, offline?)
+        {:reply, :ok, state}
 
       _ ->
-        {:reply, {:error, :device_not_found}, state}
+        {:reply, {:error, :device_not_found_or_not_simulated}, state}
+    end
+  end
+
+  @impl GenServer
+  def handle_call({:simulate_register, device_name, values}, _from, state) when is_map(values) do
+    case get_device_and_modbus(state, device_name) do
+      {:ok, dev, modbus} when modbus != nil ->
+        base = dev.register
+
+        if values[:temperature] do
+          val = round(values.temperature * 10)
+          PouCon.Modbus.SimulatedAdapter.set_register(modbus, dev.slave_id, base, val)
+        end
+
+        if values[:humidity] do
+          val = round(values.humidity * 10)
+          PouCon.Modbus.SimulatedAdapter.set_register(modbus, dev.slave_id, base + 1, val)
+        end
+
+        {:reply, :ok, state}
+
+      _ ->
+        {:reply, {:error, :device_not_found_or_not_simulated}, state}
+    end
+  end
+
+  @impl GenServer
+  def handle_call({:simulate_register, device_name, value}, _from, state) do
+    case get_device_and_modbus(state, device_name) do
+      {:ok, dev, modbus} when modbus != nil ->
+        PouCon.Modbus.SimulatedAdapter.set_register(modbus, dev.slave_id, dev.register, value)
+        {:reply, :ok, state}
+
+      _ ->
+        {:reply, {:error, :device_not_found_or_not_simulated}, state}
     end
   end
 
