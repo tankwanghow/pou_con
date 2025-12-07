@@ -15,15 +15,20 @@ defmodule PouCon.DeviceControllers.FeedInTest do
     device_names = %{
       filling_coil: "fill_#{id}",
       running_feedback: "fb_#{id}",
-      position_1: "p1_#{id}",
-      position_2: "p2_#{id}",
-      position_3: "p3_#{id}",
-      position_4: "p4_#{id}",
       auto_manual: "am_#{id}",
       full_switch: "full_#{id}"
     }
 
-    stub(DeviceManagerMock, :get_cached_data, fn _name -> {:ok, %{state: 0}} end)
+    # Default: bucket is full (state: 1) so AUTO mode doesn't try to auto-fill
+    stub(DeviceManagerMock, :get_cached_data, fn
+      name ->
+        if String.starts_with?(name, "full_") do
+          {:ok, %{state: 1}}
+        else
+          {:ok, %{state: 0}}
+        end
+    end)
+
     stub(DeviceManagerMock, :command, fn _name, _cmd, _params -> {:ok, :success} end)
 
     %{devices: device_names}
@@ -36,10 +41,6 @@ defmodule PouCon.DeviceControllers.FeedInTest do
         title: "Test FeedIn 1",
         filling_coil: devices.filling_coil,
         running_feedback: devices.running_feedback,
-        position_1: devices.position_1,
-        position_2: devices.position_2,
-        position_3: devices.position_3,
-        position_4: devices.position_4,
         auto_manual: devices.auto_manual,
         full_switch: devices.full_switch
       ]
@@ -58,10 +59,6 @@ defmodule PouCon.DeviceControllers.FeedInTest do
         title: "Test Status FeedIn",
         filling_coil: devices.filling_coil,
         running_feedback: devices.running_feedback,
-        position_1: devices.position_1,
-        position_2: devices.position_2,
-        position_3: devices.position_3,
-        position_4: devices.position_4,
         auto_manual: devices.auto_manual,
         full_switch: devices.full_switch
       ]
@@ -82,7 +79,6 @@ defmodule PouCon.DeviceControllers.FeedInTest do
       name = "test_feedin_state_#{System.unique_integer([:positive])}"
 
       stub(DeviceManagerMock, :get_cached_data, fn
-        n when n == devices.position_1 -> {:ok, %{state: 1}}
         n when n == devices.full_switch -> {:ok, %{state: 1}}
         n when n == devices.filling_coil -> {:ok, %{state: 1}}
         n when n == devices.running_feedback -> {:ok, %{state: 1}}
@@ -95,10 +91,6 @@ defmodule PouCon.DeviceControllers.FeedInTest do
         name: name,
         filling_coil: devices.filling_coil,
         running_feedback: devices.running_feedback,
-        position_1: devices.position_1,
-        position_2: devices.position_2,
-        position_3: devices.position_3,
-        position_4: devices.position_4,
         auto_manual: devices.auto_manual,
         full_switch: devices.full_switch
       ]
@@ -107,7 +99,6 @@ defmodule PouCon.DeviceControllers.FeedInTest do
       Process.sleep(50)
 
       status = FeedIn.status(name)
-      assert status.position_ok == true
       assert status.bucket_full == true
       assert status.actual_on == true
       assert status.is_running == true
@@ -123,10 +114,6 @@ defmodule PouCon.DeviceControllers.FeedInTest do
         name: name,
         filling_coil: devices.filling_coil,
         running_feedback: devices.running_feedback,
-        position_1: devices.position_1,
-        position_2: devices.position_2,
-        position_3: devices.position_3,
-        position_4: devices.position_4,
         auto_manual: devices.auto_manual,
         full_switch: devices.full_switch
       ]

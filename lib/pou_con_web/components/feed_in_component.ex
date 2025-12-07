@@ -25,7 +25,7 @@ defmodule PouConWeb.Components.FeedInComponent do
   def render(assigns) do
     ~H"""
     <div class={"flex flex-col bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-40 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
-      
+
     <!-- HEADER -->
       <div class="flex items-center justify-between px-2 py-2 bg-gray-50 border-b border-gray-100">
         <div class="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0">
@@ -63,11 +63,11 @@ defmodule PouConWeb.Components.FeedInComponent do
           </button>
         </div>
       </div>
-      
+
     <!-- BODY -->
       <div class="flex items-start gap-2 p-2 flex-1">
-        
-    <!-- Left: Physical Visualization & Position Dots -->
+
+    <!-- Left: Physical Visualization -->
         <div class="flex-shrink-0 flex flex-col items-center gap-2 pt-1">
           <div class={[
             "relative h-12 w-12 flex items-center justify-center transition-colors",
@@ -77,18 +77,20 @@ defmodule PouConWeb.Components.FeedInComponent do
               name="hero-arrow-down-tray"
               class={"w-7 h-7 -mt-4 " <> if(@status.is_running, do: "animate-bounce", else: "")}
             />
-            <div class="absolute bottom-1 inset-x-0 mx-auto flex justify-center gap-1">
-              <%= for n <- 1..4 do %>
-                <div class={"w-1.5 h-1.5 rounded-full " <> get_position_dot_class(@status, n)}></div>
-              <% end %>
-            </div>
+            <%= if @status.bucket_full do %>
+              <div class="absolute inset-0 flex items-center justify-center">
+                <span class="text-[9px] font-black text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full shadow-sm border border-emerald-300">
+                  FULL
+                </span>
+              </div>
+            <% end %>
           </div>
         </div>
-        
+
     <!-- Right: Single Toggle Button -->
         <div class="flex-1 min-w-0 flex flex-col gap-1">
           <!-- Status Text -->
-          <div class={"text-[10px] font-medium text-center truncate " <> if(@display.is_error, do: "text-red-600", else: "text-gray-500")}>
+          <div class={"text-[10px] text-bold font-medium text-center truncate text-#{@display.color}-700"}>
             {@display.state_text}
           </div>
           <div class="flex h-7">
@@ -185,8 +187,7 @@ defmodule PouConWeb.Components.FeedInComponent do
         mode == :manual && status.commanded_on -> {"emerald", "MANUAL RUN"}
         status.is_running -> {"emerald", "FILLING..."}
         status.bucket_full -> {"amber", "BUCKET FULL"}
-        !status.position_ok -> {"violet", "WAITING POS 1..."}
-        true -> {"violet", "WAITING FOR COND."}
+        true -> {"violet", "READY"}
       end
 
     %{
@@ -200,24 +201,14 @@ defmodule PouConWeb.Components.FeedInComponent do
 
   defp get_beaker_container_class(status) do
     cond do
-      # Priority 1: When full, it's green (emerald)
+      # Priority 1: Error state - red (rose)
+      status.error != nil -> "border-rose-200 text-rose-500"
+      # Priority 2: When full, it's green (emerald)
       status.bucket_full -> "border-emerald-200 text-emerald-500"
-      # Priority 2: When filling (running) but not full, it's yellow (amber)
+      # Priority 3: When filling (running) but not full, it's yellow (amber)
       status.is_running -> "border-amber-200 text-amber-500"
       # Default: Gray inactive state
-      true -> "border-gray-200 text-gray-300"
+      true -> "border-violet-200 text-violet-500"
     end
-  end
-
-  defp get_position_dot_class(status, n) do
-    satisfied? = Map.get(status.position_status || %{}, n)
-
-    cond do
-      satisfied? == true -> "bg-emerald-400"
-      satisfied? == false -> "bg-rose-400"
-      true -> "bg-gray-200"
-    end
-  rescue
-    _ -> "bg-gray-200"
   end
 end

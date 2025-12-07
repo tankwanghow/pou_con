@@ -162,11 +162,10 @@ defmodule PouConWeb.Components.FeedingSummaryComponent do
     {color, text} =
       cond do
         status.error != nil -> {"rose", status.error_message || "ERROR"}
-        mode == :manual && !status.commanded_on -> {"gray", "MANUAL STOP"}
+        mode == :manual && !status.commanded_on -> {"violet", "MANUAL STOP"}
         mode == :manual && status.commanded_on -> {"emerald", "MANUAL RUN"}
         status.is_running -> {"amber", "FILLING..."}
         status.bucket_full -> {"green", "BUCKET FULL"}
-        !status.position_ok -> {"violet", "WAITING POS 1..."}
         true -> {"violet", "WAITING FOR COND."}
       end
 

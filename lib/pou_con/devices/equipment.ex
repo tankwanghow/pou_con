@@ -97,10 +97,6 @@ defmodule PouCon.Devices.Equipment do
     do: [
       :filling_coil,
       :running_feedback,
-      :position_1,
-      :position_2,
-      :position_3,
-      :position_4,
       :auto_manual,
       :full_switch
     ]
