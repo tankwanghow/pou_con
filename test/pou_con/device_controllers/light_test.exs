@@ -2,8 +2,8 @@ defmodule PouCon.DeviceControllers.LightTest do
   use PouCon.DataCase
   import Mox
 
-  alias PouCon.DeviceControllers.Light
-  alias PouCon.DeviceManagerMock
+  alias PouCon.Equipment.Controllers.Light
+  alias PouCon.Hardware.DeviceManagerMock
 
   setup :verify_on_exit!
 

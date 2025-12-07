@@ -1,7 +1,7 @@
-defmodule PouCon.Devices.EquipmentTest do
+defmodule PouCon.Equipment.Devices.EquipmentTest do
   use PouCon.DataCase, async: true
 
-  alias PouCon.Devices.Equipment
+  alias PouCon.Equipment.Schemas.Equipment
 
   describe "changeset/2" do
     test "valid changeset for fan type" do

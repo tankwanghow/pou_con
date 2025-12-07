@@ -1,6 +1,6 @@
 defmodule PouCon.DeviceTreeParserTest do
   use ExUnit.Case, async: true
-  alias PouCon.DeviceTreeParser
+  alias PouCon.Hardware.DeviceTreeParser
 
   describe "parse/1" do
     test "parses simple key-value pairs" do

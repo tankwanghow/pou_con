@@ -1,7 +1,7 @@
 defmodule PouCon.DeviceManagerBehaviourTest do
   use ExUnit.Case, async: true
 
-  alias PouCon.DeviceManagerBehaviour
+  alias PouCon.Hardware.DeviceManagerBehaviour
 
   test "defines required callbacks" do
     callbacks = DeviceManagerBehaviour.behaviour_info(:callbacks)

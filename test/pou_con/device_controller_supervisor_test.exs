@@ -1,7 +1,7 @@
 defmodule PouCon.DeviceControllerSupervisorTest do
   use ExUnit.Case, async: true
 
-  alias PouCon.DeviceControllerSupervisor
+  alias PouCon.Equipment.DeviceControllerSupervisor
 
   test "starts successfully" do
     # The supervisor is started by the application

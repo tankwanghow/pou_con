@@ -1,10 +1,10 @@
 defmodule PouConWeb.SimulationLive do
   use PouConWeb, :live_view
-  alias PouCon.DeviceManager
+  alias PouCon.Hardware.DeviceManager
 
   alias PouCon.Repo
-  alias PouCon.Devices.Equipment
-  alias PouCon.DeviceTreeParser
+  alias PouCon.Equipment.Schemas.Equipment
+  alias PouCon.Hardware.DeviceTreeParser
   alias Phoenix.PubSub
 
   @impl true

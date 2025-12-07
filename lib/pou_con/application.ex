@@ -7,8 +7,8 @@ defmodule PouCon.Application do
     children = [
       PouConWeb.Telemetry,
       PouCon.Repo,
-      PouCon.PortSupervisor,
-      PouCon.DeviceManager,
+      PouCon.Hardware.PortSupervisor,
+      PouCon.Hardware.DeviceManager,
 
       # ——————————————————————————————————————————————
       # CRITICAL: Registry must start BEFORE the DynamicSupervisor
@@ -23,7 +23,7 @@ defmodule PouCon.Application do
         # ← practically infinite
         # ← restart as fast as possible
         strategy: :one_for_one,
-        name: PouCon.DeviceControllerSupervisor,
+        name: PouCon.Equipment.DeviceControllerSupervisor,
         max_restarts: 1_000_000,
         max_seconds: 1
       },
@@ -37,19 +37,19 @@ defmodule PouCon.Application do
       {Phoenix.PubSub, name: PouCon.PubSub},
 
       # Load and start all equipment controllers
-      {Task, fn -> PouCon.EquipmentLoader.load_and_start_controllers() end},
+      {Task, fn -> PouCon.Equipment.EquipmentLoader.load_and_start_controllers() end},
 
       # Environment auto-control (fans/pumps based on temp/humidity)
-      PouCon.DeviceControllers.Environment,
+      PouCon.Equipment.Controllers.EnvironmentController,
 
       # Light scheduler - automated light control based on schedules
-      PouCon.LightScheduler,
+      PouCon.Automation.Lighting.LightScheduler,
 
       # Egg collection scheduler - automated egg collection based on schedules
-      PouCon.EggCollectionScheduler,
+      PouCon.Automation.EggCollection.EggCollectionScheduler,
 
       # Feeding scheduler - automated feeding cycle based on schedules
-      PouCon.FeedingScheduler,
+      PouCon.Automation.Feeding.FeedingScheduler,
 
       # Web endpoint — always last
       PouConWeb.Endpoint

@@ -2,8 +2,8 @@ defmodule PouCon.DeviceControllers.TempHumSenTest do
   use PouCon.DataCase
   import Mox
 
-  alias PouCon.DeviceControllers.TempHumSen
-  alias PouCon.DeviceManagerMock
+  alias PouCon.Equipment.Controllers.TempHumSen
+  alias PouCon.Hardware.DeviceManagerMock
 
   setup :verify_on_exit!
 

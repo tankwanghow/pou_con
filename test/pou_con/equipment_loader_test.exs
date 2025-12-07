@@ -2,8 +2,8 @@ defmodule PouCon.EquipmentLoaderTest do
   # Remove async: true to avoid SQLite database busy errors
   use PouCon.DataCase
 
-  alias PouCon.EquipmentLoader
-  alias PouCon.Devices
+  alias PouCon.Equipment.EquipmentLoader
+  alias PouCon.Equipment.Devices
 
   # Note: We're testing the logic of controller module selection
   # without actually starting controllers (which would require registry setup)

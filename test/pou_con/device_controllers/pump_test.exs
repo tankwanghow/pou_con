@@ -2,8 +2,8 @@ defmodule PouCon.DeviceControllers.PumpTest do
   use PouCon.DataCase
   import Mox
 
-  alias PouCon.DeviceControllers.Pump
-  alias PouCon.DeviceManagerMock
+  alias PouCon.Equipment.Controllers.Pump
+  alias PouCon.Hardware.DeviceManagerMock
 
   setup :verify_on_exit!
 

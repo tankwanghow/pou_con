@@ -2,8 +2,8 @@ defmodule PouCon.DeviceControllers.EggTest do
   use PouCon.DataCase
   import Mox
 
-  alias PouCon.DeviceControllers.Egg
-  alias PouCon.DeviceManagerMock
+  alias PouCon.Equipment.Controllers.Egg
+  alias PouCon.Hardware.DeviceManagerMock
 
   setup :verify_on_exit!
 

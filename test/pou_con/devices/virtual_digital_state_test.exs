@@ -1,8 +1,8 @@
-defmodule PouCon.Devices.VirtualDigitalStateTest do
+defmodule PouCon.Equipment.Devices.VirtualDigitalStateTest do
   # Remove async: true to avoid SQLite database busy errors
   use PouCon.DataCase
 
-  alias PouCon.Devices.VirtualDigitalState
+  alias PouCon.Equipment.Schemas.VirtualDigitalState
 
   describe "changeset/2" do
     test "valid changeset with all required fields" do

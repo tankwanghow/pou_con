@@ -1,7 +1,7 @@
-defmodule PouCon.Auth.AppConfigTest do
+defmodule PouCon.Auth.Auth.AppConfigTest do
   use PouCon.DataCase, async: true
 
-  alias PouCon.Auth.AppConfig
+  alias PouCon.Auth.Auth.Auth.AppConfig
 
   describe "changeset/2" do
     test "valid changeset with password" do

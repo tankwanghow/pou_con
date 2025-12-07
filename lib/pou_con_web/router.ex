@@ -45,8 +45,8 @@ defmodule PouConWeb.Router do
     pipe_through(:browser)
 
     live("/", LandingLive.Index, :index)
-    live("/setup", AuthLive.Setup, :index)
-    live("/login", AuthLive.Login, :index)
+    live("/setup", Live.Auth.Setup, :index)
+    live("/login", Live.Auth.Login, :index)
 
     get("/auth/session", SessionController, :create)
     post("/logout", AuthController, :logout)
@@ -61,15 +61,15 @@ defmodule PouConWeb.Router do
 
     live_session :ensure_authenticated,
       on_mount: [{PouConWeb.AuthHooks, :ensure_authenticated}] do
-      live("/dashboard", DashboardLive, :index)
+      live("/dashboard", Live.Dashboard.Index, :index)
       live("/simulation", SimulationLive, :index)
-      live("/environment", EnvironmentLive, :index)
-      live("/environment/control", EnvironmentControlLive, :index)
-      live("/egg_collection", EggCollectionLive, :index)
-      live("/light_schedule", LightScheduleLive, :index)
-      live("/feeding_schedule", FeedingScheduleLive, :index)
-      live("/dung", DungLive, :index)
-      live("/feed", FeedLive, :index)
+      live("/environment", Live.Environment.Index, :index)
+      live("/environment/control", Live.Environment.Control, :index)
+      live("/egg_collection", Live.EggCollection.Schedules, :index)
+      live("/light_schedule", Live.Lighting.Schedules, :index)
+      live("/feeding_schedule", Live.Feeding.Schedules, :index)
+      live("/dung", Live.Dung.Index, :index)
+      live("/feed", Live.Feeding.Index, :index)
     end
   end
 
@@ -86,16 +86,16 @@ defmodule PouConWeb.Router do
         # {PouConWeb.AuthHooks, :ensure_authenticated},
         {PouConWeb.AuthHooks, :ensure_is_admin}
       ] do
-      live("/settings", AuthLive.AdminSettings)
-      live("/devices", DeviceLive.Index, :index)
-      live("/ports", PortLive.Index, :index)
-      live("/equipment", EquipmentLive.Index, :index)
-      live("/devices/new", DeviceLive.Form, :new)
-      live("/devices/:id/edit", DeviceLive.Form, :edit)
-      live("/ports/new", PortLive.Form, :new)
-      live("/ports/:id/edit", PortLive.Form, :edit)
-      live("/equipment/new", EquipmentLive.Form, :new)
-      live("/equipment/:id/edit", EquipmentLive.Form, :edit)
+      live("/settings", Live.Auth.AdminSettings)
+      live("/devices", Live.Admin.Devices.Index, :index)
+      live("/ports", Live.Admin.Ports.Index, :index)
+      live("/equipment", Live.Admin.Equipment.Index, :index)
+      live("/devices/new", Live.Admin.Devices.Form, :new)
+      live("/devices/:id/edit", Live.Admin.Devices.Form, :edit)
+      live("/ports/new", Live.Admin.Ports.Form, :new)
+      live("/ports/:id/edit", Live.Admin.Ports.Form, :edit)
+      live("/equipment/new", Live.Admin.Equipment.Form, :new)
+      live("/equipment/:id/edit", Live.Admin.Equipment.Form, :edit)
     end
   end
 end

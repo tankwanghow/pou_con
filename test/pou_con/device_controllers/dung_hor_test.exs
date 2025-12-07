@@ -2,8 +2,8 @@ defmodule PouCon.DeviceControllers.DungHorTest do
   use PouCon.DataCase
   import Mox
 
-  alias PouCon.DeviceControllers.DungHor
-  alias PouCon.DeviceManagerMock
+  alias PouCon.Equipment.Controllers.DungHor
+  alias PouCon.Hardware.DeviceManagerMock
 
   setup :verify_on_exit!
 

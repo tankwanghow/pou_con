@@ -1,8 +1,8 @@
-defmodule PouCon.Devices.DeviceTest do
+defmodule PouCon.Equipment.Devices.DeviceTest do
   use PouCon.DataCase, async: true
 
-  alias PouCon.Devices.Device
-  alias PouCon.Ports
+  alias PouCon.Equipment.Schemas.Device
+  alias PouCon.Hardware.Ports.Ports
 
   describe "changeset/2" do
     setup do

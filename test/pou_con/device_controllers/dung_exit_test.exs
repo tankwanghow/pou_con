@@ -2,8 +2,8 @@ defmodule PouCon.DeviceControllers.DungExitTest do
   use PouCon.DataCase
   import Mox
 
-  alias PouCon.DeviceControllers.DungExit
-  alias PouCon.DeviceManagerMock
+  alias PouCon.Equipment.Controllers.DungExit
+  alias PouCon.Hardware.DeviceManagerMock
 
   setup :verify_on_exit!
 
