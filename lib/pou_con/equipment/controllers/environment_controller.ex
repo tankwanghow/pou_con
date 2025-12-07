@@ -8,6 +8,7 @@ defmodule PouCon.Equipment.Controllers.Environment do
   require Logger
 
   alias PouCon.Automation.Environment.EnvironmentControl
+  alias PouCon.Automation.Environment.Schemas.Config
   alias PouCon.Equipment.Controllers.{Fan, Pump, TempHumSen}
 
   @pubsub_topic "device_data"
@@ -254,7 +255,7 @@ defmodule PouCon.Equipment.Controllers.Environment do
 
   defp try_turn_on_fan(name) do
     config = EnvironmentControl.get_config()
-    nc_fans = EnvironmentControl.Config.parse_order(config.nc_fans)
+    nc_fans = Config.parse_order(config.nc_fans)
     is_nc = name in nc_fans
 
     try do
@@ -298,7 +299,7 @@ defmodule PouCon.Equipment.Controllers.Environment do
 
   defp try_turn_off_fan(name) do
     config = EnvironmentControl.get_config()
-    nc_fans = EnvironmentControl.Config.parse_order(config.nc_fans)
+    nc_fans = Config.parse_order(config.nc_fans)
     is_nc = name in nc_fans
 
     try do

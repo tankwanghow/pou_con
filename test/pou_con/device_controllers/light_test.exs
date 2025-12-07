@@ -1,9 +1,9 @@
-defmodule PouCon.DeviceControllers.LightTest do
+defmodule PouCon.Equipment.Controllers.LightTest do
   use PouCon.DataCase
   import Mox
 
   alias PouCon.Equipment.Controllers.Light
-  alias PouCon.Hardware.DeviceManagerMock
+  alias PouCon.DeviceManagerMock
 
   setup :verify_on_exit!
 
@@ -105,7 +105,7 @@ defmodule PouCon.DeviceControllers.LightTest do
 
       status = Light.status(name)
       assert status.error == :timeout
-      assert status.error_message == "POLLING TIMEOUT"
+      assert status.error_message == "SENSOR TIMEOUT"
     end
   end
 

@@ -2,7 +2,7 @@ defmodule PouCon.DevicesTest do
   use PouCon.DataCase, async: true
 
   alias PouCon.Equipment.Devices
-  alias PouCon.Equipment.Devices.{Device, Equipment}
+  alias PouCon.Equipment.Schemas.{Device, Equipment}
   alias PouCon.Hardware.Ports.Ports
 
   describe "devices" do

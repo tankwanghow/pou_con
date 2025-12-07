@@ -1,7 +1,7 @@
-defmodule PouCon.Ports.PortTest do
+defmodule PouCon.Hardware.Ports.PortTest do
   use PouCon.DataCase, async: true
 
-  alias PouCon.Ports.Port
+  alias PouCon.Hardware.Ports.Port
 
   describe "changeset/2" do
     test "valid changeset with required field only" do

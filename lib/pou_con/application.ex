@@ -40,7 +40,7 @@ defmodule PouCon.Application do
       {Task, fn -> PouCon.Equipment.EquipmentLoader.load_and_start_controllers() end},
 
       # Environment auto-control (fans/pumps based on temp/humidity)
-      PouCon.Equipment.Controllers.EnvironmentController,
+      PouCon.Equipment.Controllers.Environment,
 
       # Light scheduler - automated light control based on schedules
       PouCon.Automation.Lighting.LightScheduler,

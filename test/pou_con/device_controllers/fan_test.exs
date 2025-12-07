@@ -1,9 +1,9 @@
-defmodule PouCon.DeviceControllers.FanTest do
+defmodule PouCon.Equipment.Controllers.FanTest do
   use PouCon.DataCase
   import Mox
 
   alias PouCon.Equipment.Controllers.Fan
-  alias PouCon.Hardware.DeviceManagerMock
+  alias PouCon.DeviceManagerMock
 
   setup :verify_on_exit!
 

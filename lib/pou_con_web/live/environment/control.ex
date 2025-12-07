@@ -2,6 +2,7 @@ defmodule PouConWeb.Live.Environment.Control do
   use PouConWeb, :live_view
 
   alias PouCon.Automation.Environment.EnvironmentControl
+  alias PouCon.Automation.Environment.Schemas.Config
   alias PouCon.Equipment.Controllers.Environment
 
   @pubsub_topic "device_data"
@@ -16,7 +17,7 @@ defmodule PouConWeb.Live.Environment.Control do
     socket =
       socket
       |> assign(:config, config)
-      |> assign(:changeset, EnvironmentControl.Config.changeset(config, %{}))
+      |> assign(:changeset, Config.changeset(config, %{}))
       |> assign(:status, status)
       |> assign(:fans, list_equipment("fan"))
       |> assign(:pumps, list_equipment("pump"))
@@ -31,7 +32,7 @@ defmodule PouConWeb.Live.Environment.Control do
         {:noreply,
          socket
          |> assign(:config, config)
-         |> assign(:changeset, EnvironmentControl.Config.changeset(config, %{}))
+         |> assign(:changeset, Config.changeset(config, %{}))
          |> put_flash(:info, "Configuration saved!")}
 
       {:error, changeset} ->

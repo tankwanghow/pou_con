@@ -14,12 +14,12 @@ config :pou_con,
   ecto_repos: [PouCon.Repo],
   generators: [timestamp_type: :utc_datetime]
 
-config :pou_con, :device_manager, PouCon.DeviceManager
+config :pou_con, :device_manager, PouCon.Hardware.DeviceManager
 
 if System.get_env("SIMULATE_DEVICES") == "1" do
-  config :pou_con, :modbus_adapter, PouCon.Modbus.SimulatedAdapter
+  config :pou_con, :modbus_adapter, PouCon.Hardware.Modbus.SimulatedAdapter
 else
-  config :pou_con, :modbus_adapter, PouCon.Modbus.RealAdapter
+  config :pou_con, :modbus_adapter, PouCon.Hardware.Modbus.RealAdapter
 end
 
 # Configures the endpoint

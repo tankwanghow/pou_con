@@ -1,9 +1,9 @@
-defmodule PouCon.DeviceControllers.EggTest do
+defmodule PouCon.Equipment.Controllers.EggTest do
   use PouCon.DataCase
   import Mox
 
   alias PouCon.Equipment.Controllers.Egg
-  alias PouCon.Hardware.DeviceManagerMock
+  alias PouCon.DeviceManagerMock
 
   setup :verify_on_exit!
 
@@ -105,7 +105,7 @@ defmodule PouCon.DeviceControllers.EggTest do
 
       status = Egg.status(name)
       assert status.error == :timeout
-      assert status.error_message == "POLLING TIMEOUT"
+      assert status.error_message == "SENSOR TIMEOUT"
     end
   end
 

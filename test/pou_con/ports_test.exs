@@ -1,8 +1,8 @@
 defmodule PouCon.PortsTest do
   use PouCon.DataCase, async: true
 
-  alias PouCon.Ports
-  alias PouCon.Ports.Port
+  alias PouCon.Hardware.Ports.Ports
+  alias PouCon.Hardware.Ports.Port
 
   describe "ports" do
     test "list_ports/0 returns all ports" do

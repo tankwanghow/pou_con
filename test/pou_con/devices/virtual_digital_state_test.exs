@@ -1,4 +1,4 @@
-defmodule PouCon.Equipment.Devices.VirtualDigitalStateTest do
+defmodule PouCon.Equipment.Schemas.VirtualDigitalStateTest do
   # Remove async: true to avoid SQLite database busy errors
   use PouCon.DataCase
 

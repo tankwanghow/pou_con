@@ -1,9 +1,9 @@
-defmodule PouCon.DeviceControllers.FeedInTest do
+defmodule PouCon.Equipment.Controllers.FeedInTest do
   use PouCon.DataCase
   import Mox
 
   alias PouCon.Equipment.Controllers.FeedIn
-  alias PouCon.Hardware.DeviceManagerMock
+  alias PouCon.DeviceManagerMock
 
   setup :verify_on_exit!
 

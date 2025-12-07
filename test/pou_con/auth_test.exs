@@ -2,8 +2,8 @@ defmodule PouCon.AuthTest do
   # Remove async: true
   use PouCon.DataCase
 
-  alias PouCon.Auth.Auth.Auth
-  alias PouCon.Auth.Auth.Auth.AppConfig
+  alias PouCon.Auth
+  alias PouCon.Auth.AppConfig
   alias PouCon.Repo
 
   describe "verify_password/2" do

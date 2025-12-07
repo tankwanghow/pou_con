@@ -1,7 +1,7 @@
 defmodule PouCon.PortSupervisorTest do
   use ExUnit.Case, async: true
 
-  alias PouCon.PortSupervisor
+  alias PouCon.Hardware.PortSupervisor
 
   test "starts successfully" do
     # The supervisor is started by the application
