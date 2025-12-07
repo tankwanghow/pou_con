@@ -1,4 +1,4 @@
-defmodule PouCon.DeviceControllers.FeedingController do
+defmodule PouCon.DeviceControllers.Feeding do
   use GenServer
   require Logger
 
@@ -250,7 +250,7 @@ defmodule PouCon.DeviceControllers.FeedingController do
 
   # Defensive recovery
   defp sync_and_update(nil) do
-    Logger.error("FeedingController: sync_and_update called with nil state!")
+    Logger.error("Feeding: sync_and_update called with nil state!")
     %State{name: "recovered", error: :crashed_previously}
   end
 

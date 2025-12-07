@@ -1,8 +1,8 @@
-defmodule PouCon.DeviceControllers.FanControllerTest do
+defmodule PouCon.DeviceControllers.FanTest do
   use PouCon.DataCase
   import Mox
 
-  alias PouCon.DeviceControllers.FanController
+  alias PouCon.DeviceControllers.Fan
   alias PouCon.DeviceManagerMock
 
   setup :verify_on_exit!
@@ -42,7 +42,7 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      assert {:ok, pid} = FanController.start(opts)
+      assert {:ok, pid} = Fan.start(opts)
       assert Process.alive?(pid)
     end
 
@@ -60,7 +60,7 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
       # DynamicSupervisor.start_child handles the crash gracefully usually returning {:error, ...}
       # or {:ok, pid} then pid dies.
 
-      result = FanController.start(opts)
+      result = Fan.start(opts)
 
       case result do
         {:ok, pid} ->
@@ -85,12 +85,12 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = FanController.start(opts)
+      {:ok, _pid} = Fan.start(opts)
       %{name: name}
     end
 
     test "returns status map with all required fields", %{name: name} do
-      status = FanController.status(name)
+      status = Fan.status(name)
 
       assert is_map(status)
       assert status.name == name
@@ -120,12 +120,12 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = FanController.start(opts)
+      {:ok, _pid} = Fan.start(opts)
 
       # Wait for init poll
       Process.sleep(50)
 
-      status = FanController.status(name)
+      status = Fan.status(name)
       assert status.actual_on == true
       assert status.is_running == true
       assert status.mode == :manual
@@ -144,10 +144,10 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = FanController.start(opts)
+      {:ok, _pid} = Fan.start(opts)
       Process.sleep(50)
 
-      status = FanController.status(name)
+      status = Fan.status(name)
       assert status.error == :timeout
       assert status.error_message == "SENSOR TIMEOUT"
     end
@@ -164,7 +164,7 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, pid} = FanController.start(opts)
+      {:ok, pid} = Fan.start(opts)
       %{name: name, pid: pid}
     end
 
@@ -175,10 +175,10 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
         {:ok, :success}
       end)
 
-      FanController.turn_on(name)
+      Fan.turn_on(name)
       Process.sleep(50)
 
-      status = FanController.status(name)
+      status = Fan.status(name)
       assert status.commanded_on == true
     end
 
@@ -202,10 +202,10 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
         {:ok, :success}
       end)
 
-      FanController.turn_off(name)
+      Fan.turn_off(name)
       Process.sleep(50)
 
-      status = FanController.status(name)
+      status = Fan.status(name)
       assert status.commanded_on == false
     end
 
@@ -215,7 +215,7 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
         {:ok, :success}
       end)
 
-      FanController.set_manual(name)
+      Fan.set_manual(name)
       Process.sleep(50)
     end
 
@@ -225,7 +225,7 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
         {:ok, :success}
       end)
 
-      FanController.set_auto(name)
+      Fan.set_auto(name)
       Process.sleep(50)
     end
   end
@@ -248,10 +248,10 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = FanController.start(opts)
+      {:ok, _pid} = Fan.start(opts)
       Process.sleep(50)
 
-      status = FanController.status(name)
+      status = Fan.status(name)
       assert status.error == :on_but_not_running
       assert status.error_message == "ON BUT NOT RUNNING"
     end
@@ -273,10 +273,10 @@ defmodule PouCon.DeviceControllers.FanControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = FanController.start(opts)
+      {:ok, _pid} = Fan.start(opts)
       Process.sleep(50)
 
-      status = FanController.status(name)
+      status = Fan.status(name)
       assert status.error == :off_but_running
       assert status.error_message == "OFF BUT RUNNING"
     end

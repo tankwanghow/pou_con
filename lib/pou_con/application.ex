@@ -40,7 +40,13 @@ defmodule PouCon.Application do
       {Task, fn -> PouCon.EquipmentLoader.load_and_start_controllers() end},
 
       # Environment auto-control (fans/pumps based on temp/humidity)
-      PouCon.DeviceControllers.EnvironmentController,
+      PouCon.DeviceControllers.Environment,
+
+      # Light scheduler - automated light control based on schedules
+      PouCon.LightScheduler,
+
+      # Egg collection scheduler - automated egg collection based on schedules
+      PouCon.EggCollectionScheduler,
 
       # Web endpoint — always last
       PouConWeb.Endpoint

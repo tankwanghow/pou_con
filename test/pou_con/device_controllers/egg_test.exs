@@ -1,8 +1,8 @@
-defmodule PouCon.DeviceControllers.EggControllerTest do
+defmodule PouCon.DeviceControllers.EggTest do
   use PouCon.DataCase
   import Mox
 
-  alias PouCon.DeviceControllers.EggController
+  alias PouCon.DeviceControllers.Egg
   alias PouCon.DeviceManagerMock
 
   setup :verify_on_exit!
@@ -34,7 +34,7 @@ defmodule PouCon.DeviceControllers.EggControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      assert {:ok, pid} = EggController.start(opts)
+      assert {:ok, pid} = Egg.start(opts)
       assert Process.alive?(pid)
     end
   end
@@ -51,12 +51,12 @@ defmodule PouCon.DeviceControllers.EggControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = EggController.start(opts)
+      {:ok, _pid} = Egg.start(opts)
       %{name: name}
     end
 
     test "returns status map with all required fields", %{name: name} do
-      status = EggController.status(name)
+      status = Egg.status(name)
       assert is_map(status)
       assert status.name == name
       assert status.mode == :auto
@@ -80,10 +80,10 @@ defmodule PouCon.DeviceControllers.EggControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = EggController.start(opts)
+      {:ok, _pid} = Egg.start(opts)
       Process.sleep(50)
 
-      status = EggController.status(name)
+      status = Egg.status(name)
       assert status.actual_on == true
       assert status.is_running == true
       assert status.mode == :manual
@@ -100,10 +100,10 @@ defmodule PouCon.DeviceControllers.EggControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = EggController.start(opts)
+      {:ok, _pid} = Egg.start(opts)
       Process.sleep(50)
 
-      status = EggController.status(name)
+      status = Egg.status(name)
       assert status.error == :timeout
       assert status.error_message == "POLLING TIMEOUT"
     end
@@ -120,7 +120,7 @@ defmodule PouCon.DeviceControllers.EggControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, pid} = EggController.start(opts)
+      {:ok, pid} = Egg.start(opts)
       %{name: name, pid: pid}
     end
 
@@ -130,10 +130,10 @@ defmodule PouCon.DeviceControllers.EggControllerTest do
         {:ok, :success}
       end)
 
-      EggController.turn_on(name)
+      Egg.turn_on(name)
       Process.sleep(50)
 
-      status = EggController.status(name)
+      status = Egg.status(name)
       assert status.commanded_on == true
     end
 
@@ -151,10 +151,10 @@ defmodule PouCon.DeviceControllers.EggControllerTest do
         {:ok, :success}
       end)
 
-      EggController.turn_off(name)
+      Egg.turn_off(name)
       Process.sleep(50)
 
-      status = EggController.status(name)
+      status = Egg.status(name)
       assert status.commanded_on == false
     end
 
@@ -164,7 +164,7 @@ defmodule PouCon.DeviceControllers.EggControllerTest do
         {:ok, :success}
       end)
 
-      EggController.set_manual(name)
+      Egg.set_manual(name)
       Process.sleep(50)
     end
   end

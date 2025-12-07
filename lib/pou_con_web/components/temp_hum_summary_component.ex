@@ -220,6 +220,8 @@ defmodule PouConWeb.Components.TempHumSummaryComponent do
     end
   end
 
+  defp get_dew_color(nil, nil), do: "rose"
+
   defp get_dew_color(dew, temp) do
     # If dew point is close to temp, condensation risk is high (bad)
     if temp - dew < 2.0, do: "rose", else: "green"

@@ -79,7 +79,3 @@ config :phoenix_live_view,
   debug_attributes: true,
   # Enable helpful, but potentially expensive runtime checks
   enable_expensive_runtime_checks: true
-
-if System.get_env("SIMULATE_DEVICES") == "1" do
-  config :pou_con, :modbus_adapter, PouCon.Modbus.SimulatedAdapter
-end

@@ -1,4 +1,4 @@
-defmodule PouCon.DeviceControllers.TempHumSenController do
+defmodule PouCon.DeviceControllers.TempHumSen do
   use GenServer
   require Logger
 
@@ -107,7 +107,7 @@ defmodule PouCon.DeviceControllers.TempHumSenController do
   end
 
   defp sync_and_update(nil) do
-    Logger.error("TempHumSenController: sync_and_update called with nil state!")
+    Logger.error("TempHumSen: sync_and_update called with nil state!")
     %State{name: "recovered", error: :crashed_previously}
   end
 

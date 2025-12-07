@@ -1,8 +1,8 @@
-defmodule PouCon.DeviceControllers.FeedInControllerTest do
+defmodule PouCon.DeviceControllers.FeedInTest do
   use PouCon.DataCase
   import Mox
 
-  alias PouCon.DeviceControllers.FeedInController
+  alias PouCon.DeviceControllers.FeedIn
   alias PouCon.DeviceManagerMock
 
   setup :verify_on_exit!
@@ -44,7 +44,7 @@ defmodule PouCon.DeviceControllers.FeedInControllerTest do
         full_switch: devices.full_switch
       ]
 
-      assert {:ok, pid} = FeedInController.start(opts)
+      assert {:ok, pid} = FeedIn.start(opts)
       assert Process.alive?(pid)
     end
   end
@@ -66,12 +66,12 @@ defmodule PouCon.DeviceControllers.FeedInControllerTest do
         full_switch: devices.full_switch
       ]
 
-      {:ok, _pid} = FeedInController.start(opts)
+      {:ok, _pid} = FeedIn.start(opts)
       %{name: name}
     end
 
     test "returns status map", %{name: name} do
-      status = FeedInController.status(name)
+      status = FeedIn.status(name)
       assert is_map(status)
       assert status.name == name
       assert status.mode == :auto
@@ -103,10 +103,10 @@ defmodule PouCon.DeviceControllers.FeedInControllerTest do
         full_switch: devices.full_switch
       ]
 
-      {:ok, _pid} = FeedInController.start(opts)
+      {:ok, _pid} = FeedIn.start(opts)
       Process.sleep(50)
 
-      status = FeedInController.status(name)
+      status = FeedIn.status(name)
       assert status.position_ok == true
       assert status.bucket_full == true
       assert status.actual_on == true
@@ -131,7 +131,7 @@ defmodule PouCon.DeviceControllers.FeedInControllerTest do
         full_switch: devices.full_switch
       ]
 
-      {:ok, pid} = FeedInController.start(opts)
+      {:ok, pid} = FeedIn.start(opts)
       %{name: name, pid: pid}
     end
 
@@ -141,10 +141,10 @@ defmodule PouCon.DeviceControllers.FeedInControllerTest do
         {:ok, :success}
       end)
 
-      FeedInController.turn_on(name)
+      FeedIn.turn_on(name)
       Process.sleep(50)
 
-      status = FeedInController.status(name)
+      status = FeedIn.status(name)
       assert status.commanded_on == true
     end
   end

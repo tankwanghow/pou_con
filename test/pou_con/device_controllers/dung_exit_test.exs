@@ -1,8 +1,8 @@
-defmodule PouCon.DeviceControllers.DungExitControllerTest do
+defmodule PouCon.DeviceControllers.DungExitTest do
   use PouCon.DataCase
   import Mox
 
-  alias PouCon.DeviceControllers.DungExitController
+  alias PouCon.DeviceControllers.DungExit
   alias PouCon.DeviceManagerMock
 
   setup :verify_on_exit!
@@ -32,7 +32,7 @@ defmodule PouCon.DeviceControllers.DungExitControllerTest do
         running_feedback: devices.running_feedback
       ]
 
-      assert {:ok, pid} = DungExitController.start(opts)
+      assert {:ok, pid} = DungExit.start(opts)
       assert Process.alive?(pid)
     end
   end
@@ -48,12 +48,12 @@ defmodule PouCon.DeviceControllers.DungExitControllerTest do
         running_feedback: devices.running_feedback
       ]
 
-      {:ok, _pid} = DungExitController.start(opts)
+      {:ok, _pid} = DungExit.start(opts)
       %{name: name}
     end
 
     test "returns status map with all required fields", %{name: name} do
-      status = DungExitController.status(name)
+      status = DungExit.status(name)
       assert is_map(status)
       assert status.name == name
       assert status.commanded_on == false
@@ -77,10 +77,10 @@ defmodule PouCon.DeviceControllers.DungExitControllerTest do
         running_feedback: devices.running_feedback
       ]
 
-      {:ok, _pid} = DungExitController.start(opts)
+      {:ok, _pid} = DungExit.start(opts)
       Process.sleep(50)
 
-      status = DungExitController.status(name)
+      status = DungExit.status(name)
       assert status.actual_on == true
       assert status.is_running == true
     end
@@ -96,7 +96,7 @@ defmodule PouCon.DeviceControllers.DungExitControllerTest do
         running_feedback: devices.running_feedback
       ]
 
-      {:ok, pid} = DungExitController.start(opts)
+      {:ok, pid} = DungExit.start(opts)
       %{name: name, pid: pid}
     end
 
@@ -106,10 +106,10 @@ defmodule PouCon.DeviceControllers.DungExitControllerTest do
         {:ok, :success}
       end)
 
-      DungExitController.turn_on(name)
+      DungExit.turn_on(name)
       Process.sleep(50)
 
-      status = DungExitController.status(name)
+      status = DungExit.status(name)
       assert status.commanded_on == true
     end
 
@@ -127,10 +127,10 @@ defmodule PouCon.DeviceControllers.DungExitControllerTest do
         {:ok, :success}
       end)
 
-      DungExitController.turn_off(name)
+      DungExit.turn_off(name)
       Process.sleep(50)
 
-      status = DungExitController.status(name)
+      status = DungExit.status(name)
       assert status.commanded_on == false
     end
   end

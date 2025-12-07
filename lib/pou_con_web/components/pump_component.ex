@@ -1,6 +1,6 @@
 defmodule PouConWeb.Components.PumpComponent do
   use PouConWeb, :live_component
-  alias PouCon.DeviceControllers.PumpController
+  alias PouCon.DeviceControllers.Pump
 
   @impl true
   def update(assigns, socket) do
@@ -72,7 +72,7 @@ defmodule PouConWeb.Components.PumpComponent do
         <div class="flex-1 flex flex-col gap-1 min-w-0">
           <div class={"text-[9px] font-bold uppercase tracking-wide text-#{@display.color}-500 truncate"}>
             <%= if @display.is_error do %>
-              ! Error
+              {@display.err_msg}
             <% else %>
               {@display.state_text}
             <% end %>
@@ -119,8 +119,8 @@ defmodule PouConWeb.Components.PumpComponent do
     name = socket.assigns.device_name
 
     case mode do
-      "auto" -> PumpController.set_auto(name)
-      "manual" -> PumpController.set_manual(name)
+      "auto" -> Pump.set_auto(name)
+      "manual" -> Pump.set_manual(name)
     end
 
     {:noreply, socket}
@@ -132,9 +132,9 @@ defmodule PouConWeb.Components.PumpComponent do
       name = socket.assigns.device_name
 
       if socket.assigns.display.is_running or socket.assigns.display.is_error do
-        PumpController.turn_off(name)
+        Pump.turn_off(name)
       else
-        PumpController.turn_on(name)
+        Pump.turn_on(name)
       end
     end
 
@@ -176,7 +176,8 @@ defmodule PouConWeb.Components.PumpComponent do
       mode: status.mode,
       state_text: if(is_running, do: "RUNNING", else: "STOPPED"),
       color: color,
-      anim_class: anim_class
+      anim_class: anim_class,
+      err_msg: status.error_message
     }
   end
 end

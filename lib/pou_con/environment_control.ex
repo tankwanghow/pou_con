@@ -82,19 +82,51 @@ defmodule PouCon.EnvironmentControl do
 
   @doc """
   Get ordered list of fans to control, limited to `count`.
+  Filters out fans in MANUAL mode to avoid blocking subsequent fans.
   """
   def get_fans_to_turn_on(%Config{fan_order: order}, count) do
+    alias PouCon.DeviceControllers.Fan
+
     order
     |> Config.parse_order()
+    |> Enum.filter(fn name ->
+      # Only include fans in AUTO mode
+      try do
+        case Fan.status(name) do
+          %{mode: :auto} -> true
+          _ -> false
+        end
+      rescue
+        _ -> false
+      catch
+        :exit, _ -> false
+      end
+    end)
     |> Enum.take(count)
   end
 
   @doc """
   Get ordered list of pumps to control, limited to `count`.
+  Filters out pumps in MANUAL mode to avoid blocking subsequent pumps.
   """
   def get_pumps_to_turn_on(%Config{pump_order: order}, count) do
+    alias PouCon.DeviceControllers.Pump
+
     order
     |> Config.parse_order()
+    |> Enum.filter(fn name ->
+      # Only include pumps in AUTO mode
+      try do
+        case Pump.status(name) do
+          %{mode: :auto} -> true
+          _ -> false
+        end
+      rescue
+        _ -> false
+      catch
+        :exit, _ -> false
+      end
+    end)
     |> Enum.take(count)
   end
 end

@@ -135,7 +135,6 @@ defmodule PouConWeb.SimulationLive do
 
   @impl true
   def handle_event("set_offline", %{"device" => device_name, "value" => offline_str}, socket) do
-    IO.inspect({device_name, offline_str})
     offline? = offline_str == "true"
     DeviceManager.simulate_offline(device_name, offline?)
     {:noreply, socket}
@@ -144,7 +143,7 @@ defmodule PouConWeb.SimulationLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-5xl mx-auto">
+    <Layouts.app flash={@flash}>
       <div class="flex justify-between items-center mb-4">
         <h1 class="text-xl font-bold">Device Simulation</h1>
         <.navigate to="/dashboard" label="Dashboard" />
@@ -200,7 +199,7 @@ defmodule PouConWeb.SimulationLive do
                 navigate={~p"/admin/equipment/#{device.equipment_id}/edit?return_to=simulation"}
                 class="hover:underline"
               >
-                {device.equipment_title || device.equipment}
+                {"#{device.equipment_title} (#{device.equipment})"}
               </.link>
             <% else %>
               {device.equipment_title || device.equipment}
@@ -286,7 +285,7 @@ defmodule PouConWeb.SimulationLive do
           <% end %>
 
           <div class="flex-1">
-            <% is_offline = device.current_value == {:error, :timeout}%>
+            <% is_offline = device.current_value == {:error, :timeout} %>
             <button
               phx-click="set_offline"
               phx-value-device={device.name}
@@ -298,7 +297,7 @@ defmodule PouConWeb.SimulationLive do
           </div>
         </div>
       <% end %>
-    </div>
+    </Layouts.app>
     """
   end
 

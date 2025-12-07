@@ -1,4 +1,4 @@
-defmodule PouCon.DeviceControllers.EnvironmentController do
+defmodule PouCon.DeviceControllers.Environment do
   @moduledoc """
   Automatically controls fans and pumps based on average temperature and humidity.
   Only affects devices in AUTO mode.
@@ -8,7 +8,7 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
   require Logger
 
   alias PouCon.EnvironmentControl
-  alias PouCon.DeviceControllers.{FanController, PumpController, TempHumSenController}
+  alias PouCon.DeviceControllers.{Fan, Pump, TempHumSen}
 
   @pubsub_topic "device_data"
 
@@ -102,7 +102,7 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
       sensors
       |> Enum.map(fn eq ->
         try do
-          TempHumSenController.status(eq.name)
+          TempHumSen.status(eq.name)
         rescue
           _ -> nil
         catch
@@ -193,6 +193,7 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
         if try_turn_on_fan(name) do
           {[name | current_fans], current_pumps, true}
         else
+          # Failed to turn on (likely MANUAL mode) - don't block, just skip
           {current_fans, current_pumps, false}
         end
 
@@ -200,10 +201,19 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
       length(fans_to_turn_off) > 0 ->
         name = hd(fans_to_turn_off)
 
-        if try_turn_off_fan(name) do
-          {current_fans -- [name], current_pumps, true}
-        else
-          {current_fans, current_pumps, false}
+        case try_turn_off_fan(name) do
+          :success ->
+            # Successfully turned off
+            {current_fans -- [name], current_pumps, true}
+
+          :manual_mode ->
+            # Fan is in MANUAL mode - remove from tracking to avoid blocking
+            Logger.debug("[Environment] Removing #{name} from tracking (MANUAL mode)")
+            {current_fans -- [name], current_pumps, true}
+
+          :error ->
+            # Other error - keep in list and try again later
+            {current_fans, current_pumps, false}
         end
 
       # Turn ON a pump
@@ -213,6 +223,7 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
         if try_turn_on_pump(name) do
           {current_fans, [name | current_pumps], true}
         else
+          # Failed to turn on (likely MANUAL mode) - don't block, just skip
           {current_fans, current_pumps, false}
         end
 
@@ -220,10 +231,19 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
       length(pumps_to_turn_off) > 0 ->
         name = hd(pumps_to_turn_off)
 
-        if try_turn_off_pump(name) do
-          {current_fans, current_pumps -- [name], true}
-        else
-          {current_fans, current_pumps, false}
+        case try_turn_off_pump(name) do
+          :success ->
+            # Successfully turned off
+            {current_fans, current_pumps -- [name], true}
+
+          :manual_mode ->
+            # Pump is in MANUAL mode - remove from tracking to avoid blocking
+            Logger.debug("[Environment] Removing #{name} from tracking (MANUAL mode)")
+            {current_fans, current_pumps -- [name], true}
+
+          :error ->
+            # Other error - keep in list and try again later
+            {current_fans, current_pumps, false}
         end
 
       # Nothing to change
@@ -238,7 +258,7 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
     is_nc = name in nc_fans
 
     try do
-      status = FanController.status(name)
+      status = Fan.status(name)
 
       if status[:mode] == :auto do
         # NC fans: turn_off command = fan runs (coil OFF = NC contact closed)
@@ -246,9 +266,9 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
         if is_nc do
           # Coil is ON, NC fan is OFF, need to turn OFF coil
           if status[:commanded_on] do
-            FanController.turn_off(name)
+            Fan.turn_off(name)
 
-            Logger.info("[EnvironmentController] Turning ON NC fan: #{name} (coil OFF)")
+            Logger.info("[Environment] Turning ON NC fan: #{name} (coil OFF)")
             true
           else
             # Already in correct state (coil OFF = fan ON)
@@ -256,9 +276,9 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
           end
         else
           if not status[:commanded_on] do
-            FanController.turn_on(name)
+            Fan.turn_on(name)
 
-            Logger.info("[EnvironmentController] Turning ON fan: #{name}")
+            Logger.info("[Environment] Turning ON fan: #{name}")
             true
           else
             # Already on
@@ -282,7 +302,7 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
     is_nc = name in nc_fans
 
     try do
-      status = FanController.status(name)
+      status = Fan.status(name)
 
       if status[:mode] == :auto do
         # NC fans: turn_on command = fan stops (coil ON = NC contact open)
@@ -290,43 +310,43 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
         if is_nc do
           # Coil is OFF, NC fan is ON, need to turn ON coil
           if not status[:commanded_on] do
-            FanController.turn_on(name)
+            Fan.turn_on(name)
 
-            Logger.info("[EnvironmentController] Turning OFF NC fan: #{name} (coil ON)")
-            true
+            Logger.info("[Environment] Turning OFF NC fan: #{name} (coil ON)")
+            :success
           else
             # Already in correct state (coil ON = fan OFF)
-            true
+            :success
           end
         else
           if status[:commanded_on] do
-            FanController.turn_off(name)
+            Fan.turn_off(name)
 
-            Logger.info("[EnvironmentController] Turning OFF fan: #{name}")
-            true
+            Logger.info("[Environment] Turning OFF fan: #{name}")
+            :success
           else
             # Already off
-            true
+            :success
           end
         end
       else
-        # Not in auto mode
-        false
+        # Not in auto mode - return :manual_mode to remove from tracking
+        :manual_mode
       end
     rescue
-      _ -> false
+      _ -> :error
     catch
-      :exit, _ -> false
+      :exit, _ -> :error
     end
   end
 
   defp try_turn_on_pump(name) do
     try do
-      status = PumpController.status(name)
+      status = Pump.status(name)
 
       if status[:mode] == :auto and not status[:commanded_on] do
-        PumpController.turn_on(name)
-        Logger.info("[EnvironmentController] Turning ON pump: #{name}")
+        Pump.turn_on(name)
+        Logger.info("[Environment] Turning ON pump: #{name}")
         true
       else
         status[:commanded_on]
@@ -340,19 +360,25 @@ defmodule PouCon.DeviceControllers.EnvironmentController do
 
   defp try_turn_off_pump(name) do
     try do
-      status = PumpController.status(name)
+      status = Pump.status(name)
 
-      if status[:mode] == :auto and status[:commanded_on] do
-        PumpController.turn_off(name)
-        Logger.info("[EnvironmentController] Turning OFF pump: #{name}")
-        true
+      if status[:mode] == :auto do
+        if status[:commanded_on] do
+          Pump.turn_off(name)
+          Logger.info("[Environment] Turning OFF pump: #{name}")
+          :success
+        else
+          # Already off
+          :success
+        end
       else
-        not status[:commanded_on]
+        # Not in auto mode - return :manual_mode to remove from tracking
+        :manual_mode
       end
     rescue
-      _ -> false
+      _ -> :error
     catch
-      :exit, _ -> false
+      :exit, _ -> :error
     end
   end
 

@@ -1,8 +1,8 @@
-defmodule PouCon.DeviceControllers.PumpControllerTest do
+defmodule PouCon.DeviceControllers.PumpTest do
   use PouCon.DataCase
   import Mox
 
-  alias PouCon.DeviceControllers.PumpController
+  alias PouCon.DeviceControllers.Pump
   alias PouCon.DeviceManagerMock
 
   setup :verify_on_exit!
@@ -42,7 +42,7 @@ defmodule PouCon.DeviceControllers.PumpControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      assert {:ok, pid} = PumpController.start(opts)
+      assert {:ok, pid} = Pump.start(opts)
       assert Process.alive?(pid)
     end
   end
@@ -59,12 +59,12 @@ defmodule PouCon.DeviceControllers.PumpControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = PumpController.start(opts)
+      {:ok, _pid} = Pump.start(opts)
       %{name: name}
     end
 
     test "returns status map with all required fields", %{name: name} do
-      status = PumpController.status(name)
+      status = Pump.status(name)
 
       assert is_map(status)
       assert status.name == name
@@ -94,10 +94,10 @@ defmodule PouCon.DeviceControllers.PumpControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = PumpController.start(opts)
+      {:ok, _pid} = Pump.start(opts)
       Process.sleep(50)
 
-      status = PumpController.status(name)
+      status = Pump.status(name)
       assert status.actual_on == true
       assert status.is_running == true
       assert status.mode == :manual
@@ -115,10 +115,10 @@ defmodule PouCon.DeviceControllers.PumpControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = PumpController.start(opts)
+      {:ok, _pid} = Pump.start(opts)
       Process.sleep(50)
 
-      status = PumpController.status(name)
+      status = Pump.status(name)
       assert status.error == :timeout
       assert status.error_message == "SENSOR TIMEOUT"
     end
@@ -135,7 +135,7 @@ defmodule PouCon.DeviceControllers.PumpControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, pid} = PumpController.start(opts)
+      {:ok, pid} = Pump.start(opts)
       %{name: name, pid: pid}
     end
 
@@ -145,10 +145,10 @@ defmodule PouCon.DeviceControllers.PumpControllerTest do
         {:ok, :success}
       end)
 
-      PumpController.turn_on(name)
+      Pump.turn_on(name)
       Process.sleep(50)
 
-      status = PumpController.status(name)
+      status = Pump.status(name)
       assert status.commanded_on == true
     end
 
@@ -168,10 +168,10 @@ defmodule PouCon.DeviceControllers.PumpControllerTest do
         {:ok, :success}
       end)
 
-      PumpController.turn_off(name)
+      Pump.turn_off(name)
       Process.sleep(50)
 
-      status = PumpController.status(name)
+      status = Pump.status(name)
       assert status.commanded_on == false
     end
 
@@ -181,7 +181,7 @@ defmodule PouCon.DeviceControllers.PumpControllerTest do
         {:ok, :success}
       end)
 
-      PumpController.set_manual(name)
+      Pump.set_manual(name)
       Process.sleep(50)
     end
 
@@ -191,7 +191,7 @@ defmodule PouCon.DeviceControllers.PumpControllerTest do
         {:ok, :success}
       end)
 
-      PumpController.set_auto(name)
+      Pump.set_auto(name)
       Process.sleep(50)
     end
   end

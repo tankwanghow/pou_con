@@ -1,4 +1,4 @@
-defmodule PouCon.DeviceControllers.FeedInController do
+defmodule PouCon.DeviceControllers.FeedIn do
   use GenServer
   require Logger
 
@@ -219,7 +219,7 @@ defmodule PouCon.DeviceControllers.FeedInController do
 
   # Fallback: should never happen, but prevents crash loop
   defp sync_and_update(nil) do
-    Logger.error("FeedInController: sync_and_update called with nil state — recovering")
+    Logger.error("FeedIn: sync_and_update called with nil state — recovering")
     %State{name: "recovered_nil_state", error: :crashed_previously}
   end
 

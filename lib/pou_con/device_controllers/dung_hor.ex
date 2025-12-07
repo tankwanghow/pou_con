@@ -1,4 +1,4 @@
-defmodule PouCon.DeviceControllers.DungHorController do
+defmodule PouCon.DeviceControllers.DungHor do
   use GenServer
   require Logger
 
@@ -64,7 +64,9 @@ defmodule PouCon.DeviceControllers.DungHorController do
   # ——————————————————————————————————————————————————————————————
   defp sync_coil(%State{commanded_on: cmd, actual_on: act, on_off_coil: coil} = state)
        when cmd != act do
-    Logger.info("[#{state.name}] #{if cmd, do: "Turning ON", else: "Turning OFF"} dung horizontal")
+    Logger.info(
+      "[#{state.name}] #{if cmd, do: "Turning ON", else: "Turning OFF"} dung horizontal"
+    )
 
     case @device_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)}) do
       {:ok, :success} ->
@@ -100,7 +102,6 @@ defmodule PouCon.DeviceControllers.DungHorController do
             {%State{
                state
                | actual_on: actual_on,
-                 commanded_on: actual_on,
                  is_running: f == 1,
                  error: nil
              }, nil}
@@ -120,7 +121,7 @@ defmodule PouCon.DeviceControllers.DungHorController do
   end
 
   defp sync_and_update(nil) do
-    Logger.error("DungHorController: sync_and_update called with nil state — recovering")
+    Logger.error("DungHor: sync_and_update called with nil state — recovering")
     %State{name: "recovered", error: :crashed_previously}
   end
 

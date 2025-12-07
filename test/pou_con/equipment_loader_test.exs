@@ -9,7 +9,7 @@ defmodule PouCon.EquipmentLoaderTest do
   # without actually starting controllers (which would require registry setup)
 
   describe "controller module selection" do
-    test "selects FanController for fan type" do
+    test "selects Fan for fan type" do
       {:ok, equipment} =
         Devices.create_equipment(%{
           name: "test_fan",
@@ -22,7 +22,7 @@ defmodule PouCon.EquipmentLoaderTest do
       assert equipment.type == "fan"
     end
 
-    test "selects PumpController for pump type" do
+    test "selects Pump for pump type" do
       {:ok, equipment} =
         Devices.create_equipment(%{
           name: "test_pump",
@@ -33,7 +33,7 @@ defmodule PouCon.EquipmentLoaderTest do
       assert equipment.type == "pump"
     end
 
-    test "selects TempHumSenController for temp_hum_sensor type" do
+    test "selects TempHumSen for temp_hum_sensor type" do
       {:ok, equipment} =
         Devices.create_equipment(%{
           name: "test_sensor",
@@ -44,7 +44,7 @@ defmodule PouCon.EquipmentLoaderTest do
       assert equipment.type == "temp_hum_sensor"
     end
 
-    test "selects EggController for egg type" do
+    test "selects Egg for egg type" do
       {:ok, equipment} =
         Devices.create_equipment(%{
           name: "test_egg",
@@ -55,7 +55,7 @@ defmodule PouCon.EquipmentLoaderTest do
       assert equipment.type == "egg"
     end
 
-    test "selects LightController for light type" do
+    test "selects Light for light type" do
       {:ok, equipment} =
         Devices.create_equipment(%{
           name: "test_light",
@@ -66,7 +66,7 @@ defmodule PouCon.EquipmentLoaderTest do
       assert equipment.type == "light"
     end
 
-    test "selects DungController for dung type" do
+    test "selects Dung for dung type" do
       {:ok, equipment} =
         Devices.create_equipment(%{
           name: "test_dung",
@@ -77,7 +77,7 @@ defmodule PouCon.EquipmentLoaderTest do
       assert equipment.type == "dung"
     end
 
-    test "selects DungHorController for dung_horz type" do
+    test "selects DungHor for dung_horz type" do
       {:ok, equipment} =
         Devices.create_equipment(%{
           name: "test_dung_horz",
@@ -88,7 +88,7 @@ defmodule PouCon.EquipmentLoaderTest do
       assert equipment.type == "dung_horz"
     end
 
-    test "selects DungExitController for dung_exit type" do
+    test "selects DungExit for dung_exit type" do
       {:ok, equipment} =
         Devices.create_equipment(%{
           name: "test_dung_exit",
@@ -99,7 +99,7 @@ defmodule PouCon.EquipmentLoaderTest do
       assert equipment.type == "dung_exit"
     end
 
-    test "selects FeedingController for feeding type" do
+    test "selects Feeding for feeding type" do
       {:ok, equipment} =
         Devices.create_equipment(%{
           name: "test_feeding",
@@ -111,7 +111,7 @@ defmodule PouCon.EquipmentLoaderTest do
       assert equipment.type == "feeding"
     end
 
-    test "selects FeedInController for feed_in type" do
+    test "selects FeedIn for feed_in type" do
       {:ok, equipment} =
         Devices.create_equipment(%{
           name: "test_feed_in",

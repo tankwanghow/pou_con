@@ -7,12 +7,20 @@
 # General application configuration
 import Config
 
+# Configure timezone database
+config :elixir, :time_zone_database, Tzdata.TimeZoneDatabase
+
 config :pou_con,
   ecto_repos: [PouCon.Repo],
   generators: [timestamp_type: :utc_datetime]
 
 config :pou_con, :device_manager, PouCon.DeviceManager
-config :pou_con, :modbus_adapter, PouCon.Modbus.RealAdapter
+
+if System.get_env("SIMULATE_DEVICES") == "1" do
+  config :pou_con, :modbus_adapter, PouCon.Modbus.SimulatedAdapter
+else
+  config :pou_con, :modbus_adapter, PouCon.Modbus.RealAdapter
+end
 
 # Configures the endpoint
 config :pou_con, PouConWeb.Endpoint,

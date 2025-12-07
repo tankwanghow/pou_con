@@ -63,4 +63,25 @@ defmodule PouCon.Auth do
         |> Repo.update()
     end
   end
+
+  def get_timezone do
+    case Repo.get_by(AppConfig, key: "timezone") do
+      nil -> "Asia/Singapore"
+      config -> config.value || "Asia/Singapore"
+    end
+  end
+
+  def set_timezone(timezone) do
+    case Repo.get_by(AppConfig, key: "timezone") do
+      nil ->
+        %AppConfig{}
+        |> AppConfig.changeset(%{key: "timezone", value: timezone})
+        |> Repo.insert()
+
+      config ->
+        config
+        |> AppConfig.changeset(%{value: timezone})
+        |> Repo.update()
+    end
+  end
 end

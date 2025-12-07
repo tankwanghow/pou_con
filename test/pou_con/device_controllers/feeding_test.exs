@@ -1,8 +1,8 @@
-defmodule PouCon.DeviceControllers.FeedingControllerTest do
+defmodule PouCon.DeviceControllers.FeedingTest do
   use PouCon.DataCase
   import Mox
 
-  alias PouCon.DeviceControllers.FeedingController
+  alias PouCon.DeviceControllers.Feeding
   alias PouCon.DeviceManagerMock
 
   setup :verify_on_exit!
@@ -40,7 +40,7 @@ defmodule PouCon.DeviceControllers.FeedingControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      assert {:ok, pid} = FeedingController.start(opts)
+      assert {:ok, pid} = Feeding.start(opts)
       assert Process.alive?(pid)
     end
   end
@@ -60,12 +60,12 @@ defmodule PouCon.DeviceControllers.FeedingControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = FeedingController.start(opts)
+      {:ok, _pid} = Feeding.start(opts)
       %{name: name}
     end
 
     test "returns status map", %{name: name} do
-      status = FeedingController.status(name)
+      status = Feeding.status(name)
       assert is_map(status)
       assert status.name == name
       assert status.moving == false
@@ -96,10 +96,10 @@ defmodule PouCon.DeviceControllers.FeedingControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = FeedingController.start(opts)
+      {:ok, _pid} = Feeding.start(opts)
       Process.sleep(50)
 
-      status = FeedingController.status(name)
+      status = Feeding.status(name)
       assert status.at_front == true
       assert status.at_back == false
       assert status.moving == true
@@ -121,7 +121,7 @@ defmodule PouCon.DeviceControllers.FeedingControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, pid} = FeedingController.start(opts)
+      {:ok, pid} = Feeding.start(opts)
       %{name: name, pid: pid}
     end
 
@@ -133,10 +133,10 @@ defmodule PouCon.DeviceControllers.FeedingControllerTest do
         _, _, _ -> {:error, :unexpected}
       end)
 
-      FeedingController.move_to_back_limit(name)
+      Feeding.move_to_back_limit(name)
       Process.sleep(50)
 
-      status = FeedingController.status(name)
+      status = Feeding.status(name)
       assert status.target_limit == :to_back_limit
     end
 
@@ -147,7 +147,7 @@ defmodule PouCon.DeviceControllers.FeedingControllerTest do
         _, _, _ -> {:error, :unexpected}
       end)
 
-      FeedingController.stop_movement(name)
+      Feeding.stop_movement(name)
       Process.sleep(50)
     end
   end

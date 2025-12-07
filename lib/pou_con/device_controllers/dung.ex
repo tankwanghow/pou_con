@@ -1,4 +1,4 @@
-defmodule PouCon.DeviceControllers.DungController do
+defmodule PouCon.DeviceControllers.Dung do
   use GenServer
   require Logger
 
@@ -100,7 +100,6 @@ defmodule PouCon.DeviceControllers.DungController do
             {%State{
                state
                | actual_on: actual_on,
-                 commanded_on: actual_on,
                  is_running: f == 1,
                  error: nil
              }, nil}
@@ -120,7 +119,7 @@ defmodule PouCon.DeviceControllers.DungController do
   end
 
   defp sync_and_update(nil) do
-    Logger.error("DungController: sync_and_update called with nil state — recovering")
+    Logger.error("Dung: sync_and_update called with nil state — recovering")
     %State{name: "recovered", error: :crashed_previously}
   end
 

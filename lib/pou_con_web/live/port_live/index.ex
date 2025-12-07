@@ -40,15 +40,15 @@ defmodule PouConWeb.PortLive.Index do
                 navigate={~p"/admin/ports/#{port.id}/edit"}
                 class="p-2 border-1 rounded-xl border-blue-600 bg-blue-200"
               >
-                Edit
+                <.icon name="hero-pencil-square-mini" class="text-blue-600"/>
               </.link>
 
               <.link
                 phx-click={JS.push("delete", value: %{id: port.id}) |> hide("##{port.id}")}
                 data-confirm="Are you sure?"
-                class="p-2 border-1 rounded-xl border-rose-600 bg-rose-200"
+                class="p-2 border-1 rounded-xl border-rose-600 bg-rose-200 ml-2"
               >
-                Delete
+                <.icon name="hero-trash-mini" class="text-rose-600"/>
               </.link>
             </div>
           </div>

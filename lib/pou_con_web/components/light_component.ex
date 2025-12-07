@@ -1,6 +1,6 @@
 defmodule PouConWeb.Components.LightComponent do
   use PouConWeb, :live_component
-  alias PouCon.DeviceControllers.LightController
+  alias PouCon.DeviceControllers.Light
 
   @impl true
   def update(assigns, socket) do
@@ -97,7 +97,7 @@ defmodule PouConWeb.Components.LightComponent do
         <div class="flex-1 flex flex-col gap-1 min-w-0">
           <div class={"text-[9px] font-bold uppercase tracking-wide text-#{@display.color}-500 truncate"}>
             <%= if @display.is_error do %>
-              ! Error
+              {@display.err_msg}
             <% else %>
               {@display.state_text}
             <% end %>
@@ -144,8 +144,8 @@ defmodule PouConWeb.Components.LightComponent do
     name = socket.assigns.device_name
 
     case mode do
-      "auto" -> LightController.set_auto(name)
-      "manual" -> LightController.set_manual(name)
+      "auto" -> Light.set_auto(name)
+      "manual" -> Light.set_manual(name)
     end
 
     {:noreply, socket}
@@ -157,9 +157,9 @@ defmodule PouConWeb.Components.LightComponent do
       name = socket.assigns.device_name
 
       if socket.assigns.display.is_running or socket.assigns.display.is_error do
-        LightController.turn_off(name)
+        Light.turn_off(name)
       else
-        LightController.turn_on(name)
+        Light.turn_on(name)
       end
     end
 
@@ -201,7 +201,8 @@ defmodule PouConWeb.Components.LightComponent do
       mode: status.mode,
       state_text: if(is_running, do: "RUNNING", else: "STOPPED"),
       color: color,
-      anim_class: anim_class
+      anim_class: anim_class,
+      err_msg: status.error_message
     }
   end
 end

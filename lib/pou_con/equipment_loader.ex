@@ -22,34 +22,34 @@ defmodule PouCon.EquipmentLoader do
         controller_module =
           case equipment.type do
             "fan" ->
-              PouCon.DeviceControllers.FanController
+              PouCon.DeviceControllers.Fan
 
             "temp_hum_sensor" ->
-              PouCon.DeviceControllers.TempHumSenController
+              PouCon.DeviceControllers.TempHumSen
 
             "pump" ->
-              PouCon.DeviceControllers.PumpController
+              PouCon.DeviceControllers.Pump
 
             "feeding" ->
-              PouCon.DeviceControllers.FeedingController
+              PouCon.DeviceControllers.Feeding
 
             "egg" ->
-              PouCon.DeviceControllers.EggController
+              PouCon.DeviceControllers.Egg
 
             "dung" ->
-              PouCon.DeviceControllers.DungController
+              PouCon.DeviceControllers.Dung
 
             "dung_horz" ->
-              PouCon.DeviceControllers.DungHorController
+              PouCon.DeviceControllers.DungHor
 
             "dung_exit" ->
-              PouCon.DeviceControllers.DungExitController
+              PouCon.DeviceControllers.DungExit
 
             "light" ->
-              PouCon.DeviceControllers.LightController
+              PouCon.DeviceControllers.Light
 
             "feed_in" ->
-              PouCon.DeviceControllers.FeedInController
+              PouCon.DeviceControllers.FeedIn
 
             _ ->
               Logger.warning(

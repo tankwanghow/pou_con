@@ -1,8 +1,8 @@
-defmodule PouCon.DeviceControllers.TempHumSenControllerTest do
+defmodule PouCon.DeviceControllers.TempHumSenTest do
   use PouCon.DataCase
   import Mox
 
-  alias PouCon.DeviceControllers.TempHumSenController
+  alias PouCon.DeviceControllers.TempHumSen
   alias PouCon.DeviceManagerMock
 
   setup :verify_on_exit!
@@ -31,7 +31,7 @@ defmodule PouCon.DeviceControllers.TempHumSenControllerTest do
         sensor: devices.sensor
       ]
 
-      assert {:ok, pid} = TempHumSenController.start(opts)
+      assert {:ok, pid} = TempHumSen.start(opts)
       assert Process.alive?(pid)
     end
   end
@@ -46,12 +46,12 @@ defmodule PouCon.DeviceControllers.TempHumSenControllerTest do
         sensor: devices.sensor
       ]
 
-      {:ok, _pid} = TempHumSenController.start(opts)
+      {:ok, _pid} = TempHumSen.start(opts)
       %{name: name}
     end
 
     test "returns status map", %{name: name} do
-      status = TempHumSenController.status(name)
+      status = TempHumSen.status(name)
       assert is_map(status)
       assert status.name == name
       assert status.temperature == 25.0
@@ -60,7 +60,7 @@ defmodule PouCon.DeviceControllers.TempHumSenControllerTest do
     end
 
     test "calculates dew point", %{name: name} do
-      status = TempHumSenController.status(name)
+      status = TempHumSen.status(name)
       assert status.dew_point != nil
       assert is_float(status.dew_point)
     end
@@ -74,10 +74,10 @@ defmodule PouCon.DeviceControllers.TempHumSenControllerTest do
         sensor: devices.sensor
       ]
 
-      {:ok, _pid} = TempHumSenController.start(opts)
+      {:ok, _pid} = TempHumSen.start(opts)
       Process.sleep(50)
 
-      status = TempHumSenController.status(name)
+      status = TempHumSen.status(name)
       assert status.error == :timeout
       assert status.error_message == "SENSOR TIMEOUT"
     end

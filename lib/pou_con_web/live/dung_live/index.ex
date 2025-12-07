@@ -2,9 +2,9 @@ defmodule PouConWeb.DungLive do
   use PouConWeb, :live_view
 
   alias PouCon.DeviceControllers.{
-    DungController,
-    DungHorController,
-    DungExitController
+    Dung,
+    DungHor,
+    DungExit
   }
 
   alias PouCon.DeviceManager
@@ -97,9 +97,9 @@ defmodule PouConWeb.DungLive do
   # Map equipment type → controller module
   defp controller_for_type(type) do
     case type do
-      "dung" -> DungController
-      "dung_horz" -> DungHorController
-      "dung_exit" -> DungExitController
+      "dung" -> Dung
+      "dung_horz" -> DungHor
+      "dung_exit" -> DungExit
       _ -> nil
     end
   end

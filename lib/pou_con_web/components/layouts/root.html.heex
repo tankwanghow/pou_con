@@ -8,8 +8,9 @@
       {assigns[:page_title]}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
-    <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
-    </script>
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}></script>
+
+    <!-- Theme script (unchanged) -->
     <script>
       (() => {
         const setTheme = (theme) => {
@@ -25,18 +26,64 @@
           setTheme(localStorage.getItem("phx:theme") || "system");
         }
         window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
-        
         window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
       })();
     </script>
   </head>
-  <body>
-    <div class="flex justify-center mt-2">
-      <span class="inline-block font-bold text-4xl border-4 rounded-xl bg-yellow-200 px-4 py-2 shadow-xl mb-2">
+
+  <body class="min-h-screen bg-gray-50">
+    <!-- Header with House ID + Live Local Time -->
+    <div class="flex flex-col items-center mt-2 mb-2">
+      <!-- House ID -->
+      <div class="inline-block font-bold text-4xl border-4 rounded-xl bg-yellow-200 px-2 py-1 shadow-md">
         {PouCon.Auth.get_house_id()}
-      </span>
+      </div>
+
+      <!-- Live Local Time (updates every second) -->
+      <div id="local-clock"
+           class="mt-1"
+           data-timezone={PouCon.Auth.get_timezone()}>
+        Loading time...
+      </div>
     </div>
+
     {@inner_content}
+
     <div class="simple-keyboard"></div>
+
+    <!-- Live clock script – respects the farm's timezone -->
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const clockEl = document.getElementById("local-clock");
+        if (!clockEl) return;
+
+        const timezone = clockEl.dataset.timezone || "UTC";
+
+        const updateClock = () => {
+          const now = new Date();
+          const options = {
+            timeZone: timezone,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          };
+
+          const formatter = new Intl.DateTimeFormat('en-GB', options);
+          const parts = formatter.formatToParts(now);
+
+          const date = `${parts.find(p => p.type === 'day').value}/${parts.find(p => p.type === 'month').value}/${parts.find(p => p.type === 'year').value}`;
+          const time = `${parts.find(p => p.type === 'hour').value}:${parts.find(p => p.type === 'minute').value}:${parts.find(p => p.type === 'second').value}`;
+
+          clockEl.textContent = `${date} ${time} (${timezone.replace('_', ' ')})`;
+        };
+
+        updateClock();
+        setInterval(updateClock, 1000);
+      });
+    </script>
   </body>
 </html>

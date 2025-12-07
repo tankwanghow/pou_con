@@ -1,4 +1,4 @@
-defmodule PouCon.DeviceControllers.PumpController do
+defmodule PouCon.DeviceControllers.Pump do
   use GenServer
   require Logger
 
@@ -140,7 +140,6 @@ defmodule PouCon.DeviceControllers.PumpController do
             updated = %State{
               state
               | actual_on: actual_on,
-                commanded_on: actual_on,
                 is_running: is_running,
                 mode: mode,
                 error: nil
@@ -165,7 +164,7 @@ defmodule PouCon.DeviceControllers.PumpController do
 
   # Defensive: never crash on nil state
   defp sync_and_update(nil) do
-    Logger.error("FanController: sync_and_update called with nil state!")
+    Logger.error("Fan: sync_and_update called with nil state!")
     %State{name: "recovered", error: :crashed_previously}
   end
 

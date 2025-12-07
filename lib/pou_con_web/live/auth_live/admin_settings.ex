@@ -1,10 +1,12 @@
 defmodule PouConWeb.AuthLive.AdminSettings do
   use PouConWeb, :live_view
   alias PouCon.Auth
+  alias PouCon.Timezones
 
   @impl true
   def mount(_params, %{"current_role" => :admin}, socket) do
     house_id = Auth.get_house_id()
+    timezone = Auth.get_timezone()
 
     {:ok,
      assign(socket,
@@ -12,9 +14,11 @@ defmodule PouConWeb.AuthLive.AdminSettings do
          to_form(%{
            "user_password" => "",
            "user_password_confirmation" => "",
-           "house_id" => house_id || ""
+           "house_id" => house_id || "",
+           "timezone" => timezone || ""
          }),
-       error: nil
+       error: nil,
+       timezones: Timezones.list()
      )}
   end
 
@@ -23,8 +27,7 @@ defmodule PouConWeb.AuthLive.AdminSettings do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="min-h-screen bg-gray-100 p-6">
-      <div class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow">
+    <Layouts.app flash={@flash}>
         <h2 class="text-2xl font-bold mb-6">Administrator Settings</h2>
 
         <.form for={@form} phx-submit="save" class="space-y-6">
@@ -51,6 +54,16 @@ defmodule PouConWeb.AuthLive.AdminSettings do
             <.input field={@form[:house_id]} type="text" placeholder="e.g., HOME-001" />
           </div>
 
+          <div>
+            <label class="block font-medium">Timezone</label>
+            <.input
+              field={@form[:timezone]}
+              type="select"
+              options={@timezones}
+              prompt="Select a timezone"
+            />
+          </div>
+
           <div class="flex gap-2">
             <.navigate to="/dashboard" label="Dashboard" />
             <button
@@ -61,8 +74,7 @@ defmodule PouConWeb.AuthLive.AdminSettings do
             </button>
           </div>
         </.form>
-      </div>
-    </div>
+    </Layouts.app>
     """
   end
 
@@ -71,6 +83,7 @@ defmodule PouConWeb.AuthLive.AdminSettings do
     user_pwd = params["user_password"]
     confirm = params["user_password_confirmation"]
     house_id = params["house_id"]
+    timezone = params["timezone"]
 
     cond do
       user_pwd != "" and String.length(user_pwd) < 6 ->
@@ -83,7 +96,8 @@ defmodule PouConWeb.AuthLive.AdminSettings do
         results =
           [
             if(user_pwd != "", do: Auth.update_password(user_pwd, :user), else: {:ok, nil}),
-            if(house_id != "", do: Auth.set_house_id(house_id), else: {:ok, nil})
+            if(house_id != "", do: Auth.set_house_id(house_id), else: {:ok, nil}),
+            if(timezone != "", do: Auth.set_timezone(timezone), else: {:ok, nil})
           ]
 
         if Enum.all?(results, &match?({:ok, _}, &1)) do

@@ -1,6 +1,6 @@
 defmodule PouConWeb.Components.FeedInComponent do
   use PouConWeb, :live_component
-  alias PouCon.DeviceControllers.FeedInController
+  alias PouCon.DeviceControllers.FeedIn
 
   @impl true
   def update(assigns, socket) do
@@ -150,13 +150,13 @@ defmodule PouConWeb.Components.FeedInComponent do
   # ——————————————————————————————————————————————————————————————
   @impl true
   def handle_event("turn_on", _, socket) do
-    FeedInController.turn_on(socket.assigns.device_name)
+    FeedIn.turn_on(socket.assigns.device_name)
     {:noreply, socket}
   end
 
   @impl true
   def handle_event("turn_off", _, socket) do
-    FeedInController.turn_off(socket.assigns.device_name)
+    FeedIn.turn_off(socket.assigns.device_name)
     {:noreply, socket}
   end
 
@@ -165,8 +165,8 @@ defmodule PouConWeb.Components.FeedInComponent do
     name = socket.assigns.device_name
 
     case mode do
-      "auto" -> FeedInController.set_auto(name)
-      "manual" -> FeedInController.set_manual(name)
+      "auto" -> FeedIn.set_auto(name)
+      "manual" -> FeedIn.set_manual(name)
     end
 
     {:noreply, socket}

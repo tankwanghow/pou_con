@@ -1,6 +1,6 @@
 defmodule PouConWeb.Components.FeedingComponent do
   use PouConWeb, :live_component
-  alias PouCon.DeviceControllers.FeedingController
+  alias PouCon.DeviceControllers.Feeding
 
   @impl true
   def update(assigns, socket) do
@@ -173,8 +173,8 @@ defmodule PouConWeb.Components.FeedingComponent do
     name = socket.assigns.device_name
 
     case mode do
-      "auto" -> FeedingController.set_auto(name)
-      "manual" -> FeedingController.set_manual(name)
+      "auto" -> Feeding.set_auto(name)
+      "manual" -> Feeding.set_manual(name)
     end
 
     {:noreply, socket}
@@ -182,7 +182,7 @@ defmodule PouConWeb.Components.FeedingComponent do
 
   @impl true
   def handle_event("stop", _, socket) do
-    FeedingController.stop_movement(socket.assigns.device_name)
+    Feeding.stop_movement(socket.assigns.device_name)
     {:noreply, socket}
   end
 
@@ -191,8 +191,8 @@ defmodule PouConWeb.Components.FeedingComponent do
     name = socket.assigns.device_name
 
     case dir do
-      "front" -> FeedingController.move_to_front_limit(name)
-      "back" -> FeedingController.move_to_back_limit(name)
+      "front" -> Feeding.move_to_front_limit(name)
+      "back" -> Feeding.move_to_back_limit(name)
     end
 
     {:noreply, socket}

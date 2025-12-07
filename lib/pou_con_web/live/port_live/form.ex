@@ -8,7 +8,7 @@ defmodule PouConWeb.PortLive.Form do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
-      <div class="mx-auto w-2xl">
+      <%!-- <div class="mx-auto w-2xl"> --%>
         <.header>
           {@page_title}
           <:subtitle>Use this form to manage port records in your database.</:subtitle>
@@ -45,7 +45,7 @@ defmodule PouConWeb.PortLive.Form do
             <.button navigate={return_path(@return_to, @port)}>Cancel</.button>
           </footer>
         </.form>
-      </div>
+      <%!-- </div> --%>
     </Layouts.app>
     """
   end

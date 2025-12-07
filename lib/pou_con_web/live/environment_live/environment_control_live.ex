@@ -2,7 +2,7 @@ defmodule PouConWeb.EnvironmentControlLive do
   use PouConWeb, :live_view
 
   alias PouCon.EnvironmentControl
-  alias PouCon.DeviceControllers.EnvironmentController
+  alias PouCon.DeviceControllers.Environment
 
   @pubsub_topic "device_data"
 
@@ -46,7 +46,7 @@ defmodule PouConWeb.EnvironmentControlLive do
 
   defp get_env_status do
     try do
-      EnvironmentController.status()
+      Environment.status()
     rescue
       _ ->
         %{
@@ -81,7 +81,7 @@ defmodule PouConWeb.EnvironmentControlLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
-      <div class="p-3 mx-auto max-w-5xl">
+      <%!-- <div class="p-3 mx-auto max-w-5xl"> --%>
         <div class="flex justify-between items-center mb-3">
           <h1 class="text-xl font-bold text-green-600">Environment Control</h1>
           <div class="flex gap-2">
@@ -274,7 +274,7 @@ defmodule PouConWeb.EnvironmentControlLive do
             </button>
           </div>
         </.form>
-      </div>
+      <%!-- </div> --%>
     </Layouts.app>
     """
   end

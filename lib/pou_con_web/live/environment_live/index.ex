@@ -2,10 +2,10 @@ defmodule PouConWeb.EnvironmentLive do
   use PouConWeb, :live_view
 
   alias PouCon.DeviceControllers.{
-    FanController,
-    PumpController,
-    TempHumSenController,
-    LightController
+    Fan,
+    Pump,
+    TempHumSen,
+    Light
   }
 
   alias PouCon.DeviceManager
@@ -121,10 +121,10 @@ defmodule PouConWeb.EnvironmentLive do
   # Map equipment type → controller module
   defp controller_for_type(type) do
     case type do
-      "fan" -> FanController
-      "pump" -> PumpController
-      "temp_hum_sensor" -> TempHumSenController
-      "light" -> LightController
+      "fan" -> Fan
+      "pump" -> Pump
+      "temp_hum_sensor" -> TempHumSen
+      "light" -> Light
       _ -> nil
     end
   end

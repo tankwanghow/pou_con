@@ -2,8 +2,8 @@ defmodule PouConWeb.FeedLive do
   use PouConWeb, :live_view
 
   alias PouCon.DeviceControllers.{
-    FeedingController,
-    FeedInController
+    Feeding,
+    FeedIn
   }
 
   alias PouCon.DeviceManager
@@ -96,8 +96,8 @@ defmodule PouConWeb.FeedLive do
   # Map equipment type → controller module
   defp controller_for_type(type) do
     case type do
-      "feeding" -> FeedingController
-      "feed_in" -> FeedInController
+      "feeding" -> Feeding
+      "feed_in" -> FeedIn
       _ -> nil
     end
   end

@@ -20,7 +20,8 @@ defmodule PouCon.Repo.Migrations.CreateAppConfig do
     VALUES
       ('admin_password', NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
       ('user_password', NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-      ('house_id', NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ('house_id', NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+      ('timezone', NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     ON CONFLICT DO NOTHING
     """
   end

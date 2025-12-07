@@ -17,7 +17,7 @@ defmodule PouConWeb.EquipmentLive.Index do
         </:actions>
       </.header>
 
-      <div class="font-medium flex flex-row text-center bg-green-200 border-b border-t border-green-400 py-1">
+      <div class="text-xs font-medium flex flex-row text-center bg-green-200 border-b border-t border-green-400 py-1">
         <.sort_link
           field={:name}
           label="Name"
@@ -44,9 +44,9 @@ defmodule PouConWeb.EquipmentLive.Index do
           label="Device Tree"
           sort_field={@sort_field}
           sort_order={@sort_order}
-          width="w-[45%]"
+          width="w-[48%]"
         />
-        <div class="w-[15%]">Action</div>
+        <div class="w-[12%]">Action</div>
       </div>
 
       <div
@@ -55,24 +55,24 @@ defmodule PouConWeb.EquipmentLive.Index do
         phx-update="stream"
       >
         <%= for {id, equipment} <- @streams.equipment do %>
-          <div id={id} class="flex flex-row text-center border-b py-2">
+          <div id={id} class="text-xs flex flex-row text-center border-b py-2">
             <div class="w-[15%]">{equipment.name}</div>
             <div class="w-[15%]">{equipment.title}</div>
             <div class="w-[10%]">{equipment.type}</div>
-            <div class="text-xs w-[45%] wrap">{equipment.device_tree}</div>
-            <div :if={!@readonly} class="w-[15%]">
+            <div class="w-[48%] wrap">{equipment.device_tree}</div>
+            <div :if={!@readonly} class="w-[12%]">
               <.link
                 navigate={~p"/admin/equipment/#{equipment.id}/edit"}
                 class="p-1 border-1 rounded-xl border-blue-600 bg-blue-200"
               >
-                Edit
+                <.icon name="hero-pencil-square-mini" class="text-blue-600"/>
               </.link>
 
               <.link
                 phx-click={JS.push("copy", value: %{id: equipment.id})}
                 class="p-1 border-1 rounded-xl border-green-600 bg-green-200 mx-2"
               >
-                Copy
+                <.icon name="hero-document-duplicate-mini" class="text-green-600"/>
               </.link>
 
               <.link
@@ -80,7 +80,7 @@ defmodule PouConWeb.EquipmentLive.Index do
                 data-confirm="Are you sure?"
                 class="p-1 border-1 rounded-xl border-rose-600 bg-rose-200"
               >
-                Delete
+                <.icon name="hero-trash-mini" class="text-rose-600"/>
               </.link>
             </div>
           </div>

@@ -1,8 +1,8 @@
-defmodule PouCon.DeviceControllers.DungHorControllerTest do
+defmodule PouCon.DeviceControllers.DungHorTest do
   use PouCon.DataCase
   import Mox
 
-  alias PouCon.DeviceControllers.DungHorController
+  alias PouCon.DeviceControllers.DungHor
   alias PouCon.DeviceManagerMock
 
   setup :verify_on_exit!
@@ -32,7 +32,7 @@ defmodule PouCon.DeviceControllers.DungHorControllerTest do
         running_feedback: devices.running_feedback
       ]
 
-      assert {:ok, pid} = DungHorController.start(opts)
+      assert {:ok, pid} = DungHor.start(opts)
       assert Process.alive?(pid)
     end
   end
@@ -48,12 +48,12 @@ defmodule PouCon.DeviceControllers.DungHorControllerTest do
         running_feedback: devices.running_feedback
       ]
 
-      {:ok, _pid} = DungHorController.start(opts)
+      {:ok, _pid} = DungHor.start(opts)
       %{name: name}
     end
 
     test "returns status map with all required fields", %{name: name} do
-      status = DungHorController.status(name)
+      status = DungHor.status(name)
       assert is_map(status)
       assert status.name == name
       assert status.commanded_on == false
@@ -77,10 +77,10 @@ defmodule PouCon.DeviceControllers.DungHorControllerTest do
         running_feedback: devices.running_feedback
       ]
 
-      {:ok, _pid} = DungHorController.start(opts)
+      {:ok, _pid} = DungHor.start(opts)
       Process.sleep(50)
 
-      status = DungHorController.status(name)
+      status = DungHor.status(name)
       assert status.actual_on == true
       assert status.is_running == true
     end
@@ -96,7 +96,7 @@ defmodule PouCon.DeviceControllers.DungHorControllerTest do
         running_feedback: devices.running_feedback
       ]
 
-      {:ok, pid} = DungHorController.start(opts)
+      {:ok, pid} = DungHor.start(opts)
       %{name: name, pid: pid}
     end
 
@@ -106,10 +106,10 @@ defmodule PouCon.DeviceControllers.DungHorControllerTest do
         {:ok, :success}
       end)
 
-      DungHorController.turn_on(name)
+      DungHor.turn_on(name)
       Process.sleep(50)
 
-      status = DungHorController.status(name)
+      status = DungHor.status(name)
       assert status.commanded_on == true
     end
 
@@ -127,10 +127,10 @@ defmodule PouCon.DeviceControllers.DungHorControllerTest do
         {:ok, :success}
       end)
 
-      DungHorController.turn_off(name)
+      DungHor.turn_off(name)
       Process.sleep(50)
 
-      status = DungHorController.status(name)
+      status = DungHor.status(name)
       assert status.commanded_on == false
     end
   end

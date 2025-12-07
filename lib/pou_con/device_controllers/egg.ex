@@ -1,4 +1,4 @@
-defmodule PouCon.DeviceControllers.EggController do
+defmodule PouCon.DeviceControllers.Egg do
   use GenServer
   require Logger
 
@@ -154,64 +154,90 @@ defmodule PouCon.DeviceControllers.EggController do
   @impl GenServer
   def handle_info(:data_refreshed, state), do: {:noreply, sync_and_update(state)}
 
-  defp sync_and_update(state) do
+  defp sync_and_update(%State{} = state) do
     coil_res = @device_manager.get_cached_data(state.on_off_coil)
     fb_res = @device_manager.get_cached_data(state.running_feedback)
     mode_res = @device_manager.get_cached_data(state.auto_manual)
 
+    results = [coil_res, fb_res, mode_res]
+
     {new_state, temp_error} =
-      if Enum.any?([coil_res, fb_res, mode_res], &match?({:error, _}, &1)) do
-        {state, :timeout}
-      else
-        try do
-          {:ok, coil_map} = coil_res
-          {:ok, running_map} = fb_res
-          {:ok, mode_map} = mode_res
-
-          unless is_map(coil_map) and Map.has_key?(coil_map, :state) and
-                   is_map(running_map) and Map.has_key?(running_map, :state) and
-                   is_map(mode_map) and Map.has_key?(mode_map, :state) do
-            raise "Invalid data format"
-          end
-
-          actual_coil = coil_map.state == 1
-          actual_running = running_map.state == 1
-          mode = if mode_map.state == 1, do: :manual, else: :auto
-
-          {%{
-             state
-             | actual_on: actual_coil,
-               commanded_on: actual_coil,
-               is_running: actual_running,
-               mode: mode
-           }, nil}
-        rescue
-          e ->
-            Logger.error("[#{state.name}] Invalid polling data: #{inspect(e)}")
-            {state, :invalid_data}
-        end
-      end
-
-    # Detect discrepancies
-    error =
       cond do
-        temp_error != nil -> temp_error
-        new_state.actual_on && !new_state.is_running -> :on_but_not_running
-        !new_state.actual_on && new_state.is_running -> :off_but_running
-        true -> nil
+        Enum.any?(results, &match?({:error, _}, &1)) ->
+          Logger.error("[#{state.name}] Sensor timeout → entering safe state")
+
+          safe = %State{
+            state
+            | actual_on: false,
+              is_running: false,
+              mode: :auto,
+              error: :timeout
+          }
+
+          {safe, :timeout}
+
+        true ->
+          try do
+            {:ok, %{:state => coil_state}} = coil_res
+            {:ok, %{:state => fb_state}} = fb_res
+            {:ok, %{:state => mode_state}} = mode_res
+
+            actual_on = coil_state == 1
+            is_running = fb_state == 1
+            mode = if mode_state == 1, do: :manual, else: :auto
+
+            updated = %State{
+              state
+              | actual_on: actual_on,
+                is_running: is_running,
+                mode: mode,
+                error: nil
+            }
+
+            {updated, nil}
+          rescue
+            e in [MatchError, KeyError] ->
+              Logger.error("[#{state.name}] Data parsing error: #{Exception.format(:error, e)}")
+              {%State{state | error: :invalid_data}, :invalid_data}
+          end
       end
 
-    if error != state.error do
-      case error do
-        nil -> Logger.info("[#{state.name}] Pump error CLEARED")
-        :on_but_not_running -> Logger.error("[#{state.name}] ERROR: ON but NOT RUNNING")
-        :off_but_running -> Logger.error("[#{state.name}] ERROR: OFF but RUNNING")
-        :timeout -> Logger.error("[#{state.name}] ERROR: Polling timeout")
-        :invalid_data -> Logger.error("[#{state.name}] ERROR: Invalid data")
-      end
+    error = detect_error(new_state, temp_error)
+
+    if error != new_state.error do
+      log_error_transition(state.name, new_state.error, error)
     end
 
-    %{new_state | error: error}
+    %State{new_state | error: error}
+  end
+
+  # Defensive: never crash on nil state
+  defp sync_and_update(nil) do
+    Logger.error("Egg: sync_and_update called with nil state!")
+    %State{name: "recovered", error: :crashed_previously}
+  end
+
+  defp detect_error(_state, temp_error) when temp_error != nil, do: temp_error
+
+  defp detect_error(state, _nil) do
+    cond do
+      state.actual_on && !state.is_running -> :on_but_not_running
+      !state.actual_on && state.is_running -> :off_but_running
+      true -> nil
+    end
+  end
+
+  defp log_error_transition(name, _old, new_error) do
+    case new_error do
+      nil -> Logger.info("[#{name}] Error CLEARED")
+      :timeout -> Logger.error("[#{name}] ERROR: Sensor timeout")
+      :invalid_data -> Logger.error("[#{name}] ERROR: Invalid data")
+      :command_failed -> Logger.error("[#{name}] ERROR: Command failed")
+      :on_but_not_running -> Logger.error("[#{name}] ERROR: ON but NOT RUNNING")
+      :off_but_running -> Logger.error("[#{name}] ERROR: OFF but RUNNING")
+      :crashed_previously -> Logger.error("[#{name}] RECOVERED FROM NIL STATE")
+      _ -> nil
+    end
   end
 
   # ——————————————————————————————————————————————————————————————
@@ -239,9 +265,11 @@ defmodule PouCon.DeviceControllers.EggController do
   defp via(name), do: {:via, Registry, {PouCon.DeviceControllerRegistry, name}}
 
   defp error_message(nil), do: "OK"
-  defp error_message(:on_but_not_running), do: "ON but NOT RUNNING"
-  defp error_message(:off_but_running), do: "OFF but RUNNING"
-  defp error_message(:timeout), do: "POLLING TIMEOUT"
+  defp error_message(:timeout), do: "SENSOR TIMEOUT"
   defp error_message(:invalid_data), do: "INVALID DATA"
   defp error_message(:command_failed), do: "COMMAND FAILED"
+  defp error_message(:on_but_not_running), do: "ON BUT NOT RUNNING"
+  defp error_message(:off_but_running), do: "OFF BUT RUNNING"
+  defp error_message(:crashed_previously), do: "RECOVERED FROM CRASH"
+  defp error_message(_), do: "UNKNOWN ERROR"
 end

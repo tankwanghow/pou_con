@@ -8,7 +8,7 @@ defmodule PouConWeb.EquipmentLive.Form do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
-      <div class="mx-auto w-2xl">
+      <%!-- <div class="mx-auto w-2xl"> --%>
         <.header>
           {@page_title}
         </.header>
@@ -33,7 +33,7 @@ defmodule PouConWeb.EquipmentLive.Form do
             <.button navigate={return_path(@return_to, @equipment)}>Cancel</.button>
           </footer>
         </.form>
-      </div>
+      <%!-- </div> --%>
     </Layouts.app>
     """
   end

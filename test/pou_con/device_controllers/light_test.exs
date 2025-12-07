@@ -1,8 +1,8 @@
-defmodule PouCon.DeviceControllers.LightControllerTest do
+defmodule PouCon.DeviceControllers.LightTest do
   use PouCon.DataCase
   import Mox
 
-  alias PouCon.DeviceControllers.LightController
+  alias PouCon.DeviceControllers.Light
   alias PouCon.DeviceManagerMock
 
   setup :verify_on_exit!
@@ -34,7 +34,7 @@ defmodule PouCon.DeviceControllers.LightControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      assert {:ok, pid} = LightController.start(opts)
+      assert {:ok, pid} = Light.start(opts)
       assert Process.alive?(pid)
     end
   end
@@ -51,12 +51,12 @@ defmodule PouCon.DeviceControllers.LightControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = LightController.start(opts)
+      {:ok, _pid} = Light.start(opts)
       %{name: name}
     end
 
     test "returns status map with all required fields", %{name: name} do
-      status = LightController.status(name)
+      status = Light.status(name)
       assert is_map(status)
       assert status.name == name
       assert status.mode == :auto
@@ -80,10 +80,10 @@ defmodule PouCon.DeviceControllers.LightControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = LightController.start(opts)
+      {:ok, _pid} = Light.start(opts)
       Process.sleep(50)
 
-      status = LightController.status(name)
+      status = Light.status(name)
       assert status.actual_on == true
       assert status.is_running == true
       assert status.mode == :manual
@@ -100,10 +100,10 @@ defmodule PouCon.DeviceControllers.LightControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, _pid} = LightController.start(opts)
+      {:ok, _pid} = Light.start(opts)
       Process.sleep(50)
 
-      status = LightController.status(name)
+      status = Light.status(name)
       assert status.error == :timeout
       assert status.error_message == "POLLING TIMEOUT"
     end
@@ -120,7 +120,7 @@ defmodule PouCon.DeviceControllers.LightControllerTest do
         auto_manual: devices.auto_manual
       ]
 
-      {:ok, pid} = LightController.start(opts)
+      {:ok, pid} = Light.start(opts)
       %{name: name, pid: pid}
     end
 
@@ -130,10 +130,10 @@ defmodule PouCon.DeviceControllers.LightControllerTest do
         {:ok, :success}
       end)
 
-      LightController.turn_on(name)
+      Light.turn_on(name)
       Process.sleep(50)
 
-      status = LightController.status(name)
+      status = Light.status(name)
       assert status.commanded_on == true
     end
 
@@ -151,10 +151,10 @@ defmodule PouCon.DeviceControllers.LightControllerTest do
         {:ok, :success}
       end)
 
-      LightController.turn_off(name)
+      Light.turn_off(name)
       Process.sleep(50)
 
-      status = LightController.status(name)
+      status = Light.status(name)
       assert status.commanded_on == false
     end
 
@@ -164,7 +164,7 @@ defmodule PouCon.DeviceControllers.LightControllerTest do
         {:ok, :success}
       end)
 
-      LightController.set_manual(name)
+      Light.set_manual(name)
       Process.sleep(50)
     end
   end
