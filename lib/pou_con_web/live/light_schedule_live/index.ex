@@ -319,7 +319,7 @@ defmodule PouConWeb.LightScheduleLive do
               <p class="text-gray-400 text-sm italic">No schedules configured yet.</p>
             <% else %>
               <%= for schedule <- @schedules do %>
-                <div class={"py-1 px-4 rounded-lg border flex items-center gap-3 " <> if schedule.enabled, do: "bg-blue-900 border-blue-600 text-white", else: "bg-gray-800 border-gray-600 text-gray-200"}>
+                <div class={"py-1 px-4 rounded-lg border flex items-center " <> if schedule.enabled, do: "bg-blue-900 border-blue-600 text-white", else: "bg-gray-800 border-gray-600 text-gray-200"}>
                   <!-- Light Name -->
                   <div class="w-32 flex-shrink-0">
                     <span class="font-semibold text-white text-sm">

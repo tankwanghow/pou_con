@@ -11,7 +11,7 @@ defmodule PouCon.LightScheduler do
   alias PouCon.LightSchedules
   alias PouCon.DeviceControllers.Light
 
-  @check_interval :timer.seconds(1)
+  @check_interval :timer.seconds(30)
 
   # Client API
 

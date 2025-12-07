@@ -48,6 +48,9 @@ defmodule PouCon.Application do
       # Egg collection scheduler - automated egg collection based on schedules
       PouCon.EggCollectionScheduler,
 
+      # Feeding scheduler - automated feeding cycle based on schedules
+      PouCon.FeedingScheduler,
+
       # Web endpoint — always last
       PouConWeb.Endpoint
     ]

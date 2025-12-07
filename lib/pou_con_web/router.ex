@@ -67,6 +67,7 @@ defmodule PouConWeb.Router do
       live("/environment/control", EnvironmentControlLive, :index)
       live("/egg_collection", EggCollectionLive, :index)
       live("/light_schedule", LightScheduleLive, :index)
+      live("/feeding_schedule", FeedingScheduleLive, :index)
       live("/dung", DungLive, :index)
       live("/feed", FeedLive, :index)
     end

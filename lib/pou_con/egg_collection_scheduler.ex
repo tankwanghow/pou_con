@@ -11,7 +11,7 @@ defmodule PouCon.EggCollectionScheduler do
   alias PouCon.EggCollectionSchedules
   alias PouCon.DeviceControllers.Egg
 
-  @check_interval :timer.seconds(1)
+  @check_interval :timer.seconds(30)
 
   # Client API
 

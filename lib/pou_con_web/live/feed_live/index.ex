@@ -122,21 +122,15 @@ defmodule PouConWeb.FeedLive do
     ~H"""
     <Layouts.app flash={@flash}>
       <.header>
-        Poultry House Dashboard
+        Feeding
         <:actions>
           <.navigate to="/dashboard" label="Dashboard" />
+          <.navigate to="/feeding_schedule" label="Schedules" />
           <.link
             phx-click="reload_ports"
             class="mr-1 px-3 py-1.5 rounded-lg bg-green-200 border border-green-600 font-medium"
           >
             Refresh
-          </.link>
-          <.link
-            href={~p"/logout"}
-            method="post"
-            class="mr-1 px-3 py-1.5 rounded-lg bg-rose-200 border border-rose-600 font-medium"
-          >
-            Logout
           </.link>
         </:actions>
       </.header>
