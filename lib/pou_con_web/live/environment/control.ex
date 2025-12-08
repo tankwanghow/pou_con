@@ -3,26 +3,25 @@ defmodule PouConWeb.Live.Environment.Control do
 
   alias PouCon.Automation.Environment.Configs
   alias PouCon.Automation.Environment.Schemas.Config
-  alias PouCon.Automation.Environment.EnvironmentController
-
-  @pubsub_topic "device_data"
 
   @impl true
   def mount(_params, _session, socket) do
-    if connected?(socket), do: Phoenix.PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
-
     config = Configs.get_config()
-    status = get_env_status()
 
     socket =
       socket
       |> assign(:config, config)
       |> assign(:changeset, Config.changeset(config, %{}))
-      |> assign(:status, status)
       |> assign(:fans, list_equipment("fan"))
       |> assign(:pumps, list_equipment("pump"))
 
     {:ok, socket}
+  end
+
+  @impl true
+  def handle_event("change", %{"config" => params}, socket) do
+    changeset = Config.changeset(socket.assigns.config, params)
+    {:noreply, assign(socket, :changeset, changeset)}
   end
 
   @impl true
@@ -37,37 +36,6 @@ defmodule PouConWeb.Live.Environment.Control do
 
       {:error, changeset} ->
         {:noreply, assign(socket, :changeset, changeset)}
-    end
-  end
-
-  @impl true
-  def handle_info(:data_refreshed, socket) do
-    {:noreply, assign(socket, :status, get_env_status())}
-  end
-
-  defp get_env_status do
-    try do
-      EnvironmentController.status()
-    rescue
-      _ ->
-        %{
-          avg_temp: nil,
-          avg_humidity: nil,
-          target_fan_count: 0,
-          target_pump_count: 0,
-          fans_on: [],
-          pumps_on: []
-        }
-    catch
-      :exit, _ ->
-        %{
-          avg_temp: nil,
-          avg_humidity: nil,
-          target_fan_count: 0,
-          target_pump_count: 0,
-          fans_on: [],
-          pumps_on: []
-        }
     end
   end
 
@@ -90,52 +58,27 @@ defmodule PouConWeb.Live.Environment.Control do
         </div>
       </div>
 
-      <.form for={@changeset} phx-submit="save" class="space-y-3">
+      <.form for={@changeset} phx-submit="save" phx-change="change" class="space-y-3">
         <div class="bg-gray-800 p-3 rounded-lg border border-gray-700">
-          <div class="flex items-center justify-between">
-            <div class="flex gap-6">
-              <div class="text-center">
-                <div class="text-gray-400 text-xs">Avg Temp</div>
-                <div class="text-xl font-bold text-yellow-400">
-                  {if @status.avg_temp, do: "#{Float.round(@status.avg_temp, 1)}°C", else: "-"}
-                </div>
-              </div>
-              <div class="text-center">
-                <div class="text-gray-400 text-xs">Avg Hum</div>
-                <div class="text-xl font-bold text-blue-400">
-                  {if @status.avg_humidity,
-                    do: "#{Float.round(@status.avg_humidity, 1)}%",
-                    else: "-"}
-                </div>
-              </div>
-              <div class="text-center">
-                <div class="text-gray-400 text-xs">Fans ON</div>
-                <div class="text-xl font-bold text-green-400">{@status.target_fan_count}</div>
-              </div>
-              <div class="text-center">
-                <div class="text-gray-400 text-xs">Pumps ON</div>
-                <div class="text-xl font-bold text-cyan-400">{@status.target_pump_count}</div>
-              </div>
-            </div>
-            <div class="flex items-center gap-2">
-              <input
-                type="checkbox"
-                name="config[enabled]"
-                value="true"
-                checked={@config.enabled}
-                class="rounded bg-gray-900 border-gray-600 w-5 h-5"
-              />
-              <label class="text-white font-medium">Auto Control</label>
-            </div>
+          <div class="flex items-center justify-end gap-2 mb-3">
+            <input type="hidden" name="config[enabled]" value="false" />
+            <input
+              type="checkbox"
+              name="config[enabled]"
+              value="true"
+              checked={Ecto.Changeset.get_field(@changeset, :enabled)}
+              class="rounded bg-gray-900 border-gray-600 w-5 h-5"
+            />
+            <label class="text-white font-medium">Auto Control Enabled</label>
           </div>
-          <div class="grid grid-cols-4 gap-2 mb-3">
+          <div class="grid grid-cols-5 gap-2 mb-3">
             <div>
               <label class="text-gray-400 text-xs">Temp Min</label>
               <input
                 type="number"
                 step="0.1"
                 name="config[temp_min]"
-                value={@config.temp_min}
+                value={Ecto.Changeset.get_field(@changeset, :temp_min)}
                 class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
               />
             </div>
@@ -145,7 +88,7 @@ defmodule PouConWeb.Live.Environment.Control do
                 type="number"
                 step="0.1"
                 name="config[temp_max]"
-                value={@config.temp_max}
+                value={Ecto.Changeset.get_field(@changeset, :temp_max)}
                 class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
               />
             </div>
@@ -154,7 +97,7 @@ defmodule PouConWeb.Live.Environment.Control do
               <input
                 type="number"
                 name="config[min_fans]"
-                value={@config.min_fans}
+                value={Ecto.Changeset.get_field(@changeset, :min_fans)}
                 class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
               />
             </div>
@@ -163,7 +106,7 @@ defmodule PouConWeb.Live.Environment.Control do
               <input
                 type="number"
                 name="config[max_fans]"
-                value={@config.max_fans}
+                value={Ecto.Changeset.get_field(@changeset, :max_fans)}
                 class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
               />
             </div>
@@ -173,7 +116,7 @@ defmodule PouConWeb.Live.Environment.Control do
                 type="number"
                 step="0.1"
                 name="config[hum_min]"
-                value={@config.hum_min}
+                value={Ecto.Changeset.get_field(@changeset, :hum_min)}
                 class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
               />
             </div>
@@ -183,7 +126,7 @@ defmodule PouConWeb.Live.Environment.Control do
                 type="number"
                 step="0.1"
                 name="config[hum_max]"
-                value={@config.hum_max}
+                value={Ecto.Changeset.get_field(@changeset, :hum_max)}
                 class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
               />
             </div>
@@ -192,7 +135,7 @@ defmodule PouConWeb.Live.Environment.Control do
               <input
                 type="number"
                 name="config[min_pumps]"
-                value={@config.min_pumps}
+                value={Ecto.Changeset.get_field(@changeset, :min_pumps)}
                 class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
               />
             </div>
@@ -201,7 +144,7 @@ defmodule PouConWeb.Live.Environment.Control do
               <input
                 type="number"
                 name="config[max_pumps]"
-                value={@config.max_pumps}
+                value={Ecto.Changeset.get_field(@changeset, :max_pumps)}
                 class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
               />
             </div>
@@ -212,7 +155,7 @@ defmodule PouConWeb.Live.Environment.Control do
                 type="number"
                 step="0.1"
                 name="config[hysteresis]"
-                value={@config.hysteresis}
+                value={Ecto.Changeset.get_field(@changeset, :hysteresis)}
                 class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
               />
             </div>
@@ -221,10 +164,12 @@ defmodule PouConWeb.Live.Environment.Control do
               <input
                 type="number"
                 name="config[stagger_delay_seconds]"
-                value={@config.stagger_delay_seconds || 5}
+                value={Ecto.Changeset.get_field(@changeset, :stagger_delay_seconds) || 5}
                 class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
               />
             </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="text-gray-400 text-xs">
                 Pump Order <span class="text-gray-600">({Enum.join(@pumps, ", ")})</span>
@@ -232,7 +177,7 @@ defmodule PouConWeb.Live.Environment.Control do
               <input
                 type="text"
                 name="config[pump_order]"
-                value={@config.pump_order}
+                value={Ecto.Changeset.get_field(@changeset, :pump_order)}
                 class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
               />
             </div>
@@ -241,7 +186,7 @@ defmodule PouConWeb.Live.Environment.Control do
               <input
                 type="text"
                 name="config[nc_fans]"
-                value={@config.nc_fans || ""}
+                value={Ecto.Changeset.get_field(@changeset, :nc_fans) || ""}
                 class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
               />
             </div>
@@ -254,7 +199,7 @@ defmodule PouConWeb.Live.Environment.Control do
               <input
                 type="text"
                 name="config[fan_order]"
-                value={@config.fan_order}
+                value={Ecto.Changeset.get_field(@changeset, :fan_order)}
                 class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
               />
             </div>

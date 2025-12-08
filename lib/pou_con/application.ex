@@ -55,7 +55,10 @@ defmodule PouCon.Application do
             PouCon.Automation.Feeding.FeedingScheduler,
 
             # FeedIn controller - automated FeedIn filling trigger monitoring
-            PouCon.Automation.Feeding.FeedInController
+            PouCon.Automation.Feeding.FeedInController,
+
+            # Interlock controller - configurable safety chain enforcement
+            PouCon.Automation.Interlock.InterlockController
           ]
         else
           []

@@ -65,8 +65,10 @@ defmodule PouConWeb.Router do
       live("/simulation", SimulationLive, :index)
       live("/environment", Live.Environment.Index, :index)
       live("/environment/control", Live.Environment.Control, :index)
-      live("/egg_collection", Live.EggCollection.Schedules, :index)
-      live("/light_schedule", Live.Lighting.Schedules, :index)
+      live("/lighting", Live.Lighting.Index, :index)
+      live("/lighting/schedules", Live.Lighting.Schedules, :index)
+      live("/egg_collection", Live.EggCollection.Index, :index)
+      live("/egg_collection/schedules", Live.EggCollection.Schedules, :index)
       live("/feeding_schedule", Live.Feeding.Schedules, :index)
       live("/dung", Live.Dung.Index, :index)
       live("/feed", Live.Feeding.Index, :index)
@@ -90,12 +92,15 @@ defmodule PouConWeb.Router do
       live("/devices", Live.Admin.Devices.Index, :index)
       live("/ports", Live.Admin.Ports.Index, :index)
       live("/equipment", Live.Admin.Equipment.Index, :index)
+      live("/interlock", Live.Admin.Interlock.Index, :index)
       live("/devices/new", Live.Admin.Devices.Form, :new)
       live("/devices/:id/edit", Live.Admin.Devices.Form, :edit)
       live("/ports/new", Live.Admin.Ports.Form, :new)
       live("/ports/:id/edit", Live.Admin.Ports.Form, :edit)
       live("/equipment/new", Live.Admin.Equipment.Form, :new)
       live("/equipment/:id/edit", Live.Admin.Equipment.Form, :edit)
+      live("/interlock/new", Live.Admin.Interlock.Form, :new)
+      live("/interlock/:id/edit", Live.Admin.Interlock.Form, :edit)
     end
   end
 end

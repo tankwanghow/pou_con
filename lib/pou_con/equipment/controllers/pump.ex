@@ -2,6 +2,8 @@ defmodule PouCon.Equipment.Controllers.Pump do
   use GenServer
   require Logger
 
+  alias PouCon.Automation.Interlock.InterlockHelper
+
   @device_manager Application.compile_env(:pou_con, :device_manager)
 
   defmodule State do
@@ -71,7 +73,15 @@ defmodule PouCon.Equipment.Controllers.Pump do
   def handle_info(:data_refreshed, state), do: {:noreply, sync_and_update(state)}
 
   @impl GenServer
-  def handle_cast(:turn_on, state), do: {:noreply, sync_coil(%{state | commanded_on: true})}
+  def handle_cast(:turn_on, state) do
+    if InterlockHelper.check_can_start(state.name) do
+      {:noreply, sync_coil(%{state | commanded_on: true})}
+    else
+      Logger.warning("[#{state.name}] Turn ON blocked by interlock rules")
+      {:noreply, state}
+    end
+  end
+
   @impl GenServer
   def handle_cast(:turn_off, state), do: {:noreply, sync_coil(%{state | commanded_on: false})}
 

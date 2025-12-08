@@ -1,17 +1,7 @@
 defmodule PouConWeb.Live.Dashboard.Index do
   use PouConWeb, :live_view
 
-  alias PouCon.Equipment.Controllers.{
-    Fan,
-    Pump,
-    TempHumSen,
-    Feeding,
-    Egg,
-    Dung,
-    Light,
-    FeedIn
-  }
-
+  alias PouCon.Equipment.{EquipmentCommands, Controllers.Feeding}
   alias PouCon.Hardware.DeviceManager
 
   @pubsub_topic "device_data"
@@ -76,18 +66,18 @@ defmodule PouConWeb.Live.Dashboard.Index do
       |> Task.async_stream(
         fn eq ->
           status =
-            try do
-              controller = controller_for_type(eq.type)
+            case EquipmentCommands.get_status(eq.name, 300) do
+              %{} = status_map ->
+                status_map
 
-              if controller && GenServer.whereis(via(eq.name)) do
-                GenServer.call(via(eq.name), :status, 300)
-              else
+              {:error, :not_found} ->
                 %{error: :not_running, error_message: "Controller not running"}
-              end
-            rescue
-              _ -> %{error: :unresponsive, error_message: "No response"}
-            catch
-              :exit, _ -> %{error: :dead, error_message: "Process dead"}
+
+              {:error, :timeout} ->
+                %{error: :timeout, error_message: "Controller timeout"}
+
+              _ ->
+                %{error: :unresponsive, error_message: "No response"}
             end
 
           Map.put(eq, :status, status)
@@ -119,36 +109,17 @@ defmodule PouConWeb.Live.Dashboard.Index do
     assign(socket, equipment: equipment_with_status, now: DateTime.utc_now())
   end
 
-  # Map equipment type → controller module
-  defp controller_for_type(type) do
-    case type do
-      "fan" -> Fan
-      "pump" -> Pump
-      "temp_hum_sensor" -> TempHumSen
-      "feeding" -> Feeding
-      "egg" -> Egg
-      "dung" -> Dung
-      "dung_horz" -> DungHor
-      "dung_exit" -> DungExit
-      "light" -> Light
-      "feed_in" -> FeedIn
-      _ -> nil
-    end
-  end
-
-  # Send command safely (DRY)
+  # Send command using generic interface
   defp send_command(socket, name, action) do
-    eq = get_equipment(socket.assigns.equipment, name)
-    controller = controller_for_type(eq.type)
-    if controller, do: apply(controller, action, [name])
+    case action do
+      :turn_on -> EquipmentCommands.turn_on(name)
+      :turn_off -> EquipmentCommands.turn_off(name)
+      :set_auto -> EquipmentCommands.set_auto(name)
+      :set_manual -> EquipmentCommands.set_manual(name)
+    end
+
     {:noreply, socket}
   end
-
-  defp get_equipment(equipment, name) do
-    Enum.find(equipment, &(&1.name == name)) || %{name: name, type: "unknown"}
-  end
-
-  defp via(name), do: {:via, Registry, {PouCon.DeviceControllerRegistry, name}}
 
   # ———————————————————— Render ————————————————————
   @impl true
@@ -167,24 +138,27 @@ defmodule PouConWeb.Live.Dashboard.Index do
             to="/admin/settings"
             label="Settings"
           />
-
           <.btn_link
             to="/simulation"
             label="Simulation"
           />
+          <.btn_link
+            to={~p"/admin/ports"}
+            label="Ports"
+          />
+          <.btn_link
+            to={~p"/admin/devices"}
+            label="Devices"
+          />
+          <.btn_link
+            to={~p"/admin/equipment"}
+            label="Equipment"
+          />
+          <.btn_link
+            to={~p"/admin/interlock"}
+            label="Interlock"
+          />
         <% end %>
-        <.btn_link
-          to={~p"/admin/ports"}
-          label="Ports"
-        />
-        <.btn_link
-          to={~p"/admin/devices"}
-          label="Devices"
-        />
-        <.btn_link
-          to={~p"/admin/equipment"}
-          label="Equipment"
-        />
         <.link
           href={~p"/logout"}
           method="post"
@@ -196,19 +170,18 @@ defmodule PouConWeb.Live.Dashboard.Index do
       
     <!-- Fans -->
       <div class="flex flex-wrap items-center gap-1 mb-6 mx-auto">
-        <% fans = Enum.filter(@equipment, &(&1.type == "fan")) %>
-        <.live_component
-          module={PouConWeb.Components.Summaries.FanSummaryComponent}
-          id="fan_summ"
-          equipments={fans}
-        />
         <% temphums = Enum.filter(@equipment, &(&1.type == "temp_hum_sensor")) %>
         <.live_component
           module={PouConWeb.Components.Summaries.TempHumSummaryComponent}
           id="temp_hum_summ"
           equipments={temphums}
         />
-
+        <% fans = Enum.filter(@equipment, &(&1.type == "fan")) %>
+        <.live_component
+          module={PouConWeb.Components.Summaries.FanSummaryComponent}
+          id="fan_summ"
+          equipments={fans}
+        />
         <% pumps = Enum.filter(@equipment, &(&1.type == "pump")) %>
         <.live_component
           module={PouConWeb.Components.Summaries.PumpSummaryComponent}

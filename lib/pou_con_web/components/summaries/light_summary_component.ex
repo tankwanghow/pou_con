@@ -18,7 +18,7 @@ defmodule PouConWeb.Components.Summaries.LightSummaryComponent do
 
   @impl true
   def handle_event("light_schedule", _, socket) do
-    {:noreply, socket |> push_navigate(to: ~p"/light_schedule")}
+    {:noreply, socket |> push_navigate(to: ~p"/lighting")}
   end
 
   @impl true

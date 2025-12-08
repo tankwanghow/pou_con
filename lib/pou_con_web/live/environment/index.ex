@@ -1,13 +1,7 @@
 defmodule PouConWeb.Live.Environment.Index do
   use PouConWeb, :live_view
 
-  alias PouCon.Equipment.Controllers.{
-    Fan,
-    Pump,
-    TempHumSen,
-    Light
-  }
-
+  alias PouCon.Equipment.EquipmentCommands
   alias PouCon.Hardware.DeviceManager
 
   @pubsub_topic "device_data"
@@ -61,18 +55,18 @@ defmodule PouConWeb.Live.Environment.Index do
       |> Task.async_stream(
         fn eq ->
           status =
-            try do
-              controller = controller_for_type(eq.type)
+            case EquipmentCommands.get_status(eq.name, 300) do
+              %{} = status_map ->
+                status_map
 
-              if controller && GenServer.whereis(via(eq.name)) do
-                GenServer.call(via(eq.name), :status, 300)
-              else
+              {:error, :not_found} ->
                 %{error: :not_running, error_message: "Controller not running"}
-              end
-            rescue
-              _ -> %{error: :unresponsive, error_message: "No response"}
-            catch
-              :exit, _ -> %{error: :dead, error_message: "Process dead"}
+
+              {:error, :timeout} ->
+                %{error: :timeout, error_message: "Controller timeout"}
+
+              _ ->
+                %{error: :unresponsive, error_message: "No response"}
             end
 
           Map.put(eq, :status, status)
@@ -118,30 +112,17 @@ defmodule PouConWeb.Live.Environment.Index do
     |> assign(avg_temp: avg_temp, avg_hum: avg_hum, avg_dew: avg_dew)
   end
 
-  # Map equipment type → controller module
-  defp controller_for_type(type) do
-    case type do
-      "fan" -> Fan
-      "pump" -> Pump
-      "temp_hum_sensor" -> TempHumSen
-      "light" -> Light
-      _ -> nil
-    end
-  end
-
-  # Send command safely (DRY)
+  # Send command using generic interface
   defp send_command(socket, name, action) do
-    eq = get_equipment(socket.assigns.equipment, name)
-    controller = controller_for_type(eq.type)
-    if controller, do: apply(controller, action, [name])
+    case action do
+      :turn_on -> EquipmentCommands.turn_on(name)
+      :turn_off -> EquipmentCommands.turn_off(name)
+      :set_auto -> EquipmentCommands.set_auto(name)
+      :set_manual -> EquipmentCommands.set_manual(name)
+    end
+
     {:noreply, socket}
   end
-
-  defp get_equipment(equipment, name) do
-    Enum.find(equipment, &(&1.name == name)) || %{name: name, type: "unknown"}
-  end
-
-  defp via(name), do: {:via, Registry, {PouCon.DeviceControllerRegistry, name}}
 
   # ———————————————————— Render ————————————————————
   @impl true
@@ -157,16 +138,6 @@ defmodule PouConWeb.Live.Environment.Index do
       </.header>
 
       <div class="p-4">
-        <!-- Fans -->
-        <div class="flex flex-wrap gap-1 mb-6">
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "fan")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.FanComponent}
-              id={eq.name}
-              equipment={eq}
-            />
-          <% end %>
-        </div>
         <div class="flex flex-wrap gap-1 mb-6">
           <%= for eq <- Enum.filter(@equipment, &(&1.type == "temp_hum_sensor")) |> Enum.sort_by(& &1.title) do %>
             <.live_component
@@ -198,6 +169,16 @@ defmodule PouConWeb.Live.Environment.Index do
               </span>
             </div>
           </div>
+        </div>
+        <!-- Fans -->
+        <div class="flex flex-wrap gap-1 mb-6">
+          <%= for eq <- Enum.filter(@equipment, &(&1.type == "fan")) |> Enum.sort_by(& &1.title) do %>
+            <.live_component
+              module={PouConWeb.Components.Equipment.FanComponent}
+              id={eq.name}
+              equipment={eq}
+            />
+          <% end %>
         </div>
         <div class="flex flex-wrap gap-1 mb-6">
           <%= for eq <- Enum.filter(@equipment, &(&1.type == "pump")) |> Enum.sort_by(& &1.title) do %>

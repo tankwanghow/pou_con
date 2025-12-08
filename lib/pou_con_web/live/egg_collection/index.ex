@@ -1,38 +1,41 @@
-defmodule PouConWeb.Live.Dung.Index do
+defmodule PouConWeb.Live.EggCollection.Index do
   use PouConWeb, :live_view
 
   alias PouCon.Equipment.EquipmentCommands
-  alias PouCon.Hardware.DeviceManager
+  alias PouCon.Equipment.Devices
 
   @pubsub_topic "device_data"
 
   @impl true
-  def mount(_params, session, socket) do
-    role = session["current_role"] || :none
+  def mount(_params, _session, socket) do
     if connected?(socket), do: Phoenix.PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
-    equipment = PouCon.Equipment.Devices.list_equipment()
+
+    equipment = Devices.list_equipment()
 
     socket =
       socket
-      |> assign(equipment: equipment, now: DateTime.utc_now(), current_role: role)
+      |> assign(equipment: equipment)
 
     {:ok, fetch_all_status(socket)}
   end
 
-  @impl true
-  def handle_event("reload_ports", _, socket) do
-    DeviceManager.reload()
-    PouCon.Equipment.EquipmentLoader.reload_controllers()
-    {:noreply, assign(socket, data: DeviceManager.get_all_cached_data())}
-  end
-
   # ———————————————————— Toggle On/Off ————————————————————
+  @impl true
   def handle_event("toggle_on_off", %{"name" => name, "value" => "on"}, socket) do
     send_command(socket, name, :turn_on)
   end
 
   def handle_event("toggle_on_off", %{"name" => name}, socket) do
     send_command(socket, name, :turn_off)
+  end
+
+  # ———————————————————— Auto/Manual ————————————————————
+  def handle_event("toggle_auto_manual", %{"name" => name, "value" => "on"}, socket) do
+    send_command(socket, name, :set_auto)
+  end
+
+  def handle_event("toggle_auto_manual", %{"name" => name}, socket) do
+    send_command(socket, name, :set_manual)
   end
 
   @impl true
@@ -79,14 +82,16 @@ defmodule PouConWeb.Live.Dung.Index do
           }
       end)
 
-    assign(socket, equipment: equipment_with_status, now: DateTime.utc_now())
+    assign(socket, equipment: equipment_with_status)
   end
 
   # Send command using generic interface
   defp send_command(socket, name, action) do
     case action do
-      :turn_on -> PouCon.Equipment.EquipmentCommands.turn_on(name)
-      :turn_off -> PouCon.Equipment.EquipmentCommands.turn_off(name)
+      :turn_on -> EquipmentCommands.turn_on(name)
+      :turn_off -> EquipmentCommands.turn_off(name)
+      :set_auto -> EquipmentCommands.set_auto(name)
+      :set_manual -> EquipmentCommands.set_manual(name)
     end
 
     {:noreply, socket}
@@ -98,32 +103,19 @@ defmodule PouConWeb.Live.Dung.Index do
     ~H"""
     <Layouts.app flash={@flash}>
       <.header>
-        Poultry House Dashboard
+        Egg Collection
         <:actions>
+          <.btn_link to={~p"/egg_collection/schedules"} label="Schedules" />
           <.dashboard_link />
         </:actions>
       </.header>
 
       <div class="p-4">
-        <!-- Fans -->
+        <!-- Egg Collection Equipment -->
         <div class="flex flex-wrap gap-1 mb-6">
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "dung")) |> Enum.sort_by(& &1.title) do %>
+          <%= for eq <- Enum.filter(@equipment, &(&1.type == "egg")) |> Enum.sort_by(& &1.title) do %>
             <.live_component
-              module={PouConWeb.Components.Equipment.DungComponent}
-              id={eq.name}
-              equipment={eq}
-            />
-          <% end %>
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "dung_horz")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.DungHorComponent}
-              id={eq.name}
-              equipment={eq}
-            />
-          <% end %>
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "dung_exit")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.DungExitComponent}
+              module={PouConWeb.Components.Equipment.EggComponent}
               id={eq.name}
               equipment={eq}
             />

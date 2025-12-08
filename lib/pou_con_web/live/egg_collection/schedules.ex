@@ -1,58 +1,25 @@
 defmodule PouConWeb.Live.EggCollection.Schedules do
   use PouConWeb, :live_view
 
-  alias PouCon.Equipment.Controllers.Egg
-  alias PouCon.Hardware.DeviceManager
   alias PouCon.Automation.EggCollection.EggCollectionSchedules
   alias PouCon.Automation.EggCollection.Schemas.Schedule
   alias PouCon.Equipment.Devices
 
-  @pubsub_topic "device_data"
-
   @impl true
-  def mount(_params, session, socket) do
-    role = session["current_role"] || :none
-    if connected?(socket), do: Phoenix.PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
-
-    equipment = Devices.list_equipment()
+  def mount(_params, _session, socket) do
     schedules = EggCollectionSchedules.list_schedules()
-    egg_equipment = Enum.filter(equipment, &(&1.type == "egg"))
+    egg_equipment = Devices.list_equipment() |> Enum.filter(&(&1.type == "egg"))
 
     socket =
       socket
-      |> assign(equipment: equipment, now: DateTime.utc_now(), current_role: role)
       |> assign(schedules: schedules, editing_schedule: nil, egg_equipment: egg_equipment)
       |> assign_new_schedule_form()
 
-    {:ok, fetch_all_status(socket)}
-  end
-
-  @impl true
-  def handle_event("reload_ports", _, socket) do
-    DeviceManager.reload()
-    PouCon.Equipment.EquipmentLoader.reload_controllers()
-    {:noreply, assign(socket, data: DeviceManager.get_all_cached_data())}
-  end
-
-  # ———————————————————— Toggle On/Off ————————————————————
-  def handle_event("toggle_on_off", %{"name" => name, "value" => "on"}, socket) do
-    send_command(socket, name, :turn_on)
-  end
-
-  def handle_event("toggle_on_off", %{"name" => name}, socket) do
-    send_command(socket, name, :turn_off)
-  end
-
-  # ———————————————————— Auto/Manual ————————————————————
-  def handle_event("toggle_auto_manual", %{"name" => name, "value" => "on"}, socket) do
-    send_command(socket, name, :set_auto)
-  end
-
-  def handle_event("toggle_auto_manual", %{"name" => name}, socket) do
-    send_command(socket, name, :set_manual)
+    {:ok, socket}
   end
 
   # ———————————————————— Schedule Management ————————————————————
+  @impl true
   def handle_event("new_schedule", _, socket) do
     {:noreply, assign_new_schedule_form(socket)}
   end
@@ -100,11 +67,6 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
     {:noreply, assign(socket, schedules: schedules)}
   end
 
-  @impl true
-  def handle_info(:data_refreshed, socket) do
-    {:noreply, fetch_all_status(socket)}
-  end
-
   # Private Functions
 
   defp create_schedule(socket, params) do
@@ -148,75 +110,6 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
     assign(socket, editing_schedule: nil, form: to_form(changeset))
   end
 
-  defp fetch_all_status(socket) do
-    equipment_with_status =
-      socket.assigns.equipment
-      |> Task.async_stream(
-        fn eq ->
-          status =
-            try do
-              controller = controller_for_type(eq.type)
-
-              if controller && GenServer.whereis(via(eq.name)) do
-                GenServer.call(via(eq.name), :status, 300)
-              else
-                %{error: :not_running, error_message: "Controller not running"}
-              end
-            rescue
-              _ -> %{error: :unresponsive, error_message: "No response"}
-            catch
-              :exit, _ -> %{error: :dead, error_message: "Process dead"}
-            end
-
-          Map.put(eq, :status, status)
-        end,
-        timeout: 1000,
-        max_concurrency: 30
-      )
-      |> Enum.map(fn
-        {:ok, eq} ->
-          eq
-
-        {:exit, _} ->
-          %{
-            name: "timeout",
-            title: "Timeout",
-            type: "unknown",
-            status: %{error: :timeout, error_message: "Task timeout"}
-          }
-
-        _ ->
-          %{
-            name: "error",
-            title: "Error",
-            type: "unknown",
-            status: %{error: :unknown, error_message: "Unknown error"}
-          }
-      end)
-
-    assign(socket, equipment: equipment_with_status, now: DateTime.utc_now())
-  end
-
-  defp controller_for_type(type) do
-    case type do
-      "egg" -> Egg
-      _ -> nil
-    end
-  end
-
-  defp send_command(socket, name, action) do
-    eq = get_equipment(socket.assigns.equipment, name)
-    controller = controller_for_type(eq.type)
-    if controller, do: apply(controller, action, [name])
-    {:noreply, socket}
-  end
-
-  defp get_equipment(equipment, name) do
-    Enum.find(equipment, &(&1.name == name)) || %{name: name, type: "unknown"}
-  end
-
-  defp via(name), do: {:via, Registry, {PouCon.DeviceControllerRegistry, name}}
-
   # ———————————————————— Render ————————————————————
   @impl true
   def render(assigns) do
@@ -225,22 +118,9 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
       <.header>
         Egg Collection Schedules
         <:actions>
-          <.dashboard_link />
+          <.btn_link to={~p"/egg_collection"} label="Back" />
         </:actions>
       </.header>
-
-
-        <div class="flex flex-wrap gap-1 mb-6">
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "egg")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.EggComponent}
-              id={eq.name}
-              equipment={eq}
-            />
-          <% end %>
-        </div>
-
-        <hr class="my-6 border-gray-600" />
 
     <!-- Schedule Management -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -251,34 +131,28 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
             </h2>
 
             <.form for={@form} phx-change="validate_schedule" phx-submit="save_schedule">
-              <div class="grid grid-cols-2 gap-3">
+              <div class="grid grid-cols-4 gap-2">
                 <!-- Egg Collection Equipment -->
                 <div>
-                  <label class="block text-sm font-medium mb-1">Egg Collection</label>
+                  <label class="block text-sm font-medium">Egg Row</label>
                   <.input
                     type="select"
                     field={@form[:equipment_id]}
                     options={Enum.map(@egg_equipment, &{&1.title || &1.name, &1.id})}
-                    prompt="Select equipment"
+                    prompt="Select Egg Row"
                     required
                   />
                 </div>
 
-    <!-- Schedule Name -->
-                <div>
-                  <label class="block text-sm font-medium mb-1">Name (optional)</label>
-                  <.input type="text" field={@form[:name]} placeholder="e.g., Morning Collection" />
-                </div>
-
     <!-- Start Time -->
                 <div>
-                  <label class="block text-sm font-medium mb-1">Start Time</label>
+                  <label class="block text-sm font-medium">Start Time</label>
                   <.input type="time" field={@form[:start_time]} required />
                 </div>
 
     <!-- Stop Time -->
                 <div>
-                  <label class="block text-sm font-medium mb-1">Stop Time</label>
+                  <label class="block text-sm font-medium ">Stop Time</label>
                   <.input type="time" field={@form[:stop_time]} required />
                 </div>
 

@@ -11,7 +11,7 @@ defmodule PouConWeb.LandingLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} class="xs:w-full sm:w-3/4 md:w-1/3 lg:w-1/4">
+    <Layouts.app flash={@flash} class="xs:w-full sm:w-3/4 md:w-2/3 lg:w-2/4">
       <h1 class="text-center text-4xl font-bold mb-6">Welcome to PouCon</h1>
 
       <div class="bg-white shadow rounded-lg p-6">

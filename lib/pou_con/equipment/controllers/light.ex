@@ -2,6 +2,8 @@ defmodule PouCon.Equipment.Controllers.Light do
   use GenServer
   require Logger
 
+  alias PouCon.Automation.Interlock.InterlockHelper
+
   @device_manager Application.compile_env(:pou_con, :device_manager)
 
   defmodule State do
@@ -83,8 +85,13 @@ defmodule PouCon.Equipment.Controllers.Light do
   # ——————————————————————————————————————————————————————————————
   @impl GenServer
   def handle_cast(:turn_on, state) do
-    new_state = %{state | commanded_on: true}
-    {:noreply, sync_coil(new_state)}
+    if InterlockHelper.check_can_start(state.name) do
+      new_state = %{state | commanded_on: true}
+      {:noreply, sync_coil(new_state)}
+    else
+      Logger.warning("[#{state.name}] Turn ON blocked by interlock rules")
+      {:noreply, state}
+    end
   end
 
   @impl GenServer

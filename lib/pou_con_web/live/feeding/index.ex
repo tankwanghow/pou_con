@@ -1,11 +1,7 @@
 defmodule PouConWeb.Live.Feeding.Index do
   use PouConWeb, :live_view
 
-  alias PouCon.Equipment.Controllers.{
-    Feeding,
-    FeedIn
-  }
-
+  alias PouCon.Equipment.EquipmentCommands
   alias PouCon.Hardware.DeviceManager
 
   @pubsub_topic "device_data"
@@ -50,18 +46,11 @@ defmodule PouConWeb.Live.Feeding.Index do
       |> Task.async_stream(
         fn eq ->
           status =
-            try do
-              controller = controller_for_type(eq.type)
-
-              if controller && GenServer.whereis(via(eq.name)) do
-                GenServer.call(via(eq.name), :status, 300)
-              else
-                %{error: :not_running, error_message: "Controller not running"}
-              end
-            rescue
+            case EquipmentCommands.get_status(eq.name, 300) do
+              %{} = status_map -> status_map
+              {:error, :not_found} -> %{error: :not_running, error_message: "Controller not running"}
+              {:error, :timeout} -> %{error: :timeout, error_message: "Controller timeout"}
               _ -> %{error: :unresponsive, error_message: "No response"}
-            catch
-              :exit, _ -> %{error: :dead, error_message: "Process dead"}
             end
 
           Map.put(eq, :status, status)
@@ -93,28 +82,15 @@ defmodule PouConWeb.Live.Feeding.Index do
     assign(socket, equipment: equipment_with_status, now: DateTime.utc_now())
   end
 
-  # Map equipment type → controller module
-  defp controller_for_type(type) do
-    case type do
-      "feeding" -> Feeding
-      "feed_in" -> FeedIn
-      _ -> nil
-    end
-  end
-
-  # Send command safely (DRY)
+  # Send command using generic interface
   defp send_command(socket, name, action) do
-    eq = get_equipment(socket.assigns.equipment, name)
-    controller = controller_for_type(eq.type)
-    if controller, do: apply(controller, action, [name])
+    case action do
+      :turn_on -> EquipmentCommands.turn_on(name)
+      :turn_off -> EquipmentCommands.turn_off(name)
+    end
+
     {:noreply, socket}
   end
-
-  defp get_equipment(equipment, name) do
-    Enum.find(equipment, &(&1.name == name)) || %{name: name, type: "unknown"}
-  end
-
-  defp via(name), do: {:via, Registry, {PouCon.DeviceControllerRegistry, name}}
 
   # ———————————————————— Render ————————————————————
   @impl true

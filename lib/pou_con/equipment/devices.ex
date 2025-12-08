@@ -144,6 +144,15 @@ defmodule PouCon.Equipment.Devices do
   def get_equipment!(id), do: Repo.get!(Equipment, id)
 
   @doc """
+  Gets equipment by name.
+
+  Returns nil if equipment doesn't exist.
+  """
+  def get_equipment_by_name(name) when is_binary(name) do
+    Repo.get_by(Equipment, name: name)
+  end
+
+  @doc """
   Creates a equipment.
 
   ## Examples
