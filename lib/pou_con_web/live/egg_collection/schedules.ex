@@ -221,31 +221,27 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-3/5">
       <.header>
         Egg Collection Schedules
         <:actions>
-          <.navigate to="/dashboard" label="Dashboard" />
-          <.link
-            phx-click="reload_ports"
-            class="mr-1 px-3 py-1.5 rounded-lg bg-green-200 border border-green-600 font-medium"
-          >
-            Refresh
-          </.link>
+          <.dashboard_link />
         </:actions>
       </.header>
 
-      <div class="p-4">
-        <!-- Egg Collection Status -->
-        <h2 class="text-lg font-semibold mb-3">Egg Collection Status</h2>
+
         <div class="flex flex-wrap gap-1 mb-6">
           <%= for eq <- Enum.filter(@equipment, &(&1.type == "egg")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component module={PouConWeb.Components.Equipment.EggComponent} id={eq.name} equipment={eq} />
+            <.live_component
+              module={PouConWeb.Components.Equipment.EggComponent}
+              id={eq.name}
+              equipment={eq}
+            />
           <% end %>
         </div>
 
         <hr class="my-6 border-gray-600" />
-        
+
     <!-- Schedule Management -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <!-- Schedule Form -->
@@ -267,25 +263,25 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
                     required
                   />
                 </div>
-                
+
     <!-- Schedule Name -->
                 <div>
                   <label class="block text-sm font-medium mb-1">Name (optional)</label>
                   <.input type="text" field={@form[:name]} placeholder="e.g., Morning Collection" />
                 </div>
-                
+
     <!-- Start Time -->
                 <div>
                   <label class="block text-sm font-medium mb-1">Start Time</label>
                   <.input type="time" field={@form[:start_time]} required />
                 </div>
-                
+
     <!-- Stop Time -->
                 <div>
                   <label class="block text-sm font-medium mb-1">Stop Time</label>
                   <.input type="time" field={@form[:stop_time]} required />
                 </div>
-                
+
     <!-- Enabled Checkbox -->
                 <div class="flex items-center">
                   <label class="flex items-center gap-2">
@@ -293,7 +289,7 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
                     <span class="text-sm">Enabled</span>
                   </label>
                 </div>
-                
+
     <!-- Buttons -->
                 <div class="flex gap-2 items-center">
                   <.button type="submit">
@@ -312,14 +308,14 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
               </div>
             </.form>
           </div>
-          
+
     <!-- Schedule List -->
           <div>
             <%= if Enum.empty?(@schedules) do %>
               <p class="text-gray-400 text-sm italic">No schedules configured yet.</p>
             <% else %>
               <%= for schedule <- @schedules do %>
-                <div class={"p-3 rounded-lg border flex items-center gap-3 mb-2 " <> if schedule.enabled, do: "bg-blue-900 border-blue-600 text-white", else: "bg-gray-800 border-gray-600 text-gray-200"}>
+                <div class={"py-1 px-4 rounded-lg border flex items-center " <> if schedule.enabled, do: "bg-blue-900 border-blue-600 text-white", else: "bg-gray-800 border-gray-600 text-gray-200"}>
                   <!-- Equipment Name -->
                   <div class="w-32 flex-shrink-0">
                     <span class="font-semibold text-white text-sm">
@@ -329,7 +325,7 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
                       <span class="text-xs text-gray-300 block">({schedule.name})</span>
                     <% end %>
                   </div>
-                  
+
     <!-- START Time -->
                   <div class="flex items-center gap-1">
                     <span class="text-green-400 font-semibold text-xs">START</span>
@@ -337,10 +333,10 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
                       {Calendar.strftime(schedule.start_time, "%I:%M %p")}
                     </span>
                   </div>
-                  
+
     <!-- Separator -->
                   <span class="text-gray-400">|</span>
-                  
+
     <!-- STOP Time -->
                   <div class="flex items-center gap-1">
                     <span class="text-rose-400 font-semibold text-xs">STOP</span>
@@ -348,10 +344,10 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
                       {Calendar.strftime(schedule.stop_time, "%I:%M %p")}
                     </span>
                   </div>
-                  
+
     <!-- Spacer -->
                   <div class="flex-1"></div>
-                  
+
     <!-- CRUD Buttons -->
                   <div class="flex gap-1">
                     <button
@@ -397,7 +393,7 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
             <li>• Toggle the checkmark to enable/disable a schedule</li>
           </ul>
         </div>
-      </div>
+
     </Layouts.app>
     """
   end

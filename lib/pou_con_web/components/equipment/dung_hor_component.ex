@@ -26,7 +26,7 @@ defmodule PouConWeb.Components.Equipment.DungHorComponent do
           </div>
           <span class="font-bold text-gray-700 text-xs truncate">{@status.title}</span>
         </div>
-
+        
     <!-- Static Manual Badge (No toggles) -->
         <div class="flex-shrink-0 ml-1">
           <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-gray-100 text-gray-400 border border-gray-200">
@@ -34,7 +34,7 @@ defmodule PouConWeb.Components.Equipment.DungHorComponent do
           </span>
         </div>
       </div>
-
+      
     <!-- BODY -->
       <div class="flex items-center gap-2 p-2">
         <!-- Visualization (Agitator/Spinner) -->
@@ -44,7 +44,7 @@ defmodule PouConWeb.Components.Equipment.DungHorComponent do
             <polygon points="54.41 52.41 60.83 46 54.41 39.59 51.59 42.41 53.17 44 42 44 42 48 53.17 48 51.59 49.59 54.41 52.41" />
           </svg>
         </div>
-
+        
     <!-- Controls -->
         <div class="flex-1 flex flex-col gap-1 min-w-0">
           <div class={"text-[9px] font-bold uppercase tracking-wide text-#{@display.color}-500 truncate"}>

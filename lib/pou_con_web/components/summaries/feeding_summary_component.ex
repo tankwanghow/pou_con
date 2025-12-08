@@ -38,10 +38,10 @@ defmodule PouConWeb.Components.Summaries.FeedingSummaryComponent do
     >
       <div class="flex flex-wrap">
         <%= for eq <- @equipments do %>
-          <div class="p-4 flex flex-col items-center justify-center gap-1 transition-colors">
+          <div class="px-3 flex flex-col items-center justify-center transition-colors">
             <div class={"text-#{eq.color}-500"}>{eq.title}</div>
             <div class={[
-              "relative h-10 w-10 flex gap-2 items-center justify-center overflow-hidden"
+              "relative h-10 w-10 flex items-center justify-center overflow-hidden"
             ]}>
               <div class={[
                 "absolute left-1 h-6 w-1 rounded-full transition-colors z-0",
@@ -84,7 +84,7 @@ defmodule PouConWeb.Components.Summaries.FeedingSummaryComponent do
           </div>
         <% end %>
         <%= for fi <- @feed_ins do %>
-          <div class="p-4 flex flex-col items-center gap-1 transition-colors">
+          <div class="px-3 flex flex-col items-center transition-colors">
             <div class={"text-#{fi.color}-500"}>{fi.title}</div>
             <div class={"text-#{fi.color}-500 " <> if(fi.is_running, do: "animate-bounce", else: "")}>
               <.icon

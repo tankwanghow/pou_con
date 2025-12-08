@@ -224,13 +224,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
       <.header>
         Feeding Schedules
         <:actions>
-          <.navigate to="/dashboard" label="Dashboard" />
-          <.link
-            phx-click="reload_ports"
-            class="mr-1 px-3 py-1.5 rounded-lg bg-green-200 border border-green-600 font-medium"
-          >
-            Refresh
-          </.link>
+          <.btn_link to="/feed" label="Back" />
         </:actions>
       </.header>
 
@@ -249,24 +243,22 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                 <!-- Move to Back Limit Time -->
                 <div>
                   <label class="block text-sm font-medium mb-1">
-                    Move to Back Time
-                    <span class="text-xs text-gray-400">(optional)</span>
+                    Move to Back Time <span class="text-xs text-gray-400">(optional)</span>
                   </label>
                   <.input type="time" field={@form[:move_to_back_limit_time]} />
                   <p class="text-xs text-gray-400 mt-1">All feeding buckets move back</p>
                 </div>
 
-                <!-- Move to Front Limit Time -->
+    <!-- Move to Front Limit Time -->
                 <div>
                   <label class="block text-sm font-medium mb-1">
-                    Move to Front Time
-                    <span class="text-xs text-gray-400">(optional)</span>
+                    Move to Front Time <span class="text-xs text-gray-400">(optional)</span>
                   </label>
                   <.input type="time" field={@form[:move_to_front_limit_time]} />
                   <p class="text-xs text-gray-400 mt-1">All feeding buckets move front</p>
                 </div>
 
-                <!-- FeedIn Trigger Bucket -->
+    <!-- FeedIn Trigger Bucket -->
                 <div class="col-span-2">
                   <label class="block text-sm font-medium mb-1">
                     Enable FeedIn when bucket reaches front
@@ -283,7 +275,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                   </p>
                 </div>
 
-                <!-- Enabled Checkbox -->
+    <!-- Enabled Checkbox -->
                 <div class="flex items-center">
                   <label class="flex items-center gap-2">
                     <.input type="checkbox" field={@form[:enabled]} />
@@ -310,7 +302,8 @@ defmodule PouConWeb.Live.Feeding.Schedules do
             </.form>
 
             <div class="mt-4 p-3 bg-blue-700 border border-blue-600 rounded text-xs text-white">
-              <strong>Note:</strong> Each schedule affects ALL feeding buckets simultaneously. At least one time must be set (Back or Front).
+              <strong>Note:</strong>
+              Each schedule affects ALL feeding buckets simultaneously. At least one time must be set (Back or Front).
             </div>
           </div>
 
@@ -348,13 +341,17 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                       <% end %>
 
                       <%= if schedule.feedin_front_limit_bucket do %>
-                        <span class="ml-2 text-[9px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-bold" title={"Enable FeedIn when #{schedule.feedin_front_limit_bucket.title || schedule.feedin_front_limit_bucket.name} reaches front limit"}>
-                          FILL: {schedule.feedin_front_limit_bucket.title || schedule.feedin_front_limit_bucket.name}
+                        <span
+                          class="ml-2 text-[9px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-bold"
+                          title={"Enable FeedIn when #{schedule.feedin_front_limit_bucket.title || schedule.feedin_front_limit_bucket.name} reaches front limit"}
+                        >
+                          FILL: {schedule.feedin_front_limit_bucket.title ||
+                            schedule.feedin_front_limit_bucket.name}
                         </span>
                       <% end %>
                     </div>
 
-                    <!-- CRUD Buttons -->
+    <!-- CRUD Buttons -->
                     <div class="flex text-white gap-1">
                       <button
                         phx-click="toggle_schedule"
@@ -395,17 +392,20 @@ defmodule PouConWeb.Live.Feeding.Schedules do
           <h3 class="font-semibold mb-2">📝 How Feeding Schedules Work</h3>
           <ul class="text-sm space-y-1 text-gray-300">
             <li>
-              • Each schedule controls <strong>ALL feeding buckets</strong> at once - they all move together
+              • Each schedule controls <strong>ALL feeding buckets</strong>
+              at once - they all move together
             </li>
             <li>
-              • <strong>Move to Back</strong> only happens if FeedIn bucket is <strong>full and stopped</strong>
+              • <strong>Move to Back</strong>
+              only happens if FeedIn bucket is <strong>full and stopped</strong>
             </li>
             <li>
               • Individual buckets in <strong>MANUAL</strong> mode or with errors will be skipped
             </li>
             <li>• Commands are sent at the scheduled times throughout the day</li>
             <li>
-              • You can specify which bucket should <strong>trigger FeedIn filling</strong> when it reaches front limit (only if FeedIn is in AUTO mode)
+              • You can specify which bucket should <strong>trigger FeedIn filling</strong>
+              when it reaches front limit (only if FeedIn is in AUTO mode)
             </li>
             <li>• Create multiple schedules to move buckets back and front several times per day</li>
             <li>• At least one time (Back or Front) must be configured for each schedule</li>

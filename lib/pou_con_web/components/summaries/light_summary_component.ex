@@ -31,7 +31,7 @@ defmodule PouConWeb.Components.Summaries.LightSummaryComponent do
     >
       <div class="flex flex-wrap">
         <%= for eq <- @equipments do %>
-          <div class="p-4 flex flex-col items-center justify-center gap-1 transition-colors">
+          <div class="px-3 flex flex-col items-center justify-center transition-colors">
             <div class={"text-#{eq.color}-500"}>{eq.title}</div>
             <div class={[eq.anim_class, "text-#{eq.color}-500"]}>
               <svg width="54" height="48" fill="currentColor" viewBox="0 0 279.682 279.682">

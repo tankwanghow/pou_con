@@ -35,7 +35,7 @@ defmodule PouConWeb.Components.Summaries.TempHumSummaryComponent do
     >
       <div class="flex flex-wrap">
         <%= for eq <- @equipments do %>
-          <div class="p-4 flex flex-col items-center justify-center gap-1 transition-colors">
+          <div class="p-2 flex flex-col items-center justify-center transition-colors">
             <div class={"text-#{eq.main_color}-500"}>{eq.title}</div>
             <div class="flex items-center gap-2">
               <div class="relative flex items-center justify-center transition-colors">
@@ -71,7 +71,7 @@ defmodule PouConWeb.Components.Summaries.TempHumSummaryComponent do
             </div>
           </div>
         <% end %>
-        
+
     <!-- Temperature Column -->
         <div class="p-4 flex flex-col items-center justify-center gap-1 transition-colors">
           <div class="text-gray-400">
@@ -82,7 +82,7 @@ defmodule PouConWeb.Components.Summaries.TempHumSummaryComponent do
             <span class="text-sm font-medium text-gray-400">°C</span>
           </div>
         </div>
-        
+
     <!-- Humidity Column -->
         <div class="p-4 flex flex-col items-center justify-center gap-1 transition-colors">
           <div class="text-gray-400">Avg Hum</div>
@@ -91,7 +91,7 @@ defmodule PouConWeb.Components.Summaries.TempHumSummaryComponent do
             <span class="text-sm font-medium text-gray-400">%</span>
           </div>
         </div>
-        
+
     <!-- Dew Point Column -->
         <div class="p-4 flex flex-col items-center justify-center gap-1 transition-colors">
           <div class="text-gray-400">

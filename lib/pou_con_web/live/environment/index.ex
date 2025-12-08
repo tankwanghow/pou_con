@@ -149,21 +149,10 @@ defmodule PouConWeb.Live.Environment.Index do
     ~H"""
     <Layouts.app flash={@flash}>
       <.header>
-        Environment Control
+        Environment
         <:actions>
-          <.navigate to="/dashboard" label="Dashboard" />
-          <.link
-            phx-click="reload_ports"
-            class="mr-1 px-3 py-1.5 rounded-lg bg-green-200 border border-green-600 font-medium"
-          >
-            Refresh
-          </.link>
-          <.link
-            href={~p"/environment/control"}
-            class="mr-1 px-3 py-1.5 rounded-lg bg-rose-200 border border-rose-600 font-medium"
-          >
-            Configure
-          </.link>
+          <.btn_link to={~p"/environment/control"} label="Configure" />
+          <.dashboard_link />
         </:actions>
       </.header>
 
@@ -171,7 +160,11 @@ defmodule PouConWeb.Live.Environment.Index do
         <!-- Fans -->
         <div class="flex flex-wrap gap-1 mb-6">
           <%= for eq <- Enum.filter(@equipment, &(&1.type == "fan")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component module={PouConWeb.Components.Equipment.FanComponent} id={eq.name} equipment={eq} />
+            <.live_component
+              module={PouConWeb.Components.Equipment.FanComponent}
+              id={eq.name}
+              equipment={eq}
+            />
           <% end %>
         </div>
         <div class="flex flex-wrap gap-1 mb-6">

@@ -10,10 +10,8 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
       <.header>
         Listing Devices
         <:actions>
-          <.button :if={!@readonly} variant="primary" navigate={~p"/admin/devices/new"}>
-            <.icon name="hero-plus" /> New Device
-          </.button>
-          <.navigate to="/dashboard" label="Dashboard" />
+          <.btn_link :if={!@readonly} to={~p"/admin/devices/new"} label="New Device" color="amber" />
+          <.dashboard_link />
         </:actions>
       </.header>
 
@@ -81,14 +79,14 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
                 navigate={~p"/admin/devices/#{device.id}/edit"}
                 class="p-1 border-1 rounded-xl border-blue-600 bg-blue-200"
               >
-                <.icon name="hero-pencil-square-mini" class="text-blue-600"/>
+                <.icon name="hero-pencil-square-mini" class="text-blue-600" />
               </.link>
 
               <.link
                 phx-click={JS.push("copy", value: %{id: device.id})}
                 class="p-1 border-1 rounded-xl border-green-600 bg-green-200 mx-1"
               >
-                <.icon name="hero-document-duplicate-mini" class="text-green-600"/>
+                <.icon name="hero-document-duplicate-mini" class="text-green-600" />
               </.link>
 
               <.link
@@ -96,7 +94,7 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
                 data-confirm="Are you sure?"
                 class="p-1 border-1 rounded-xl border-rose-600 bg-rose-200"
               >
-                <.icon name="hero-trash-mini" class="text-rose-600"/>
+                <.icon name="hero-trash-mini" class="text-rose-600" />
               </.link>
             </div>
           </div>

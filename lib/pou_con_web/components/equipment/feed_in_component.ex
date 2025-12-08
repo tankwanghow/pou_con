@@ -25,7 +25,7 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
   def render(assigns) do
     ~H"""
     <div class={"flex flex-col bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-40 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
-
+      
     <!-- HEADER -->
       <div class="flex items-center justify-between px-2 py-2 bg-gray-50 border-b border-gray-100">
         <div class="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0">
@@ -63,10 +63,10 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
           </button>
         </div>
       </div>
-
+      
     <!-- BODY -->
       <div class="flex items-start gap-2 p-2 flex-1">
-
+        
     <!-- Left: Physical Visualization -->
         <div class="flex-shrink-0 flex flex-col items-center gap-2 pt-1">
           <div class={[
@@ -86,7 +86,7 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
             <% end %>
           </div>
         </div>
-
+        
     <!-- Right: Single Toggle Button -->
         <div class="flex-1 min-w-0 flex flex-col gap-1">
           <!-- Status Text -->

@@ -26,7 +26,7 @@ defmodule PouConWeb.Components.Equipment.DungComponent do
           </div>
           <span class="font-bold text-gray-700 text-xs truncate">{@status.title}</span>
         </div>
-
+        
     <!-- Static Manual Badge (No toggles) -->
         <div class="flex-shrink-0 ml-1">
           <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-gray-100 text-gray-400 border border-gray-200">
@@ -34,7 +34,7 @@ defmodule PouConWeb.Components.Equipment.DungComponent do
           </span>
         </div>
       </div>
-
+      
     <!-- BODY -->
       <div class="flex items-center gap-2 p-2">
         <!-- Visualization (Agitator/Spinner) -->
@@ -48,12 +48,12 @@ defmodule PouConWeb.Components.Equipment.DungComponent do
             <path d="m79.797 69.309c-1.6055 2.707-4.0898 4.7578-7.1328 5.6875-6.6836 2.0391-14.52 3.1172-22.656 3.1172-8.1367 0-15.973-1.0781-22.656-3.1172-3.0469-0.92969-5.5312-2.9805-7.1406-5.6875-1.7461 0.83984-3.3008 2.1133-4.4531 3.8047-4.3047 6.3164-1.3047 14.984 5.9805 17.297 8.1836 2.5977 17.906 4.0078 28.262 4.0078s20.078-1.4102 28.262-4.0078c7.2852-2.3125 10.289-10.98 5.9805-17.297-1.1484-1.6914-2.7031-2.9648-4.4453-3.8047z" />
           </svg>
         </div>
-
+        
     <!-- Controls -->
         <div class="flex-1 flex flex-col gap-1 min-w-0">
           <div class={"text-[9px] font-bold uppercase tracking-wide text-#{@display.color}-500 truncate"}>
             <%= if @display.is_error do %>
-             {@display.err_msg}
+              {@display.err_msg}
             <% else %>
               {@display.state_text}
             <% end %>

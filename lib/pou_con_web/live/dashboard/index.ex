@@ -154,55 +154,46 @@ defmodule PouConWeb.Live.Dashboard.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-3/5">
       <div class="flex justify-center items-center mb-2">
         <.link
           phx-click="reload_ports"
-          class="mr-1 px-3 py-1.5 rounded-lg bg-green-200 border border-green-600 font-medium"
+          class="ml-2 px-3 py-1 rounded bg-green-200 border border-green-600 font-medium"
         >
           Refresh
         </.link>
         <%= if @current_role == :admin do %>
-          <.link
-            navigate="/admin/settings"
-            class="mr-1 px-3 py-1.5 rounded-lg bg-yellow-200 border border-yellow-600 font-medium"
-          >
-            Settings
-          </.link>
-          <.link
-            navigate="/simulation"
-            class="mr-1 px-3 py-1.5 rounded-lg bg-yellow-200 border border-yellow-600 font-medium"
-          >
-            Simulation
-          </.link>
+          <.btn_link
+            to="/admin/settings"
+            label="Settings"
+          />
+
+          <.btn_link
+            to="/simulation"
+            label="Simulation"
+          />
         <% end %>
-        <.link
-          navigate={~p"/admin/ports"}
-          class="mr-1 px-3 py-1.5 rounded-lg bg-blue-200 border border-blue-600 font-medium"
-        >
-          Ports
-        </.link>
-        <.link
-          navigate={~p"/admin/devices"}
-          class="mr-1 px-3 py-1.5 rounded-lg bg-blue-200 border border-blue-600 font-medium"
-        >
-          Devices
-        </.link>
-        <.link
-          navigate={~p"/admin/equipment"}
-          class="mr-1 px-3 py-1.5 rounded-lg bg-blue-200 border border-blue-600 font-medium"
-        >
-          Equipment
-        </.link>
+        <.btn_link
+          to={~p"/admin/ports"}
+          label="Ports"
+        />
+        <.btn_link
+          to={~p"/admin/devices"}
+          label="Devices"
+        />
+        <.btn_link
+          to={~p"/admin/equipment"}
+          label="Equipment"
+        />
         <.link
           href={~p"/logout"}
           method="post"
-          class="mr-1 px-3 py-1.5 rounded-lg bg-rose-200 border border-rose-600 font-medium"
+          class="ml-2 px-3 py-1 rounded bg-rose-200 border border-rose-600 font-medium"
         >
           Logout
         </.link>
       </div>
-
+      
     <!-- Fans -->
       <div class="flex flex-wrap items-center gap-1 mb-6 mx-auto">
         <% fans = Enum.filter(@equipment, &(&1.type == "fan")) %>

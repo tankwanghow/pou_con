@@ -221,182 +221,176 @@ defmodule PouConWeb.Live.Lighting.Schedules do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-3/5">
       <.header>
         Light Schedules
         <:actions>
-          <.navigate to="/dashboard" label="Dashboard" />
-          <.link
-            phx-click="reload_ports"
-            class="mr-1 px-3 py-1.5 rounded-lg bg-green-200 border border-green-600 font-medium"
-          >
-            Refresh
-          </.link>
+          <.dashboard_link />
         </:actions>
       </.header>
 
-      <div class="p-4">
-        <!-- Light Status -->
-        <h2 class="text-lg font-semibold mb-3">Light Status</h2>
-        <div class="flex flex-wrap gap-1 mb-6">
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "light")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component module={PouConWeb.Components.Equipment.LightComponent} id={eq.name} equipment={eq} />
-          <% end %>
+      <div class="flex flex-wrap gap-1 mb-6">
+        <%= for eq <- Enum.filter(@equipment, &(&1.type == "light")) |> Enum.sort_by(& &1.title) do %>
+          <.live_component
+            module={PouConWeb.Components.Equipment.LightComponent}
+            id={eq.name}
+            equipment={eq}
+          />
+        <% end %>
+      </div>
+
+      <hr class="my-6 border-gray-600" />
+
+    <!-- Schedule Management -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Schedule Form -->
+        <div>
+          <h2 class="text-lg font-semibold mb-2">
+            {if @editing_schedule, do: "Edit Schedule", else: "New Schedule"}
+          </h2>
+
+          <.form for={@form} phx-change="validate_schedule" phx-submit="save_schedule">
+            <div class="grid grid-cols-2 gap-3">
+              <!-- Light -->
+              <div>
+                <label class="block text-sm font-medium mb-1">Light</label>
+                <.input
+                  type="select"
+                  field={@form[:equipment_id]}
+                  options={Enum.map(@light_equipment, &{&1.title || &1.name, &1.id})}
+                  prompt="Select a light"
+                  required
+                />
+              </div>
+
+    <!-- Schedule Name -->
+              <div>
+                <label class="block text-sm font-medium mb-1">Name (optional)</label>
+                <.input type="text" field={@form[:name]} placeholder="e.g., Morning Light" />
+              </div>
+
+    <!-- On Time -->
+              <div>
+                <label class="block text-sm font-medium mb-1">On Time</label>
+                <.input type="time" field={@form[:on_time]} required />
+              </div>
+
+    <!-- Off Time -->
+              <div>
+                <label class="block text-sm font-medium mb-1">Off Time</label>
+                <.input type="time" field={@form[:off_time]} required />
+              </div>
+
+    <!-- Enabled Checkbox -->
+              <div class="flex items-center">
+                <label class="flex items-center gap-2">
+                  <.input type="checkbox" field={@form[:enabled]} />
+                  <span class="text-sm">Enabled</span>
+                </label>
+              </div>
+
+    <!-- Buttons -->
+              <div class="flex gap-2 items-center">
+                <.button type="submit">
+                  {if @editing_schedule, do: "Update", else: "Create"}
+                </.button>
+                <%= if @editing_schedule do %>
+                  <.button
+                    type="button"
+                    phx-click="cancel_edit"
+                    class="text-rose-400 bg-rose-200 hover:bg-rose-800 py-1 px-2 rounded"
+                  >
+                    Cancel
+                  </.button>
+                <% end %>
+              </div>
+            </div>
+          </.form>
         </div>
 
-        <hr class="my-6 border-gray-600" />
-        
-    <!-- Schedule Management -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <!-- Schedule Form -->
-          <div>
-            <h2 class="text-lg font-semibold mb-2">
-              {if @editing_schedule, do: "Edit Schedule", else: "New Schedule"}
-            </h2>
-
-            <.form for={@form} phx-change="validate_schedule" phx-submit="save_schedule">
-              <div class="grid grid-cols-2 gap-3">
-                <!-- Light -->
-                <div>
-                  <label class="block text-sm font-medium mb-1">Light</label>
-                  <.input
-                    type="select"
-                    field={@form[:equipment_id]}
-                    options={Enum.map(@light_equipment, &{&1.title || &1.name, &1.id})}
-                    prompt="Select a light"
-                    required
-                  />
-                </div>
-                
-    <!-- Schedule Name -->
-                <div>
-                  <label class="block text-sm font-medium mb-1">Name (optional)</label>
-                  <.input type="text" field={@form[:name]} placeholder="e.g., Morning Light" />
-                </div>
-                
-    <!-- On Time -->
-                <div>
-                  <label class="block text-sm font-medium mb-1">On Time</label>
-                  <.input type="time" field={@form[:on_time]} required />
-                </div>
-                
-    <!-- Off Time -->
-                <div>
-                  <label class="block text-sm font-medium mb-1">Off Time</label>
-                  <.input type="time" field={@form[:off_time]} required />
-                </div>
-                
-    <!-- Enabled Checkbox -->
-                <div class="flex items-center">
-                  <label class="flex items-center gap-2">
-                    <.input type="checkbox" field={@form[:enabled]} />
-                    <span class="text-sm">Enabled</span>
-                  </label>
-                </div>
-                
-    <!-- Buttons -->
-                <div class="flex gap-2 items-center">
-                  <.button type="submit">
-                    {if @editing_schedule, do: "Update", else: "Create"}
-                  </.button>
-                  <%= if @editing_schedule do %>
-                    <.button
-                      type="button"
-                      phx-click="cancel_edit"
-                      class="text-rose-400 bg-rose-200 hover:bg-rose-800 py-1 px-2 rounded"
-                    >
-                      Cancel
-                    </.button>
+    <!-- Schedule List -->
+        <div>
+          <%= if Enum.empty?(@schedules) do %>
+            <p class="text-gray-400 text-sm italic">No schedules configured yet.</p>
+          <% else %>
+            <%= for schedule <- @schedules do %>
+              <div class={"py-1 px-4 rounded-lg border flex items-center " <> if schedule.enabled, do: "bg-blue-900 border-blue-600 text-white", else: "bg-gray-800 border-gray-600 text-gray-200"}>
+                <!-- Light Name -->
+                <div class="w-32 flex-shrink-0">
+                  <span class="font-semibold text-white text-sm">
+                    {schedule.equipment.title || schedule.equipment.name}
+                  </span>
+                  <%= if schedule.name do %>
+                    <span class="text-xs text-gray-300 block">({schedule.name})</span>
                   <% end %>
                 </div>
-              </div>
-            </.form>
-          </div>
-          
-    <!-- Schedule List -->
-          <div>
-            <%= if Enum.empty?(@schedules) do %>
-              <p class="text-gray-400 text-sm italic">No schedules configured yet.</p>
-            <% else %>
-              <%= for schedule <- @schedules do %>
-                <div class={"py-1 px-4 rounded-lg border flex items-center " <> if schedule.enabled, do: "bg-blue-900 border-blue-600 text-white", else: "bg-gray-800 border-gray-600 text-gray-200"}>
-                  <!-- Light Name -->
-                  <div class="w-32 flex-shrink-0">
-                    <span class="font-semibold text-white text-sm">
-                      {schedule.equipment.title || schedule.equipment.name}
-                    </span>
-                    <%= if schedule.name do %>
-                      <span class="text-xs text-gray-300 block">({schedule.name})</span>
-                    <% end %>
-                  </div>
-                  
+
     <!-- ON Time -->
-                  <div class="flex items-center gap-1">
-                    <span class="text-green-400 font-semibold text-xs">ON</span>
-                    <span class="text-gray-100 text-sm">
-                      {Calendar.strftime(schedule.on_time, "%I:%M %p")}
-                    </span>
-                  </div>
-                  
-    <!-- Separator -->
-                  <span class="text-gray-400">|</span>
-                  
-    <!-- OFF Time -->
-                  <div class="flex items-center gap-1">
-                    <span class="text-rose-400 font-semibold text-xs">OFF</span>
-                    <span class="text-gray-100 text-sm">
-                      {Calendar.strftime(schedule.off_time, "%I:%M %p")}
-                    </span>
-                  </div>
-                  
-    <!-- Spacer -->
-                  <div class="flex-1"></div>
-                  
-    <!-- CRUD Buttons -->
-                  <div class="flex gap-1">
-                    <button
-                      phx-click="toggle_schedule"
-                      phx-value-id={schedule.id}
-                      class={"px-2 py-1 text-xs rounded " <> if schedule.enabled, do: "bg-green-600 hover:bg-green-700", else: "bg-gray-600 hover:bg-gray-700"}
-                      title={if schedule.enabled, do: "Disable", else: "Enable"}
-                    >
-                      {if schedule.enabled, do: "✓", else: "○"}
-                    </button>
-
-                    <button
-                      phx-click="edit_schedule"
-                      phx-value-id={schedule.id}
-                      class="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700"
-                      title="Edit"
-                    >
-                      ✎
-                    </button>
-
-                    <button
-                      phx-click="delete_schedule"
-                      phx-value-id={schedule.id}
-                      data-confirm="Delete this schedule?"
-                      class="px-2 py-1 text-xs rounded bg-rose-600 hover:bg-rose-700"
-                      title="Delete"
-                    >
-                      ×
-                    </button>
-                  </div>
+                <div class="flex items-center gap-1">
+                  <span class="text-green-400 font-semibold text-xs">ON</span>
+                  <span class="text-gray-100 text-sm">
+                    {Calendar.strftime(schedule.on_time, "%I:%M %p")}
+                  </span>
                 </div>
-              <% end %>
-            <% end %>
-          </div>
-        </div>
 
-        <div class="mt-6 p-4 bg-blue-900 border border-blue-600 rounded-lg">
-          <h3 class="font-semibold mb-2">📝 How Schedules Work</h3>
-          <ul class="text-sm space-y-1 text-gray-300">
-            <li>• Schedules only run when lights are in <strong>AUTO</strong> mode</li>
-            <li>• If a light is in MANUAL mode, schedules will be skipped</li>
-            <li>• Schedules are checked every minute</li>
-            <li>• Toggle the checkmark to enable/disable a schedule</li>
-          </ul>
+    <!-- Separator -->
+                <span class="text-gray-400">|</span>
+
+    <!-- OFF Time -->
+                <div class="flex items-center gap-1">
+                  <span class="text-rose-400 font-semibold text-xs">OFF</span>
+                  <span class="text-gray-100 text-sm">
+                    {Calendar.strftime(schedule.off_time, "%I:%M %p")}
+                  </span>
+                </div>
+
+    <!-- Spacer -->
+                <div class="flex-1"></div>
+
+    <!-- CRUD Buttons -->
+                <div class="flex gap-1">
+                  <button
+                    phx-click="toggle_schedule"
+                    phx-value-id={schedule.id}
+                    class={"px-2 py-1 text-xs rounded " <> if schedule.enabled, do: "bg-green-600 hover:bg-green-700", else: "bg-gray-600 hover:bg-gray-700"}
+                    title={if schedule.enabled, do: "Disable", else: "Enable"}
+                  >
+                    {if schedule.enabled, do: "✓", else: "○"}
+                  </button>
+
+                  <button
+                    phx-click="edit_schedule"
+                    phx-value-id={schedule.id}
+                    class="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700"
+                    title="Edit"
+                  >
+                    ✎
+                  </button>
+
+                  <button
+                    phx-click="delete_schedule"
+                    phx-value-id={schedule.id}
+                    data-confirm="Delete this schedule?"
+                    class="px-2 py-1 text-xs rounded bg-rose-600 hover:bg-rose-700"
+                    title="Delete"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            <% end %>
+          <% end %>
         </div>
+      </div>
+
+      <div class="mt-6 p-4 bg-blue-900 border border-blue-600 rounded-lg">
+        <h3 class="font-semibold mb-2">📝 How Schedules Work</h3>
+        <ul class="text-sm space-y-1 text-gray-300">
+          <li>• Schedules only run when lights are in <strong>AUTO</strong> mode</li>
+          <li>• If a light is in MANUAL mode, schedules will be skipped</li>
+          <li>• Schedules are checked every minute</li>
+          <li>• Toggle the checkmark to enable/disable a schedule</li>
+        </ul>
       </div>
     </Layouts.app>
     """

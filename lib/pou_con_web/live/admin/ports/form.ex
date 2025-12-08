@@ -9,42 +9,42 @@ defmodule PouConWeb.Live.Admin.Ports.Form do
     ~H"""
     <Layouts.app flash={@flash}>
       <%!-- <div class="mx-auto w-2xl"> --%>
-        <.header>
-          {@page_title}
-          <:subtitle>Use this form to manage port records in your database.</:subtitle>
-        </.header>
+      <.header>
+        {@page_title}
+        <:subtitle>Use this form to manage port records in your database.</:subtitle>
+      </.header>
 
-        <.form for={@form} id="port-form" phx-change="validate" phx-submit="save">
-          <div class="flex gap-1">
-            <div class="w-2/3">
-              <.input field={@form[:device_path]} type="text" label="Device path" />
-            </div>
-            <div class="w-1/3">
-              <.input field={@form[:speed]} type="number" label="Speed" />
-            </div>
+      <.form for={@form} id="port-form" phx-change="validate" phx-submit="save">
+        <div class="flex gap-1">
+          <div class="w-2/3">
+            <.input field={@form[:device_path]} type="text" label="Device path" />
           </div>
-          <div class="flex gap-1">
-            <div class="w-1/3">
-              <.input
-                field={@form[:parity]}
-                type="select"
-                label="Parity"
-                options={["none", "even", "odd"]}
-              />
-            </div>
-            <div class="w-1/3">
-              <.input field={@form[:data_bits]} type="number" label="Data bits" />
-            </div>
-            <div class="w-1/3">
-              <.input field={@form[:stop_bits]} type="number" label="Stop bits" />
-            </div>
+          <div class="w-1/3">
+            <.input field={@form[:speed]} type="number" label="Speed" />
           </div>
-          <.input field={@form[:description]} type="text" label="Description" />
-          <footer>
-            <.button phx-disable-with="Saving..." variant="primary">Save Port</.button>
-            <.button navigate={return_path(@return_to, @port)}>Cancel</.button>
-          </footer>
-        </.form>
+        </div>
+        <div class="flex gap-1">
+          <div class="w-1/3">
+            <.input
+              field={@form[:parity]}
+              type="select"
+              label="Parity"
+              options={["none", "even", "odd"]}
+            />
+          </div>
+          <div class="w-1/3">
+            <.input field={@form[:data_bits]} type="number" label="Data bits" />
+          </div>
+          <div class="w-1/3">
+            <.input field={@form[:stop_bits]} type="number" label="Stop bits" />
+          </div>
+        </div>
+        <.input field={@form[:description]} type="text" label="Description" />
+        <footer>
+          <.button phx-disable-with="Saving..." variant="primary">Save Port</.button>
+          <.button navigate={return_path(@return_to, @port)}>Cancel</.button>
+        </footer>
+      </.form>
       <%!-- </div> --%>
     </Layouts.app>
     """

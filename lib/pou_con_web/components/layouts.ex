@@ -29,14 +29,18 @@ defmodule PouConWeb.Layouts do
 
   attr :current_scope, :map,
     default: nil,
-    doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
+    doc: "the current scope"
+
+  attr :class, :string,
+    default: "",
+    doc: "Additional classes to add to the inner container div"
 
   slot :inner_block, required: true
 
   def app(assigns) do
     ~H"""
     <main class="px-4 sm:px-6 lg:px-8">
-      <div class="mx-auto">
+      <div class={["mx-auto", @class]}>
         {render_slot(@inner_block)}
       </div>
     </main>

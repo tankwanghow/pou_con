@@ -9,30 +9,30 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
     ~H"""
     <Layouts.app flash={@flash}>
       <%!-- <div class="mx-auto w-2xl"> --%>
-        <.header>
-          {@page_title}
-        </.header>
+      <.header>
+        {@page_title}
+      </.header>
 
-        <.form for={@form} id="equipment-form" phx-change="validate" phx-submit="save">
-          <div class="flex gap-1">
-            <div class="w-1/3">
-              <.input field={@form[:name]} type="text" label="Name" />
-            </div>
-            <div class="w-1/3">
-              <.input field={@form[:title]} type="text" label="Title" />
-            </div>
-            <div class="w-1/3">
-              <.input field={@form[:type]} type="text" label="Type" />
-            </div>
+      <.form for={@form} id="equipment-form" phx-change="validate" phx-submit="save">
+        <div class="flex gap-1">
+          <div class="w-1/3">
+            <.input field={@form[:name]} type="text" label="Name" />
           </div>
-          <div class="w-full font-mono">
-            <.input field={@form[:device_tree]} type="textarea" label="Device Tree" rows="10" />
+          <div class="w-1/3">
+            <.input field={@form[:title]} type="text" label="Title" />
           </div>
-          <footer>
-            <.button phx-disable-with="Saving..." variant="primary">Save Equipment</.button>
-            <.button navigate={return_path(@return_to, @equipment)}>Cancel</.button>
-          </footer>
-        </.form>
+          <div class="w-1/3">
+            <.input field={@form[:type]} type="text" label="Type" />
+          </div>
+        </div>
+        <div class="w-full font-mono">
+          <.input field={@form[:device_tree]} type="textarea" label="Device Tree" rows="10" />
+        </div>
+        <footer>
+          <.button phx-disable-with="Saving..." variant="primary">Save Equipment</.button>
+          <.button navigate={return_path(@return_to, @equipment)}>Cancel</.button>
+        </footer>
+      </.form>
       <%!-- </div> --%>
     </Layouts.app>
     """

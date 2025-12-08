@@ -126,25 +126,7 @@ defmodule PouConWeb.Live.Dung.Index do
       <.header>
         Poultry House Dashboard
         <:actions>
-          <.link
-            href={~p"/dashboard"}
-            class="mr-1 px-3 py-1.5 rounded-lg bg-amber-200 border border-amber-600 font-medium"
-          >
-            Dashboard
-          </.link>
-          <.link
-            phx-click="reload_ports"
-            class="mr-1 px-3 py-1.5 rounded-lg bg-green-200 border border-green-600 font-medium"
-          >
-            Refresh
-          </.link>
-          <.link
-            href={~p"/logout"}
-            method="post"
-            class="mr-1 px-3 py-1.5 rounded-lg bg-rose-200 border border-rose-600 font-medium"
-          >
-            Logout
-          </.link>
+          <.dashboard_link />
         </:actions>
       </.header>
 
@@ -152,7 +134,11 @@ defmodule PouConWeb.Live.Dung.Index do
         <!-- Fans -->
         <div class="flex flex-wrap gap-1 mb-6">
           <%= for eq <- Enum.filter(@equipment, &(&1.type == "dung")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component module={PouConWeb.Components.Equipment.DungComponent} id={eq.name} equipment={eq} />
+            <.live_component
+              module={PouConWeb.Components.Equipment.DungComponent}
+              id={eq.name}
+              equipment={eq}
+            />
           <% end %>
           <%= for eq <- Enum.filter(@equipment, &(&1.type == "dung_horz")) |> Enum.sort_by(& &1.title) do %>
             <.live_component

@@ -47,7 +47,7 @@ defmodule PouConWeb.Components.Summaries.DungSummaryComponent do
     >
       <div class="flex flex-wrap">
         <%= for eq <- @equipments do %>
-          <div class="p-4 flex flex-col items-center justify-center gap-1 transition-colors">
+          <div class="px-3 flex flex-col items-center justify-center transition-colors">
             <div class={"text-#{eq.color}-500"}>{eq.title}</div>
             <div class={[eq.anim_class, "text-#{eq.color}-500"]}>
               <svg width="48" height="40" viewBox="-5.0 -10.0 110.0 135.0" fill="currentColor">
@@ -64,7 +64,7 @@ defmodule PouConWeb.Components.Summaries.DungSummaryComponent do
         <% end %>
 
         <%= for dh <- @dunghs do %>
-          <div class="p-4 flex flex-col items-center justify-center gap-1 transition-colors">
+          <div class="px-3 flex flex-col items-center justify-center transition-colors">
             <div class={"text-#{dh.color}-500"}>{dh.title}</div>
             <div class={[
               dh.anim_class,
@@ -80,7 +80,7 @@ defmodule PouConWeb.Components.Summaries.DungSummaryComponent do
         <% end %>
 
         <%= for de <- @dunges do %>
-          <div class="p-4 flex flex-col items-center justify-center gap-1 transition-colors">
+          <div class="px-3 flex flex-col items-center justify-center transition-colors">
             <div class={"text-#{de.color}-500"}>{de.title}</div>
             <div class={[
               de.anim_class,

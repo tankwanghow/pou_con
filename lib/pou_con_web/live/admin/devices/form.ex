@@ -60,7 +60,10 @@ defmodule PouConWeb.Live.Admin.Devices.Form do
     {:ok,
      socket
      |> assign(:return_to, return_to(params["return_to"]))
-     |> assign(:ports, PouCon.Hardware.Ports.Ports.list_ports() |> Enum.map(fn x -> x.device_path end))
+     |> assign(
+       :ports,
+       PouCon.Hardware.Ports.Ports.list_ports() |> Enum.map(fn x -> x.device_path end)
+     )
      |> apply_action(socket.assigns.live_action, params)}
   end
 

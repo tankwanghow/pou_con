@@ -407,6 +407,32 @@ defmodule PouConWeb.CoreComponents do
     """
   end
 
+  def dashboard_link(assigns) do
+    ~H"""
+    <.link
+      href="/dashboard"
+      class="ml-2 border-1 border-blue-500 bg-blue-200 font-medium px-2 py-1 rounded"
+    >
+      Dashboard
+    </.link>
+    """
+  end
+
+  attr :to, :string, required: true
+  attr :label, :string, required: true
+  attr :color, :string, default: "blue"
+
+  def btn_link(assigns) do
+    ~H"""
+    <.link
+      href={@to}
+      class={"ml-2 border-1 border-#{@color}-500 bg-#{@color}-200 font-medium px-2 py-1 rounded"}
+    >
+      {@label}
+    </.link>
+    """
+  end
+
   @doc false
   # This function serves as documentation for the dynamic color classes
   # that are defined in the Tailwind safelist (assets/tailwind.config.js).

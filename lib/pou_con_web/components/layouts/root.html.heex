@@ -8,9 +8,10 @@
       {assigns[:page_title]}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
-    <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}></script>
-
-    <!-- Theme script (unchanged) -->
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
+    </script>
+    
+<!-- Theme script (unchanged) -->
     <script>
       (() => {
         const setTheme = (theme) => {
@@ -38,11 +39,13 @@
       <div class="inline-block font-bold text-4xl border-4 rounded-xl bg-yellow-200 px-2 py-1 shadow-md">
         {PouCon.Auth.get_house_id()}
       </div>
-
-      <!-- Live Local Time (updates every second) -->
-      <div id="local-clock"
-           class="mt-1"
-           data-timezone={PouCon.Auth.get_timezone()}>
+      
+<!-- Live Local Time (updates every second) -->
+      <div
+        id="local-clock"
+        class="mt-1"
+        data-timezone={PouCon.Auth.get_timezone()}
+      >
         Loading time...
       </div>
     </div>
@@ -50,8 +53,8 @@
     {@inner_content}
 
     <div class="simple-keyboard"></div>
-
-    <!-- Live clock script – respects the farm's timezone -->
+    
+<!-- Live clock script – respects the farm's timezone -->
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         const clockEl = document.getElementById("local-clock");

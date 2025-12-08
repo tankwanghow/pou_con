@@ -10,10 +10,8 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
       <.header>
         Listing Ports
         <:actions>
-          <.button :if={!@readonly} variant="primary" navigate={~p"/admin/ports/new"}>
-            <.icon name="hero-plus" /> New Port
-          </.button>
-          <.navigate to="/dashboard" label="Dashboard" />
+          <.btn_link :if={!@readonly} to={~p"/admin/ports/new"} label="New Port" color="amber" />
+          <.dashboard_link />
         </:actions>
       </.header>
 
@@ -40,7 +38,7 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
                 navigate={~p"/admin/ports/#{port.id}/edit"}
                 class="p-2 border-1 rounded-xl border-blue-600 bg-blue-200"
               >
-                <.icon name="hero-pencil-square-mini" class="text-blue-600"/>
+                <.icon name="hero-pencil-square-mini" class="text-blue-600" />
               </.link>
 
               <.link
@@ -48,7 +46,7 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
                 data-confirm="Are you sure?"
                 class="p-2 border-1 rounded-xl border-rose-600 bg-rose-200 ml-2"
               >
-                <.icon name="hero-trash-mini" class="text-rose-600"/>
+                <.icon name="hero-trash-mini" class="text-rose-600" />
               </.link>
             </div>
           </div>

@@ -143,10 +143,9 @@ defmodule PouConWeb.SimulationLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-3/5">
       <div class="flex justify-between items-center mb-4">
         <h1 class="text-xl font-bold">Device Simulation</h1>
-        <.navigate to="/dashboard" label="Dashboard" />
         <div class="form-control w-full max-w-xs">
           <input
             type="text"
@@ -156,6 +155,7 @@ defmodule PouConWeb.SimulationLive do
             value={@search}
           />
         </div>
+        <.dashboard_link />
       </div>
 
       <div class="flex mb-1 justify-between items-center bg-black p-2 rounded select-none">
@@ -187,8 +187,10 @@ defmodule PouConWeb.SimulationLive do
         >
           Current Value {sort_indicator(@sort_by, @sort_order, :value)}
         </div>
-        <div class="flex-2 font-bold text-blue-400 truncate">Actions</div>
-        <div class="flex-1 font-bold text-blue-400 truncate">Offline</div>
+        <div class="flex flex-2">
+          <div class="flex-5 font-bold text-blue-400 truncate">Actions</div>
+          <div class="flex-1 font-bold text-blue-400 truncate">Offline</div>
+        </div>
       </div>
 
       <%= for device <- filter_and_sort_devices(@devices, @search, @sort_by, @sort_order) do %>
@@ -221,79 +223,80 @@ defmodule PouConWeb.SimulationLive do
           <div class="flex-1 text-xs text-yellow-400 truncate">
             {format_value(device.current_value)}
           </div>
-
-          <%= cond do %>
-            <% device.current_value == {:error, :timeout} -> %>
-              <div class="flex-2 text-xs text-gray-500 italic">No controls</div>
-            <% device.type in ["digital_input", "switch", "flag", "DO", "virtual_digital_input"] or (device.read_fn == :read_digital_input) or (device.read_fn == :read_virtual_digital_input) -> %>
-              <div class="flex-2">
-                <button
-                  :if={device.current_value.state == 0}
-                  phx-click="toggle_input"
-                  phx-value-device={device.name}
-                  value="1"
-                  class="px-2 text-xs bg-green-700 hover:bg-green-600 text-white rounded"
-                >
-                  ON
-                </button>
-                <button
-                  :if={device.current_value.state == 1}
-                  phx-click="toggle_input"
-                  phx-value-device={device.name}
-                  value="0"
-                  class="px-2 text-xs bg-red-700 hover:bg-red-600 text-white rounded"
-                >
-                  OFF
-                </button>
-              </div>
-            <% device.type == "temp_hum_sensor" or device.read_fn == :read_temperature_humidity -> %>
-              <div class="flex flex-2 space-y-1 justify-between gap-1 items-center">
-                <div class="flex items-center">
-                  <span class="text-xs text-gray-400">Temp :</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={get_in(@temp_values, [device.name, "temp"]) || "25.0"}
-                    phx-keyup="temp_change"
+          <div class="flex flex-2">
+            <%= cond do %>
+              <% device.current_value == {:error, :timeout} -> %>
+                <div class="flex-5 text-xs text-gray-500 italic">No controls</div>
+              <% device.type in ["digital_input", "switch", "flag", "DO", "virtual_digital_input"] or (device.read_fn == :read_digital_input) or (device.read_fn == :read_virtual_digital_input) -> %>
+                <div class="flex-5">
+                  <button
+                    :if={device.current_value.state == 0}
+                    phx-click="toggle_input"
                     phx-value-device={device.name}
-                    phx-value-type="temp"
-                    class="input input-xs input-bordered flex-1 bg-gray-900 border-gray-600 text-white px-1"
-                  />
-                </div>
-                <div class="flex items-center">
-                  <span class="text-xs text-gray-400">Hum :</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={get_in(@temp_values, [device.name, "hum"]) || "60.0"}
-                    phx-keyup="temp_change"
+                    value="1"
+                    class="px-2 text-xs bg-green-700 hover:bg-green-600 text-white rounded"
+                  >
+                    ON
+                  </button>
+                  <button
+                    :if={device.current_value.state == 1}
+                    phx-click="toggle_input"
                     phx-value-device={device.name}
-                    phx-value-type="hum"
-                    class="input input-xs input-bordered flex-1 bg-gray-900 border-gray-600 text-white px-1"
-                  />
+                    value="0"
+                    class="px-2 text-xs bg-red-700 hover:bg-red-600 text-white rounded"
+                  >
+                    OFF
+                  </button>
                 </div>
-                <button
-                  phx-click="update_temp"
-                  phx-value-device={device.name}
-                  class="px-4 text-xs bg-blue-700 hover:bg-blue-600 text-white rounded"
-                >
-                  Set
-                </button>
-              </div>
-            <% true -> %>
-              <p class="text-xs text-gray-500 italic">No controls</p>
-          <% end %>
+              <% device.type == "temp_hum_sensor" or device.read_fn == :read_temperature_humidity -> %>
+                <div class="flex flex-5 space-y-1 justify-between gap-1 items-center">
+                  <div class="flex items-center">
+                    <span class="text-xs text-gray-400">Temp :</span>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={get_in(@temp_values, [device.name, "temp"]) || "25.0"}
+                      phx-keyup="temp_change"
+                      phx-value-device={device.name}
+                      phx-value-type="temp"
+                      class="input input-xs input-bordered flex-1 bg-gray-900 border-gray-600 text-white px-1"
+                    />
+                  </div>
+                  <div class="flex items-center">
+                    <span class="text-xs text-gray-400">Hum :</span>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={get_in(@temp_values, [device.name, "hum"]) || "60.0"}
+                      phx-keyup="temp_change"
+                      phx-value-device={device.name}
+                      phx-value-type="hum"
+                      class="input input-xs input-bordered flex-1 bg-gray-900 border-gray-600 text-white px-1"
+                    />
+                  </div>
+                  <button
+                    phx-click="update_temp"
+                    phx-value-device={device.name}
+                    class="px-4 text-xs bg-blue-700 hover:bg-blue-600 text-white rounded"
+                  >
+                    Set
+                  </button>
+                </div>
+              <% true -> %>
+                <p class="text-xs text-gray-500 italic">No controls</p>
+            <% end %>
 
-          <div class="flex-1">
-            <% is_offline = device.current_value == {:error, :timeout} %>
-            <button
-              phx-click="set_offline"
-              phx-value-device={device.name}
-              value={to_string(!is_offline)}
-              class={"px-2 py-1 text-xs rounded text-white #{if is_offline, do: "bg-red-600 hover:bg-red-500 animate-pulse", else: "bg-gray-600 hover:bg-gray-500"}"}
-            >
-              {if is_offline, do: "OFFLINE", else: "Online"}
-            </button>
+            <div class="flex-1">
+              <% is_offline = device.current_value == {:error, :timeout} %>
+              <button
+                phx-click="set_offline"
+                phx-value-device={device.name}
+                value={to_string(!is_offline)}
+                class={"px-2 py-1 text-xs rounded text-white #{if is_offline, do: "bg-red-600 hover:bg-red-500 animate-pulse", else: "bg-gray-600 hover:bg-gray-500"}"}
+              >
+                {if is_offline, do: "OFFLINE", else: "Online"}
+              </button>
+            </div>
           </div>
         </div>
       <% end %>
