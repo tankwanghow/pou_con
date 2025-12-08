@@ -42,25 +42,54 @@ defmodule PouCon.Automation.Feeding.FeedingSchedules do
   Creates a schedule.
   """
   def create_schedule(attrs \\ %{}) do
-    %Schedule{}
-    |> Schedule.changeset(attrs)
-    |> Repo.insert()
+    result =
+      %Schedule{}
+      |> Schedule.changeset(attrs)
+      |> Repo.insert()
+
+    case result do
+      {:ok, _schedule} ->
+        notify_scheduler_update()
+        result
+
+      _ ->
+        result
+    end
   end
 
   @doc """
   Updates a schedule.
   """
   def update_schedule(%Schedule{} = schedule, attrs) do
-    schedule
-    |> Schedule.changeset(attrs)
-    |> Repo.update()
+    result =
+      schedule
+      |> Schedule.changeset(attrs)
+      |> Repo.update()
+
+    case result do
+      {:ok, _schedule} ->
+        notify_scheduler_update()
+        result
+
+      _ ->
+        result
+    end
   end
 
   @doc """
   Deletes a schedule.
   """
   def delete_schedule(%Schedule{} = schedule) do
-    Repo.delete(schedule)
+    result = Repo.delete(schedule)
+
+    case result do
+      {:ok, _schedule} ->
+        notify_scheduler_update()
+        result
+
+      _ ->
+        result
+    end
   end
 
   @doc """
@@ -75,5 +104,16 @@ defmodule PouCon.Automation.Feeding.FeedingSchedules do
   """
   def toggle_schedule(%Schedule{} = schedule) do
     update_schedule(schedule, %{enabled: !schedule.enabled})
+  end
+
+  # Private Functions
+
+  defp notify_scheduler_update do
+    # Reload schedules in the FeedingScheduler
+    try do
+      PouCon.Automation.Feeding.FeedingScheduler.reload_schedules()
+    rescue
+      _ -> :ok
+    end
   end
 end

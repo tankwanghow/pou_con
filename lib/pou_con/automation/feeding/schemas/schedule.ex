@@ -15,7 +15,12 @@ defmodule PouCon.Automation.Feeding.Schemas.Schedule do
   @doc false
   def changeset(schedule, attrs) do
     schedule
-    |> cast(attrs, [:move_to_back_limit_time, :move_to_front_limit_time, :feedin_front_limit_bucket_id, :enabled])
+    |> cast(attrs, [
+      :move_to_back_limit_time,
+      :move_to_front_limit_time,
+      :feedin_front_limit_bucket_id,
+      :enabled
+    ])
     |> validate_at_least_one_time()
     |> foreign_key_constraint(:feedin_front_limit_bucket_id)
   end

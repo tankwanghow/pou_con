@@ -1,5 +1,5 @@
 defmodule PouCon.Auth.Auth.AppConfigTest do
-  use PouCon.DataCase, async: true
+  use PouCon.DataCase, async: false
 
   alias PouCon.Auth.AppConfig
 

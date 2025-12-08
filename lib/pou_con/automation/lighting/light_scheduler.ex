@@ -11,7 +11,11 @@ defmodule PouCon.Automation.Lighting.LightScheduler do
   alias PouCon.Automation.Lighting.LightSchedules
   alias PouCon.Equipment.Controllers.Light
 
-  @check_interval :timer.seconds(30)
+  @check_interval :timer.seconds(1)
+
+  defmodule State do
+    defstruct schedules: []
+  end
 
   # Client API
 
@@ -23,26 +27,38 @@ defmodule PouCon.Automation.Lighting.LightScheduler do
     GenServer.cast(__MODULE__, :check_schedules)
   end
 
+  def reload_schedules do
+    GenServer.cast(__MODULE__, :reload_schedules)
+  end
+
   # Server Callbacks
 
   @impl true
   def init(_opts) do
     Logger.info("LightScheduler started")
+    schedules = load_schedules()
     schedule_next_check()
-    {:ok, %{}}
+    {:ok, %State{schedules: schedules}}
   end
 
   @impl true
   def handle_info(:check_schedules, state) do
-    check_and_execute_schedules()
+    check_and_execute_schedules(state)
     schedule_next_check()
     {:noreply, state}
   end
 
   @impl true
   def handle_cast(:check_schedules, state) do
-    check_and_execute_schedules()
+    check_and_execute_schedules(state)
     {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast(:reload_schedules, state) do
+    Logger.info("LightScheduler: Reloading schedules from database")
+    schedules = load_schedules()
+    {:noreply, %State{state | schedules: schedules}}
   end
 
   # Private Functions
@@ -51,15 +67,23 @@ defmodule PouCon.Automation.Lighting.LightScheduler do
     Process.send_after(self(), :check_schedules, @check_interval)
   end
 
-  defp check_and_execute_schedules do
+  defp load_schedules do
+    schedules = LightSchedules.list_enabled_schedules()
+    Logger.info("LightScheduler: Loaded #{length(schedules)} enabled schedules")
+    schedules
+  end
+
+  defp check_and_execute_schedules(state) do
     timezone = Auth.get_timezone()
     current_datetime = DateTime.now!(timezone)
     current_time = DateTime.to_time(current_datetime)
     current_minute = %{current_time | second: 0, microsecond: {0, 0}}
 
-    Logger.debug("LightScheduler checking schedules at #{Time.to_string(current_minute)} (#{timezone})")
+    Logger.debug(
+      "LightScheduler checking schedules at #{Time.to_string(current_minute)} (#{timezone})"
+    )
 
-    LightSchedules.list_enabled_schedules()
+    state.schedules
     |> Enum.each(fn schedule ->
       check_schedule(schedule, current_minute)
     end)

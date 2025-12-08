@@ -1,5 +1,5 @@
 defmodule PouCon.Automation.Feeding.Schemas.ScheduleTest do
-  use PouCon.DataCase, async: true
+  use PouCon.DataCase, async: false
 
   alias PouCon.Automation.Feeding.Schemas.Schedule
   alias PouCon.Equipment.Schemas.Equipment

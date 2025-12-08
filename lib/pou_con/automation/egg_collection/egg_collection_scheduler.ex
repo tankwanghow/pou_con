@@ -13,6 +13,10 @@ defmodule PouCon.Automation.EggCollection.EggCollectionScheduler do
 
   @check_interval :timer.seconds(30)
 
+  defmodule State do
+    defstruct schedules: []
+  end
+
   # Client API
 
   def start_link(opts \\ []) do
@@ -23,26 +27,38 @@ defmodule PouCon.Automation.EggCollection.EggCollectionScheduler do
     GenServer.cast(__MODULE__, :check_schedules)
   end
 
+  def reload_schedules do
+    GenServer.cast(__MODULE__, :reload_schedules)
+  end
+
   # Server Callbacks
 
   @impl true
   def init(_opts) do
     Logger.info("EggCollectionScheduler started")
+    schedules = load_schedules()
     schedule_next_check()
-    {:ok, %{}}
+    {:ok, %State{schedules: schedules}}
   end
 
   @impl true
   def handle_info(:check_schedules, state) do
-    check_and_execute_schedules()
+    check_and_execute_schedules(state)
     schedule_next_check()
     {:noreply, state}
   end
 
   @impl true
   def handle_cast(:check_schedules, state) do
-    check_and_execute_schedules()
+    check_and_execute_schedules(state)
     {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast(:reload_schedules, state) do
+    Logger.info("EggCollectionScheduler: Reloading schedules from database")
+    schedules = load_schedules()
+    {:noreply, %State{state | schedules: schedules}}
   end
 
   # Private Functions
@@ -51,15 +67,23 @@ defmodule PouCon.Automation.EggCollection.EggCollectionScheduler do
     Process.send_after(self(), :check_schedules, @check_interval)
   end
 
-  defp check_and_execute_schedules do
+  defp load_schedules do
+    schedules = EggCollectionSchedules.list_enabled_schedules()
+    Logger.info("EggCollectionScheduler: Loaded #{length(schedules)} enabled schedules")
+    schedules
+  end
+
+  defp check_and_execute_schedules(state) do
     timezone = Auth.get_timezone()
     current_datetime = DateTime.now!(timezone)
     current_time = DateTime.to_time(current_datetime)
     current_minute = %{current_time | second: 0, microsecond: {0, 0}}
 
-    Logger.debug("EggCollectionScheduler checking schedules at #{Time.to_string(current_minute)} (#{timezone})")
+    Logger.debug(
+      "EggCollectionScheduler checking schedules at #{Time.to_string(current_minute)} (#{timezone})"
+    )
 
-    EggCollectionSchedules.list_enabled_schedules()
+    state.schedules
     |> Enum.each(fn schedule ->
       check_schedule(schedule, current_minute)
     end)

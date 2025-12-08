@@ -1,5 +1,5 @@
 defmodule PouCon.Automation.Lighting.Schemas.ScheduleTest do
-  use PouCon.DataCase, async: true
+  use PouCon.DataCase, async: false
 
   alias PouCon.Automation.Lighting.Schemas.Schedule
   alias PouCon.Equipment.Schemas.Equipment

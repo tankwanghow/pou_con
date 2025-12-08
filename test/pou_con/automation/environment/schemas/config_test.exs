@@ -1,5 +1,5 @@
 defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
-  use PouCon.DataCase, async: true
+  use PouCon.DataCase, async: false
 
   alias PouCon.Automation.Environment.Schemas.Config
 

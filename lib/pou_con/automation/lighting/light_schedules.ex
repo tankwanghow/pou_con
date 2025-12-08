@@ -6,6 +6,7 @@ defmodule PouCon.Automation.Lighting.LightSchedules do
   import Ecto.Query, warn: false
   alias PouCon.Repo
 
+  alias PouCon.Automation.Lighting.LightScheduler
   alias PouCon.Automation.Lighting.Schemas.Schedule
 
   @doc """
@@ -97,9 +98,17 @@ defmodule PouCon.Automation.Lighting.LightSchedules do
 
   """
   def create_schedule(attrs \\ %{}) do
-    %Schedule{}
-    |> Schedule.changeset(attrs)
-    |> Repo.insert()
+    result =
+      %Schedule{}
+      |> Schedule.changeset(attrs)
+      |> Repo.insert()
+
+    case result do
+      {:ok, _schedule} -> LightScheduler.reload_schedules()
+      _ -> :ok
+    end
+
+    result
   end
 
   @doc """
@@ -115,9 +124,17 @@ defmodule PouCon.Automation.Lighting.LightSchedules do
 
   """
   def update_schedule(%Schedule{} = schedule, attrs) do
-    schedule
-    |> Schedule.changeset(attrs)
-    |> Repo.update()
+    result =
+      schedule
+      |> Schedule.changeset(attrs)
+      |> Repo.update()
+
+    case result do
+      {:ok, _schedule} -> LightScheduler.reload_schedules()
+      _ -> :ok
+    end
+
+    result
   end
 
   @doc """
@@ -133,7 +150,14 @@ defmodule PouCon.Automation.Lighting.LightSchedules do
 
   """
   def delete_schedule(%Schedule{} = schedule) do
-    Repo.delete(schedule)
+    result = Repo.delete(schedule)
+
+    case result do
+      {:ok, _schedule} -> LightScheduler.reload_schedules()
+      _ -> :ok
+    end
+
+    result
   end
 
   @doc """
@@ -159,6 +183,7 @@ defmodule PouCon.Automation.Lighting.LightSchedules do
 
   """
   def toggle_schedule(%Schedule{} = schedule) do
+    # update_schedule already calls reload_schedules, so no need to call it again
     update_schedule(schedule, %{enabled: !schedule.enabled})
   end
 end
