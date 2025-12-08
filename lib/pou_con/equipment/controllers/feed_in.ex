@@ -33,8 +33,14 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
     name = Keyword.fetch!(opts, :name)
 
     case Registry.lookup(PouCon.DeviceControllerRegistry, name) do
-      [] -> DynamicSupervisor.start_child(PouCon.Equipment.DeviceControllerSupervisor, {__MODULE__, opts})
-      [{pid, _}] -> {:ok, pid}
+      [] ->
+        DynamicSupervisor.start_child(
+          PouCon.Equipment.DeviceControllerSupervisor,
+          {__MODULE__, opts}
+        )
+
+      [{pid, _}] ->
+        {:ok, pid}
     end
   end
 
@@ -152,10 +158,10 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
               cond do
                 # Safety: Always stop if bucket is full
                 is_full -> false
-                # Manual mode: follow user command
+                # Manual mode: follow actual hardware state
                 is_manual -> actual_on
-                # Auto mode: keep off
-                true -> false
+                # Auto mode: maintain commanded state (set by turn_on/turn_off)
+                true -> state.commanded_on
               end
 
             updated_state = %State{
