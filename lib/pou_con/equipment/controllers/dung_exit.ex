@@ -24,8 +24,14 @@ defmodule PouCon.Equipment.Controllers.DungExit do
     name = Keyword.fetch!(opts, :name)
 
     case Registry.lookup(PouCon.DeviceControllerRegistry, name) do
-      [] -> DynamicSupervisor.start_child(PouCon.Equipment.DeviceControllerSupervisor, {__MODULE__, opts})
-      [{pid, _}] -> {:ok, pid}
+      [] ->
+        DynamicSupervisor.start_child(
+          PouCon.Equipment.DeviceControllerSupervisor,
+          {__MODULE__, opts}
+        )
+
+      [{pid, _}] ->
+        {:ok, pid}
     end
   end
 

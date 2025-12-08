@@ -276,9 +276,19 @@ defmodule PouCon.Hardware.DeviceManager do
             address = dev.register + (dev.channel || 1) - 1
 
             if dev.read_fn == :read_digital_output do
-              PouCon.Hardware.Modbus.SimulatedAdapter.set_coil(modbus, dev.slave_id, address, value)
+              PouCon.Hardware.Modbus.SimulatedAdapter.set_coil(
+                modbus,
+                dev.slave_id,
+                address,
+                value
+              )
             else
-              PouCon.Hardware.Modbus.SimulatedAdapter.set_input(modbus, dev.slave_id, address, value)
+              PouCon.Hardware.Modbus.SimulatedAdapter.set_input(
+                modbus,
+                dev.slave_id,
+                address,
+                value
+              )
             end
 
             {:reply, :ok, state}
@@ -317,7 +327,13 @@ defmodule PouCon.Hardware.DeviceManager do
 
         if values[:humidity] do
           val = round(values.humidity * 10)
-          PouCon.Hardware.Modbus.SimulatedAdapter.set_register(modbus, dev.slave_id, base + 1, val)
+
+          PouCon.Hardware.Modbus.SimulatedAdapter.set_register(
+            modbus,
+            dev.slave_id,
+            base + 1,
+            val
+          )
         end
 
         {:reply, :ok, state}
@@ -331,7 +347,13 @@ defmodule PouCon.Hardware.DeviceManager do
   def handle_call({:simulate_register, device_name, value}, _from, state) do
     case get_device_and_modbus(state, device_name) do
       {:ok, dev, modbus} when modbus != nil ->
-        PouCon.Hardware.Modbus.SimulatedAdapter.set_register(modbus, dev.slave_id, dev.register, value)
+        PouCon.Hardware.Modbus.SimulatedAdapter.set_register(
+          modbus,
+          dev.slave_id,
+          dev.register,
+          value
+        )
+
         {:reply, :ok, state}
 
       _ ->

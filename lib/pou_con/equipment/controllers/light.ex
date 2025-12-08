@@ -35,7 +35,10 @@ defmodule PouCon.Equipment.Controllers.Light do
 
     case Registry.lookup(PouCon.DeviceControllerRegistry, name) do
       [] ->
-        DynamicSupervisor.start_child(PouCon.Equipment.DeviceControllerSupervisor, {__MODULE__, opts})
+        DynamicSupervisor.start_child(
+          PouCon.Equipment.DeviceControllerSupervisor,
+          {__MODULE__, opts}
+        )
 
       [{pid, _}] ->
         {:ok, pid}
