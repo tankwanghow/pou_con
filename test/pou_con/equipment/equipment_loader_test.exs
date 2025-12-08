@@ -1,5 +1,5 @@
 defmodule PouCon.EquipmentLoaderTest do
-  # Remove async: true to avoid SQLite database busy errors
+  # Remove async: false to avoid SQLite database busy errors
   use PouCon.DataCase
 
   alias PouCon.Equipment.EquipmentLoader

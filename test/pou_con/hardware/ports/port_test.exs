@@ -1,5 +1,5 @@
 defmodule PouCon.Hardware.Ports.PortTest do
-  use PouCon.DataCase, async: true
+  use PouCon.DataCase, async: false
 
   alias PouCon.Hardware.Ports.Port
 

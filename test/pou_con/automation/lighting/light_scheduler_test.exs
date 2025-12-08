@@ -1,5 +1,5 @@
 defmodule PouCon.Automation.Lighting.LightSchedulerTest do
-  use ExUnit.Case, async: false
+  use PouCon.DataCase, async: false
   import Mox
 
   alias PouCon.Automation.Lighting.LightScheduler
@@ -7,6 +7,9 @@ defmodule PouCon.Automation.Lighting.LightSchedulerTest do
   setup :verify_on_exit!
 
   setup do
+    # Set sandbox to shared mode so GenServer can access database
+    Ecto.Adapters.SQL.Sandbox.mode(PouCon.Repo, {:shared, self()})
+
     # Set mock to global mode for GenServer
     Mox.set_mox_global(PouCon.DeviceManagerMock)
 
@@ -17,6 +20,11 @@ defmodule PouCon.Automation.Lighting.LightSchedulerTest do
 
     stub(PouCon.DeviceManagerMock, :command, fn _name, _cmd, _params ->
       {:ok, :success}
+    end)
+
+    on_exit(fn ->
+      # Reset sandbox mode to default
+      Ecto.Adapters.SQL.Sandbox.mode(PouCon.Repo, :manual)
     end)
 
     :ok
@@ -41,20 +49,12 @@ defmodule PouCon.Automation.Lighting.LightSchedulerTest do
     end
   end
 
-
   # Helper functions
 
   defp stop_existing_scheduler do
     case Process.whereis(PouCon.Automation.Lighting.LightScheduler) do
       nil -> :ok
       pid -> GenServer.stop(pid)
-    end
-  end
-
-  defp ensure_scheduler_running do
-    case Process.whereis(PouCon.Automation.Lighting.LightScheduler) do
-      nil -> LightScheduler.start_link()
-      _pid -> :ok
     end
   end
 end

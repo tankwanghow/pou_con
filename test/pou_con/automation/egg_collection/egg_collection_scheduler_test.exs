@@ -1,5 +1,5 @@
 defmodule PouCon.Automation.EggCollection.EggCollectionSchedulerTest do
-  use ExUnit.Case, async: false
+  use PouCon.DataCase, async: false
   import Mox
 
   alias PouCon.Automation.EggCollection.EggCollectionScheduler
@@ -7,6 +7,9 @@ defmodule PouCon.Automation.EggCollection.EggCollectionSchedulerTest do
   setup :verify_on_exit!
 
   setup do
+    # Set sandbox to shared mode so GenServer can access database
+    Ecto.Adapters.SQL.Sandbox.mode(PouCon.Repo, {:shared, self()})
+
     # Set mock to global mode for GenServer
     Mox.set_mox_global(PouCon.DeviceManagerMock)
 
@@ -17,6 +20,11 @@ defmodule PouCon.Automation.EggCollection.EggCollectionSchedulerTest do
 
     stub(PouCon.DeviceManagerMock, :command, fn _name, _cmd, _params ->
       {:ok, :success}
+    end)
+
+    on_exit(fn ->
+      # Reset sandbox mode to default
+      Ecto.Adapters.SQL.Sandbox.mode(PouCon.Repo, :manual)
     end)
 
     :ok
@@ -40,20 +48,12 @@ defmodule PouCon.Automation.EggCollection.EggCollectionSchedulerTest do
     end
   end
 
-
   # Helper functions
 
   defp stop_existing_scheduler do
     case Process.whereis(PouCon.Automation.EggCollection.EggCollectionScheduler) do
       nil -> :ok
       pid -> GenServer.stop(pid)
-    end
-  end
-
-  defp ensure_scheduler_running do
-    case Process.whereis(PouCon.Automation.EggCollection.EggCollectionScheduler) do
-      nil -> EggCollectionScheduler.start_link()
-      _pid -> :ok
     end
   end
 end

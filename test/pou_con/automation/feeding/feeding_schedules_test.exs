@@ -1,5 +1,5 @@
 defmodule PouCon.Automation.Feeding.FeedingSchedulesTest do
-  use PouCon.DataCase, async: true
+  use PouCon.DataCase, async: false
 
   alias PouCon.Automation.Feeding.FeedingSchedules
   alias PouCon.Automation.Feeding.Schemas.Schedule
@@ -77,7 +77,7 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulesTest do
 
     test "raises when schedule not found" do
       assert_raise Ecto.NoResultsError, fn ->
-        FeedingSchedules.get_schedule!(999999)
+        FeedingSchedules.get_schedule!(999_999)
       end
     end
   end
@@ -152,7 +152,9 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulesTest do
     end
 
     test "returns changeset with attrs", %{schedule: schedule} do
-      changeset = FeedingSchedules.change_schedule(schedule, %{move_to_back_limit_time: ~T[08:00:00]})
+      changeset =
+        FeedingSchedules.change_schedule(schedule, %{move_to_back_limit_time: ~T[08:00:00]})
+
       assert changeset.changes.move_to_back_limit_time == ~T[08:00:00]
     end
   end

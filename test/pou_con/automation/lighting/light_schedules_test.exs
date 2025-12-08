@@ -1,5 +1,5 @@
 defmodule PouCon.Automation.Lighting.LightSchedulesTest do
-  use PouCon.DataCase, async: true
+  use PouCon.DataCase, async: false
 
   alias PouCon.Automation.Lighting.LightSchedules
   alias PouCon.Automation.Lighting.Schemas.Schedule
@@ -114,7 +114,7 @@ defmodule PouCon.Automation.Lighting.LightSchedulesTest do
 
     test "raises when schedule not found" do
       assert_raise Ecto.NoResultsError, fn ->
-        LightSchedules.get_schedule!(999999)
+        LightSchedules.get_schedule!(999_999)
       end
     end
   end

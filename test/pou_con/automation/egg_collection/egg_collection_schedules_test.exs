@@ -1,5 +1,5 @@
 defmodule PouCon.Automation.EggCollection.EggCollectionSchedulesTest do
-  use PouCon.DataCase, async: true
+  use PouCon.DataCase, async: false
 
   alias PouCon.Automation.EggCollection.EggCollectionSchedules
   alias PouCon.Automation.EggCollection.Schemas.Schedule
@@ -114,7 +114,7 @@ defmodule PouCon.Automation.EggCollection.EggCollectionSchedulesTest do
 
     test "raises when schedule not found" do
       assert_raise Ecto.NoResultsError, fn ->
-        EggCollectionSchedules.get_schedule!(999999)
+        EggCollectionSchedules.get_schedule!(999_999)
       end
     end
   end
@@ -155,7 +155,10 @@ defmodule PouCon.Automation.EggCollection.EggCollectionSchedulesTest do
 
     test "updates schedule with valid data", %{schedule: schedule} do
       attrs = %{name: "Updated Name", start_time: ~T[07:00:00]}
-      assert {:ok, %Schedule{} = updated} = EggCollectionSchedules.update_schedule(schedule, attrs)
+
+      assert {:ok, %Schedule{} = updated} =
+               EggCollectionSchedules.update_schedule(schedule, attrs)
+
       assert updated.name == "Updated Name"
       assert updated.start_time == ~T[07:00:00]
     end

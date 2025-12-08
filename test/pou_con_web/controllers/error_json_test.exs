@@ -1,5 +1,5 @@
 defmodule PouConWeb.ErrorJSONTest do
-  use PouConWeb.ConnCase, async: true
+  use PouConWeb.ConnCase, async: false
 
   test "renders 404" do
     assert PouConWeb.ErrorJSON.render("404.json", %{}) == %{errors: %{detail: "Not Found"}}

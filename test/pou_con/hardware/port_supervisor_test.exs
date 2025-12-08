@@ -1,5 +1,5 @@
 defmodule PouCon.PortSupervisorTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias PouCon.Hardware.PortSupervisor
 

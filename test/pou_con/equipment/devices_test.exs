@@ -1,5 +1,5 @@
 defmodule PouCon.DevicesTest do
-  use PouCon.DataCase, async: true
+  use PouCon.DataCase, async: false
 
   alias PouCon.Equipment.Devices
   alias PouCon.Equipment.Schemas.{Device, Equipment}
