@@ -1,4 +1,4 @@
-defmodule PouCon.Automation.Environment.EnvironmentControl do
+defmodule PouCon.Automation.Environment.Configs do
   @moduledoc """
   Context for environment control configuration.
   """

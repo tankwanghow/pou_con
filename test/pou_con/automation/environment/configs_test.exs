@@ -1,7 +1,7 @@
-defmodule PouCon.Automation.Environment.EnvironmentControlTest do
+defmodule PouCon.Automation.Environment.ConfigsTest do
   use PouCon.DataCase
 
-  alias PouCon.Automation.Environment.EnvironmentControl
+  alias PouCon.Automation.Environment.Configs
   alias PouCon.Automation.Environment.Schemas.Config
 
   describe "get_config/0" do
@@ -11,13 +11,13 @@ defmodule PouCon.Automation.Environment.EnvironmentControlTest do
         |> Config.changeset(%{temp_min: 26.0})
         |> Repo.insert()
 
-      fetched = EnvironmentControl.get_config()
+      fetched = Configs.get_config()
       assert fetched.id == config.id
       assert fetched.temp_min == 26.0
     end
 
     test "creates default config if none exists" do
-      config = EnvironmentControl.get_config()
+      config = Configs.get_config()
       assert %Config{} = config
       assert config.temp_min == 25.0
       assert config.temp_max == 32.0
@@ -26,18 +26,18 @@ defmodule PouCon.Automation.Environment.EnvironmentControlTest do
     end
 
     test "returns same config on subsequent calls" do
-      config1 = EnvironmentControl.get_config()
-      config2 = EnvironmentControl.get_config()
+      config1 = Configs.get_config()
+      config2 = Configs.get_config()
       assert config1.id == config2.id
     end
   end
 
   describe "update_config/1" do
     test "updates existing config" do
-      _config = EnvironmentControl.get_config()
+      _config = Configs.get_config()
 
       assert {:ok, updated} =
-               EnvironmentControl.update_config(%{
+               Configs.update_config(%{
                  temp_min: 27.0,
                  temp_max: 33.0
                })
@@ -47,10 +47,10 @@ defmodule PouCon.Automation.Environment.EnvironmentControlTest do
     end
 
     test "returns error with invalid data" do
-      _config = EnvironmentControl.get_config()
+      _config = Configs.get_config()
 
       assert {:error, %Ecto.Changeset{}} =
-               EnvironmentControl.update_config(%{temp_min: -5.0})
+               Configs.update_config(%{temp_min: -5.0})
     end
   end
 
@@ -67,13 +67,13 @@ defmodule PouCon.Automation.Environment.EnvironmentControlTest do
     end
 
     test "returns min_fans when temp <= temp_min", %{config: config} do
-      assert EnvironmentControl.calculate_fan_count(config, 25.0) == 1
-      assert EnvironmentControl.calculate_fan_count(config, 20.0) == 1
+      assert Configs.calculate_fan_count(config, 25.0) == 1
+      assert Configs.calculate_fan_count(config, 20.0) == 1
     end
 
     test "returns max_fans when temp >= temp_max", %{config: config} do
-      assert EnvironmentControl.calculate_fan_count(config, 32.0) == 4
-      assert EnvironmentControl.calculate_fan_count(config, 35.0) == 4
+      assert Configs.calculate_fan_count(config, 32.0) == 4
+      assert Configs.calculate_fan_count(config, 35.0) == 4
     end
 
     test "interpolates linearly between min and max", %{config: config} do
@@ -81,19 +81,19 @@ defmodule PouCon.Automation.Environment.EnvironmentControlTest do
       # At 25: 1 fan
       # At 28.5 (midpoint): should be ~2.5 = 3 fans (rounded)
       # At 32: 4 fans
-      assert EnvironmentControl.calculate_fan_count(config, 28.5) == 3
+      assert Configs.calculate_fan_count(config, 28.5) == 3
     end
 
     test "returns 0 for invalid temperature" do
       config = %Config{}
-      assert EnvironmentControl.calculate_fan_count(config, nil) == 0
-      assert EnvironmentControl.calculate_fan_count(config, "invalid") == 0
+      assert Configs.calculate_fan_count(config, nil) == 0
+      assert Configs.calculate_fan_count(config, "invalid") == 0
     end
 
     test "handles edge case with same min and max temps" do
       config = %Config{temp_min: 30.0, temp_max: 30.0, min_fans: 2, max_fans: 5}
       # Should not crash with division by zero
-      assert EnvironmentControl.calculate_fan_count(config, 30.0) in [2, 5]
+      assert Configs.calculate_fan_count(config, 30.0) in [2, 5]
     end
   end
 
@@ -110,13 +110,13 @@ defmodule PouCon.Automation.Environment.EnvironmentControlTest do
     end
 
     test "returns max_pumps when humidity <= hum_min (dry)", %{config: config} do
-      assert EnvironmentControl.calculate_pump_count(config, 50.0) == 3
-      assert EnvironmentControl.calculate_pump_count(config, 40.0) == 3
+      assert Configs.calculate_pump_count(config, 50.0) == 3
+      assert Configs.calculate_pump_count(config, 40.0) == 3
     end
 
     test "returns min_pumps when humidity >= hum_max (wet)", %{config: config} do
-      assert EnvironmentControl.calculate_pump_count(config, 80.0) == 0
-      assert EnvironmentControl.calculate_pump_count(config, 90.0) == 0
+      assert Configs.calculate_pump_count(config, 80.0) == 0
+      assert Configs.calculate_pump_count(config, 90.0) == 0
     end
 
     test "interpolates inversely between min and max", %{config: config} do
@@ -124,38 +124,38 @@ defmodule PouCon.Automation.Environment.EnvironmentControlTest do
       # At 50 (dry): 3 pumps (max)
       # At 65 (midpoint): should be ~1.5 = 2 pumps (rounded)
       # At 80 (wet): 0 pumps (min)
-      assert EnvironmentControl.calculate_pump_count(config, 65.0) in [1, 2]
+      assert Configs.calculate_pump_count(config, 65.0) in [1, 2]
     end
 
     test "returns 0 for invalid humidity" do
       config = %Config{}
-      assert EnvironmentControl.calculate_pump_count(config, nil) == 0
-      assert EnvironmentControl.calculate_pump_count(config, "invalid") == 0
+      assert Configs.calculate_pump_count(config, nil) == 0
+      assert Configs.calculate_pump_count(config, "invalid") == 0
     end
 
     test "handles edge case with same min and max humidity" do
       config = %Config{hum_min: 60.0, hum_max: 60.0, min_pumps: 1, max_pumps: 4}
       # Should not crash with division by zero
-      assert EnvironmentControl.calculate_pump_count(config, 60.0) in [1, 4]
+      assert Configs.calculate_pump_count(config, 60.0) in [1, 4]
     end
   end
 
   describe "get_fans_to_turn_on/2" do
     test "returns empty list when count is 0" do
       config = %Config{fan_order: "fan1,fan2,fan3"}
-      assert EnvironmentControl.get_fans_to_turn_on(config, 0) == []
+      assert Configs.get_fans_to_turn_on(config, 0) == []
     end
 
     test "returns empty list when fan_order is empty" do
       config = %Config{fan_order: ""}
-      assert EnvironmentControl.get_fans_to_turn_on(config, 5) == []
+      assert Configs.get_fans_to_turn_on(config, 5) == []
     end
 
     test "limits fans to requested count" do
       config = %Config{fan_order: "fan1,fan2,fan3,fan4"}
       # This will attempt to check status of fans, which will fail in tests
       # since the fan controllers aren't running. This is expected behavior.
-      result = EnvironmentControl.get_fans_to_turn_on(config, 2)
+      result = Configs.get_fans_to_turn_on(config, 2)
       # Should return at most 2 fans (but likely 0 since controllers aren't running)
       assert is_list(result)
       assert length(result) <= 2
@@ -163,26 +163,26 @@ defmodule PouCon.Automation.Environment.EnvironmentControlTest do
 
     test "handles nil fan_order" do
       config = %Config{fan_order: nil}
-      assert EnvironmentControl.get_fans_to_turn_on(config, 5) == []
+      assert Configs.get_fans_to_turn_on(config, 5) == []
     end
   end
 
   describe "get_pumps_to_turn_on/2" do
     test "returns empty list when count is 0" do
       config = %Config{pump_order: "pump1,pump2,pump3"}
-      assert EnvironmentControl.get_pumps_to_turn_on(config, 0) == []
+      assert Configs.get_pumps_to_turn_on(config, 0) == []
     end
 
     test "returns empty list when pump_order is empty" do
       config = %Config{pump_order: ""}
-      assert EnvironmentControl.get_pumps_to_turn_on(config, 5) == []
+      assert Configs.get_pumps_to_turn_on(config, 5) == []
     end
 
     test "limits pumps to requested count" do
       config = %Config{pump_order: "pump1,pump2,pump3,pump4"}
       # This will attempt to check status of pumps, which will fail in tests
       # since the pump controllers aren't running. This is expected behavior.
-      result = EnvironmentControl.get_pumps_to_turn_on(config, 2)
+      result = Configs.get_pumps_to_turn_on(config, 2)
       # Should return at most 2 pumps (but likely 0 since controllers aren't running)
       assert is_list(result)
       assert length(result) <= 2
@@ -190,7 +190,7 @@ defmodule PouCon.Automation.Environment.EnvironmentControlTest do
 
     test "handles nil pump_order" do
       config = %Config{pump_order: nil}
-      assert EnvironmentControl.get_pumps_to_turn_on(config, 5) == []
+      assert Configs.get_pumps_to_turn_on(config, 5) == []
     end
   end
 end
