@@ -60,7 +60,10 @@ defmodule PouConWeb.Router do
     pipe_through([:browser, :authenticated])
 
     live_session :ensure_authenticated,
-      on_mount: [{PouConWeb.AuthHooks, :ensure_authenticated}] do
+      on_mount: [
+        {PouConWeb.AuthHooks, :ensure_authenticated},
+        {PouConWeb.AuthHooks, :check_system_time}
+      ] do
       live("/dashboard", Live.Dashboard.Index, :index)
       live("/simulation", SimulationLive, :index)
       live("/environment", Live.Environment.Index, :index)
@@ -87,9 +90,11 @@ defmodule PouConWeb.Router do
     live_session :ensure_is_admin,
       on_mount: [
         # {PouConWeb.AuthHooks, :ensure_authenticated},
-        {PouConWeb.AuthHooks, :ensure_is_admin}
+        {PouConWeb.AuthHooks, :ensure_is_admin},
+        {PouConWeb.AuthHooks, :check_system_time}
       ] do
       live("/settings", Live.Auth.AdminSettings)
+      live("/system_time", Live.Admin.SystemTime.Index, :index)
       live("/devices", Live.Admin.Devices.Index, :index)
       live("/ports", Live.Admin.Ports.Index, :index)
       live("/equipment", Live.Admin.Equipment.Index, :index)

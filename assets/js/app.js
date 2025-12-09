@@ -30,6 +30,38 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 
 let Hooks = { ...colocatedHooks }
 
+Hooks.FillCurrentTime = {
+  mounted() {
+    this.el.addEventListener("click", () => {
+      const now = new Date();
+
+      // Format date as YYYY-MM-DD
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+
+      // Format time as HH:MM:SS
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const timeStr = `${hours}:${minutes}:${seconds}`;
+
+      // Find the date and time input fields in the form
+      const form = this.el.closest('form');
+      const dateInput = form.querySelector('input[type="date"]');
+      const timeInput = form.querySelector('input[type="time"]');
+
+      if (dateInput) dateInput.value = dateStr;
+      if (timeInput) timeInput.value = timeStr;
+
+      // Dispatch change events to ensure LiveView sees the changes
+      if (dateInput) dateInput.dispatchEvent(new Event('input', { bubbles: true }));
+      if (timeInput) timeInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+};
+
 Hooks.SimpleKeyboard = {
   mounted() {
     const keyboardContainer = document.querySelector(".simple-keyboard");

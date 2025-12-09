@@ -408,3 +408,4 @@ LiveView pages use function components from `lib/pou_con_web/components/` for re
 - Phoenix runs on port 4000 (configurable via `PORT` env var)
 - Use `MIX_ENV=prod mix release` for production builds
 - Database and logs persist across restarts
+- **System Time Management**: Run `sudo bash setup_sudo.sh` once during deployment to enable web-based time setting (required for RTC battery failure recovery)

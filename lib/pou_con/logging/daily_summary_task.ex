@@ -49,27 +49,35 @@ defmodule PouCon.Logging.DailySummaryTask do
 
   # Generate summary for yesterday
   defp generate_yesterday_summary do
-    yesterday = Date.add(Date.utc_today(), -1)
-    Logger.info("Generating daily summary for #{yesterday}...")
+    # Skip if system time is invalid (only check in non-test env)
+    if Mix.env() != :test and not time_valid?() do
+      Logger.debug("Skipping daily summary - system time invalid")
+    else
+      yesterday = Date.add(Date.utc_today(), -1)
+      Logger.info("Generating daily summary for #{yesterday}...")
 
-    equipment_list = Devices.list_equipment()
+      equipment_list = Devices.list_equipment()
 
-    summaries =
-      Enum.map(equipment_list, fn eq ->
-        case eq.type do
-          "temp_hum_sensor" ->
-            generate_sensor_summary(eq, yesterday)
+      summaries =
+        Enum.map(equipment_list, fn eq ->
+          case eq.type do
+            "temp_hum_sensor" ->
+              generate_sensor_summary(eq, yesterday)
 
-          _ ->
-            generate_equipment_summary(eq, yesterday)
-        end
-      end)
-      |> Enum.reject(&is_nil/1)
+            _ ->
+              generate_equipment_summary(eq, yesterday)
+          end
+        end)
+        |> Enum.reject(&is_nil/1)
 
-    # Insert summaries
-    case Repo.insert_all(DailySummary, summaries, on_conflict: :replace_all, conflict_target: [:date, :equipment_name]) do
-      {count, _} ->
-        Logger.info("Generated #{count} daily summaries for #{yesterday}")
+      # Insert summaries
+      case Repo.insert_all(DailySummary, summaries,
+             on_conflict: :replace_all,
+             conflict_target: [:date, :equipment_name]
+           ) do
+        {count, _} ->
+          Logger.info("Generated #{count} daily summaries for #{yesterday}")
+      end
     end
   end
 
@@ -168,6 +176,15 @@ defmodule PouCon.Logging.DailySummaryTask do
     end)
     |> Enum.sum()
     |> round()
+  end
+
+  # Helper to safely check time validity
+  defp time_valid? do
+    try do
+      PouCon.SystemTimeValidator.time_valid?()
+    rescue
+      _ -> true
+    end
   end
 
   # ===== Query Functions =====

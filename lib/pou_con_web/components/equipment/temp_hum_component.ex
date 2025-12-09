@@ -49,21 +49,21 @@ defmodule PouConWeb.Components.Equipment.TempHumComponent do
         </div>
 
         <div class="flex-1 min-w-0 flex flex-col justify-center space-y-0.5">
-          <div class="flex justify-between items-baseline text-xs font-bold">
+          <div class="flex justify-between items-baseline text-xs font-bold font-mono">
             <span class="text-gray-400 text-[10px] uppercase tracking-wide">Temp</span>
             <span class={"text-#{@display.temp_color}-500"}>
               {@display.temp}
             </span>
           </div>
 
-          <div class="flex justify-between items-baseline text-xs font-bold">
+          <div class="flex justify-between items-baseline text-xs font-bold font-mono">
             <span class="text-gray-400 text-[10px] uppercase tracking-wide">Hum</span>
             <span class={"text-#{@display.hum_color}-500"}>
               {@display.hum}
             </span>
           </div>
 
-          <div class="flex justify-between items-baseline text-xs font-bold">
+          <div class="flex justify-between items-baseline text-xs font-mono">
             <span class="text-gray-400 text-[10px] uppercase tracking-wide">Dew</span>
             <span class={"text-#{@display.dew_color}-500"}>
               {@display.dew}

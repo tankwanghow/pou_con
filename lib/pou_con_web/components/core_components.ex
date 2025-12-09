@@ -413,7 +413,7 @@ defmodule PouConWeb.CoreComponents do
       href="/dashboard"
       class="ml-2 border-1 border-blue-500 bg-blue-200 font-medium px-2 py-1 rounded"
     >
-      Dashboard
+      <.icon name="hero-home-solid" />
     </.link>
     """
   end

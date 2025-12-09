@@ -7,7 +7,18 @@ defmodule PouCon.Application do
     children =
       [
         PouConWeb.Telemetry,
-        PouCon.Repo,
+        PouCon.Repo
+      ] ++
+        (if Mix.env() != :test do
+          [
+            # CRITICAL: Validate system time before any logging occurs
+            # Compares current time with last logged event to detect RTC failures
+            PouCon.SystemTimeValidator
+          ]
+        else
+          []
+        end) ++
+      [
         PouCon.Hardware.PortSupervisor,
         PouCon.Hardware.DeviceManager,
 

@@ -40,6 +40,11 @@ defmodule PouCon.Logging.PeriodicLogger do
 
   # Take snapshots of all temperature/humidity sensors
   defp take_sensor_snapshots do
+    # Skip if system time is invalid (only check in non-test env)
+    if Mix.env() != :test and not time_valid?() do
+      Logger.debug("Skipping sensor snapshot - system time invalid")
+    else
+
     sensors =
       Devices.list_equipment()
       |> Enum.filter(&(&1.type == "temp_hum_sensor"))
@@ -59,19 +64,29 @@ defmodule PouCon.Logging.PeriodicLogger do
         }
       end)
 
-    # Batch insert all snapshots
-    case insert_snapshots(snapshots) do
-      {count, _} when count > 0 ->
-        Logger.debug("Saved #{count} sensor snapshots")
+      # Batch insert all snapshots
+      case insert_snapshots(snapshots) do
+        {count, _} when count > 0 ->
+          Logger.debug("Saved #{count} sensor snapshots")
 
-      _ ->
-        Logger.warning("Failed to save sensor snapshots")
+        _ ->
+          Logger.warning("Failed to save sensor snapshots")
+      end
     end
   end
 
   # Batch insert snapshots
   defp insert_snapshots(snapshots) do
     Repo.insert_all(SensorSnapshot, snapshots)
+  end
+
+  # Helper to safely check time validity
+  defp time_valid? do
+    try do
+      PouCon.SystemTimeValidator.time_valid?()
+    rescue
+      _ -> true
+    end
   end
 
   # ===== Query Functions =====

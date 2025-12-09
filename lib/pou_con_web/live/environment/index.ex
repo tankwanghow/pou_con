@@ -148,7 +148,7 @@ defmodule PouConWeb.Live.Environment.Index do
           <% end %>
           <!-- Averages Bar -->
 
-          <div class="align-center my-auto text-xl">
+          <div class=" align-center p-3 text-xl bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden transition-colors duration-300">
             <div class="text-center">
               <span class="text-gray-400">Avg Temp</span>
               <span class="font-bold text-yellow-400">

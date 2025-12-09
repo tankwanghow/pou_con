@@ -1,4 +1,7 @@
 defmodule PouConWeb.AuthHooks do
+  import Phoenix.LiveView
+  import Phoenix.Component
+
   def on_mount(:default, _params, _session, socket) do
     {:cont, socket}
   end
@@ -10,8 +13,8 @@ defmodule PouConWeb.AuthHooks do
       {:halt,
        socket
        |> Phoenix.Controller.put_flash(:error, "You must be ADMIN access this page.")
-       |> Phoenix.LiveView.put_flash(:error, "You must be ADMIN access this page.")
-       |> Phoenix.LiveView.redirect(to: "/login")}
+       |> put_flash(:error, "You must be ADMIN access this page.")
+       |> redirect(to: "/login")}
     end
   end
 
@@ -21,8 +24,33 @@ defmodule PouConWeb.AuthHooks do
     else
       {:halt,
        socket
-       |> Phoenix.LiveView.put_flash(:error, "You must be Login.")
-       |> Phoenix.LiveView.redirect(to: "/login")}
+       |> put_flash(:error, "You must be Login.")
+       |> redirect(to: "/login")}
+    end
+  end
+
+  def on_mount(:check_system_time, _params, _session, socket) do
+    # Check if system time is valid and add to socket assigns
+    time_valid = check_time_valid?()
+
+    socket =
+      socket
+      |> assign(:system_time_valid, time_valid)
+
+    {:cont, socket}
+  end
+
+  # Helper to safely check time validity
+  defp check_time_valid? do
+    # Skip check in test environment
+    if Mix.env() == :test do
+      true
+    else
+      try do
+        PouCon.SystemTimeValidator.time_valid?()
+      rescue
+        _ -> true  # If validator not running, assume time is valid
+      end
     end
   end
 end

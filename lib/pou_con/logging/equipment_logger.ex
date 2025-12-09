@@ -63,25 +63,44 @@ defmodule PouCon.Logging.EquipmentLogger do
 
   @doc """
   Generic log event function. Writes async to avoid blocking.
+  IMPORTANT: Logging is paused if system time is invalid (detected on startup).
   """
   def log_event(attrs) do
-    # Add timestamp if not provided
-    attrs = Map.put_new(attrs, :inserted_at, DateTime.utc_now())
+    # Check if system time is valid before logging (skip in test env)
+    if Mix.env() != :test and not time_valid?() do
+      Logger.debug(
+        "Skipping log event for #{attrs[:equipment_name]} - system time invalid"
+      )
 
-    # Async write using Task to avoid blocking equipment operations
-    Task.Supervisor.start_child(PouCon.TaskSupervisor, fn ->
-      changeset = EquipmentEvent.changeset(%EquipmentEvent{}, attrs)
+      :time_invalid
+    else
+      # Add timestamp if not provided
+      attrs = Map.put_new(attrs, :inserted_at, DateTime.utc_now())
 
-      case Repo.insert(changeset) do
-        {:ok, _event} ->
-          :ok
+      # Async write using Task to avoid blocking equipment operations
+      Task.Supervisor.start_child(PouCon.TaskSupervisor, fn ->
+        changeset = EquipmentEvent.changeset(%EquipmentEvent{}, attrs)
 
-        {:error, changeset} ->
-          Logger.warning(
-            "Failed to log equipment event for #{attrs[:equipment_name]}: #{inspect(changeset.errors)}"
-          )
-      end
-    end)
+        case Repo.insert(changeset) do
+          {:ok, _event} ->
+            :ok
+
+          {:error, changeset} ->
+            Logger.warning(
+              "Failed to log equipment event for #{attrs[:equipment_name]}: #{inspect(changeset.errors)}"
+            )
+        end
+      end)
+    end
+  end
+
+  # Helper to safely check time validity (handles when validator not running)
+  defp time_valid? do
+    try do
+      PouCon.SystemTimeValidator.time_valid?()
+    rescue
+      _ -> true  # If validator not running, assume time is valid
+    end
   end
 
   # Helper to encode metadata as JSON

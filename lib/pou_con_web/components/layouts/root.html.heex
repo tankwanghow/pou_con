@@ -32,7 +32,7 @@
     </script>
   </head>
 
-  <body class="min-h-screen bg-gray-50">
+  <body>
     <!-- Header with House ID + Live Local Time -->
     <div class="flex flex-col items-center mt-2 mb-2">
       <!-- House ID -->
@@ -42,11 +42,33 @@
       
 <!-- Live Local Time (updates every second) -->
       <div
-        id="local-clock"
-        class="mt-1"
-        data-timezone={PouCon.Auth.get_timezone()}
+        :if={assigns[:current_role]}
+        class={[
+          "flex mt-1 px-3 py-1 rounded-lg font-semibold items-center",
+          if(assigns[:system_time_valid] == false,
+            do: "bg-red-600 text-white border-2 border-red-800",
+            else: "bg-gray-200 border-2 border-gray-800"
+          )
+        ]}
       >
-        Loading time...
+        <span :if={!assigns[:system_time_valid]} class="text-2xl">⚠️</span>
+        <div>
+          <div
+            id="local-clock"
+            data-timezone={PouCon.Auth.get_timezone()}
+            data-time-valid={assigns[:system_time_valid] != false}
+          >
+            Loading time...
+          </div>
+          <div :if={!assigns[:system_time_valid]} class="text-center font-normal text-amber-200">
+            !! System Time Error !!
+            <.link href="/admin/system_time" class="text-blue-400">
+              Try Fix...
+            </.link>
+          </div>
+        </div>
+
+        <span :if={!assigns[:system_time_valid]} class="text-2xl">⚠️</span>
       </div>
     </div>
 
@@ -61,6 +83,7 @@
         if (!clockEl) return;
 
         const timezone = clockEl.dataset.timezone || "UTC";
+        const timeValid = clockEl.dataset.timeValid !== "false";
 
         const updateClock = () => {
           const now = new Date();
@@ -81,8 +104,12 @@
           const date = `${parts.find(p => p.type === 'day').value}/${parts.find(p => p.type === 'month').value}/${parts.find(p => p.type === 'year').value}`;
           const time = `${parts.find(p => p.type === 'hour').value}:${parts.find(p => p.type === 'minute').value}:${parts.find(p => p.type === 'second').value}`;
 
-          clockEl.textContent = `${date} ${time} (${timezone.replace('_', ' ')})`;
-        };
+          // Add warning emoji and message if time is invalid
+          const warningIcon = timeValid ? '' : '⚠️ ';
+          const invalidSuffix = timeValid ? '' : ' [INVALID - FIX TIME]';
+
+          clockEl.textContent = `${warningIcon}${date} ${time} (${timezone.replace('_', ' ')})${invalidSuffix}`;
+          };
 
         updateClock();
         setInterval(updateClock, 1000);
