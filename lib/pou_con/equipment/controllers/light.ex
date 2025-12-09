@@ -158,13 +158,13 @@ defmodule PouCon.Equipment.Controllers.Light do
        when cmd != act do
     Logger.info("[#{state.name}] #{if cmd, do: "Turning ON", else: "Turning OFF"} light")
 
-    # Log the state change
-    mode = if state.mode == :auto, do: "auto", else: "manual"
-
-    if cmd do
-      EquipmentLogger.log_start(state.name, mode, "user")
-    else
-      EquipmentLogger.log_stop(state.name, mode, "user", "on")
+    # Only log if in MANUAL mode (automation controllers handle auto mode logging with metadata)
+    if state.mode == :manual do
+      if cmd do
+        EquipmentLogger.log_start(state.name, "manual", "user")
+      else
+        EquipmentLogger.log_stop(state.name, "manual", "user", "on")
+      end
     end
 
     case @device_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)}) do
@@ -174,7 +174,8 @@ defmodule PouCon.Equipment.Controllers.Light do
       {:error, reason} ->
         Logger.error("[#{state.name}] Command failed: #{inspect(reason)}")
 
-        # Log command failure
+        # Always log command failures regardless of mode
+        mode = if state.mode == :auto, do: "auto", else: "manual"
         EquipmentLogger.log_error(state.name, mode, "command_failed", if(cmd, do: "off", else: "on"))
 
         sync_and_update(%State{state | error: :command_failed})
@@ -239,8 +240,9 @@ defmodule PouCon.Equipment.Controllers.Light do
 
     error = detect_error(new_state, temp_error)
 
-    if error != new_state.error do
-      log_error_transition(state.name, new_state.error, error)
+    # Compare with the PREVIOUS state's error, not new_state.error (which is nil)
+    if error != state.error do
+      log_error_transition(state.name, state.error, error, new_state)
     end
 
     %State{new_state | error: error}
@@ -262,34 +264,54 @@ defmodule PouCon.Equipment.Controllers.Light do
     end
   end
 
-  defp log_error_transition(name, _old, new_error) do
-    # Log error to database
-    if new_error != nil do
-      mode = "auto"
+  defp log_error_transition(name, old_error, new_error, current_state) do
+    # Determine mode from current state
+    mode = if current_state.mode == :manual, do: "manual", else: "auto"
 
-      error_type =
-        case new_error do
-          :timeout -> "sensor_timeout"
-          :invalid_data -> "invalid_data"
-          :command_failed -> "command_failed"
-          :on_but_not_running -> "on_but_not_running"
-          :off_but_running -> "off_but_running"
-          :crashed_previously -> "crashed_previously"
-          _ -> "unknown_error"
+    cond do
+      # Transition from error to normal (recovery)
+      old_error != nil && new_error == nil ->
+        current_status = cond do
+          current_state.is_running -> "running"
+          current_state.actual_on -> "on"
+          true -> "off"
         end
 
-      EquipmentLogger.log_error(name, mode, error_type, "running")
-    end
+        Logger.info("[#{name}] Error CLEARED: #{old_error} -> #{current_status}")
 
-    case new_error do
-      nil -> Logger.info("[#{name}] Error CLEARED")
-      :timeout -> Logger.error("[#{name}] ERROR: Sensor timeout")
-      :invalid_data -> Logger.error("[#{name}] ERROR: Invalid data")
-      :command_failed -> Logger.error("[#{name}] ERROR: Command failed")
-      :on_but_not_running -> Logger.error("[#{name}] ERROR: ON but NOT RUNNING")
-      :off_but_running -> Logger.error("[#{name}] ERROR: OFF but RUNNING")
-      :crashed_previously -> Logger.error("[#{name}] RECOVERED FROM NIL STATE")
-      _ -> nil
+        # Log recovery - equipment is now in normal state
+        if current_state.is_running do
+          EquipmentLogger.log_start(name, mode, "system", %{
+            "from_error" => to_string(old_error),
+            "to_state" => current_status
+          })
+        else
+          EquipmentLogger.log_stop(name, mode, "system", "error", %{
+            "from_error" => to_string(old_error),
+            "to_state" => current_status
+          })
+        end
+
+      # Transition from normal to error OR from one error to another
+      new_error != nil && old_error != new_error ->
+        error_type =
+          case new_error do
+            :timeout -> "sensor_timeout"
+            :invalid_data -> "invalid_data"
+            :command_failed -> "command_failed"
+            :on_but_not_running -> "on_but_not_running"
+            :off_but_running -> "off_but_running"
+            :crashed_previously -> "crashed_previously"
+            _ -> "unknown_error"
+          end
+
+        from_state = if old_error, do: to_string(old_error), else: (if current_state.is_running, do: "running", else: "off")
+        Logger.error("[#{name}] ERROR: #{error_type}")
+        EquipmentLogger.log_error(name, mode, error_type, from_state)
+
+      # No change in error state - don't log
+      true ->
+        nil
     end
   end
 

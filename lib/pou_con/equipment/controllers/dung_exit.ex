@@ -152,8 +152,9 @@ defmodule PouCon.Equipment.Controllers.DungExit do
 
     error = if temp_error, do: temp_error, else: detect_runtime_error(new_state)
 
-    if error != new_state.error do
-      log_error(state.name, new_state.error, error)
+    # Compare with the PREVIOUS state's error, not new_state.error (which is nil)
+    if error != state.error do
+      log_error(state.name, state.error, error, new_state)
     end
 
     %State{new_state | error: error}
@@ -172,26 +173,51 @@ defmodule PouCon.Equipment.Controllers.DungExit do
     end
   end
 
-  defp log_error(name, _old, new) do
-    # Log error to database
-    if new != nil do
-      error_type =
-        case new do
-          :timeout -> "sensor_timeout"
-          :invalid_data -> "invalid_data"
-          :command_failed -> "command_failed"
-          :on_but_not_running -> "on_but_not_running"
-          :off_but_running -> "off_but_running"
-          :crashed_previously -> "crashed_previously"
-          _ -> "unknown_error"
+  defp log_error(name, old_error, new_error, current_state) do
+    cond do
+      # Transition from error to normal (recovery)
+      old_error != nil && new_error == nil ->
+        current_status = cond do
+          current_state.is_running -> "running"
+          current_state.actual_on -> "on"
+          true -> "off"
         end
 
-      EquipmentLogger.log_error(name, "manual", error_type, "running")
-    end
+        Logger.info("[#{name}] Error CLEARED: #{old_error} -> #{current_status}")
 
-    case new do
-      nil -> Logger.info("[#{name}] Error CLEARED")
-      e -> Logger.error("[#{name}] ERROR: #{error_message(e)}")
+        # Log recovery - equipment is now in normal state
+        if current_state.is_running do
+          EquipmentLogger.log_start(name, "manual", "system", %{
+            "from_error" => to_string(old_error),
+            "to_state" => current_status
+          })
+        else
+          EquipmentLogger.log_stop(name, "manual", "system", "error", %{
+            "from_error" => to_string(old_error),
+            "to_state" => current_status
+          })
+        end
+
+      # Transition from normal to error OR from one error to another
+      new_error != nil && old_error != new_error ->
+        error_type =
+          case new_error do
+            :timeout -> "sensor_timeout"
+            :invalid_data -> "invalid_data"
+            :command_failed -> "command_failed"
+            :on_but_not_running -> "on_but_not_running"
+            :off_but_running -> "off_but_running"
+            :crashed_previously -> "crashed_previously"
+            _ -> "unknown_error"
+          end
+
+        from_state = if old_error, do: to_string(old_error), else: (if current_state.is_running, do: "running", else: "off")
+        Logger.error("[#{name}] ERROR: #{error_type}")
+        EquipmentLogger.log_error(name, "manual", error_type, from_state)
+
+      # No change in error state - don't log
+      true ->
+        nil
     end
   end
 

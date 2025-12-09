@@ -90,10 +90,9 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   def handle_cast(:stop_movement, state) do
     Logger.info("[#{state.name}] STOP MOVEMENT command")
 
-    # Log movement stop
-    if state.commanded_target != nil do
-      mode = if state.mode == :auto, do: "auto", else: "manual"
-      EquipmentLogger.log_stop(state.name, mode, "user", "moving")
+    # Only log if in MANUAL mode and there was a commanded target
+    if state.mode == :manual && state.commanded_target != nil do
+      EquipmentLogger.log_stop(state.name, "manual", "user", "moving")
     end
 
     {:noreply, sync_and_update(stop_and_reset(state))}
@@ -119,10 +118,11 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       true ->
         activate_coil(state, target)
 
-        # Log movement start
-        mode = if state.mode == :auto, do: "auto", else: "manual"
-        action = if target == :to_back_limit, do: "move_to_back", else: "move_to_front"
-        EquipmentLogger.log_start(state.name, mode, "user", %{"action" => action})
+        # Only log if in MANUAL mode (automation controllers handle auto mode logging with metadata)
+        if state.mode == :manual do
+          action = if target == :to_back_limit, do: "move_to_back", else: "move_to_front"
+          EquipmentLogger.log_start(state.name, "manual", "user", %{"action" => action})
+        end
 
         new_state = %State{
           state
@@ -234,10 +234,11 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       if base_state.is_moving && limit_hit_in_direction?(base_state) do
         Logger.info("[#{state.name}] Limit reached → auto-stop")
 
-        # Log auto-stop at limit
-        mode = if base_state.mode == :auto, do: "auto", else: "manual"
-        limit = if base_state.commanded_target == :to_back_limit, do: "back", else: "front"
-        EquipmentLogger.log_stop(state.name, mode, "auto_control", "moving", %{"reason" => "limit_reached", "limit" => limit})
+        # Only log if in MANUAL mode (automation controllers handle auto mode logging)
+        if base_state.mode == :manual do
+          limit = if base_state.commanded_target == :to_back_limit, do: "back", else: "front"
+          EquipmentLogger.log_stop(state.name, "manual", "auto_control", "moving", %{"reason" => "limit_reached", "limit" => limit})
+        end
 
         stop_and_reset(base_state)
       else
