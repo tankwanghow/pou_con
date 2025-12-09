@@ -13,6 +13,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   alias PouCon.Automation.Environment.Configs
   alias PouCon.Automation.Environment.Schemas.Config
   alias PouCon.Equipment.Controllers.{Fan, Pump, TempHumSen}
+  alias PouCon.Logging.EquipmentLogger
 
   @pubsub_topic "device_data"
 
@@ -148,7 +149,8 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
             target_fan_list,
             state.current_pumps_on,
             target_pump_list,
-            config
+            config,
+            state
           )
         else
           {state.current_fans_on, state.current_pumps_on, false}
@@ -169,7 +171,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
     end
   end
 
-  defp stagger_switch(current_fans, target_fans, current_pumps, target_pumps, _config) do
+  defp stagger_switch(current_fans, target_fans, current_pumps, target_pumps, _config, state) do
     # Find one fan to turn ON
     fans_to_turn_on = target_fans -- current_fans
     # Find one fan to turn OFF
@@ -185,7 +187,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       length(fans_to_turn_on) > 0 ->
         name = hd(fans_to_turn_on)
 
-        if try_turn_on_fan(name) do
+        if try_turn_on_fan(name, state) do
           {[name | current_fans], current_pumps, true}
         else
           # Failed to turn on (likely MANUAL mode) - don't block, just skip
@@ -196,7 +198,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       length(fans_to_turn_off) > 0 ->
         name = hd(fans_to_turn_off)
 
-        case try_turn_off_fan(name) do
+        case try_turn_off_fan(name, state) do
           :success ->
             # Successfully turned off
             {current_fans -- [name], current_pumps, true}
@@ -215,7 +217,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       length(pumps_to_turn_on) > 0 ->
         name = hd(pumps_to_turn_on)
 
-        if try_turn_on_pump(name) do
+        if try_turn_on_pump(name, state) do
           {current_fans, [name | current_pumps], true}
         else
           # Failed to turn on (likely MANUAL mode) - don't block, just skip
@@ -226,7 +228,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       length(pumps_to_turn_off) > 0 ->
         name = hd(pumps_to_turn_off)
 
-        case try_turn_off_pump(name) do
+        case try_turn_off_pump(name, state) do
           :success ->
             # Successfully turned off
             {current_fans, current_pumps -- [name], true}
@@ -247,7 +249,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
     end
   end
 
-  defp try_turn_on_fan(name) do
+  defp try_turn_on_fan(name, state) do
     config = Configs.get_config()
     nc_fans = Config.parse_order(config.nc_fans)
     is_nc = name in nc_fans
@@ -264,6 +266,14 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
             Fan.turn_off(name)
 
             Logger.info("[Environment] Turning ON NC fan: #{name} (coil OFF)")
+
+            # Log auto-control action
+            EquipmentLogger.log_start(name, "auto", "auto_control", %{
+              "temp" => state.avg_temp,
+              "reason" => "temperature_control",
+              "nc_fan" => true
+            })
+
             true
           else
             # Already in correct state (coil OFF = fan ON)
@@ -274,6 +284,13 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
             Fan.turn_on(name)
 
             Logger.info("[Environment] Turning ON fan: #{name}")
+
+            # Log auto-control action
+            EquipmentLogger.log_start(name, "auto", "auto_control", %{
+              "temp" => state.avg_temp,
+              "reason" => "temperature_control"
+            })
+
             true
           else
             # Already on
@@ -291,7 +308,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
     end
   end
 
-  defp try_turn_off_fan(name) do
+  defp try_turn_off_fan(name, state) do
     config = Configs.get_config()
     nc_fans = Config.parse_order(config.nc_fans)
     is_nc = name in nc_fans
@@ -308,6 +325,14 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
             Fan.turn_on(name)
 
             Logger.info("[Environment] Turning OFF NC fan: #{name} (coil ON)")
+
+            # Log auto-control action
+            EquipmentLogger.log_stop(name, "auto", "auto_control", "on", %{
+              "temp" => state.avg_temp,
+              "reason" => "temperature_control",
+              "nc_fan" => true
+            })
+
             :success
           else
             # Already in correct state (coil ON = fan OFF)
@@ -318,6 +343,13 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
             Fan.turn_off(name)
 
             Logger.info("[Environment] Turning OFF fan: #{name}")
+
+            # Log auto-control action
+            EquipmentLogger.log_stop(name, "auto", "auto_control", "on", %{
+              "temp" => state.avg_temp,
+              "reason" => "temperature_control"
+            })
+
             :success
           else
             # Already off
@@ -335,13 +367,20 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
     end
   end
 
-  defp try_turn_on_pump(name) do
+  defp try_turn_on_pump(name, state) do
     try do
       status = Pump.status(name)
 
       if status[:mode] == :auto and not status[:commanded_on] do
         Pump.turn_on(name)
         Logger.info("[Environment] Turning ON pump: #{name}")
+
+        # Log auto-control action
+        EquipmentLogger.log_start(name, "auto", "auto_control", %{
+          "humidity" => state.avg_humidity,
+          "reason" => "humidity_control"
+        })
+
         true
       else
         status[:commanded_on]
@@ -353,7 +392,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
     end
   end
 
-  defp try_turn_off_pump(name) do
+  defp try_turn_off_pump(name, state) do
     try do
       status = Pump.status(name)
 
@@ -361,6 +400,13 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
         if status[:commanded_on] do
           Pump.turn_off(name)
           Logger.info("[Environment] Turning OFF pump: #{name}")
+
+          # Log auto-control action
+          EquipmentLogger.log_stop(name, "auto", "auto_control", "on", %{
+            "humidity" => state.avg_humidity,
+            "reason" => "humidity_control"
+          })
+
           :success
         else
           # Already off

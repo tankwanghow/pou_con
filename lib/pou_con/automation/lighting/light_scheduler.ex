@@ -10,6 +10,7 @@ defmodule PouCon.Automation.Lighting.LightScheduler do
   alias PouCon.Auth
   alias PouCon.Automation.Lighting.LightSchedules
   alias PouCon.Equipment.Controllers.Light
+  alias PouCon.Logging.EquipmentLogger
 
   @check_interval :timer.seconds(1)
 
@@ -108,9 +109,23 @@ defmodule PouCon.Automation.Lighting.LightScheduler do
 
             Light.turn_on(equipment_name)
 
+            # Log schedule-triggered action
+            EquipmentLogger.log_start(equipment_name, "auto", "schedule", %{
+              "schedule_id" => schedule.id,
+              "on_time" => Time.to_string(schedule.on_time),
+              "off_time" => Time.to_string(schedule.off_time)
+            })
+
           not should_be_on and is_on ->
             Logger.info("LightScheduler: Turning OFF #{equipment_name} (outside schedule period)")
             Light.turn_off(equipment_name)
+
+            # Log schedule-triggered action
+            EquipmentLogger.log_stop(equipment_name, "auto", "schedule", "on", %{
+              "schedule_id" => schedule.id,
+              "on_time" => Time.to_string(schedule.on_time),
+              "off_time" => Time.to_string(schedule.off_time)
+            })
 
           true ->
             :ok

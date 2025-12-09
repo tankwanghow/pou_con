@@ -3,6 +3,7 @@ defmodule PouCon.Equipment.Controllers.DungExit do
   require Logger
 
   alias PouCon.Automation.Interlock.InterlockHelper
+  alias PouCon.Logging.EquipmentLogger
 
   @device_manager Application.compile_env(:pou_con, :device_manager)
 
@@ -67,6 +68,19 @@ defmodule PouCon.Equipment.Controllers.DungExit do
       {:noreply, sync_coil(%State{state | commanded_on: true})}
     else
       Logger.warning("[#{state.name}] Turn ON blocked by interlock rules")
+
+      # Log interlock block
+      EquipmentLogger.log_event(%{
+        equipment_name: state.name,
+        event_type: "error",
+        from_value: "off",
+        to_value: "blocked",
+        mode: "manual",
+        triggered_by: "interlock",
+        metadata: Jason.encode!(%{"reason" => "interlock_blocked"}),
+        inserted_at: DateTime.utc_now()
+      })
+
       {:noreply, state}
     end
   end
@@ -82,12 +96,23 @@ defmodule PouCon.Equipment.Controllers.DungExit do
        when cmd != act do
     Logger.info("[#{state.name}] #{if cmd, do: "Turning ON", else: "Turning OFF"} dung exit")
 
+    # Log the state change
+    if cmd do
+      EquipmentLogger.log_start(state.name, "manual", "user")
+    else
+      EquipmentLogger.log_stop(state.name, "manual", "user", "on")
+    end
+
     case @device_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)}) do
       {:ok, :success} ->
         sync_and_update(state)
 
       {:error, reason} ->
         Logger.error("[#{state.name}] Command failed: #{inspect(reason)}")
+
+        # Log command failure
+        EquipmentLogger.log_error(state.name, "manual", "command_failed", if(cmd, do: "off", else: "on"))
+
         sync_and_update(%State{state | error: :command_failed})
     end
   end
@@ -148,6 +173,22 @@ defmodule PouCon.Equipment.Controllers.DungExit do
   end
 
   defp log_error(name, _old, new) do
+    # Log error to database
+    if new != nil do
+      error_type =
+        case new do
+          :timeout -> "sensor_timeout"
+          :invalid_data -> "invalid_data"
+          :command_failed -> "command_failed"
+          :on_but_not_running -> "on_but_not_running"
+          :off_but_running -> "off_but_running"
+          :crashed_previously -> "crashed_previously"
+          _ -> "unknown_error"
+        end
+
+      EquipmentLogger.log_error(name, "manual", error_type, "running")
+    end
+
     case new do
       nil -> Logger.info("[#{name}] Error CLEARED")
       e -> Logger.error("[#{name}] ERROR: #{error_message(e)}")

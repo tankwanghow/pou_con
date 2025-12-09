@@ -39,8 +39,20 @@ defmodule PouCon.Application do
       ] ++
         if Mix.env() != :test do
           [
+            # Task supervisor for async logging writes
+            {Task.Supervisor, name: PouCon.TaskSupervisor},
+
             # Load and start all equipment controllers
             {Task, fn -> PouCon.Equipment.EquipmentLoader.load_and_start_controllers() end},
+
+            # Logging system - sensor snapshots every 30 minutes
+            PouCon.Logging.PeriodicLogger,
+
+            # Logging system - daily summaries at midnight
+            PouCon.Logging.DailySummaryTask,
+
+            # Logging system - cleanup old data daily at 3 AM
+            PouCon.Logging.CleanupTask,
 
             # Environment auto-control (fans/pumps based on temp/humidity)
             PouCon.Automation.Environment.EnvironmentController,

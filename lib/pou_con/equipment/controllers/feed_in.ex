@@ -3,6 +3,7 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   require Logger
 
   alias PouCon.Automation.Interlock.InterlockHelper
+  alias PouCon.Logging.EquipmentLogger
 
   @device_manager Application.compile_env(:pou_con, :device_manager)
 
@@ -84,6 +85,20 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
       {:noreply, sync_coil(%{state | commanded_on: true})}
     else
       Logger.warning("[#{state.name}] Turn ON blocked by interlock rules")
+
+      # Log interlock block
+      mode = if state.mode == :auto, do: "auto", else: "manual"
+      EquipmentLogger.log_event(%{
+        equipment_name: state.name,
+        event_type: "error",
+        from_value: "off",
+        to_value: "blocked",
+        mode: mode,
+        triggered_by: "interlock",
+        metadata: Jason.encode!(%{"reason" => "interlock_blocked"}),
+        inserted_at: DateTime.utc_now()
+      })
+
       {:noreply, state}
     end
   end
@@ -220,6 +235,16 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   defp sync_coil(%State{commanded_on: cmd, actual_on: act, filling_coil: coil} = state)
        when is_boolean(cmd) and is_boolean(act) and cmd != act do
     Logger.info("[#{state.name}] #{if cmd, do: "Starting", else: "Stopping"} filling")
+
+    # Log the state change
+    mode = if state.mode == :auto, do: "auto", else: "manual"
+
+    if cmd do
+      EquipmentLogger.log_start(state.name, mode, "user")
+    else
+      EquipmentLogger.log_stop(state.name, mode, "user", "on")
+    end
+
     @device_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)})
     state
   end
@@ -227,6 +252,24 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   defp sync_coil(state), do: state
 
   defp log_error_transition(name, _old, new) do
+    # Log error to database
+    if new != nil do
+      mode = "auto"
+
+      error_type =
+        case new do
+          :timeout -> "sensor_timeout"
+          :invalid_data -> "invalid_data"
+          :command_failed -> "command_failed"
+          :on_but_not_running -> "on_but_not_running"
+          :off_but_running -> "off_but_running"
+          :crashed_previously -> "crashed_previously"
+          _ -> "unknown_error"
+        end
+
+      EquipmentLogger.log_error(name, mode, error_type, "running")
+    end
+
     case new do
       nil ->
         Logger.info("[#{name}] Error CLEARED")

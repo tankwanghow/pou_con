@@ -3,6 +3,7 @@ defmodule PouCon.Equipment.Controllers.Egg do
   require Logger
 
   alias PouCon.Automation.Interlock.InterlockHelper
+  alias PouCon.Logging.EquipmentLogger
 
   @device_manager Application.compile_env(:pou_con, :device_manager)
 
@@ -90,6 +91,20 @@ defmodule PouCon.Equipment.Controllers.Egg do
       {:noreply, sync_coil(new_state)}
     else
       Logger.warning("[#{state.name}] Turn ON blocked by interlock rules")
+
+      # Log interlock block
+      mode = if state.mode == :auto, do: "auto", else: "manual"
+      EquipmentLogger.log_event(%{
+        equipment_name: state.name,
+        event_type: "error",
+        from_value: "off",
+        to_value: "blocked",
+        mode: mode,
+        triggered_by: "interlock",
+        metadata: Jason.encode!(%{"reason" => "interlock_blocked"}),
+        inserted_at: DateTime.utc_now()
+      })
+
       {:noreply, state}
     end
   end
@@ -143,6 +158,17 @@ defmodule PouCon.Equipment.Controllers.Egg do
     target = state.commanded_on
 
     if target != state.actual_on do
+      Logger.info("[#{state.name}] #{if target, do: "Turning ON", else: "Turning OFF"} egg collection")
+
+      # Log the state change
+      mode = if state.mode == :auto, do: "auto", else: "manual"
+
+      if target do
+        EquipmentLogger.log_start(state.name, mode, "user")
+      else
+        EquipmentLogger.log_stop(state.name, mode, "user", "on")
+      end
+
       case @device_manager.command(state.on_off_coil, :set_state, %{
              state: if(target, do: 1, else: 0)
            }) do
@@ -151,6 +177,10 @@ defmodule PouCon.Equipment.Controllers.Egg do
 
         {:error, reason} ->
           Logger.error("[#{state.name}] Command failed: #{inspect(reason)}")
+
+          # Log command failure
+          EquipmentLogger.log_error(state.name, mode, "command_failed", if(target, do: "off", else: "on"))
+
           sync_and_update(%{state | error: :command_failed})
       end
     else
@@ -238,6 +268,24 @@ defmodule PouCon.Equipment.Controllers.Egg do
   end
 
   defp log_error_transition(name, _old, new_error) do
+    # Log error to database
+    if new_error != nil do
+      mode = "auto"
+
+      error_type =
+        case new_error do
+          :timeout -> "sensor_timeout"
+          :invalid_data -> "invalid_data"
+          :command_failed -> "command_failed"
+          :on_but_not_running -> "on_but_not_running"
+          :off_but_running -> "off_but_running"
+          :crashed_previously -> "crashed_previously"
+          _ -> "unknown_error"
+        end
+
+      EquipmentLogger.log_error(name, mode, error_type, "running")
+    end
+
     case new_error do
       nil -> Logger.info("[#{name}] Error CLEARED")
       :timeout -> Logger.error("[#{name}] ERROR: Sensor timeout")

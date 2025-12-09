@@ -129,18 +129,26 @@ defmodule PouConWeb.Live.Dashboard.Index do
       <div class="flex justify-center items-center mb-2">
         <.link
           phx-click="reload_ports"
-          class="ml-2 px-3 py-1 rounded bg-green-200 border border-green-600 font-medium"
+          class="ml-2 px-3 py-1 rounded bg-green-200 border border-green-600"
         >
-          Refresh
+          <.icon name="hero-arrow-path" />
         </.link>
         <%= if @current_role == :admin do %>
+          <.link href="/reports" class="ml-2 px-3 py-1 rounded bg-yellow-200 border border-yellow-600">
+            <.icon name="hero-presentation-chart-bar" />
+          </.link>
+          <.link
+            href="/admin/settings"
+            class="ml-2 px-3 py-1 rounded bg-purple-200 border border-purple-600"
+          >
+            <.icon name="hero-cog-6-tooth" />
+          </.link>
+          <.link :if={System.get_env("SIMULATE_DEVICES") == "1"} href="/simulation" class="ml-2 px-3 py-1 rounded bg-cyan-200 border border-cyan-600">
+            <.icon name="hero-adjustments-horizontal" />
+          </.link>
           <.btn_link
-            to="/admin/settings"
-            label="Settings"
-          />
-          <.btn_link
-            to="/simulation"
-            label="Simulation"
+            to={~p"/admin/interlock"}
+            label="Interlock"
           />
           <.btn_link
             to={~p"/admin/ports"}
@@ -148,15 +156,11 @@ defmodule PouConWeb.Live.Dashboard.Index do
           />
           <.btn_link
             to={~p"/admin/devices"}
-            label="Devices"
+            label="Device"
           />
           <.btn_link
             to={~p"/admin/equipment"}
             label="Equipment"
-          />
-          <.btn_link
-            to={~p"/admin/interlock"}
-            label="Interlock"
           />
         <% end %>
         <.link
@@ -164,10 +168,10 @@ defmodule PouConWeb.Live.Dashboard.Index do
           method="post"
           class="ml-2 px-3 py-1 rounded bg-rose-200 border border-rose-600 font-medium"
         >
-          Logout
+          <.icon name="hero-arrow-right-start-on-rectangle" />
         </.link>
       </div>
-      
+
     <!-- Fans -->
       <div class="flex flex-wrap items-center gap-1 mb-6 mx-auto">
         <% temphums = Enum.filter(@equipment, &(&1.type == "temp_hum_sensor")) %>

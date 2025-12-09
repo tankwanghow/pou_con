@@ -10,6 +10,7 @@ defmodule PouCon.Automation.EggCollection.EggCollectionScheduler do
   alias PouCon.Auth
   alias PouCon.Automation.EggCollection.EggCollectionSchedules
   alias PouCon.Equipment.Controllers.Egg
+  alias PouCon.Logging.EquipmentLogger
 
   @check_interval :timer.seconds(30)
 
@@ -108,12 +109,26 @@ defmodule PouCon.Automation.EggCollection.EggCollectionScheduler do
 
             Egg.turn_on(equipment_name)
 
+            # Log schedule-triggered action
+            EquipmentLogger.log_start(equipment_name, "auto", "schedule", %{
+              "schedule_id" => schedule.id,
+              "start_time" => Time.to_string(schedule.start_time),
+              "stop_time" => Time.to_string(schedule.stop_time)
+            })
+
           not should_be_running and is_on ->
             Logger.info(
               "EggCollectionScheduler: Stopping #{equipment_name} (outside schedule period)"
             )
 
             Egg.turn_off(equipment_name)
+
+            # Log schedule-triggered action
+            EquipmentLogger.log_stop(equipment_name, "auto", "schedule", "running", %{
+              "schedule_id" => schedule.id,
+              "start_time" => Time.to_string(schedule.start_time),
+              "stop_time" => Time.to_string(schedule.stop_time)
+            })
 
           true ->
             :ok

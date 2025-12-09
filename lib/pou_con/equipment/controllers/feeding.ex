@@ -2,6 +2,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   use GenServer
   require Logger
 
+  alias PouCon.Logging.EquipmentLogger
+
   @device_manager Application.compile_env(:pou_con, :device_manager)
 
   defmodule State do
@@ -87,6 +89,13 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   @impl GenServer
   def handle_cast(:stop_movement, state) do
     Logger.info("[#{state.name}] STOP MOVEMENT command")
+
+    # Log movement stop
+    if state.commanded_target != nil do
+      mode = if state.mode == :auto, do: "auto", else: "manual"
+      EquipmentLogger.log_stop(state.name, mode, "user", "moving")
+    end
+
     {:noreply, sync_and_update(stop_and_reset(state))}
   end
 
@@ -109,6 +118,11 @@ defmodule PouCon.Equipment.Controllers.Feeding do
 
       true ->
         activate_coil(state, target)
+
+        # Log movement start
+        mode = if state.mode == :auto, do: "auto", else: "manual"
+        action = if target == :to_back_limit, do: "move_to_back", else: "move_to_front"
+        EquipmentLogger.log_start(state.name, mode, "user", %{"action" => action})
 
         new_state = %State{
           state
@@ -219,6 +233,12 @@ defmodule PouCon.Equipment.Controllers.Feeding do
     state_after_limits =
       if base_state.is_moving && limit_hit_in_direction?(base_state) do
         Logger.info("[#{state.name}] Limit reached → auto-stop")
+
+        # Log auto-stop at limit
+        mode = if base_state.mode == :auto, do: "auto", else: "manual"
+        limit = if base_state.commanded_target == :to_back_limit, do: "back", else: "front"
+        EquipmentLogger.log_stop(state.name, mode, "auto_control", "moving", %{"reason" => "limit_reached", "limit" => limit})
+
         stop_and_reset(base_state)
       else
         base_state
@@ -285,6 +305,21 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   end
 
   defp log_error(name, old, new) do
+    # Log error to database
+    if new != nil and old != new do
+      error_type =
+        case new do
+          :timeout -> "sensor_timeout"
+          :invalid_data -> "invalid_data"
+          :hardware_stall -> "hardware_stall"
+          :moving_without_target -> "moving_without_target"
+          :crashed_previously -> "crashed_previously"
+          _ -> "unknown_error"
+        end
+
+      EquipmentLogger.log_error(name, "auto", error_type, "running")
+    end
+
     case {old, new} do
       {nil, nil} -> nil
       {_, nil} -> Logger.info("[#{name}] Error CLEARED")

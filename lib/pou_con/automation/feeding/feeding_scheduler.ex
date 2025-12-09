@@ -19,6 +19,7 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
   alias PouCon.Automation.Feeding.FeedingSchedules
   alias PouCon.Equipment.Controllers.{FeedIn, Feeding}
   alias PouCon.Equipment.Devices
+  alias PouCon.Logging.EquipmentLogger
 
   @check_interval :timer.seconds(1)
 
@@ -162,6 +163,13 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
 
             Feeding.move_to_back_limit(equipment_name)
 
+            # Log schedule-triggered action
+            EquipmentLogger.log_start(equipment_name, "auto", "schedule", %{
+              "schedule_id" => schedule.id,
+              "action" => "move_to_back",
+              "move_to_back_time" => Time.to_string(schedule.move_to_back_limit_time)
+            })
+
           {:error, reason} ->
             Logger.warning(
               "FeedingScheduler: Skipping #{equipment_name} move to back - #{reason}"
@@ -182,6 +190,13 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
         )
 
         Feeding.move_to_front_limit(equipment_name)
+
+        # Log schedule-triggered action
+        EquipmentLogger.log_start(equipment_name, "auto", "schedule", %{
+          "schedule_id" => schedule.id,
+          "action" => "move_to_front",
+          "move_to_front_time" => Time.to_string(schedule.move_to_front_limit_time)
+        })
       end
     end
   end

@@ -16,12 +16,12 @@ defmodule PouConWeb.Components.Summaries.DungSummaryComponent do
 
     dunghs =
       dunghs
-      |> Enum.map(fn x -> Map.merge(x.status, calculate_display_data(x.status)) end)
+      |> Enum.map(fn x -> Map.merge(x.status, calculate_dung_display_data(x.status)) end)
       |> Enum.sort_by(fn x -> x.title end)
 
     dunges =
       dunges
-      |> Enum.map(fn x -> Map.merge(x.status, calculate_display_data(x.status)) end)
+      |> Enum.map(fn x -> Map.merge(x.status, calculate_dung_display_data(x.status)) end)
       |> Enum.sort_by(fn x -> x.title end)
 
     {:ok,
@@ -122,40 +122,6 @@ defmodule PouConWeb.Components.Summaries.DungSummaryComponent do
         has_error -> {"rose", ""}
         # Use Amber for Dung/Agitator when running (Earth tone), or stick to Green if preferred
         is_running -> {"green", "animate-spin"}
-        true -> {"violet", ""}
-      end
-
-    %{
-      is_offline: false,
-      is_error: has_error,
-      is_running: is_running,
-      # Always Manual
-      state_text: if(is_running, do: "RUNNING", else: "STOPPED"),
-      color: color,
-      anim_class: anim_class
-    }
-  end
-
-  defp calculate_display_data(%{status: %{error: :invalid_data}}) do
-    %{
-      is_offline: true,
-      is_error: false,
-      is_running: false,
-      state_text: "OFFLINE",
-      color: "gray",
-      anim_class: ""
-    }
-  end
-
-  defp calculate_display_data(status) do
-    is_running = status.is_running
-    has_error = not is_nil(status.error)
-
-    {color, anim_class} =
-      cond do
-        has_error -> {"rose", ""}
-        # Use Amber for Dung/Agitator when running (Earth tone), or stick to Green if preferred
-        is_running -> {"green", "animate-bounce"}
         true -> {"violet", ""}
       end
 

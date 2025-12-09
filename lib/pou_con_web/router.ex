@@ -72,6 +72,7 @@ defmodule PouConWeb.Router do
       live("/feeding_schedule", Live.Feeding.Schedules, :index)
       live("/dung", Live.Dung.Index, :index)
       live("/feed", Live.Feeding.Index, :index)
+      live("/reports", Live.Reports.Index, :index)
     end
   end
 
