@@ -10,13 +10,26 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
       <.header>
         Listing Equipment
         <:actions>
-          <.btn_link
-            :if={!@readonly}
-            to={~p"/admin/equipment/new"}
-            label="New Equipment"
-            color="amber"
-          />
-          <.dashboard_link />
+          <div class="flex items-center">
+            <form phx-change="filter" phx-submit="filter">
+              <input
+                id="filter-input"
+                type="search"
+                name="filter"
+                phx-debounce="300"
+                value={@filter}
+                placeholder="Search by name, title or type..."
+                class="flex-1 px-3 py-1 text-sm border border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </form>
+            <.btn_link
+              :if={!@readonly}
+              to={~p"/admin/equipment/new"}
+              label="New Equipment"
+              color="amber"
+            />
+            <.dashboard_link />
+          </div>
         </:actions>
       </.header>
 
@@ -47,9 +60,9 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
           label="Device Tree"
           sort_field={@sort_field}
           sort_order={@sort_order}
-          width="w-[48%]"
+          width="w-[43%]"
         />
-        <div class="w-[12%]">Action</div>
+        <div class="w-[17%]">Action</div>
       </div>
 
       <div
@@ -62,8 +75,8 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
             <div class="w-[15%]">{equipment.name}</div>
             <div class="w-[15%]">{equipment.title}</div>
             <div class="w-[10%]">{equipment.type}</div>
-            <div class="w-[48%] wrap">{equipment.device_tree}</div>
-            <div :if={!@readonly} class="w-[12%]">
+            <div class="w-[43%] wrap">{equipment.device_tree}</div>
+            <div :if={!@readonly} class="w-[17%]">
               <.link
                 navigate={~p"/admin/equipment/#{equipment.id}/edit"}
                 class="p-1 border-1 rounded-xl border-blue-600 bg-blue-200"
@@ -117,6 +130,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
     # Set default sort options
     sort_field = :name
     sort_order = :asc
+    filter = ""
 
     socket =
       socket
@@ -124,7 +138,8 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
       |> assign(:readonly, role == :user)
       |> assign(:sort_field, sort_field)
       |> assign(:sort_order, sort_order)
-      |> stream(:equipment, list_equipment(sort_field, sort_order))
+      |> assign(:filter, filter)
+      |> stream(:equipment, list_equipment(sort_field, sort_order, filter))
 
     {:ok, socket}
   end
@@ -146,7 +161,31 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
      socket
      |> assign(:sort_field, field)
      |> assign(:sort_order, sort_order)
-     |> stream(:equipment, list_equipment(field, sort_order), reset: true)}
+     |> stream(:equipment, list_equipment(field, sort_order, socket.assigns.filter), reset: true)}
+  end
+
+  @impl true
+  def handle_event("filter", %{"filter" => filter}, socket) do
+    {:noreply,
+     socket
+     |> assign(:filter, filter)
+     |> stream(
+       :equipment,
+       list_equipment(socket.assigns.sort_field, socket.assigns.sort_order, filter),
+       reset: true
+     )}
+  end
+
+  @impl true
+  def handle_event("clear_filter", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:filter, "")
+     |> stream(
+       :equipment,
+       list_equipment(socket.assigns.sort_field, socket.assigns.sort_order, ""),
+       reset: true
+     )}
   end
 
   @impl true
@@ -162,8 +201,8 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
     {:noreply, push_navigate(socket, to: ~p"/admin/equipment/new?id=#{id}")}
   end
 
-  # Helper to call context with sort params
-  defp list_equipment(sort_field, sort_order) do
-    Devices.list_equipment(sort_field: sort_field, sort_order: sort_order)
+  # Helper to call context with sort and filter params
+  defp list_equipment(sort_field, sort_order, filter) do
+    Devices.list_equipment(sort_field: sort_field, sort_order: sort_order, filter: filter)
   end
 end

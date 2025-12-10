@@ -10,8 +10,21 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
       <.header>
         Listing Devices
         <:actions>
-          <.btn_link :if={!@readonly} to={~p"/admin/devices/new"} label="New Device" color="amber" />
-          <.dashboard_link />
+          <div class="flex items-center">
+            <form phx-change="filter" phx-submit="filter">
+              <input
+                id="filter-input"
+                type="search"
+                name="filter"
+                phx-debounce="300"
+                value={@filter}
+                placeholder="Search by name or type..."
+                class="flex-1 px-3 py-1 text-sm border border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </form>
+            <.btn_link :if={!@readonly} to={~p"/admin/devices/new"} label="New Device" color="amber" />
+            <.dashboard_link />
+          </div>
         </:actions>
       </.header>
 
@@ -49,16 +62,16 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
           label="Read fn"
           sort_field={@sort_field}
           sort_order={@sort_order}
-          width="w-[24%]"
+          width="w-[22%]"
         />
         <.sort_link
           field={:write_fn}
           label="Write fn"
           sort_field={@sort_field}
           sort_order={@sort_order}
-          width="w-[24%]"
+          width="w-[22%]"
         />
-        <div class="w-[12%]">Action</div>
+        <div class="w-[16%]">Action</div>
       </div>
 
       <div
@@ -72,9 +85,9 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
             <div class="w-[6%]">{device.type}</div>
             <div class="w-[9%]">{device.port_device_path}</div>
             <div class="w-[10%]">{device.slave_id}/{device.register}/{device.channel}</div>
-            <div class="w-[24%]">{device.read_fn}</div>
-            <div class="w-[24%]">{device.write_fn}</div>
-            <div :if={!@readonly} class="w-[12%]">
+            <div class="w-[22%]">{device.read_fn}</div>
+            <div class="w-[22%]">{device.write_fn}</div>
+            <div :if={!@readonly} class="w-[16%]">
               <.link
                 navigate={~p"/admin/devices/#{device.id}/edit"}
                 class="p-1 border-1 rounded-xl border-blue-600 bg-blue-200"
@@ -145,11 +158,13 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
   defp assign_defaults_and_stream(socket) do
     sort_field = :name
     sort_order = :asc
+    filter = ""
 
     socket
     |> assign(:sort_field, sort_field)
     |> assign(:sort_order, sort_order)
-    |> stream(:devices, list_devices(sort_field, sort_order))
+    |> assign(:filter, filter)
+    |> stream(:devices, list_devices(sort_field, sort_order, filter))
   end
 
   @impl true
@@ -167,7 +182,31 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
      socket
      |> assign(:sort_field, field)
      |> assign(:sort_order, sort_order)
-     |> stream(:devices, list_devices(field, sort_order), reset: true)}
+     |> stream(:devices, list_devices(field, sort_order, socket.assigns.filter), reset: true)}
+  end
+
+  @impl true
+  def handle_event("filter", %{"filter" => filter}, socket) do
+    {:noreply,
+     socket
+     |> assign(:filter, filter)
+     |> stream(
+       :devices,
+       list_devices(socket.assigns.sort_field, socket.assigns.sort_order, filter),
+       reset: true
+     )}
+  end
+
+  @impl true
+  def handle_event("clear_filter", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:filter, "")
+     |> stream(
+       :devices,
+       list_devices(socket.assigns.sort_field, socket.assigns.sort_order, ""),
+       reset: true
+     )}
   end
 
   @impl true
@@ -182,7 +221,7 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
     {:noreply, push_navigate(socket, to: ~p"/admin/devices/new?id=#{id}")}
   end
 
-  defp list_devices(sort_field, sort_order) do
-    Devices.list_devices(sort_field: sort_field, sort_order: sort_order)
+  defp list_devices(sort_field, sort_order, filter) do
+    Devices.list_devices(sort_field: sort_field, sort_order: sort_order, filter: filter)
   end
 end

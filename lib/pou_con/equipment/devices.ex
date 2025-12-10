@@ -20,10 +20,25 @@ defmodule PouCon.Equipment.Devices do
   def list_devices(opts \\ []) do
     sort_field = Keyword.get(opts, :sort_field, :name)
     sort_order = Keyword.get(opts, :sort_order, :asc)
+    filter = Keyword.get(opts, :filter)
 
-    PouCon.Equipment.Schemas.Device
-    |> order_by({^sort_order, ^sort_field})
-    |> Repo.all()
+    query =
+      PouCon.Equipment.Schemas.Device
+      |> order_by({^sort_order, ^sort_field})
+
+    query =
+      if filter && String.trim(filter) != "" do
+        filter_pattern = "%#{String.downcase(filter)}%"
+
+        from d in query,
+          where:
+            fragment("lower(?)", d.name) |> like(^filter_pattern) or
+              fragment("lower(?)", d.type) |> like(^filter_pattern)
+      else
+        query
+      end
+
+    Repo.all(query)
   end
 
   @doc """
@@ -121,10 +136,26 @@ defmodule PouCon.Equipment.Devices do
   def list_equipment(opts \\ []) do
     sort_field = Keyword.get(opts, :sort_field, :name)
     sort_order = Keyword.get(opts, :sort_order, :asc)
+    filter = Keyword.get(opts, :filter)
 
-    PouCon.Equipment.Schemas.Equipment
-    |> order_by({^sort_order, ^sort_field})
-    |> Repo.all()
+    query =
+      PouCon.Equipment.Schemas.Equipment
+      |> order_by({^sort_order, ^sort_field})
+
+    query =
+      if filter && String.trim(filter) != "" do
+        filter_pattern = "%#{String.downcase(filter)}%"
+
+        from e in query,
+          where:
+            fragment("lower(?)", e.name) |> like(^filter_pattern) or
+              fragment("lower(?)", e.title) |> like(^filter_pattern) or
+              fragment("lower(?)", e.type) |> like(^filter_pattern)
+      else
+        query
+      end
+
+    Repo.all(query)
   end
 
   @doc """
