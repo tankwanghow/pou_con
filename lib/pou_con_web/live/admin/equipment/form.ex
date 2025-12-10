@@ -4,11 +4,32 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
   alias PouCon.Equipment.Devices
   alias PouCon.Equipment.Schemas.Equipment
 
+  @required_keys %{
+    "fan" => [:on_off_coil, :running_feedback, :auto_manual],
+    "pump" => [:on_off_coil, :running_feedback, :auto_manual],
+    "egg" => [:on_off_coil, :running_feedback, :auto_manual],
+    "light" => [:on_off_coil, :running_feedback, :auto_manual],
+    "dung" => [:on_off_coil, :running_feedback],
+    "dung_horz" => [:on_off_coil, :running_feedback],
+    "dung_exit" => [:on_off_coil, :running_feedback],
+    "feeding" => [
+      :device_to_back_limit,
+      :device_to_front_limit,
+      :front_limit,
+      :back_limit,
+      :pulse_sensor,
+      :auto_manual
+    ],
+    "feed_in" => [:filling_coil, :running_feedback, :auto_manual, :full_switch],
+    "temp_hum_sensor" => [:sensor]
+  }
+
+  defp required_keys_for_type(type), do: Map.get(@required_keys, type, [])
+
   @impl true
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
-      <%!-- <div class="mx-auto w-2xl"> --%>
       <.header>
         {@page_title}
       </.header>
@@ -26,14 +47,23 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
           </div>
         </div>
         <div class="w-full font-mono">
-          <.input field={@form[:device_tree]} type="textarea" label="Device Tree" rows="10" />
+          <.input field={@form[:device_tree]} type="textarea" label="Device Tree" rows="7" />
+          <% type = @form[:type].value %>
+          <% keys = if type, do: required_keys_for_type(type), else: [] %>
+          <%= if keys != [] do %>
+            <div class="font-sans mb-2 -mt-2">
+              Required keys:
+              <span class="text-sm text-gray-400">
+                {Enum.join(keys, ", ")}
+              </span>
+            </div>
+          <% end %>
         </div>
         <footer>
           <.button phx-disable-with="Saving..." variant="primary">Save Equipment</.button>
           <.button navigate={return_path(@return_to, @equipment)}>Cancel</.button>
         </footer>
       </.form>
-      <%!-- </div> --%>
     </Layouts.app>
     """
   end
