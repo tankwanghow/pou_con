@@ -10,25 +10,35 @@ This guide covers deploying PouCon to Raspberry Pi controllers in poultry houses
 4. [Field Deployment (No Internet)](#field-deployment-no-internet)
 5. [Replacing a Pi Controller](#replacing-a-pi-controller)
 6. [Post-Deployment Configuration](#post-deployment-configuration)
-7. [Backup and Recovery](#backup-and-recovery)
-8. [Troubleshooting](#troubleshooting)
+7. [Touchscreen Kiosk Mode (Optional)](#touchscreen-kiosk-mode-optional)
+8. [Backup and Recovery](#backup-and-recovery)
+9. [Troubleshooting](#troubleshooting)
+10. [Environment Variables Reference](#environment-variables-reference)
+11. [Network Configuration (Optional)](#network-configuration-optional)
 
 ## Deployment Scenarios
 
-### Scenario A: Initial Build (Internet Required)
-- Build machine with internet access
-- Install dependencies, compile application
-- Create deployment artifacts
+### Scenario A: Master Image Deployment (Recommended for Production)
+**Best for: Multiple poultry houses, production deployments**
+- Create master SD card image once with PouCon pre-installed
+- Flash image to new SD cards (10 minutes each)
+- At site: Insert SD card, boot, run setup script (5 minutes)
+- **Total time per site: 5 minutes**
+- See **[MASTER_IMAGE_DEPLOYMENT.md](MASTER_IMAGE_DEPLOYMENT.md)** for complete guide
 
-### Scenario B: Field Deployment (No Internet)
+### Scenario B: Package Deployment (Testing/Development)
+**Best for: Single installations, testing new versions**
 - Pre-built deployment package on USB drive
 - Fresh or existing Raspberry Pi
-- On-site configuration only
+- Run deployment script (10 minutes)
+- **Total time: 10 minutes**
+- See instructions below
 
 ### Scenario C: Replacing Failed Controller
-- Quick swap with pre-configured backup
-- Restore configuration from backup
-- Minimal downtime
+**Best for: Emergency replacements**
+- Flash master image to new SD card
+- Or deploy from package with backup restore
+- **Downtime: 5-15 minutes**
 
 ## Initial Build Preparation (With Internet)
 
@@ -347,49 +357,129 @@ cp pou_con_base_image.img.gz /media/usb_drive/
 
 ## Field Deployment (No Internet)
 
-### Step 5: Deploy to Raspberry Pi
+This is the typical deployment process at a poultry house. Takes **5-10 minutes**, no internet required.
 
-**On the Raspberry Pi (no internet required):**
+### Prerequisites
 
+On the Raspberry Pi:
+- Raspberry Pi OS (64-bit) installed and booted
+- Basic system packages installed: `sqlite3`, `openssl`, `ca-certificates`, `libncurses5`
+- RS485 USB adapters connected
+
+**Note**: If this is a fresh Pi, install dependencies once (with internet at office):
 ```bash
-# 1. Mount USB drive
-# Insert USB drive, it should auto-mount to /media/pi/USB_LABEL
+sudo apt update && sudo apt install -y sqlite3 openssl ca-certificates locales libncurses5
+```
 
-# 2. Copy deployment package
+### Deployment Steps
+
+**1. Transfer deployment package to Pi**
+
+Insert USB drive (auto-mounts to `/media/pi/<USB_LABEL>`):
+```bash
 cd ~
 cp /media/pi/*/pou_con_deployment_*.tar.gz ./
-tar -xzf pou_con_deployment_*.tar.gz
-cd deployment_package
-
-# 3. Run deployment
-sudo ./deploy.sh
-
-# 4. Enable and start service
-sudo systemctl enable pou_con
-sudo systemctl start pou_con
-
-# 5. Check status
-sudo systemctl status pou_con
-
-# 6. View logs (Ctrl+C to exit)
-sudo journalctl -u pou_con -f
 ```
 
-### Step 6: Verify Installation
+Or via network (if available):
+```bash
+# From your laptop
+scp pou_con_deployment_*.tar.gz pi@<pi-ip>:~/
+```
+
+**2. Extract and deploy**
 
 ```bash
-# Check service is running
-systemctl is-active pou_con
+tar -xzf pou_con_deployment_*.tar.gz
+cd deployment_package_*/
+sudo ./deploy.sh
+```
 
-# Check listening ports
-sudo netstat -tlnp | grep 4000
+The script will automatically:
+- Create `pou_con` system user
+- Install application to `/opt/pou_con`
+- Create database directory at `/var/lib/pou_con`
+- Set up USB serial port permissions
+- Configure web-based time management
+- Install systemd service
+- Generate secure SECRET_KEY_BASE
+- Run database migrations
+- Verify all permissions
 
-# Test web interface
+**3. Start the service**
+
+```bash
+sudo systemctl enable pou_con
+sudo systemctl start pou_con
+```
+
+**4. Verify it's running**
+
+```bash
+sudo systemctl status pou_con
+```
+
+Expected output:
+```
+● pou_con.service - PouCon Industrial Control System
+   Loaded: loaded (/etc/systemd/system/pou_con.service; enabled)
+   Active: active (running) since ...
+```
+
+**5. Find Pi's IP address**
+
+```bash
+hostname -I
+```
+
+Example output: `192.168.1.100`
+
+**6. Access web interface**
+
+Open browser on any computer on the network:
+```
+http://192.168.1.100:4000
+```
+
+Login with default credentials:
+- Username: `admin`
+- Password: `admin`
+
+**IMMEDIATELY CHANGE THE PASSWORD** after first login.
+
+### That's It!
+
+The deployment is complete. The system is now running with:
+- Web interface on port 4000
+- Database at `/var/lib/pou_con/pou_con_prod.db`
+- Automatic time management enabled
+- All permissions correctly configured
+- Service set to auto-start on boot
+
+Proceed to [Post-Deployment Configuration](#post-deployment-configuration) to set up your equipment.
+
+### Quick Troubleshooting
+
+**Service not running?**
+```bash
+sudo journalctl -u pou_con -n 50
+```
+
+**Can't access web interface?**
+```bash
+# Test locally on Pi
 curl http://localhost:4000
 
-# Check database was created
-ls -lh /var/lib/pou_con/pou_con_prod.db
+# Check firewall (if enabled)
+sudo ufw allow 4000/tcp
 ```
+
+**USB devices not detected?**
+```bash
+ls -l /dev/ttyUSB*
+```
+
+For detailed troubleshooting, see [Troubleshooting](#troubleshooting) section.
 
 ## Post-Deployment Configuration
 
@@ -517,6 +607,75 @@ sudo chown -R pou_con:pou_con /var/lib/pou_con
 sudo systemctl start pou_con
 ```
 
+## Touchscreen Kiosk Mode (Optional)
+
+If you want a touchscreen display attached to the Raspberry Pi showing the PouCon interface 24/7 in fullscreen kiosk mode, see the comprehensive **[TOUCHSCREEN_KIOSK_SETUP.md](TOUCHSCREEN_KIOSK_SETUP.md)** guide.
+
+### Quick Overview
+
+**Use Cases:**
+- Local touchscreen control panel in poultry house
+- Backup interface if network fails
+- Operator-friendly on-site monitoring
+
+**Hardware Options:**
+1. **Standard Setup:** Raspberry Pi + external touchscreen (HDMI/DSI)
+2. **Industrial Panel PC:** All-in-one with built-in CM4 and rugged touchscreen
+
+### Setup Process Summary
+
+**For Standard Touchscreens:**
+```bash
+# After deploying PouCon, run kiosk setup
+cd deployment_package_*/
+./setup_kiosk.sh
+sudo reboot
+
+# Pi will boot to fullscreen PouCon interface
+```
+
+**For Industrial Touch Panel PCs:**
+1. Use manufacturer's OS image (includes touch drivers)
+2. Deploy PouCon as normal
+3. Run kiosk setup script
+4. Configure panel-specific settings (brightness, orientation)
+
+### Industrial Panel Recommendations
+
+**Recommended for poultry houses:**
+- **Waveshare CM4-Panel-10.1-B** ($200-250) - Good balance of features and price
+- **Seeed Studio reTerminal DM** ($250-300) - Excellent software support
+- **Advantech TPC Series** ($500-700) - Enterprise-grade, best for large operations
+
+**Minimum specs for poultry environment:**
+- 10" screen (glove-friendly)
+- IP65 rating (dust/moisture protection)
+- Operating temp: -20°C to +60°C
+- Capacitive touch (works with light gloves)
+- 24V DC power (industrial standard)
+
+### Important Notes
+
+**Touchscreen Drivers:**
+- Standard Pi touchscreens: Auto-detected by Raspberry Pi OS
+- Industrial panels: Use vendor OS image (includes drivers pre-installed)
+- If using custom panels: Check vendor documentation for device tree overlays
+
+**Kiosk Features:**
+- Fullscreen Chromium browser (no UI elements)
+- Touch input for all controls
+- Auto-start on boot
+- Screen blanking disabled
+- Mouse cursor hidden
+- Crash recovery (auto-restart)
+
+**Typical Setup Time:**
+- Standard touchscreen: +15 minutes
+- Industrial panel with vendor image: +20 minutes
+- Industrial panel with manual drivers: +2-4 hours
+
+For detailed setup instructions, driver installation, troubleshooting, and vendor-specific configurations, see **[TOUCHSCREEN_KIOSK_SETUP.md](TOUCHSCREEN_KIOSK_SETUP.md)**.
+
 ## Backup and Recovery
 
 ### Automated Backup Setup
@@ -642,6 +801,257 @@ sudo journalctl --vacuum-time=7d
 # Manual cleanup:
 sudo -u pou_con DATABASE_PATH=/var/lib/pou_con/pou_con_prod.db \
   /opt/pou_con/bin/pou_con eval "PouCon.Logging.CleanupTask.perform()"
+```
+
+## Environment Variables Reference
+
+The PouCon application is configured via environment variables set in the systemd service file. These are automatically configured during deployment, but you may need to customize them for specific scenarios.
+
+### Configuration File Location
+
+Environment variables are stored in: `/etc/systemd/system/pou_con.service`
+
+### Available Environment Variables
+
+#### Required Variables
+
+**`DATABASE_PATH`**
+- **Purpose**: Path to SQLite database file
+- **Default**: `/var/lib/pou_con/pou_con_prod.db` (set by deploy.sh)
+- **When to change**:
+  - Using external storage (USB drive, network mount)
+  - Multiple PouCon instances on same Pi
+- **Example**: `DATABASE_PATH=/mnt/usb/pou_con.db`
+- **IMPORTANT**: The pou_con user MUST have read/write permissions to both the database file and its parent directory. SQLite requires write access to the directory for lock files.
+
+**`SECRET_KEY_BASE`**
+- **Purpose**: Cryptographic key for signing cookies and sessions
+- **Default**: Auto-generated during deployment (64-character random string)
+- **When to change**:
+  - NEVER change after deployment (invalidates all user sessions)
+  - Only regenerate if security compromised
+- **Generate new**: `openssl rand -base64 48`
+
+#### Optional Variables (with defaults)
+
+**`PORT`**
+- **Purpose**: HTTP server listening port
+- **Default**: `4000`
+- **When to change**:
+  - Port conflict with other services
+  - Running behind reverse proxy
+  - Multiple PouCon instances
+- **Example**: `PORT=8080`
+
+**`PHX_HOST`**
+- **Purpose**: Hostname for URL generation (used in links, redirects)
+- **Default**: `localhost`
+- **When to change**:
+  - Accessing from remote computers (use Pi's IP or hostname)
+  - Using custom domain name
+- **Example**: `PHX_HOST=192.168.1.100` or `PHX_HOST=poultry-house-1.local`
+
+**`MIX_ENV`**
+- **Purpose**: Application environment (controls logging, error reporting)
+- **Default**: `prod`
+- **Options**: `prod`, `dev`, `test`
+- **When to change**: RARELY. Only for debugging production issues.
+
+**`POOL_SIZE`**
+- **Purpose**: Database connection pool size
+- **Default**: `5` (if not set)
+- **When to change**:
+  - SQLite only supports 1 writer, so keep at 1-5
+  - Larger values don't improve performance
+- **Example**: `POOL_SIZE=1` (recommended for SQLite)
+
+#### Advanced Variables (optional)
+
+**`PHX_SERVER`**
+- **Purpose**: Enable HTTP server (used by `mix release`)
+- **Default**: Not needed (deploy.sh uses `bin/pou_con start` which auto-starts server)
+- **When to use**: Only if manually running `bin/pou_con` without `start` command
+
+**`DNS_CLUSTER_QUERY`**
+- **Purpose**: Cluster discovery for distributed deployments
+- **Default**: Not set (single-node deployment)
+- **When to use**: Multi-node clusters (not applicable for typical poultry farm setup)
+
+### How to View Current Configuration
+
+```bash
+# View all environment variables
+sudo systemctl cat pou_con | grep Environment
+
+# Or view entire service file
+sudo cat /etc/systemd/system/pou_con.service
+```
+
+### How to Change Environment Variables
+
+**Step 1: Stop the service**
+```bash
+sudo systemctl stop pou_con
+```
+
+**Step 2: Edit the service file**
+```bash
+sudo nano /etc/systemd/system/pou_con.service
+```
+
+**Step 3: Modify the Environment line(s)**
+```ini
+# Example: Change port to 8080
+Environment="PORT=8080"
+
+# Example: Use custom database location
+Environment="DATABASE_PATH=/mnt/usb/pou_con_prod.db"
+
+# Example: Set hostname to Pi IP
+Environment="PHX_HOST=192.168.1.100"
+```
+
+**Step 4: Reload systemd configuration**
+```bash
+sudo systemctl daemon-reload
+```
+
+**Step 5: Start the service**
+```bash
+sudo systemctl start pou_con
+```
+
+**Step 6: Verify changes**
+```bash
+# Check service status
+sudo systemctl status pou_con
+
+# Check logs for startup issues
+sudo journalctl -u pou_con -n 50
+```
+
+### Common Scenarios
+
+#### Scenario 1: Change Web Interface Port
+
+If port 4000 conflicts with another service:
+
+```bash
+sudo systemctl stop pou_con
+sudo nano /etc/systemd/system/pou_con.service
+# Change: Environment="PORT=8080"
+sudo systemctl daemon-reload
+sudo systemctl start pou_con
+# Access at http://<pi-ip>:8080
+```
+
+#### Scenario 2: Access from Remote Computers
+
+If accessing from network computers (not localhost):
+
+```bash
+sudo systemctl stop pou_con
+sudo nano /etc/systemd/system/pou_con.service
+# Change: Environment="PHX_HOST=192.168.1.100"  # Use Pi's actual IP
+sudo systemctl daemon-reload
+sudo systemctl start pou_con
+```
+
+#### Scenario 3: Move Database to USB Drive
+
+If SD card space is limited:
+
+```bash
+# 1. Stop service
+sudo systemctl stop pou_con
+
+# 2. Create USB directory and copy database
+sudo mkdir -p /mnt/usb/pou_con
+sudo cp /var/lib/pou_con/pou_con_prod.db /mnt/usb/pou_con/
+
+# 3. Set correct ownership and permissions
+sudo chown -R pou_con:pou_con /mnt/usb/pou_con
+sudo chmod 755 /mnt/usb/pou_con
+sudo chmod 644 /mnt/usb/pou_con/pou_con_prod.db
+
+# 4. Update service file
+sudo nano /etc/systemd/system/pou_con.service
+# Change: Environment="DATABASE_PATH=/mnt/usb/pou_con/pou_con_prod.db"
+
+# 5. Reload and restart
+sudo systemctl daemon-reload
+sudo systemctl start pou_con
+
+# 6. Verify database location and permissions
+ls -la /mnt/usb/pou_con/
+sqlite3 /mnt/usb/pou_con/pou_con_prod.db "SELECT COUNT(*) FROM equipment;"
+
+# 7. Check service is running correctly
+sudo systemctl status pou_con
+sudo journalctl -u pou_con -n 20
+```
+
+#### Scenario 4: Multiple PouCon Instances (Advanced)
+
+Running multiple houses on one Pi (requires separate databases and ports):
+
+```bash
+# House 1: Use default config (port 4000, /var/lib/pou_con/)
+# House 2: Copy service file and customize
+sudo cp /etc/systemd/system/pou_con.service /etc/systemd/system/pou_con_house2.service
+
+# Edit house2 service
+sudo nano /etc/systemd/system/pou_con_house2.service
+# Change:
+#   Environment="PORT=4001"
+#   Environment="DATABASE_PATH=/var/lib/pou_con_house2/pou_con_prod.db"
+#   WorkingDirectory=/opt/pou_con_house2
+
+sudo systemctl daemon-reload
+sudo systemctl enable pou_con_house2
+sudo systemctl start pou_con_house2
+```
+
+### Important Notes
+
+- **SECRET_KEY_BASE**: Never change after deployment unless absolutely necessary. Changing it invalidates all user sessions and cookies.
+- **DATABASE_PATH**: Always ensure the pou_con user has read/write permissions to the database file and directory.
+  - Directory must be owned by `pou_con:pou_con` and have at least `755` permissions (rwxr-xr-x)
+  - Database file must be owned by `pou_con:pou_con` and have at least `644` permissions (rw-r--r--)
+  - SQLite requires write access to the directory for temporary lock files (`.db-shm`, `.db-wal`)
+- **PORT**: After changing, update firewall rules if applicable: `sudo ufw allow <new-port>/tcp`
+- **PHX_HOST**: Should match how users access the system (IP address or hostname).
+
+### Troubleshooting Environment Variable Issues
+
+**Service won't start after changes:**
+```bash
+# Check for syntax errors
+sudo systemctl status pou_con
+
+# View detailed error logs
+sudo journalctl -u pou_con -n 50 --no-pager
+```
+
+**Common errors:**
+- `environment variable DATABASE_PATH is missing` - Variable not set or misspelled
+- `environment variable SECRET_KEY_BASE is missing` - Variable not set or empty
+- `Address already in use` - PORT is used by another service
+- `Permission denied` (database) - Database file or directory permissions incorrect
+  ```bash
+  # Fix database permissions
+  sudo chown pou_con:pou_con /path/to/database/directory
+  sudo chown pou_con:pou_con /path/to/database/pou_con_prod.db
+  sudo chmod 755 /path/to/database/directory
+  sudo chmod 644 /path/to/database/pou_con_prod.db
+  ```
+- `unable to open database file` - Database path incorrect or directory doesn't exist
+
+**Reset to default configuration:**
+```bash
+# Redeploy (preserves database)
+cd ~/deployment_package_*/
+sudo ./deploy.sh
 ```
 
 ## Network Configuration (Optional)

@@ -22,13 +22,12 @@ import "phoenix_html"
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix"
 import { LiveSocket } from "phoenix_live_view"
-import { hooks as colocatedHooks } from "phoenix-colocated/pou_con"
 import topbar from "../vendor/topbar"
 import Keyboard from "../vendor/simple-keyboard.min"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 
-let Hooks = { ...colocatedHooks }
+let Hooks = {}
 
 Hooks.FillCurrentTime = {
   mounted() {

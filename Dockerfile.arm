@@ -1,0 +1,56 @@
+# Multi-stage Dockerfile for ARM builds
+# Builds PouCon release for Raspberry Pi on x86_64 development machines
+
+FROM hexpm/elixir:1.18.4-erlang-27.3.4.1-debian-bookworm-20251117-slim AS builder
+
+# Install build dependencies
+RUN apt-get update -y && apt-get install -y \
+    build-essential \
+    git \
+    curl \
+    sqlite3 \
+    libsqlite3-dev \
+    ca-certificates \
+    nodejs \
+    npm \
+    && apt-get clean && rm -f /var/lib/apt/lists/*_*
+
+# Prepare build dir
+WORKDIR /app
+
+# Install hex + rebar
+RUN mix local.hex --force && \
+    mix local.rebar --force
+
+# Set build ENV
+ENV MIX_ENV=prod
+
+# Install mix dependencies
+COPY mix.exs mix.lock ./
+RUN HEX_HTTP_CONCURRENCY=4 HEX_HTTP_TIMEOUT=120 mix deps.get --only prod
+RUN mkdir config
+
+# Copy compile-time config files before we compile dependencies
+COPY config/config.exs config/prod.exs config/
+RUN mix deps.compile
+
+# Copy application code
+COPY priv priv
+COPY lib lib
+COPY assets assets
+
+# Compile assets and application
+RUN mix assets.deploy
+RUN mix compile
+
+# Build release
+COPY config/runtime.exs config/
+RUN mix release
+
+# Extract release for easier copying
+RUN cd /app/_build/prod/rel/pou_con && \
+    tar -czf /pou_con_release_arm.tar.gz .
+
+# Final stage - just the tarball
+FROM scratch AS export
+COPY --from=builder /pou_con_release_arm.tar.gz /

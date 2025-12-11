@@ -5,7 +5,7 @@ defmodule PouCon.MixProject do
     [
       app: :pou_con,
       version: "0.1.0",
-      elixir: "~> 1.15",
+      elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
@@ -66,7 +66,6 @@ defmodule PouCon.MixProject do
       {:bcrypt_elixir, "~> 3.0"},
       {:modbux, "~> 0.3"},
       {:circuits_uart, "~> 1.5"},
-      {:quantum, "~> 3.5"},
       {:tzdata, "~> 1.1"},
       {:mox, "~> 1.0", only: :test}
     ]
