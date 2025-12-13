@@ -7,14 +7,17 @@ defmodule PouConWeb.Live.Dashboard.Index do
   @pubsub_topic "device_data"
 
   @impl true
-  def mount(_params, session, socket) do
+  def mount(params, session, socket) do
     role = session["current_role"] || :none
     if connected?(socket), do: Phoenix.PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
     equipment = PouCon.Equipment.Devices.list_equipment()
 
+    # Read page from URL params, default to page_1
+    view_mode = params["page"] || "page_1"
+
     socket =
       socket
-      |> assign(:view_mode, "page_1")
+      |> assign(:view_mode, view_mode)
       |> assign(equipment: equipment, now: DateTime.utc_now(), current_role: role)
 
     {:ok, fetch_all_status(socket)}
@@ -48,13 +51,13 @@ defmodule PouConWeb.Live.Dashboard.Index do
                 status_map
 
               {:error, :not_found} ->
-                %{error: :not_running, error_message: "Controller not running"}
+                %{error: :not_running, error_message: "Controller not running", is_running: false, title: eq.title}
 
               {:error, :timeout} ->
-                %{error: :timeout, error_message: "Controller timeout"}
+                %{error: :timeout, error_message: "Controller timeout", is_running: false, title: eq.title}
 
               _ ->
-                %{error: :unresponsive, error_message: "No response"}
+                %{error: :unresponsive, error_message: "No response", is_running: false, title: eq.title}
             end
 
           Map.put(eq, :status, status)
@@ -71,7 +74,7 @@ defmodule PouConWeb.Live.Dashboard.Index do
             name: "timeout",
             title: "Timeout",
             type: "unknown",
-            status: %{error: :timeout, error_message: "Task timeout"}
+            status: %{error: :timeout, error_message: "Task timeout", is_running: false, title: "Timeout"}
           }
 
         _ ->
@@ -79,7 +82,7 @@ defmodule PouConWeb.Live.Dashboard.Index do
             name: "error",
             title: "Error",
             type: "unknown",
-            status: %{error: :unknown, error_message: "Unknown error"}
+            status: %{error: :unknown, error_message: "Unknown error", is_running: false, title: "Error"}
           }
       end)
 
@@ -93,15 +96,19 @@ defmodule PouConWeb.Live.Dashboard.Index do
     <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-3/5">
       <div class="flex items-center mb-2">
         <.link
+          id="page-1-btn"
           phx-click="change_view"
           phx-value-view="page_1"
+          phx-hook="SaveDashboardPage"
           class="ml-2 px-3 py-1 text-sm rounded text-white bg-blue-800 border border-black"
         >
           Page 1
         </.link>
         <.link
+          id="page-2-btn"
           phx-click="change_view"
           phx-value-view="page_2"
+          phx-hook="SaveDashboardPage"
           class="ml-2 px-3 py-1 text-sm rounded text-white bg-blue-800 border border-black"
         >
           Page 2

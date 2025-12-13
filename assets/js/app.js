@@ -67,6 +67,17 @@ Hooks.DashboardPage = {
   }
 };
 
+Hooks.SaveDashboardPage = {
+  mounted() {
+    this.el.addEventListener("click", () => {
+      const page = this.el.getAttribute("phx-value-view");
+      if (page) {
+        localStorage.setItem("dashboard_page", page);
+      }
+    });
+  }
+};
+
 Hooks.DashboardLink = {
   mounted() {
     this.el.addEventListener("click", (e) => {
