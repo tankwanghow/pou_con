@@ -61,6 +61,22 @@ Hooks.FillCurrentTime = {
   }
 };
 
+Hooks.DashboardPage = {
+  updated() {
+    localStorage.setItem("dashboard_page", this.el.dataset.page);
+  }
+};
+
+Hooks.DashboardLink = {
+  mounted() {
+    this.el.addEventListener("click", (e) => {
+      e.preventDefault();
+      const page = localStorage.getItem("dashboard_page") || "page_1";
+      window.location.href = `/dashboard?page=${page}`;
+    });
+  }
+};
+
 Hooks.SimpleKeyboard = {
   mounted() {
     const keyboardContainer = document.querySelector(".simple-keyboard");

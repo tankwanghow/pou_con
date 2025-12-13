@@ -410,6 +410,8 @@ defmodule PouConWeb.CoreComponents do
   def dashboard_link(assigns) do
     ~H"""
     <.link
+      id="dashboard-link"
+      phx-hook="DashboardLink"
       href="/dashboard"
       class="ml-2 border-1 border-blue-500 bg-blue-200 font-medium px-2 py-1 rounded"
     >
