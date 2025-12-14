@@ -237,7 +237,11 @@ defmodule PouCon.Equipment.Controllers.Feeding do
         # Only log if in MANUAL mode (automation controllers handle auto mode logging)
         if base_state.mode == :manual do
           limit = if base_state.commanded_target == :to_back_limit, do: "back", else: "front"
-          EquipmentLogger.log_stop(state.name, "manual", "auto_control", "moving", %{"reason" => "limit_reached", "limit" => limit})
+
+          EquipmentLogger.log_stop(state.name, "manual", "auto_control", "moving", %{
+            "reason" => "limit_reached",
+            "limit" => limit
+          })
         end
 
         stop_and_reset(base_state)

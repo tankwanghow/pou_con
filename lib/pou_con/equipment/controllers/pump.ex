@@ -2,7 +2,7 @@ defmodule PouCon.Equipment.Controllers.Pump do
   use GenServer
   require Logger
 
-  alias PouCon.Automation.Interlock.InterlockHelper
+  alias PouCon.Automation.Interlock.InterlockController
   alias PouCon.Logging.EquipmentLogger
 
   @device_manager Application.compile_env(:pou_con, :device_manager)
@@ -18,7 +18,8 @@ defmodule PouCon.Equipment.Controllers.Pump do
       actual_on: false,
       is_running: false,
       mode: :auto,
-      error: nil
+      error: nil,
+      interlocked: false
     ]
   end
 
@@ -75,13 +76,26 @@ defmodule PouCon.Equipment.Controllers.Pump do
 
   @impl GenServer
   def handle_cast(:turn_on, state) do
-    if InterlockHelper.check_can_start(state.name) do
+    can_start =
+      try do
+        case InterlockController.can_start?(state.name) do
+          {:ok, :allowed} -> true
+          {:error, _reason} -> false
+        end
+      rescue
+        _ -> true
+      catch
+        :exit, _ -> true
+      end
+
+    if can_start do
       {:noreply, sync_coil(%{state | commanded_on: true})}
     else
       Logger.warning("[#{state.name}] Turn ON blocked by interlock rules")
 
       # Log interlock block
       mode = if state.mode == :auto, do: "auto", else: "manual"
+
       EquipmentLogger.log_event(%{
         equipment_name: state.name,
         event_type: "error",
@@ -139,7 +153,13 @@ defmodule PouCon.Equipment.Controllers.Pump do
 
         # Always log command failures regardless of mode
         mode = if state.mode == :auto, do: "auto", else: "manual"
-        EquipmentLogger.log_error(state.name, mode, "command_failed", if(cmd, do: "off", else: "on"))
+
+        EquipmentLogger.log_error(
+          state.name,
+          mode,
+          "command_failed",
+          if(cmd, do: "off", else: "on")
+        )
 
         sync_and_update(%State{state | error: :command_failed})
     end
@@ -205,12 +225,23 @@ defmodule PouCon.Equipment.Controllers.Pump do
       log_error_transition(state.name, state.error, error, new_state)
     end
 
-    %State{new_state | error: error}
+    # Check interlock status when stopped and no error
+    interlocked =
+      if !new_state.is_running and is_nil(error) do
+        case InterlockController.can_start?(state.name) do
+          {:ok, :allowed} -> false
+          {:error, _} -> true
+        end
+      else
+        false
+      end
+
+    %State{new_state | error: error, interlocked: interlocked}
   end
 
   # Defensive: never crash on nil state
   defp sync_and_update(nil) do
-    Logger.error("Fan: sync_and_update called with nil state!")
+    Logger.error("Pump: sync_and_update called with nil state!")
     %State{name: "recovered", error: :crashed_previously}
   end
 
@@ -231,11 +262,12 @@ defmodule PouCon.Equipment.Controllers.Pump do
     cond do
       # Transition from error to normal (recovery)
       old_error != nil && new_error == nil ->
-        current_status = cond do
-          current_state.is_running -> "running"
-          current_state.actual_on -> "on"
-          true -> "off"
-        end
+        current_status =
+          cond do
+            current_state.is_running -> "running"
+            current_state.actual_on -> "on"
+            true -> "off"
+          end
 
         Logger.info("[#{name}] Error CLEARED: #{old_error} -> #{current_status}")
 
@@ -265,7 +297,11 @@ defmodule PouCon.Equipment.Controllers.Pump do
             _ -> "unknown_error"
           end
 
-        from_state = if old_error, do: to_string(old_error), else: (if current_state.is_running, do: "running", else: "off")
+        from_state =
+          if old_error,
+            do: to_string(old_error),
+            else: if(current_state.is_running, do: "running", else: "off")
+
         Logger.error("[#{name}] ERROR: #{error_type}")
         EquipmentLogger.log_error(name, mode, error_type, from_state)
 
@@ -288,7 +324,8 @@ defmodule PouCon.Equipment.Controllers.Pump do
       is_running: state.is_running,
       mode: state.mode,
       error: state.error,
-      error_message: error_message(state.error)
+      error_message: error_message(state.error),
+      interlocked: state.interlocked
     }
 
     {:reply, reply, state}
