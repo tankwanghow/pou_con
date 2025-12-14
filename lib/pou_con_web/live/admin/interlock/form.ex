@@ -17,7 +17,7 @@ defmodule PouConWeb.Live.Admin.Interlock.Form do
       </.header>
 
       <.form for={@form} id="rule-form" phx-change="validate" phx-submit="save">
-        <div class="flex gap-4">
+        <div class="flex flex-wrap gap-4">
           <div class="w-1/2">
             <.input
               field={@form[:upstream_equipment_id]}

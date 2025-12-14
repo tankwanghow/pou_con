@@ -18,22 +18,22 @@ defmodule PouConWeb.Components.Equipment.LightComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class={"bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-40 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
-      <div class="flex items-center justify-between px-2 py-2 bg-gray-50 border-b border-gray-100">
-        <div class="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0">
-          <div class={"h-1.5 w-1.5 flex-shrink-0 rounded-full bg-#{@display.color}-500 animate-pulse" <> if(@display.is_running, do: "", else: "")}>
+    <div class={"bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-80 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
+      <div class="flex items-center justify-between px-4 py-4 bg-gray-50 border-b border-gray-100">
+        <div class="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+          <div class={"h-4 w-4 flex-shrink-0 rounded-full bg-#{@display.color}-500 animate-pulse" <> if(@display.is_running, do: "", else: "")}>
           </div>
-          <span class="font-bold text-gray-700 text-xs truncate">{@status.title}</span>
+          <span class="font-bold text-gray-700 text-xl truncate">{@status.title}</span>
         </div>
 
-        <div class="flex bg-gray-200 rounded p-0.5 flex-shrink-0 ml-1">
+        <div class="flex bg-gray-200 rounded p-1 flex-shrink-0 ml-2">
           <button
             phx-click="set_mode"
             phx-value-mode="auto"
             phx-target={@myself}
             disabled={@display.is_offline}
             class={[
-              "px-2 py-0.5 rounded text-[9px] font-bold uppercase transition-all focus:outline-none",
+              "px-3 py-1 rounded text-base font-bold uppercase transition-all focus:outline-none",
               @display.mode == :auto && "bg-white text-indigo-600 shadow-sm",
               @display.mode != :auto && "text-gray-500 hover:text-gray-700"
             ]}
@@ -46,7 +46,7 @@ defmodule PouConWeb.Components.Equipment.LightComponent do
             phx-target={@myself}
             disabled={@display.is_offline}
             class={[
-              "px-2 py-0.5 rounded text-[9px] font-bold uppercase transition-all focus:outline-none",
+              "px-3 py-1 rounded text-base font-bold uppercase transition-all focus:outline-none",
               @display.mode == :manual && "bg-white text-gray-800 shadow-sm",
               @display.mode != :manual && "text-gray-500 hover:text-gray-700"
             ]}
@@ -56,9 +56,9 @@ defmodule PouConWeb.Components.Equipment.LightComponent do
         </div>
       </div>
 
-      <div class="flex items-center gap-2 p-2">
+      <div class="flex items-center gap-4 p-4">
         <div class={[@display.anim_class, "text-#{@display.color}-500"]}>
-          <svg width="48" height="40" fill="currentColor" viewBox="0 0 279.682 279.682">
+          <svg class="scale-200" width="64" height="32" fill="currentColor" viewBox="0 0 279.682 279.682">
             <g>
               <path d="M143.25,55.486c-41.06,0-74.465,33.405-74.465,74.465c0,16.824,5.511,32.711,15.938,45.939
                        c1.998,2.536,4.15,5.033,6.23,7.448c6.212,7.208,12.078,14.017,14.166,21.675c0.045,0.165,0.438,1.773,0.38,7.247l-0.01,0.791
@@ -95,7 +95,7 @@ defmodule PouConWeb.Components.Equipment.LightComponent do
         </div>
 
         <div class="flex-1 flex flex-col gap-1 min-w-0">
-          <div class={"text-[9px] font-bold uppercase tracking-wide text-#{@display.color}-500 truncate"}>
+          <div class={"text-lg font-bold uppercase tracking-wide text-#{@display.color}-500 truncate"}>
             <%= if @display.is_error do %>
               {@display.err_msg}
             <% else %>
@@ -104,13 +104,13 @@ defmodule PouConWeb.Components.Equipment.LightComponent do
           </div>
 
           <%= if @display.is_offline do %>
-            <div class="w-full py-2 px-1 rounded font-bold text-[9px] text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
+            <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
               Offline
             </div>
           <% else %>
             <%= if @display.mode == :manual do %>
               <%= if @display.is_interlocked do %>
-                <div class="w-full py-2 px-1 rounded font-bold text-[9px] text-center text-amber-600 bg-amber-100 border border-amber-300 cursor-not-allowed uppercase">
+                <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-amber-600 bg-amber-100 border border-amber-300 cursor-not-allowed uppercase">
                   BLOCKED
                 </div>
               <% else %>
@@ -118,12 +118,12 @@ defmodule PouConWeb.Components.Equipment.LightComponent do
                   phx-click="toggle_power"
                   phx-target={@myself}
                   class={[
-                    "w-full py-2 px-1 rounded font-bold text-[9px] shadow-sm transition-all text-white flex items-center justify-center gap-1 active:scale-95",
-                    (@display.is_running or @display.is_error) && "bg-red-500",
-                    (!@display.is_running and !@display.is_error) && "bg-green-500"
+                    "w-full py-4 px-2 rounded font-bold text-lg shadow-sm transition-all text-white flex items-center justify-center gap-1 active:scale-95",
+                    (@display.is_running or @display.is_error) && "bg-red-500 hover:bg-red-600",
+                    (!@display.is_running and !@display.is_error) && "bg-emerald-500 hover:bg-emerald-600"
                   ]}
                 >
-                  <.icon name="hero-power" class="w-3 h-3" />
+                  <.icon name="hero-power" class="w-5 h-5" />
                   <%= cond do %>
                     <% @display.is_error -> %>
                       RESET
@@ -135,7 +135,7 @@ defmodule PouConWeb.Components.Equipment.LightComponent do
                 </button>
               <% end %>
             <% else %>
-              <div class="w-full py-2 px-1 rounded font-bold text-[9px] text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
+              <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
                 System
               </div>
             <% end %>

@@ -8,8 +8,6 @@ defmodule PouConWeb.Components.Equipment.DungHorComponent do
     status = equipment.status || %{error: :invalid_data}
     display_data = calculate_display_data(status)
 
-    IO.inspect(status)
-
     {:ok,
      socket
      |> assign(:status, status)
@@ -20,36 +18,42 @@ defmodule PouConWeb.Components.Equipment.DungHorComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class={"bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-40 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
+    <div class={"bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-80 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
       <!-- HEADER -->
-      <div class="flex items-center justify-between px-2 py-2 bg-gray-50 border-b border-gray-100">
-        <div class="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0">
-          <div class={"h-1.5 w-1.5 flex-shrink-0 rounded-full bg-#{@display.color}-500 animate-pulse" <> if(@display.is_running, do: "", else: "")}>
+      <div class="flex items-center justify-between px-4 py-4 bg-gray-50 border-b border-gray-100">
+        <div class="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+          <div class={"h-4 w-4 flex-shrink-0 rounded-full bg-#{@display.color}-500 animate-pulse" <> if(@display.is_running, do: "", else: "")}>
           </div>
-          <span class="font-bold text-gray-700 text-xs truncate">{@status.title}</span>
+          <span class="font-bold text-gray-700 text-xl truncate">{@status.title}</span>
         </div>
-        
-    <!-- Static Manual Badge (No toggles) -->
+
+        <!-- Static Manual Badge (No toggles) -->
         <div class="flex-shrink-0 ml-1">
-          <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-gray-100 text-gray-400 border border-gray-200">
+          <span class="px-2 py-1 rounded text-lg font-bold uppercase bg-gray-100 text-gray-400 border border-gray-200">
             Manual Only
           </span>
         </div>
       </div>
-      
-    <!-- BODY -->
-      <div class="flex items-center gap-2 p-2">
-        <!-- Visualization (Agitator/Spinner) -->
+
+      <!-- BODY -->
+      <div class="flex items-center gap-2 p-4">
+        <!-- Visualization (Conveyor) -->
         <div class={[@display.anim_class, "text-#{@display.color}-500"]}>
-          <svg width="48" height="40" viewBox="0 0 100 125" fill="currentColor">
+          <svg
+            class="scale-200"
+            width="64"
+            height="32"
+            viewBox="0 0 100 125"
+            fill="currentColor"
+          >
             <rect x="8" y="63" width="84" height="4" /><path d="M79,33H21a13,13,0,0,0,0,26H71V55H21a9,9,0,0,1,0-18H79a9,9,0,0,1,0,18v4a13,13,0,0,0,0-26Z" />
             <polygon points="54.41 52.41 60.83 46 54.41 39.59 51.59 42.41 53.17 44 42 44 42 48 53.17 48 51.59 49.59 54.41 52.41" />
           </svg>
         </div>
-        
-    <!-- Controls -->
+
+        <!-- Controls -->
         <div class="flex-1 flex flex-col gap-1 min-w-0">
-          <div class={"text-[9px] font-bold uppercase tracking-wide text-#{@display.color}-500 truncate"}>
+          <div class={"text-lg font-bold uppercase tracking-wide text-#{@display.color}-500 truncate"}>
             <%= if @display.is_error do %>
               {@display.err_msg}
             <% else %>
@@ -58,12 +62,12 @@ defmodule PouConWeb.Components.Equipment.DungHorComponent do
           </div>
 
           <%= if @display.is_offline do %>
-            <div class="w-full py-2 px-1 rounded font-bold text-[9px] text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
+            <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
               Offline
             </div>
           <% else %>
             <%= if @display.is_interlocked do %>
-              <div class="w-full py-2 px-1 rounded font-bold text-[9px] text-center text-amber-600 bg-amber-100 border border-amber-300 cursor-not-allowed uppercase">
+              <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-amber-600 bg-amber-100 border border-amber-300 cursor-not-allowed uppercase">
                 BLOCKED
               </div>
             <% else %>
@@ -71,7 +75,7 @@ defmodule PouConWeb.Components.Equipment.DungHorComponent do
                 phx-click="toggle_power"
                 phx-target={@myself}
                 class={[
-                  "w-full py-2 px-1 rounded font-bold text-[9px] shadow-sm transition-all text-white flex items-center justify-center gap-1 active:scale-95",
+                  "w-full py-4 px-2 rounded font-bold text-lg shadow-sm transition-all text-white flex items-center justify-center gap-1 active:scale-95",
                   (@display.is_running or @display.is_error) && "bg-red-500 hover:bg-red-600",
                   (!@display.is_running and !@display.is_error) &&
                     "bg-emerald-500 hover:bg-emerald-600"

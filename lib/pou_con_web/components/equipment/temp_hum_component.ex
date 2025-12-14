@@ -23,24 +23,24 @@ defmodule PouConWeb.Components.Equipment.TempHumComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class={"bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-40 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
-      <div class="flex items-center justify-between px-2 py-2 bg-gray-50 border-b border-gray-100">
+    <div class={"bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-80 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
+      <div class="flex items-center justify-between px-4 py-4 bg-gray-50 border-b border-gray-100">
         <div class="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0">
-          <div class={"h-2 w-2 flex-shrink-0 rounded-full bg-#{@display.main_color}-500 " <> if(!@display.is_error, do: "animate-pulse", else: "")}>
+          <div class={"h-4 w-4 flex-shrink-0 rounded-full bg-#{@display.main_color}-500 " <> if(!@display.is_error, do: "animate-pulse", else: "")}>
           </div>
-          <span class="font-bold text-gray-700 text-sm truncate" title={@equipment.title || "Sensor"}>
+          <span class="font-bold text-gray-700 text-xl truncate" title={@equipment.title || "Sensor"}>
             {@equipment.title || "Sensor"}
           </span>
         </div>
       </div>
 
-      <div class="flex items-center gap-2 p-2">
+      <div class="flex items-center gap-4 p-4">
         <div class="flex-shrink-0">
           <div class="relative flex items-center justify-center transition-colors">
             <svg
               viewBox="0 0 32 32"
               fill="currentColor"
-              class={"w-12 h-12 text-#{@display.main_color}-500"}
+              class={"scale-200 w-24 h-12 text-#{@display.main_color}-500"}
             >
               <path d="M14,6a1,1,0,0,0-1,1V20.18a3,3,0,1,0,2,0V7A1,1,0,0,0,14,6Zm0,18a1,1,0,1,1,1-1A1,1,0,0,1,14,24Z" />
               <path d="M21.8,5.4a1,1,0,0,0-1.6,0C19.67,6.11,17,9.78,17,12a4,4,0,0,0,8,0C25,9.78,22.33,6.11,21.8,5.4ZM21,14a2,2,0,0,1-2-2c0-.9,1-2.75,2-4.26,1,1.51,2,3.36,2,4.26A2,2,0,0,1,21,14Z" />
@@ -49,22 +49,22 @@ defmodule PouConWeb.Components.Equipment.TempHumComponent do
         </div>
 
         <div class="flex-1 min-w-0 flex flex-col justify-center space-y-0.5">
-          <div class="flex justify-between items-baseline text-xs font-bold font-mono">
-            <span class="text-gray-400 text-[10px] uppercase tracking-wide">Temp</span>
+          <div class="flex justify-between items-baseline text-lg font-bold font-mono">
+            <span class="text-gray-400 uppercase tracking-wide">Temp</span>
             <span class={"text-#{@display.temp_color}-500"}>
               {@display.temp}
             </span>
           </div>
 
-          <div class="flex justify-between items-baseline text-xs font-bold font-mono">
-            <span class="text-gray-400 text-[10px] uppercase tracking-wide">Hum</span>
+          <div class="flex justify-between items-baseline text-lg font-bold font-mono">
+            <span class="text-gray-400 uppercase tracking-wide">Hum</span>
             <span class={"text-#{@display.hum_color}-500"}>
               {@display.hum}
             </span>
           </div>
 
-          <div class="flex justify-between items-baseline text-xs font-mono">
-            <span class="text-gray-400 text-[10px] uppercase tracking-wide">Dew</span>
+          <div class="flex justify-between items-baseline text-lg font-mono">
+            <span class="text-gray-400 uppercase tracking-wide">Dew</span>
             <span class={"text-#{@display.dew_color}-500"}>
               {@display.dew}
             </span>

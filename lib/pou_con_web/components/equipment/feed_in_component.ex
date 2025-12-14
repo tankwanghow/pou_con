@@ -24,25 +24,24 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class={"flex flex-col bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-40 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
-      
-    <!-- HEADER -->
-      <div class="flex items-center justify-between px-2 py-2 bg-gray-50 border-b border-gray-100">
-        <div class="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0">
-          <div class={"h-2 w-2 flex-shrink-0 rounded-full bg-#{@display.color}-500 " <> if(@display.is_running, do: "animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]", else: "")}>
+    <div class={"flex flex-col bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-80 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
+      <!-- HEADER -->
+      <div class="flex items-center justify-between px-4 py-4 bg-gray-50 border-b border-gray-100">
+        <div class="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+          <div class={"h-4 w-4 flex-shrink-0 rounded-full bg-#{@display.color}-500 " <> if(@display.is_running, do: "animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]", else: "")}>
           </div>
-          <span class="font-bold text-gray-700 text-sm truncate">
+          <span class="font-bold text-gray-700 text-xl truncate">
             {@status.title || @status.name}
           </span>
         </div>
 
-        <div class="flex bg-gray-200 rounded p-0.5 flex-shrink-0 ml-1">
+        <div class="flex bg-gray-200 rounded p-1 flex-shrink-0 ml-2">
           <button
             phx-click="set_mode"
             phx-value-mode="auto"
             phx-target={@myself}
             class={[
-              "px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-all touch-manipulation",
+              "px-3 py-1 rounded text-base font-bold uppercase transition-all touch-manipulation",
               @display.mode == :auto && "bg-white text-indigo-600 shadow-sm",
               @display.mode != :auto && "text-gray-500 hover:text-gray-700"
             ]}
@@ -54,7 +53,7 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
             phx-value-mode="manual"
             phx-target={@myself}
             class={[
-              "px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-all touch-manipulation",
+              "px-3 py-1 rounded text-base font-bold uppercase transition-all touch-manipulation",
               @display.mode == :manual && "bg-white text-gray-800 shadow-sm",
               @display.mode != :manual && "text-gray-500 hover:text-gray-700"
             ]}
@@ -63,39 +62,38 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
           </button>
         </div>
       </div>
-      
-    <!-- BODY -->
-      <div class="flex items-start gap-2 p-2 flex-1">
-        
-    <!-- Left: Physical Visualization -->
-        <div class="flex-shrink-0 flex flex-col items-center gap-2 pt-1">
+
+      <!-- BODY -->
+      <div class="flex items-center gap-4 p-4 flex-1">
+        <!-- Left: Physical Visualization -->
+        <div class="flex-shrink-0 flex flex-col items-center gap-2">
           <div class={[
-            "relative h-12 w-12 flex items-center justify-center transition-colors",
+            "relative h-16 w-16 flex items-center justify-center transition-colors",
             get_beaker_container_class(@status)
           ]}>
             <.icon
               name="hero-arrow-down-tray"
-              class={"w-7 h-7 -mt-4 " <> if(@status.is_running, do: "animate-bounce", else: "")}
+              class={"w-12 h-12 -mt-4 " <> if(@status.is_running, do: "animate-bounce", else: "")}
             />
             <%= if @status.bucket_full do %>
               <div class="absolute inset-0 flex items-center justify-center">
-                <span class="text-[9px] font-black text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full shadow-sm border border-emerald-300">
+                <span class="text-sm font-black text-emerald-600 bg-emerald-100 px-2 py-1 rounded-full shadow-sm border border-emerald-300">
                   FULL
                 </span>
               </div>
             <% end %>
           </div>
         </div>
-        
-    <!-- Right: Single Toggle Button -->
+
+        <!-- Right: Single Toggle Button -->
         <div class="flex-1 min-w-0 flex flex-col gap-1">
           <!-- Status Text -->
-          <div class={"text-[10px] text-bold font-medium text-center truncate text-#{@display.color}-700"}>
+          <div class={"text-lg font-bold text-center truncate text-#{@display.color}-700"}>
             {@display.state_text}
           </div>
-          <div class="flex h-7">
+          <div class="flex">
             <%= if @display.mode == :manual and @display.is_interlocked do %>
-              <div class="w-full py-2 px-1 rounded font-bold text-[9px] text-center text-amber-600 bg-amber-100 border border-amber-300 cursor-not-allowed uppercase">
+              <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-amber-600 bg-amber-100 border border-amber-300 cursor-not-allowed uppercase">
                 BLOCKED
               </div>
             <% else %>
@@ -104,7 +102,7 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
                 phx-target={@myself}
                 disabled={@display.mode == :auto}
                 class={[
-                  "w-full rounded flex items-center justify-center text-[10px] font-bold uppercase transition-all border shadow-sm",
+                  "w-full py-4 px-2 rounded flex items-center justify-center text-lg font-bold uppercase transition-all border shadow-sm",
                   get_toggle_btn_class(@display.mode, @status.commanded_on)
                 ]}
               >

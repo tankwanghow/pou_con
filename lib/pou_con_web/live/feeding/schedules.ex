@@ -122,8 +122,8 @@ defmodule PouConWeb.Live.Feeding.Schedules do
         </:actions>
       </.header>
 
-      <div class="p-4">
-        
+      <div class="p-2">
+
     <!-- Schedule Management -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <!-- Schedule Form -->
@@ -133,27 +133,27 @@ defmodule PouConWeb.Live.Feeding.Schedules do
             </h2>
 
             <.form for={@form} phx-change="validate_schedule" phx-submit="save_schedule">
-              <div class="grid grid-cols-9 gap-1">
+              <div class="grid grid-cols-8 gap-1">
                 <!-- Move to Back Limit Time -->
-                <div class="col-span-2">
+                <div class="col-span-4">
                   <label class="block text-sm font-medium">
-                    Move to Back
+                    To Back
                   </label>
                   <.input type="time" field={@form[:move_to_back_limit_time]} />
                 </div>
-                
+
     <!-- Move to Front Limit Time -->
-                <div class="col-span-2">
+                <div class="col-span-4">
                   <label class="block text-sm font-medium">
-                    Move to Front
+                    To Front
                   </label>
                   <.input type="time" field={@form[:move_to_front_limit_time]} />
                 </div>
-                
+
     <!-- FeedIn Trigger Bucket -->
-                <div class="col-span-5">
+                <div class="col-span-8">
                   <label class="block text-sm font-medium">
-                    Select which bucket reaches front will trigger filling
+                    Bucket that trigger filling
                   </label>
                   <.input
                     type="select"
@@ -162,29 +162,31 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                     prompt="None - Don't enable FeedIn"
                   />
                 </div>
-                
+
     <!-- Enabled Checkbox -->
-                <div class="flex items-center col-span-2">
-                  <label class="flex items-center gap-2">
-                    <.input type="checkbox" field={@form[:enabled]} />
-                    <span class="text-sm">Enabled</span>
-                  </label>
-                </div>
-                
+                <div class="flex gap-3">
+                  <div class="flex items-center col-span-2">
+                    <label class="flex items-center gap-2">
+                      <.input type="checkbox" field={@form[:enabled]} />
+                      <span class="text-sm">Enabled</span>
+                    </label>
+                  </div>
+
     <!-- Buttons -->
-                <div class="flex gap-2 items-center col-span-2">
-                  <.button type="submit">
-                    {if @editing_schedule, do: "Update", else: "Create"}
-                  </.button>
-                  <%= if @editing_schedule do %>
-                    <.button
-                      type="button"
-                      phx-click="cancel_edit"
-                      class="text-rose-400 bg-rose-200 hover:bg-rose-800 py-1 px-2 rounded"
-                    >
-                      Cancel
+                  <div class="flex gap-2 items-center col-span-2">
+                    <.button type="submit">
+                      {if @editing_schedule, do: "Update", else: "Create"}
                     </.button>
-                  <% end %>
+                    <%= if @editing_schedule do %>
+                      <.button
+                        type="button"
+                        phx-click="cancel_edit"
+                        class="text-rose-400 bg-rose-200 hover:bg-rose-800 py-1 px-2 rounded"
+                      >
+                        Cancel
+                      </.button>
+                    <% end %>
+                  </div>
                 </div>
               </div>
             </.form>
@@ -194,7 +196,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
               Each schedule affects ALL feeding buckets simultaneously. At least one time must be set (Back or Front).
             </div>
           </div>
-          
+
     <!-- Schedule List -->
           <div>
             <h2 class="text-lg font-semibold mb-2">Configured Schedules</h2>
@@ -205,42 +207,37 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                 <div class={"px-3 py-1 rounded-lg border " <> if schedule.enabled, do: "bg-blue-900 border-blue-600", else: "bg-gray-800 border-gray-600"}>
                   <div class="flex items-center justify-between">
                     <!-- Times -->
-                    <div class="flex gap-4 text-sm items-center">
+                    <div class="flex gap-1 text-sm items-center">
                       <%= if schedule.move_to_back_limit_time do %>
-                        <div class="flex items-center gap-1">
-                          <span class="text-amber-400 font-semibold text-xs">TO BACK</span>
-                          <span class="text-gray-100 font-medium">
+                        <div class="flex w-full text-center flex-wrap items-center gap-1">
+                          <div class="text-amber-400 font-semibold">To Back</div>
+                          <div class="text-gray-100 font-medium">
                             {Calendar.strftime(schedule.move_to_back_limit_time, "%I:%M %p")}
-                          </span>
+                          </div>
                         </div>
                       <% end %>
 
-                      <%= if schedule.move_to_back_limit_time && schedule.move_to_front_limit_time do %>
-                        <span class="text-gray-400">|</span>
-                      <% end %>
-
                       <%= if schedule.move_to_front_limit_time do %>
-                        <div class="flex items-center gap-1">
-                          <span class="text-green-400 font-semibold text-xs">TO FRONT</span>
-                          <span class="text-gray-100 font-medium">
+                        <div class="flex w-full text-center flex-wrap items-center gap-1">
+                          <div class="text-green-400 font-medium">To Front</div>
+                          <div class="text-gray-100 font-medium">
                             {Calendar.strftime(schedule.move_to_front_limit_time, "%I:%M %p")}
-                          </span>
+                          </div>
                         </div>
                       <% end %>
 
                       <%= if schedule.feedin_front_limit_bucket do %>
-                        <span
-                          class="ml-2 text-[9px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-bold"
+                        <div
+                          class="w-full text-center m-2 bg-emerald-600 text-white px-1.5 py-0.5 rounded font-bold"
                           title={"Enable FeedIn when #{schedule.feedin_front_limit_bucket.title || schedule.feedin_front_limit_bucket.name} reaches front limit"}
                         >
                           FILL: {schedule.feedin_front_limit_bucket.title ||
                             schedule.feedin_front_limit_bucket.name}
-                        </span>
+                        </div>
                       <% end %>
                     </div>
-                    
     <!-- CRUD Buttons -->
-                    <div class="flex text-white gap-1">
+                    <div class="flex flex-wrap text-white gap-1">
                       <button
                         phx-click="toggle_schedule"
                         phx-value-id={schedule.id}

@@ -119,13 +119,13 @@ defmodule PouConWeb.Live.Dashboard.Index do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-3/5">
-      <div class="flex items-center mb-2">
+      <div class="flex flex-wrap gap-2 items-center mb-2">
         <.link
           id="page-1-btn"
           phx-click="change_view"
           phx-value-view="page_1"
           phx-hook="SaveDashboardPage"
-          class="ml-2 px-3 py-1 text-sm rounded text-white bg-blue-800 border border-black"
+          class="px-3 py-1 text-sm rounded text-white bg-blue-800 border border-black"
         >
           Page 1
         </.link>
@@ -134,7 +134,7 @@ defmodule PouConWeb.Live.Dashboard.Index do
           phx-click="change_view"
           phx-value-view="page_2"
           phx-hook="SaveDashboardPage"
-          class="ml-2 px-3 py-1 text-sm rounded text-white bg-blue-800 border border-black"
+          class="px-3 py-1 text-sm rounded text-white bg-blue-800 border border-black"
         >
           Page 2
         </.link>
@@ -148,50 +148,50 @@ defmodule PouConWeb.Live.Dashboard.Index do
         <%= if @current_role == :admin do %>
           <.link
             href="/admin/settings"
-            class="ml-2 px-3 py-1 rounded bg-purple-200 border border-purple-600"
+            class="px-3 py-1 rounded bg-purple-200 border border-purple-600"
           >
             <.icon name="hero-cog-6-tooth-solid" />
           </.link>
           <.link
             :if={System.get_env("SIMULATE_DEVICES") == "1"}
             href="/simulation"
-            class="ml-2 px-3 py-1 rounded bg-cyan-200 border border-cyan-600"
+            class="px-3 py-1 rounded bg-cyan-200 border border-cyan-600"
           >
             <.icon name="hero-beaker-solid" />
           </.link>
           <.link
             href="/admin/interlock"
-            class="ml-2 px-3 py-1 rounded bg-indigo-200 border border-indigo-600"
+            class="px-3 py-1 rounded bg-indigo-200 border border-indigo-600"
           >
             <.icon name="hero-link-micro" />
           </.link>
 
           <.link
             href="/admin/ports"
-            class="ml-2 px-3 py-1 rounded bg-orange-200 border border-orange-600"
+            class="px-3 py-1 rounded bg-orange-200 border border-orange-600"
           >
             <.icon name="hero-cpu-chip" />
           </.link>
           <.link
             href="/admin/devices"
-            class="ml-2 px-3 py-1 rounded bg-lime-200 border border-lime-600"
+            class="px-3 py-1 rounded bg-lime-200 border border-lime-600"
           >
             <.icon name="hero-cpu-chip-solid" />
           </.link>
           <.link
             href="/admin/equipment"
-            class="ml-2 px-3 py-1 rounded bg-sky-200 border border-sky-600"
+            class="px-3 py-1 rounded bg-sky-200 border border-sky-600"
           >
             <.icon name="hero-wrench-screwdriver-solid" />
           </.link>
         <% end %>
-        <.link href="/reports" class="ml-2 px-3 py-1 rounded bg-yellow-200 border border-yellow-600">
+        <.link href="/reports" class="px-3 py-1 rounded bg-yellow-200 border border-yellow-600">
           <.icon name="hero-presentation-chart-bar" />
         </.link>
         <.link
           href={~p"/logout"}
           method="post"
-          class="ml-2 px-3 py-1 rounded bg-rose-200 border border-rose-600 font-medium"
+          class="px-3 py-1 rounded bg-rose-200 border border-rose-600 font-medium"
         >
           <.icon name="hero-arrow-right-start-on-rectangle" />
         </.link>

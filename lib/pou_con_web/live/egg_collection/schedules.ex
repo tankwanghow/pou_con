@@ -121,7 +121,7 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
           <.btn_link to={~p"/egg_collection"} label="Back" />
         </:actions>
       </.header>
-      
+
     <!-- Schedule Management -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Schedule Form -->
@@ -131,7 +131,19 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
           </h2>
 
           <.form for={@form} phx-change="validate_schedule" phx-submit="save_schedule">
-            <div class="grid grid-cols-4 gap-2">
+            <div class="grid grid-cols-2 gap-2">
+
+    <!-- Start Time -->
+              <div>
+                <label class="block text-sm font-medium">Start Time</label>
+                <.input type="time" field={@form[:start_time]} required />
+              </div>
+
+    <!-- Stop Time -->
+              <div>
+                <label class="block text-sm font-medium ">Stop Time</label>
+                <.input type="time" field={@form[:stop_time]} required />
+              </div>
               <!-- Egg Collection Equipment -->
               <div>
                 <label class="block text-sm font-medium">Egg Row</label>
@@ -143,27 +155,14 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
                   required
                 />
               </div>
-              
-    <!-- Start Time -->
-              <div>
-                <label class="block text-sm font-medium">Start Time</label>
-                <.input type="time" field={@form[:start_time]} required />
-              </div>
-              
-    <!-- Stop Time -->
-              <div>
-                <label class="block text-sm font-medium ">Stop Time</label>
-                <.input type="time" field={@form[:stop_time]} required />
-              </div>
-              
-    <!-- Enabled Checkbox -->
+              <!-- Enabled Checkbox -->
               <div class="flex items-center">
                 <label class="flex items-center gap-2">
                   <.input type="checkbox" field={@form[:enabled]} />
                   <span class="text-sm">Enabled</span>
                 </label>
               </div>
-              
+
     <!-- Buttons -->
               <div class="flex gap-2 items-center">
                 <.button type="submit">
@@ -182,16 +181,16 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
             </div>
           </.form>
         </div>
-        
+
     <!-- Schedule List -->
         <div>
           <%= if Enum.empty?(@schedules) do %>
             <p class="text-gray-400 text-sm italic">No schedules configured yet.</p>
           <% else %>
             <%= for schedule <- @schedules do %>
-              <div class={"py-1 px-4 rounded-lg border flex items-center " <> if schedule.enabled, do: "bg-blue-900 border-blue-600 text-white", else: "bg-gray-800 border-gray-600 text-gray-200"}>
+              <div class={"py-1 px-2 rounded-lg border flex items-center gap-2 justify-center " <> if schedule.enabled, do: "bg-blue-900 border-blue-600 text-white", else: "bg-gray-800 border-gray-600 text-gray-200"}>
                 <!-- Equipment Name -->
-                <div class="w-32 flex-shrink-0">
+                <div class="font-mono w-full">
                   <span class="font-semibold text-white text-sm">
                     {schedule.equipment.title || schedule.equipment.name}
                   </span>
@@ -199,31 +198,28 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
                     <span class="text-xs text-gray-300 block">({schedule.name})</span>
                   <% end %>
                 </div>
-                
+
     <!-- START Time -->
-                <div class="flex items-center gap-1">
-                  <span class="text-green-400 font-semibold text-xs">START</span>
-                  <span class="text-gray-100 text-sm">
+                <div class="flex flex-wrap w-full text-center items-center gap-1">
+                  <div class="text-green-400 font-semibold">ON</div>
+                  <div class="text-gray-100">
                     {Calendar.strftime(schedule.start_time, "%I:%M %p")}
-                  </span>
+                  </div>
                 </div>
-                
+
     <!-- Separator -->
-                <span class="text-gray-400">|</span>
-                
+                <div class="text-gray-400">|</div>
+
     <!-- STOP Time -->
-                <div class="flex items-center gap-1">
-                  <span class="text-rose-400 font-semibold text-xs">STOP</span>
-                  <span class="text-gray-100 text-sm">
+                <div class="flex flex-wrap w-full text-center items-center gap-1">
+                  <div class="text-rose-400 font-semibold">OFF</div>
+                  <div class="text-gray-100">
                     {Calendar.strftime(schedule.stop_time, "%I:%M %p")}
-                  </span>
+                  </div>
                 </div>
-                
-    <!-- Spacer -->
-                <div class="flex-1"></div>
-                
+
     <!-- CRUD Buttons -->
-                <div class="flex gap-1">
+                <div class="flex flex-wrap w-full gap-1">
                   <button
                     phx-click="toggle_schedule"
                     phx-value-id={schedule.id}

@@ -88,21 +88,21 @@ defmodule PouConWeb.Components.Summaries.EnvironmentComponent do
 
         <div class="px-2 flex flex-col gap-1 justify-center">
           <div class="flex gap-1 items-center  justify-center">
-            <div>Avg Temp</div>
+            <div>Temp</div>
             <span class={"font-mono font-black text-#{@stats.temp_color}-500 flex items-baseline gap-0.5"}>
               {@stats.avg_temp}
               <span class="text-sm font-medium text-gray-400">°C</span>
             </span>
           </div>
           <div class="flex gap-1 items-center  justify-center">
-            <div>Avg Hum</div>
+            <div>Hum</div>
             <div class={"font-mono font-black text-#{@stats.hum_color}-500 flex items-baseline gap-0.5"}>
               {@stats.avg_hum}
               <span class="text-sm font-medium text-gray-400">%</span>
             </div>
           </div>
           <div class="flex gap-1 items-center justify-center">
-            <div>Avg Dew</div>
+            <div>Dew</div>
             <div class={"font-mono text-#{@stats.dew_color}-500 flex items-baseline gap-0.5"}>
               {@stats.avg_dew}
               <span class="text-sm font-medium text-gray-400">°C</span>

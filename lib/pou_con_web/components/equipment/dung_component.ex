@@ -18,28 +18,34 @@ defmodule PouConWeb.Components.Equipment.DungComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class={"bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-40 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
+    <div class={"bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-80 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
       <!-- HEADER -->
-      <div class="flex items-center justify-between px-2 py-2 bg-gray-50 border-b border-gray-100">
-        <div class="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0">
-          <div class={"h-1.5 w-1.5 flex-shrink-0 rounded-full bg-#{@display.color}-500 animate-pulse" <> if(@display.is_running, do: "", else: "")}>
+      <div class="flex items-center justify-between px-4 py-4 bg-gray-50 border-b border-gray-100">
+        <div class="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+          <div class={"h-4 w-4 flex-shrink-0 rounded-full bg-#{@display.color}-500 animate-pulse" <> if(@display.is_running, do: "", else: "")}>
           </div>
-          <span class="font-bold text-gray-700 text-xs truncate">{@status.title}</span>
+          <span class="font-bold text-gray-700 text-xl truncate">{@status.title}</span>
         </div>
-        
+
     <!-- Static Manual Badge (No toggles) -->
         <div class="flex-shrink-0 ml-1">
-          <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-gray-100 text-gray-400 border border-gray-200">
+          <span class="px-2 py-1 rounded text-lg font-bold uppercase bg-gray-100 text-gray-400 border border-gray-200">
             Manual Only
           </span>
         </div>
       </div>
-      
+
     <!-- BODY -->
-      <div class="flex items-center gap-2 p-2">
+      <div class="flex items-center gap-2 p-4">
         <!-- Visualization (Agitator/Spinner) -->
         <div class={[@display.anim_class, "text-#{@display.color}-500"]}>
-          <svg width="48" height="40" viewBox="-5.0 -10.0 110.0 135.0" fill="currentColor">
+          <svg
+            class="scale-200"
+            width="64"
+            height="32"
+            viewBox="-5.0 -10.0 110.0 135.0"
+            fill="currentColor"
+          >
             <path d="m51.172 57.887c4.8359-0.19531 11.68-0.47656 14.773-5.5234 4.0547-6.6133-1.9844-15.48-2.4141-16.09-3.2031-4.5703-7.6992-6.5508-10.359-7.3828-0.66797-0.21094-1.2617 0.47656-0.99609 1.1211 1.6953 4.1367 1.1758 6.3516 0.41016 7.6133-2.7578 4.5391-11.477 1.2188-16.543 7.0977-0.30469 0.35547-3.2188 3.8242-2.2773 7.1055 1.5234 5.3477 12.141 6.2734 17.406 6.0586z" />
             <path d="m15.461 47.746c-0.44531 0.58594-0.32813 1.418 0.25781 1.8594 0.24219 0.17969 0.52344 0.26953 0.80078 0.26953 0.40234 0 0.80078-0.17969 1.0586-0.52344 2.9414-3.8867 2.9453-8.5273 0.003906-12.418-2.2109-2.9297-2.2109-6.2852 0-9.2109 0.44531-0.58594 0.32422-1.418-0.25781-1.8594-0.58203-0.44141-1.418-0.32422-1.8594 0.25391-2.9414 3.8867-2.9414 8.5273 0 12.414 2.2148 2.9297 2.2148 6.2891-0.003906 9.2148z" />
             <path d="m82.414 47.746c-0.44531 0.58594-0.32812 1.418 0.25781 1.8594 0.24219 0.17969 0.52344 0.26953 0.80078 0.26953 0.40234 0 0.80078-0.17969 1.0586-0.52344 2.9414-3.8867 2.9414-8.5273 0-12.418-2.2109-2.9297-2.2109-6.2852 0-9.2109 0.44531-0.58594 0.32422-1.418-0.25781-1.8594-0.58594-0.44531-1.4141-0.32422-1.8594 0.25781-2.9375 3.8867-2.9375 8.5273 0 12.414 2.2188 2.9258 2.2188 6.2852 0 9.2109z" />
@@ -48,10 +54,10 @@ defmodule PouConWeb.Components.Equipment.DungComponent do
             <path d="m79.797 69.309c-1.6055 2.707-4.0898 4.7578-7.1328 5.6875-6.6836 2.0391-14.52 3.1172-22.656 3.1172-8.1367 0-15.973-1.0781-22.656-3.1172-3.0469-0.92969-5.5312-2.9805-7.1406-5.6875-1.7461 0.83984-3.3008 2.1133-4.4531 3.8047-4.3047 6.3164-1.3047 14.984 5.9805 17.297 8.1836 2.5977 17.906 4.0078 28.262 4.0078s20.078-1.4102 28.262-4.0078c7.2852-2.3125 10.289-10.98 5.9805-17.297-1.1484-1.6914-2.7031-2.9648-4.4453-3.8047z" />
           </svg>
         </div>
-        
+
     <!-- Controls -->
         <div class="flex-1 flex flex-col gap-1 min-w-0">
-          <div class={"text-[9px] font-bold uppercase tracking-wide text-#{@display.color}-500 truncate"}>
+          <div class={"text-lg font-bold uppercase tracking-wide text-#{@display.color}-500 truncate"}>
             <%= if @display.is_error do %>
               {@display.err_msg}
             <% else %>
@@ -60,12 +66,12 @@ defmodule PouConWeb.Components.Equipment.DungComponent do
           </div>
 
           <%= if @display.is_offline do %>
-            <div class="w-full py-2 px-1 rounded font-bold text-[9px] text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
+            <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
               Offline
             </div>
           <% else %>
             <%= if @display.is_interlocked do %>
-              <div class="w-full py-2 px-1 rounded font-bold text-[9px] text-center text-amber-600 bg-amber-100 border border-amber-300 cursor-not-allowed uppercase">
+              <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-amber-600 bg-amber-100 border border-amber-300 cursor-not-allowed uppercase">
                 BLOCKED
               </div>
             <% else %>
@@ -73,7 +79,7 @@ defmodule PouConWeb.Components.Equipment.DungComponent do
                 phx-click="toggle_power"
                 phx-target={@myself}
                 class={[
-                  "w-full py-2 px-1 rounded font-bold text-[9px] shadow-sm transition-all text-white flex items-center justify-center gap-1 active:scale-95",
+                  "w-full py-4 px-2 rounded font-bold text-lg shadow-sm transition-all text-white flex items-center justify-center gap-1 active:scale-95",
                   (@display.is_running or @display.is_error) && "bg-red-500 hover:bg-red-600",
                   (!@display.is_running and !@display.is_error) &&
                     "bg-emerald-500 hover:bg-emerald-600"

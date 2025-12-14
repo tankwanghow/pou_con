@@ -15,7 +15,7 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
         </:actions>
       </.header>
 
-      <div class="font-medium flex flex-row text-center bg-amber-200 border-b border-t border-amber-400 py-1">
+      <div class="font-medium flex flex-wrap text-center bg-amber-200 border-b border-t border-amber-400 py-1">
         <div class="w-[15%]">Device Path</div>
         <div class="w-[10%]">Speed</div>
         <div class="w-[10%]">Parity</div>
