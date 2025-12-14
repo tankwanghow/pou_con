@@ -39,11 +39,15 @@ defmodule PouConWeb.Live.Admin.Interlock.Index do
         <%= for {id, rule} <- @streams.rules do %>
           <div id={id} class="text-xs flex flex-row text-center border-b py-2 items-center">
             <div class="w-[25%]">
-              <div class="font-semibold">{rule.upstream_equipment.title || rule.upstream_equipment.name}</div>
+              <div class="font-semibold">
+                {rule.upstream_equipment.title || rule.upstream_equipment.name}
+              </div>
               <div class="text-gray-500">{rule.upstream_equipment.type}</div>
             </div>
             <div class="w-[25%]">
-              <div class="font-semibold">{rule.downstream_equipment.title || rule.downstream_equipment.name}</div>
+              <div class="font-semibold">
+                {rule.downstream_equipment.title || rule.downstream_equipment.name}
+              </div>
               <div class="text-gray-500">{rule.downstream_equipment.type}</div>
             </div>
             <div class="w-[15%]">

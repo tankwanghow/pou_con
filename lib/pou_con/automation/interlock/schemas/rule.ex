@@ -20,9 +20,9 @@ defmodule PouCon.Automation.Interlock.Schemas.Rule do
     |> foreign_key_constraint(:upstream_equipment_id)
     |> foreign_key_constraint(:downstream_equipment_id)
     |> unique_constraint([:upstream_equipment_id, :downstream_equipment_id],
-         name: :interlock_rules_upstream_equipment_id_downstream_equipment_id_index,
-         message: "This interlock rule already exists"
-       )
+      name: :interlock_rules_upstream_equipment_id_downstream_equipment_id_index,
+      message: "This interlock rule already exists"
+    )
     |> validate_not_self_referencing()
   end
 
@@ -31,8 +31,11 @@ defmodule PouCon.Automation.Interlock.Schemas.Rule do
     downstream_id = get_field(changeset, :downstream_equipment_id)
 
     if upstream_id && downstream_id && upstream_id == downstream_id do
-      add_error(changeset, :downstream_equipment_id,
-        "Equipment cannot be interlocked with itself")
+      add_error(
+        changeset,
+        :downstream_equipment_id,
+        "Equipment cannot be interlocked with itself"
+      )
     else
       changeset
     end

@@ -53,9 +53,18 @@ defmodule PouConWeb.Live.Admin.Interlock.Form do
         <div class="bg-blue-50 border border-blue-200 rounded p-4 my-4">
           <h3 class="font-semibold text-blue-900 mb-2">Examples:</h3>
           <ul class="text-sm text-blue-800 space-y-1">
-            <li>• <strong>dung_exit</strong> → <strong>dung_horz</strong>: If exit belt stops, horizontal belt must stop</li>
-            <li>• <strong>dung_horz</strong> → <strong>dung</strong>: If horizontal belt stops, inclined belt must stop</li>
-            <li>• <strong>feed_in</strong> → <strong>feeding</strong>: If feed supply stops, feeding buckets should stop</li>
+            <li>
+              • <strong>dung_exit</strong>
+              → <strong>dung_horz</strong>: If exit belt stops, horizontal belt must stop
+            </li>
+            <li>
+              • <strong>dung_horz</strong>
+              → <strong>dung</strong>: If horizontal belt stops, inclined belt must stop
+            </li>
+            <li>
+              • <strong>feed_in</strong>
+              → <strong>feeding</strong>: If feed supply stops, feeding buckets should stop
+            </li>
           </ul>
         </div>
 

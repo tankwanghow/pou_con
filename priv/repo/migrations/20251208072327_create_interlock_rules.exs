@@ -12,7 +12,9 @@ defmodule PouCon.Repo.Migrations.CreateInterlockRules do
 
     create index(:interlock_rules, [:upstream_equipment_id])
     create index(:interlock_rules, [:downstream_equipment_id])
+
     create unique_index(:interlock_rules, [:upstream_equipment_id, :downstream_equipment_id],
-             name: :interlock_rules_unique_pair)
+             name: :interlock_rules_unique_pair
+           )
   end
 end

@@ -123,6 +123,7 @@ defmodule PouCon.Automation.Interlock.InterlockRules do
       "interlock_rules",
       {event, result}
     )
+
     {:ok, result}
   end
 

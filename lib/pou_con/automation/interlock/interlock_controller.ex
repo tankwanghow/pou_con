@@ -17,10 +17,13 @@ defmodule PouCon.Automation.Interlock.InterlockController do
 
   @pubsub_topic "device_data"
   @interlock_rules_topic "interlock_rules"
+  @ets_table :interlock_can_start_cache
 
   defmodule State do
-    defstruct equipment_state: %{},  # %{name => %{prev_running: bool}}
-              rules: %{}             # %{upstream_name => [downstream_name1, downstream_name2, ...]}
+    # %{name => %{prev_running: bool}}
+    defstruct equipment_state: %{},
+              # %{upstream_name => [downstream_name1, downstream_name2, ...]}
+              rules: %{}
   end
 
   # ------------------------------------------------------------------ #
@@ -42,9 +45,17 @@ defmodule PouCon.Automation.Interlock.InterlockController do
   Check if equipment can start based on interlock rules.
   Returns {:ok, :allowed} if all upstream dependencies are running.
   Returns {:error, reason} if blocked by interlock rules.
+
+  Uses ETS for lock-free reads - no GenServer call required.
   """
   def can_start?(equipment_name) do
-    GenServer.call(__MODULE__, {:can_start, equipment_name})
+    case :ets.lookup(@ets_table, equipment_name) do
+      [{^equipment_name, result}] -> result
+      [] -> {:ok, :allowed}
+    end
+  rescue
+    # ETS table not ready yet
+    ArgumentError -> {:ok, :allowed}
   end
 
   # ------------------------------------------------------------------ #
@@ -53,12 +64,17 @@ defmodule PouCon.Automation.Interlock.InterlockController do
   @impl GenServer
   def init(_opts) do
     Logger.info("InterlockController started")
+
+    # Create ETS table for lock-free can_start reads
+    :ets.new(@ets_table, [:named_table, :set, :public, read_concurrency: true])
+
     Phoenix.PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
     Phoenix.PubSub.subscribe(PouCon.PubSub, @interlock_rules_topic)
 
     # Load rules and initialize equipment state
     rules = load_rules_map()
     equipment_state = initialize_equipment_state()
+    update_ets_cache(rules, equipment_state)
 
     {:ok, %State{equipment_state: equipment_state, rules: rules}}
   end
@@ -67,13 +83,17 @@ defmodule PouCon.Automation.Interlock.InterlockController do
   def handle_info(:data_refreshed, state) do
     # Check for state changes and enforce interlock
     new_equipment_state = check_equipment(state.equipment_state, state.rules)
+    # Update ETS cache with fresh running states
+    update_ets_cache(state.rules, new_equipment_state)
     {:noreply, %State{state | equipment_state: new_equipment_state}}
   end
 
   @impl GenServer
-  def handle_info({event, _data}, state) when event in [:rule_created, :rule_updated, :rule_deleted] do
+  def handle_info({event, _data}, state)
+      when event in [:rule_created, :rule_updated, :rule_deleted] do
     Logger.info("InterlockController: Interlock rules changed, reloading...")
     rules = load_rules_map()
+    update_ets_cache(rules, state.equipment_state)
     {:noreply, %State{state | rules: rules}}
   end
 
@@ -81,18 +101,13 @@ defmodule PouCon.Automation.Interlock.InterlockController do
   def handle_cast(:reload_rules, state) do
     Logger.info("InterlockController: Manually reloading rules")
     rules = load_rules_map()
+    update_ets_cache(rules, state.equipment_state)
     {:noreply, %State{state | rules: rules}}
   end
 
   @impl GenServer
   def handle_call(:get_rules, _from, state) do
     {:reply, state.rules, state}
-  end
-
-  @impl GenServer
-  def handle_call({:can_start, equipment_name}, _from, state) do
-    result = check_can_start(equipment_name, state)
-    {:reply, result, state}
   end
 
   # ------------------------------------------------------------------ #
@@ -146,8 +161,9 @@ defmodule PouCon.Automation.Interlock.InterlockController do
             if length(downstream_names) > 0 do
               Logger.warning(
                 "InterlockController: #{name} stopped, " <>
-                "stopping #{length(downstream_names)} dependent equipment (safety interlock)"
+                  "stopping #{length(downstream_names)} dependent equipment (safety interlock)"
               )
+
               stop_downstream_equipment(downstream_names)
             end
           end
@@ -179,21 +195,36 @@ defmodule PouCon.Automation.Interlock.InterlockController do
   end
 
   # ------------------------------------------------------------------ #
-  # Permission Checking
+  # Permission Checking (ETS Cache)
   # ------------------------------------------------------------------ #
-  defp check_can_start(equipment_name, state) do
+
+  # Update ETS cache with can_start results for all equipment
+  # Uses equipment_state (prev_running) instead of GenServer calls for fast lookup
+  defp update_ets_cache(rules, equipment_state) do
+    entries =
+      equipment_state
+      |> Map.keys()
+      |> Enum.map(fn equipment_name ->
+        result = compute_can_start(equipment_name, rules, equipment_state)
+        {equipment_name, result}
+      end)
+
+    :ets.insert(@ets_table, entries)
+  end
+
+  defp compute_can_start(equipment_name, rules, equipment_state) do
     # Find all upstream equipment this equipment depends on
-    upstream_names = find_upstream_equipment(equipment_name, state.rules)
+    upstream_names = find_upstream_equipment(equipment_name, rules)
 
     if Enum.empty?(upstream_names) do
       # No dependencies, always allowed to start
       {:ok, :allowed}
     else
-      # Check if all upstream equipment is running using generic command interface
+      # Check if all upstream equipment is running using cached state
       not_running =
         Enum.filter(upstream_names, fn upstream_name ->
-          case EquipmentCommands.get_status(upstream_name) do
-            %{is_running: true} -> false
+          case Map.get(equipment_state, upstream_name) do
+            %{prev_running: true} -> false
             _ -> true
           end
         end)

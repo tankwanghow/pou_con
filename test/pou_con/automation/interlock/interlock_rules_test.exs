@@ -64,6 +64,7 @@ defmodule PouCon.Automation.Interlock.InterlockRulesTest do
       }
 
       assert {:error, changeset} = InterlockRules.create_rule(attrs)
+
       assert "Equipment cannot be interlocked with itself" in errors_on(changeset).downstream_equipment_id
     end
   end
@@ -94,19 +95,21 @@ defmodule PouCon.Automation.Interlock.InterlockRulesTest do
   # Helper functions
 
   defp create_test_equipment do
-    upstream = Repo.insert!(%Equipment{
-      name: "test_upstream_#{System.unique_integer([:positive])}",
-      title: "Test Upstream",
-      type: "dung_exit",
-      device_tree: "on_off_coil: test_coil1\nrunning_feedback: test_fb1"
-    })
+    upstream =
+      Repo.insert!(%Equipment{
+        name: "test_upstream_#{System.unique_integer([:positive])}",
+        title: "Test Upstream",
+        type: "dung_exit",
+        device_tree: "on_off_coil: test_coil1\nrunning_feedback: test_fb1"
+      })
 
-    downstream = Repo.insert!(%Equipment{
-      name: "test_downstream_#{System.unique_integer([:positive])}",
-      title: "Test Downstream",
-      type: "dung_hor",
-      device_tree: "on_off_coil: test_coil2\nrunning_feedback: test_fb2"
-    })
+    downstream =
+      Repo.insert!(%Equipment{
+        name: "test_downstream_#{System.unique_integer([:positive])}",
+        title: "Test Downstream",
+        type: "dung_hor",
+        device_tree: "on_off_coil: test_coil2\nrunning_feedback: test_fb2"
+      })
 
     {upstream, downstream}
   end
