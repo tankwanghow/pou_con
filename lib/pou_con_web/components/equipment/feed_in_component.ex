@@ -94,21 +94,27 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
             {@display.state_text}
           </div>
           <div class="flex h-7">
-            <button
-              phx-click={get_toggle_action(@display.mode, @status.commanded_on)}
-              phx-target={@myself}
-              disabled={@display.mode == :auto}
-              class={[
-                "w-full rounded flex items-center justify-center text-[10px] font-bold uppercase transition-all border shadow-sm",
-                get_toggle_btn_class(@display.mode, @status.commanded_on)
-              ]}
-            >
-              <%= if @status.commanded_on do %>
-                Stop
-              <% else %>
-                Start
-              <% end %>
-            </button>
+            <%= if @display.mode == :manual and @display.is_interlocked do %>
+              <div class="w-full py-2 px-1 rounded font-bold text-[9px] text-center text-amber-600 bg-amber-100 border border-amber-300 cursor-not-allowed uppercase">
+                BLOCKED
+              </div>
+            <% else %>
+              <button
+                phx-click={get_toggle_action(@display.mode, @status.commanded_on)}
+                phx-target={@myself}
+                disabled={@display.mode == :auto}
+                class={[
+                  "w-full rounded flex items-center justify-center text-[10px] font-bold uppercase transition-all border shadow-sm",
+                  get_toggle_btn_class(@display.mode, @status.commanded_on)
+                ]}
+              >
+                <%= if @status.commanded_on do %>
+                  Stop
+                <% else %>
+                  Start
+                <% end %>
+              </button>
+            <% end %>
           </div>
         </div>
       </div>
@@ -179,10 +185,12 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
   # ——————————————————————————————————————————————————————————————
   defp calculate_display_data(status) do
     mode = if status.mode == :manual, do: :manual, else: :auto
+    is_interlocked = Map.get(status, :interlocked, false)
 
     {color, text} =
       cond do
         status.error != nil -> {"rose", status.error_message || "ERROR"}
+        is_interlocked -> {"amber", "BLOCKED"}
         mode == :manual && !status.commanded_on -> {"gray", "MANUAL STOP"}
         mode == :manual && status.commanded_on -> {"emerald", "MANUAL RUN"}
         status.is_running -> {"emerald", "FILLING..."}
@@ -193,6 +201,7 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
     %{
       is_error: status.error != nil,
       is_running: status.is_running,
+      is_interlocked: is_interlocked,
       mode: mode,
       state_text: text,
       color: color

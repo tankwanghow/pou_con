@@ -103,30 +103,42 @@ defmodule PouConWeb.Components.Equipment.LightComponent do
             <% end %>
           </div>
 
-          <%= if @display.mode == :manual and !@display.is_offline do %>
-            <button
-              phx-click="toggle_power"
-              phx-target={@myself}
-              class={[
-                "w-full py-2 px-1 rounded font-bold text-[9px] shadow-sm transition-all text-white flex items-center justify-center gap-1 active:scale-95",
-                (@display.is_running or @display.is_error) && "bg-red-500",
-                (!@display.is_running and !@display.is_error) && "bg-green-500"
-              ]}
-            >
-              <.icon name="hero-power" class="w-3 h-3" />
-              <%= cond do %>
-                <% @display.is_error -> %>
-                  RESET
-                <% @display.is_running -> %>
-                  STOP
-                <% true -> %>
-                  START
-              <% end %>
-            </button>
-          <% else %>
+          <%= if @display.is_offline do %>
             <div class="w-full py-2 px-1 rounded font-bold text-[9px] text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
-              {if @display.is_offline, do: "Offline", else: "System"}
+              Offline
             </div>
+          <% else %>
+            <%= if @display.mode == :manual do %>
+              <%= if @display.is_interlocked do %>
+                <div class="w-full py-2 px-1 rounded font-bold text-[9px] text-center text-amber-600 bg-amber-100 border border-amber-300 cursor-not-allowed uppercase">
+                  BLOCKED
+                </div>
+              <% else %>
+                <button
+                  phx-click="toggle_power"
+                  phx-target={@myself}
+                  class={[
+                    "w-full py-2 px-1 rounded font-bold text-[9px] shadow-sm transition-all text-white flex items-center justify-center gap-1 active:scale-95",
+                    (@display.is_running or @display.is_error) && "bg-red-500",
+                    (!@display.is_running and !@display.is_error) && "bg-green-500"
+                  ]}
+                >
+                  <.icon name="hero-power" class="w-3 h-3" />
+                  <%= cond do %>
+                    <% @display.is_error -> %>
+                      RESET
+                    <% @display.is_running -> %>
+                      STOP
+                    <% true -> %>
+                      START
+                  <% end %>
+                </button>
+              <% end %>
+            <% else %>
+              <div class="w-full py-2 px-1 rounded font-bold text-[9px] text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
+                System
+              </div>
+            <% end %>
           <% end %>
         </div>
       </div>
@@ -175,6 +187,7 @@ defmodule PouConWeb.Components.Equipment.LightComponent do
       is_offline: true,
       is_error: false,
       is_running: false,
+      is_interlocked: false,
       mode: :auto,
       state_text: "OFFLINE",
       color: "gray",
@@ -185,11 +198,12 @@ defmodule PouConWeb.Components.Equipment.LightComponent do
   defp calculate_display_data(status) do
     is_running = status.is_running
     has_error = not is_nil(status.error)
+    is_interlocked = Map.get(status, :interlocked, false)
 
     {color, anim_class} =
       cond do
         has_error -> {"rose", ""}
-        # When running, set color to green and add animation class
+        is_interlocked -> {"amber", ""}
         is_running -> {"green", "animate-pulse"}
         true -> {"violet", ""}
       end
@@ -198,6 +212,7 @@ defmodule PouConWeb.Components.Equipment.LightComponent do
       is_offline: false,
       is_error: has_error,
       is_running: is_running,
+      is_interlocked: is_interlocked,
       mode: status.mode,
       state_text: if(is_running, do: "RUNNING", else: "STOPPED"),
       color: color,

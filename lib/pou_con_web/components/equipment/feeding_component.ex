@@ -113,45 +113,51 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
           </div>
 
           <%= if @display.mode == :manual do %>
-            <%= if @display.is_moving or @display.is_error do %>
-              <button
-                phx-click="stop"
-                phx-target={@myself}
-                class="w-full py-1.5 px-1 rounded font-bold text-xs shadow-sm transition-all text-white bg-red-500 active:bg-red-600 active:scale-95 flex items-center justify-center gap-1"
-              >
-                <div class="w-2 h-2 bg-white rounded-sm"></div>
-                {if @display.is_error, do: "RESET", else: "STOP"}
-              </button>
-            <% else %>
-              <div class="flex gap-1">
-                <button
-                  phx-click="move"
-                  phx-value-dir="front"
-                  phx-target={@myself}
-                  disabled={@status.at_front}
-                  class={[
-                    "flex-1 py-1.5 rounded font-bold text-xs shadow-sm transition-all text-white flex items-center justify-center active:scale-95",
-                    @status.at_front && "bg-gray-300 cursor-not-allowed opacity-50",
-                    !@status.at_front && "bg-blue-500 active:bg-blue-600"
-                  ]}
-                >
-                  <.icon name="hero-chevron-left" class="w-3.5 h-3.5" /> Fr
-                </button>
-
-                <button
-                  phx-click="move"
-                  phx-value-dir="back"
-                  phx-target={@myself}
-                  disabled={@status.at_back}
-                  class={[
-                    "flex-1 py-1.5 rounded font-bold text-xs shadow-sm transition-all text-white flex items-center justify-center active:scale-95",
-                    @status.at_back && "bg-gray-300 cursor-not-allowed opacity-50",
-                    !@status.at_back && "bg-blue-500 active:bg-blue-600"
-                  ]}
-                >
-                  Bk <.icon name="hero-chevron-right" class="w-3.5 h-3.5" />
-                </button>
+            <%= if @display.is_interlocked do %>
+              <div class="w-full py-1.5 px-1 rounded font-bold text-[9px] text-center text-amber-600 bg-amber-100 border border-amber-300 cursor-not-allowed uppercase">
+                BLOCKED
               </div>
+            <% else %>
+              <%= if @display.is_moving or @display.is_error do %>
+                <button
+                  phx-click="stop"
+                  phx-target={@myself}
+                  class="w-full py-1.5 px-1 rounded font-bold text-xs shadow-sm transition-all text-white bg-red-500 active:bg-red-600 active:scale-95 flex items-center justify-center gap-1"
+                >
+                  <div class="w-2 h-2 bg-white rounded-sm"></div>
+                  {if @display.is_error, do: "RESET", else: "STOP"}
+                </button>
+              <% else %>
+                <div class="flex gap-1">
+                  <button
+                    phx-click="move"
+                    phx-value-dir="front"
+                    phx-target={@myself}
+                    disabled={@status.at_front}
+                    class={[
+                      "flex-1 py-1.5 rounded font-bold text-xs shadow-sm transition-all text-white flex items-center justify-center active:scale-95",
+                      @status.at_front && "bg-gray-300 cursor-not-allowed opacity-50",
+                      !@status.at_front && "bg-blue-500 active:bg-blue-600"
+                    ]}
+                  >
+                    <.icon name="hero-chevron-left" class="w-3.5 h-3.5" /> Fr
+                  </button>
+
+                  <button
+                    phx-click="move"
+                    phx-value-dir="back"
+                    phx-target={@myself}
+                    disabled={@status.at_back}
+                    class={[
+                      "flex-1 py-1.5 rounded font-bold text-xs shadow-sm transition-all text-white flex items-center justify-center active:scale-95",
+                      @status.at_back && "bg-gray-300 cursor-not-allowed opacity-50",
+                      !@status.at_back && "bg-blue-500 active:bg-blue-600"
+                    ]}
+                  >
+                    Bk <.icon name="hero-chevron-right" class="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              <% end %>
             <% end %>
           <% else %>
             <div class="w-full py-1.5 px-1 rounded font-bold text-[10px] text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
@@ -199,14 +205,19 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
   end
 
   defp calculate_display_data(%{error: :invalid_data}) do
-    %{is_error: false, is_moving: false, mode: :auto, state_text: "OFFLINE", color: "gray"}
+    %{is_error: false, is_moving: false, is_interlocked: false, mode: :auto, state_text: "OFFLINE", color: "gray"}
   end
 
   defp calculate_display_data(status) do
+    is_interlocked = Map.get(status, :interlocked, false)
+
     {color, text} =
       cond do
         status.error != nil ->
           {"rose", status.error_message || "ERROR"}
+
+        is_interlocked ->
+          {"amber", "BLOCKED"}
 
         status.moving ->
           dir_text =
@@ -231,6 +242,7 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
     %{
       is_error: status.error != nil,
       is_moving: status.moving,
+      is_interlocked: is_interlocked,
       mode: status.mode,
       state_text: text,
       color: color

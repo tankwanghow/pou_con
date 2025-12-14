@@ -54,30 +54,37 @@ defmodule PouConWeb.Components.Equipment.DungExitComponent do
             <% end %>
           </div>
 
-          <%= if !@display.is_offline do %>
-            <button
-              phx-click="toggle_power"
-              phx-target={@myself}
-              class={[
-                "w-full py-2 px-1 rounded font-bold text-[9px] shadow-sm transition-all text-white flex items-center justify-center gap-1 active:scale-95",
-                (@display.is_running or @display.is_error) && "bg-red-500 hover:bg-red-600",
-                (!@display.is_running and !@display.is_error) && "bg-emerald-500 hover:bg-emerald-600"
-              ]}
-            >
-              <.icon name="hero-power" class="w-3 h-3" />
-              <%= cond do %>
-                <% @display.is_error -> %>
-                  RESET
-                <% @display.is_running -> %>
-                  STOP
-                <% true -> %>
-                  START
-              <% end %>
-            </button>
-          <% else %>
+          <%= if @display.is_offline do %>
             <div class="w-full py-2 px-1 rounded font-bold text-[9px] text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
               Offline
             </div>
+          <% else %>
+            <%= if @display.is_interlocked do %>
+              <div class="w-full py-2 px-1 rounded font-bold text-[9px] text-center text-amber-600 bg-amber-100 border border-amber-300 cursor-not-allowed uppercase">
+                BLOCKED
+              </div>
+            <% else %>
+              <button
+                phx-click="toggle_power"
+                phx-target={@myself}
+                class={[
+                  "w-full py-2 px-1 rounded font-bold text-[9px] shadow-sm transition-all text-white flex items-center justify-center gap-1 active:scale-95",
+                  (@display.is_running or @display.is_error) && "bg-red-500 hover:bg-red-600",
+                  (!@display.is_running and !@display.is_error) &&
+                    "bg-emerald-500 hover:bg-emerald-600"
+                ]}
+              >
+                <.icon name="hero-power" class="w-3 h-3" />
+                <%= cond do %>
+                  <% @display.is_error -> %>
+                    RESET
+                  <% @display.is_running -> %>
+                    STOP
+                  <% true -> %>
+                    START
+                <% end %>
+              </button>
+            <% end %>
           <% end %>
         </div>
       </div>
@@ -114,6 +121,7 @@ defmodule PouConWeb.Components.Equipment.DungExitComponent do
       is_offline: true,
       is_error: false,
       is_running: false,
+      is_interlocked: false,
       state_text: "OFFLINE",
       color: "gray",
       anim_class: ""
@@ -123,11 +131,12 @@ defmodule PouConWeb.Components.Equipment.DungExitComponent do
   defp calculate_display_data(status) do
     is_running = status.is_running
     has_error = not is_nil(status.error)
+    is_interlocked = Map.get(status, :interlocked, false)
 
     {color, anim_class} =
       cond do
         has_error -> {"rose", ""}
-        # Use Amber for Dung/Agitator when running (Earth tone), or stick to Green if preferred
+        is_interlocked -> {"amber", ""}
         is_running -> {"green", "animate-bounce"}
         true -> {"violet", ""}
       end
@@ -136,7 +145,7 @@ defmodule PouConWeb.Components.Equipment.DungExitComponent do
       is_offline: false,
       is_error: has_error,
       is_running: is_running,
-      # Always Manual
+      is_interlocked: is_interlocked,
       state_text: if(is_running, do: "RUNNING", else: "STOPPED"),
       color: color,
       anim_class: anim_class,
