@@ -121,7 +121,7 @@ defmodule PouConWeb.Live.Lighting.Schedules do
           <.btn_link to={~p"/lighting"} label="Back" />
         </:actions>
       </.header>
-
+      
     <!-- Schedule Management -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Schedule Form -->
@@ -143,19 +143,19 @@ defmodule PouConWeb.Live.Lighting.Schedules do
                   required
                 />
               </div>
-
+              
     <!-- On Time -->
               <div>
                 <label class="block text-sm font-medium">On Time</label>
                 <.input type="time" field={@form[:on_time]} required />
               </div>
-
+              
     <!-- Off Time -->
               <div>
                 <label class="block text-sm font-medium">Off Time</label>
                 <.input type="time" field={@form[:off_time]} required />
               </div>
-
+              
     <!-- Enabled Checkbox -->
               <div class="flex items-center">
                 <label class="flex items-center gap-2">
@@ -163,7 +163,7 @@ defmodule PouConWeb.Live.Lighting.Schedules do
                   <span class="text-sm">Enabled</span>
                 </label>
               </div>
-
+              
     <!-- Buttons -->
               <div class="flex gap-2 items-center">
                 <.button type="submit">
@@ -182,7 +182,7 @@ defmodule PouConWeb.Live.Lighting.Schedules do
             </div>
           </.form>
         </div>
-
+        
     <!-- Schedule List -->
         <div>
           <%= if Enum.empty?(@schedules) do %>
@@ -199,7 +199,7 @@ defmodule PouConWeb.Live.Lighting.Schedules do
                     <span class="text-xs text-gray-300 block">({schedule.name})</span>
                   <% end %>
                 </div>
-
+                
     <!-- ON Time -->
                 <div class="flex items-center gap-1">
                   <span class="text-green-400 font-semibold text-xs">ON</span>
@@ -207,10 +207,10 @@ defmodule PouConWeb.Live.Lighting.Schedules do
                     {Calendar.strftime(schedule.on_time, "%I:%M %p")}
                   </span>
                 </div>
-
+                
     <!-- Separator -->
                 <span class="text-gray-400">|</span>
-
+                
     <!-- OFF Time -->
                 <div class="flex items-center gap-1">
                   <span class="text-rose-400 font-semibold text-xs">OFF</span>
@@ -218,10 +218,10 @@ defmodule PouConWeb.Live.Lighting.Schedules do
                     {Calendar.strftime(schedule.off_time, "%I:%M %p")}
                   </span>
                 </div>
-
+                
     <!-- Spacer -->
                 <div class="flex-1"></div>
-
+                
     <!-- CRUD Buttons -->
                 <div class="flex gap-1">
                   <button

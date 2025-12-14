@@ -168,8 +168,8 @@ defmodule PouConWeb.Live.Environment.Control do
                 class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
               />
             </div>
-            </div>
-            <div class="grid grid-cols-2 gap-2">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="text-gray-400 text-xs">
                 Pump Order <span class="text-gray-600">({Enum.join(@pumps, ", ")})</span>

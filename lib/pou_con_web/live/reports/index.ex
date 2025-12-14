@@ -179,15 +179,18 @@ defmodule PouConWeb.Live.Reports.Index do
             Errors
           </button>
         </div>
-
-        <!-- Equipment Events View -->
+        
+    <!-- Equipment Events View -->
         <%= if @view_mode == "events" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">
             <h3 class="text-lg font-semibold mb-3">Filter Events</h3>
             <.form for={%{}} phx-change="filter_events" class="grid grid-cols-4 gap-3">
               <div>
                 <label class="block text-sm mb-1">Equipment</label>
-                <select name="equipment" class="w-full bg-gray-900 border-gray-600 rounded text-white p-2">
+                <select
+                  name="equipment"
+                  class="w-full bg-gray-900 border-gray-600 rounded text-white p-2"
+                >
                   <option value="all" selected={@filter_equipment == "all"}>All Equipment</option>
                   <%= for name <- @equipment_names do %>
                     <option value={name} selected={@filter_equipment == name}>{name}</option>
@@ -197,7 +200,10 @@ defmodule PouConWeb.Live.Reports.Index do
 
               <div>
                 <label class="block text-sm mb-1">Event Type</label>
-                <select name="event_type" class="w-full bg-gray-900 border-gray-600 rounded text-white p-2">
+                <select
+                  name="event_type"
+                  class="w-full bg-gray-900 border-gray-600 rounded text-white p-2"
+                >
                   <option value="all" selected={@filter_event_type == "all"}>All Types</option>
                   <option value="start" selected={@filter_event_type == "start"}>Start</option>
                   <option value="stop" selected={@filter_event_type == "stop"}>Stop</option>
@@ -272,8 +278,8 @@ defmodule PouConWeb.Live.Reports.Index do
             <% end %>
           </div>
         <% end %>
-
-        <!-- Sensor Data View -->
+        
+    <!-- Sensor Data View -->
         <%= if @view_mode == "sensors" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">
             <h3 class="text-lg font-semibold mb-3">Select Sensor</h3>
@@ -328,8 +334,8 @@ defmodule PouConWeb.Live.Reports.Index do
             </div>
           <% end %>
         <% end %>
-
-        <!-- Daily Summaries View -->
+        
+    <!-- Daily Summaries View -->
         <%= if @view_mode == "summaries" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">
             <h3 class="text-lg font-semibold mb-3">Date Range</h3>
@@ -376,7 +382,9 @@ defmodule PouConWeb.Live.Reports.Index do
                     <td class="p-2 font-medium">{summary.equipment_name}</td>
                     <td class="p-2 text-gray-400">{summary.equipment_type}</td>
                     <td class="p-2 text-right text-yellow-400">
-                      {if summary.avg_temperature, do: Float.round(summary.avg_temperature, 1), else: "-"}
+                      {if summary.avg_temperature,
+                        do: Float.round(summary.avg_temperature, 1),
+                        else: "-"}
                     </td>
                     <td class="p-2 text-right text-blue-400">
                       {if summary.avg_humidity, do: Float.round(summary.avg_humidity, 1), else: "-"}
@@ -397,8 +405,8 @@ defmodule PouConWeb.Live.Reports.Index do
             <% end %>
           </div>
         <% end %>
-
-        <!-- Errors View -->
+        
+    <!-- Errors View -->
         <%= if @view_mode == "errors" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">
             <h3 class="text-lg font-semibold mb-3">Error Log</h3>

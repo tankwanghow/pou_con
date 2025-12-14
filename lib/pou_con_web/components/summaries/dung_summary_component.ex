@@ -11,17 +11,21 @@ defmodule PouConWeb.Components.Summaries.DungSummaryComponent do
 
     equipments =
       equipments
-      |> Enum.map(fn x -> Map.merge(x.status, calculate_dung_display_data(x.status)) end)
+      |> Enum.map(fn x -> Map.merge(x.status, calculate_dung_display_data(x.status, "spin")) end)
       |> Enum.sort_by(fn x -> x.title end)
 
     dunghs =
       dunghs
-      |> Enum.map(fn x -> Map.merge(x.status, calculate_dung_display_data(x.status)) end)
+      |> Enum.map(fn x ->
+        Map.merge(x.status, calculate_dung_display_data(x.status, "bounce"))
+      end)
       |> Enum.sort_by(fn x -> x.title end)
 
     dunges =
       dunges
-      |> Enum.map(fn x -> Map.merge(x.status, calculate_dung_display_data(x.status)) end)
+      |> Enum.map(fn x ->
+        Map.merge(x.status, calculate_dung_display_data(x.status, "bounce"))
+      end)
       |> Enum.sort_by(fn x -> x.title end)
 
     {:ok,
@@ -102,7 +106,7 @@ defmodule PouConWeb.Components.Summaries.DungSummaryComponent do
   # Calculation Logic
   # ——————————————————————————————————————————————————————————————
 
-  defp calculate_dung_display_data(%{error: :invalid_data}) do
+  defp calculate_dung_display_data(%{error: :invalid_data}, _) do
     %{
       is_offline: true,
       is_error: false,
@@ -113,7 +117,7 @@ defmodule PouConWeb.Components.Summaries.DungSummaryComponent do
     }
   end
 
-  defp calculate_dung_display_data(status) do
+  defp calculate_dung_display_data(status, animation) do
     is_running = status.is_running
     has_error = not is_nil(status.error)
 
@@ -121,7 +125,7 @@ defmodule PouConWeb.Components.Summaries.DungSummaryComponent do
       cond do
         has_error -> {"rose", ""}
         # Use Amber for Dung/Agitator when running (Earth tone), or stick to Green if preferred
-        is_running -> {"green", "animate-spin"}
+        is_running -> {"green", "animate-#{animation}"}
         true -> {"violet", ""}
       end
 

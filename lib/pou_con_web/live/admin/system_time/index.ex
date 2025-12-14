@@ -31,11 +31,15 @@ defmodule PouConWeb.Live.Admin.SystemTime.Index do
             <% end %>
           </h3>
           <div class="text-sm space-y-1">
-            <p><strong>Current System Time:</strong> <%= format_datetime(@validation_state.system_start_time) %></p>
-            <p :if={@validation_state.last_event_time}>
-              <strong>Last Event Time:</strong> <%= format_datetime(@validation_state.last_event_time) %>
+            <p>
+              <strong>Current System Time:</strong> {format_datetime(
+                @validation_state.system_start_time
+              )}
             </p>
-            <p><strong>Status:</strong> <%= @validation_state.validation_message %></p>
+            <p :if={@validation_state.last_event_time}>
+              <strong>Last Event Time:</strong> {format_datetime(@validation_state.last_event_time)}
+            </p>
+            <p><strong>Status:</strong> {@validation_state.validation_message}</p>
           </div>
 
           <%= if !@validation_state.time_valid? do %>
@@ -88,7 +92,7 @@ defmodule PouConWeb.Live.Admin.SystemTime.Index do
 
             <div class="mt-4 p-3 bg-white border border-gray-300 rounded text-sm">
               <p class="font-semibold mb-2">Current Device Time:</p>
-              <div class="text-2xl font-mono mb-2"><%= format_datetime(@current_time) %></div>
+              <div class="text-2xl font-mono mb-2">{format_datetime(@current_time)}</div>
               <.button type="button" phx-click="refresh_time">Refresh Time</.button>
             </div>
 
@@ -114,14 +118,25 @@ defmodule PouConWeb.Live.Admin.SystemTime.Index do
               The web form requires sudo permissions. If not configured, use SSH method:
             </p>
             <ol class="list-decimal list-inside space-y-1 mt-2 text-xs">
-              <li>SSH into the device: <code class="bg-gray-200 px-1 font-mono">ssh pi@192.168.x.x</code></li>
-              <li>Set time: <code class="bg-gray-200 px-1 font-mono">sudo date -s "2025-12-09 14:30:00"</code></li>
-              <li>Sync hardware clock: <code class="bg-gray-200 px-1 font-mono">sudo hwclock --systohc</code></li>
+              <li>
+                SSH into the device:
+                <code class="bg-gray-200 px-1 font-mono">ssh pi@192.168.x.x</code>
+              </li>
+              <li>
+                Set time:
+                <code class="bg-gray-200 px-1 font-mono">sudo date -s "2025-12-09 14:30:00"</code>
+              </li>
+              <li>
+                Sync hardware clock:
+                <code class="bg-gray-200 px-1 font-mono">sudo hwclock --systohc</code>
+              </li>
               <li>Return here and click "Resume Logging"</li>
             </ol>
             <div class="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
               <p class="text-xs font-semibold">First-time setup (run once):</p>
-              <code class="text-xs bg-gray-200 px-1 font-mono block mt-1">sudo bash setup_sudo.sh</code>
+              <code class="text-xs bg-gray-200 px-1 font-mono block mt-1">
+                sudo bash setup_sudo.sh
+              </code>
               <p class="text-xs text-gray-600 mt-1">
                 This enables the web form by configuring passwordless sudo for time commands.
               </p>

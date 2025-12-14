@@ -49,7 +49,8 @@ defmodule PouConWeb.AuthHooks do
       try do
         PouCon.SystemTimeValidator.time_valid?()
       rescue
-        _ -> true  # If validator not running, assume time is valid
+        # If validator not running, assume time is valid
+        _ -> true
       end
     end
   end

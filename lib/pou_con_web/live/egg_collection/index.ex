@@ -49,11 +49,33 @@ defmodule PouConWeb.Live.EggCollection.Index do
       |> Task.async_stream(
         fn eq ->
           status =
-            case EquipmentCommands.get_status(eq.name, 300) do
-              %{} = status_map -> status_map
-              {:error, :not_found} -> %{error: :not_running, error_message: "Controller not running"}
-              {:error, :timeout} -> %{error: :timeout, error_message: "Controller timeout"}
-              _ -> %{error: :unresponsive, error_message: "No response"}
+            case EquipmentCommands.get_status(eq.name) do
+              %{} = status_map ->
+                status_map
+
+              {:error, :not_found} ->
+                %{
+                  error: :not_running,
+                  error_message: "Controller not running",
+                  is_running: false,
+                  title: eq.title
+                }
+
+              {:error, :timeout} ->
+                %{
+                  error: :timeout,
+                  error_message: "Controller timeout",
+                  is_running: false,
+                  title: eq.title
+                }
+
+              _ ->
+                %{
+                  error: :unresponsive,
+                  error_message: "No response",
+                  is_running: false,
+                  title: eq.title
+                }
             end
 
           Map.put(eq, :status, status)
@@ -70,7 +92,12 @@ defmodule PouConWeb.Live.EggCollection.Index do
             name: "timeout",
             title: "Timeout",
             type: "unknown",
-            status: %{error: :timeout, error_message: "Task timeout"}
+            status: %{
+              error: :timeout,
+              error_message: "Task timeout",
+              is_running: false,
+              title: "Timeout"
+            }
           }
 
         _ ->
@@ -78,7 +105,12 @@ defmodule PouConWeb.Live.EggCollection.Index do
             name: "error",
             title: "Error",
             type: "unknown",
-            status: %{error: :unknown, error_message: "Unknown error"}
+            status: %{
+              error: :unknown,
+              error_message: "Unknown error",
+              is_running: false,
+              title: "Error"
+            }
           }
       end)
 
