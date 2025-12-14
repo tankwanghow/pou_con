@@ -16,8 +16,10 @@ defmodule PouCon.Logging.CleanupTask do
   @event_retention_days 30
   @sensor_retention_days 30
   @summary_retention_days 365
-  @cleanup_hour 3  # 3 AM
-  @vacuum_day 0  # Sunday
+  # 3 AM
+  @cleanup_hour 3
+  # Sunday
+  @vacuum_day 0
 
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
@@ -25,7 +27,10 @@ defmodule PouCon.Logging.CleanupTask do
 
   @impl true
   def init(state) do
-    Logger.info("CleanupTask started - retention: #{@event_retention_days} days events, #{@summary_retention_days} days summaries")
+    Logger.info(
+      "CleanupTask started - retention: #{@event_retention_days} days events, #{@summary_retention_days} days summaries"
+    )
+
     schedule_cleanup()
     {:ok, state}
   end
@@ -68,12 +73,18 @@ defmodule PouCon.Logging.CleanupTask do
 
     # Delete old equipment events
     event_cutoff = DateTime.utc_now() |> DateTime.add(-@event_retention_days, :day)
-    {event_count, _} = Repo.delete_all(from e in EquipmentEvent, where: e.inserted_at < ^event_cutoff)
+
+    {event_count, _} =
+      Repo.delete_all(from e in EquipmentEvent, where: e.inserted_at < ^event_cutoff)
+
     Logger.info("Deleted #{event_count} old equipment events")
 
     # Delete old sensor snapshots
     sensor_cutoff = DateTime.utc_now() |> DateTime.add(-@sensor_retention_days, :day)
-    {sensor_count, _} = Repo.delete_all(from s in SensorSnapshot, where: s.inserted_at < ^sensor_cutoff)
+
+    {sensor_count, _} =
+      Repo.delete_all(from s in SensorSnapshot, where: s.inserted_at < ^sensor_cutoff)
+
     Logger.info("Deleted #{sensor_count} old sensor snapshots")
 
     # Delete old daily summaries

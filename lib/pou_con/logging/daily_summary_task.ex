@@ -204,7 +204,7 @@ defmodule PouCon.Logging.DailySummaryTask do
   def get_summaries(from_date, to_date) do
     DailySummary
     |> where([d], d.date >= ^from_date and d.date <= ^to_date)
-    |> order_by([d], [asc: d.date, asc: d.equipment_name])
+    |> order_by([d], asc: d.date, asc: d.equipment_name)
     |> Repo.all()
   end
 
@@ -228,7 +228,10 @@ defmodule PouCon.Logging.DailySummaryTask do
       end)
       |> Enum.reject(&is_nil/1)
 
-    case Repo.insert_all(DailySummary, summaries, on_conflict: :replace_all, conflict_target: [:date, :equipment_name]) do
+    case Repo.insert_all(DailySummary, summaries,
+           on_conflict: :replace_all,
+           conflict_target: [:date, :equipment_name]
+         ) do
       {count, _} ->
         Logger.info("Generated #{count} summaries for #{date}")
         {:ok, count}

@@ -9,7 +9,7 @@ defmodule PouCon.Application do
         PouConWeb.Telemetry,
         PouCon.Repo
       ] ++
-        (if Mix.env() != :test do
+        if Mix.env() != :test do
           [
             # CRITICAL: Validate system time before any logging occurs
             # Compares current time with last logged event to detect RTC failures
@@ -17,41 +17,47 @@ defmodule PouCon.Application do
           ]
         else
           []
-        end) ++
-      [
-        PouCon.Hardware.PortSupervisor,
-        PouCon.Hardware.DeviceManager,
+        end ++
+        [
+          PouCon.Hardware.PortSupervisor,
+          PouCon.Hardware.DeviceManager,
 
-        # ——————————————————————————————————————————
-        # CRITICAL: Registry must start BEFORE the DynamicSupervisor
-        # ——————————————————————————————————————————
-        {Registry, keys: :unique, name: PouCon.DeviceControllerRegistry},
+          # ——————————————————————————————————————————
+          # CRITICAL: Registry must start BEFORE the DynamicSupervisor
+          # ——————————————————————————————————————————
+          {Registry, keys: :unique, name: PouCon.DeviceControllerRegistry},
 
-        # ——————————————————————————————————————————
-        # THIS IS THE FIX THAT MAKES DEAD CONTROLLERS COME BACK
-        # ——————————————————————————————————————————
-        {
-          DynamicSupervisor,
-          # ← practically infinite
-          # ← restart as fast as possible
-          strategy: :one_for_one,
-          name: PouCon.Equipment.DeviceControllerSupervisor,
-          max_restarts: 1_000_000,
-          max_seconds: 1
-        },
+          # ——————————————————————————————————————————
+          # THIS IS THE FIX THAT MAKES DEAD CONTROLLERS COME BACK
+          # ——————————————————————————————————————————
+          {
+            DynamicSupervisor,
+            # ← practically infinite
+            # ← restart as fast as possible
+            strategy: :one_for_one,
+            name: PouCon.Equipment.DeviceControllerSupervisor,
+            max_restarts: 1_000_000,
+            max_seconds: 1
+          },
 
-        # ——————————————————————————————————————————
-        # Keep the rest exactly as you had
-        # ——————————————————————————————————————————
-        {Ecto.Migrator,
-         repos: Application.fetch_env!(:pou_con, :ecto_repos), skip: skip_migrations?()},
-        {DNSCluster, query: Application.get_env(:pou_con, :dns_cluster_query) || :ignore},
-        {Phoenix.PubSub, name: PouCon.PubSub}
-      ] ++
+          # ——————————————————————————————————————————
+          # Keep the rest exactly as you had
+          # ——————————————————————————————————————————
+          {Ecto.Migrator,
+           repos: Application.fetch_env!(:pou_con, :ecto_repos), skip: skip_migrations?()},
+          {DNSCluster, query: Application.get_env(:pou_con, :dns_cluster_query) || :ignore},
+          {Phoenix.PubSub, name: PouCon.PubSub}
+        ] ++
         if Mix.env() != :test do
           [
             # Task supervisor for async logging writes
             {Task.Supervisor, name: PouCon.TaskSupervisor},
+
+            # ——————————————————————————————————————————
+            # CRITICAL: InterlockController must start BEFORE EquipmentLoader
+            # Equipment controllers check interlocks during sync_and_update
+            # ——————————————————————————————————————————
+            PouCon.Automation.Interlock.InterlockController,
 
             # Load and start all equipment controllers
             {Task, fn -> PouCon.Equipment.EquipmentLoader.load_and_start_controllers() end},
@@ -78,10 +84,7 @@ defmodule PouCon.Application do
             PouCon.Automation.Feeding.FeedingScheduler,
 
             # FeedIn controller - automated FeedIn filling trigger monitoring
-            PouCon.Automation.Feeding.FeedInController,
-
-            # Interlock controller - configurable safety chain enforcement
-            PouCon.Automation.Interlock.InterlockController
+            PouCon.Automation.Feeding.FeedInController
           ]
         else
           []

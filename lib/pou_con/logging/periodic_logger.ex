@@ -13,7 +13,8 @@ defmodule PouCon.Logging.PeriodicLogger do
   alias PouCon.Logging.Schemas.SensorSnapshot
   alias PouCon.Repo
 
-  @snapshot_interval_ms 30 * 60 * 1000  # 30 minutes
+  # 30 minutes
+  @snapshot_interval_ms 30 * 60 * 1000
 
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
@@ -44,25 +45,24 @@ defmodule PouCon.Logging.PeriodicLogger do
     if Mix.env() != :test and not time_valid?() do
       Logger.debug("Skipping sensor snapshot - system time invalid")
     else
+      sensors =
+        Devices.list_equipment()
+        |> Enum.filter(&(&1.type == "temp_hum_sensor"))
 
-    sensors =
-      Devices.list_equipment()
-      |> Enum.filter(&(&1.type == "temp_hum_sensor"))
+      timestamp = DateTime.utc_now()
 
-    timestamp = DateTime.utc_now()
+      snapshots =
+        Enum.map(sensors, fn sensor ->
+          status = EquipmentCommands.get_status(sensor.name, 500)
 
-    snapshots =
-      Enum.map(sensors, fn sensor ->
-        status = EquipmentCommands.get_status(sensor.name, 500)
-
-        %{
-          equipment_name: sensor.name,
-          temperature: status[:temperature],
-          humidity: status[:humidity],
-          dew_point: status[:dew_point],
-          inserted_at: timestamp
-        }
-      end)
+          %{
+            equipment_name: sensor.name,
+            temperature: status[:temperature],
+            humidity: status[:humidity],
+            dew_point: status[:dew_point],
+            inserted_at: timestamp
+          }
+        end)
 
       # Batch insert all snapshots
       case insert_snapshots(snapshots) do

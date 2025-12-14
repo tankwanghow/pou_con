@@ -96,7 +96,8 @@ defmodule PouCon.SystemTimeValidator do
             time_valid?: false,
             last_event_time: last_event_time,
             system_start_time: system_time,
-            validation_message: "Last event is #{time_diff}s in the future. RTC battery may be dead."
+            validation_message:
+              "Last event is #{time_diff}s in the future. RTC battery may be dead."
           }
         else
           Logger.info("System time validation passed")

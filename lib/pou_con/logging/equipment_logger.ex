@@ -68,9 +68,7 @@ defmodule PouCon.Logging.EquipmentLogger do
   def log_event(attrs) do
     # Check if system time is valid before logging (skip in test env)
     if Mix.env() != :test and not time_valid?() do
-      Logger.debug(
-        "Skipping log event for #{attrs[:equipment_name]} - system time invalid"
-      )
+      Logger.debug("Skipping log event for #{attrs[:equipment_name]} - system time invalid")
 
       :time_invalid
     else
@@ -99,7 +97,8 @@ defmodule PouCon.Logging.EquipmentLogger do
     try do
       PouCon.SystemTimeValidator.time_valid?()
     rescue
-      _ -> true  # If validator not running, assume time is valid
+      # If validator not running, assume time is valid
+      _ -> true
     end
   end
 
