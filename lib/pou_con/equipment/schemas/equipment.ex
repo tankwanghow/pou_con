@@ -24,13 +24,15 @@ defmodule PouCon.Equipment.Schemas.Equipment do
         "temp_sensor",
         "hum_sensor",
         "temp_hum_sensor",
+        "water_meter",
         "feeding",
         "egg",
         "dung",
         "dung_horz",
         "dung_exit",
         "feed_in",
-        "light"
+        "light",
+        "water_meter"
       ],
       message: "unsupported type"
     )
@@ -77,7 +79,7 @@ defmodule PouCon.Equipment.Schemas.Equipment do
 
   defp required_keys_for_type("fan"), do: [:on_off_coil, :running_feedback, :auto_manual]
   defp required_keys_for_type("pump"), do: [:on_off_coil, :running_feedback, :auto_manual]
-  defp required_keys_for_type("egg"), do: [:on_off_coil, :running_feedback, :auto_manual]
+  defp required_keys_for_type("egg"), do: [:on_off_coil, :running_feedback, :auto_manual, :manual_switch]
   defp required_keys_for_type("light"), do: [:on_off_coil, :running_feedback, :auto_manual]
   defp required_keys_for_type("dung"), do: [:on_off_coil, :running_feedback]
   defp required_keys_for_type("dung_horz"), do: [:on_off_coil, :running_feedback]
@@ -101,7 +103,8 @@ defmodule PouCon.Equipment.Schemas.Equipment do
       :full_switch
     ]
 
-  # Define as needed
+  # Sensor types
   defp required_keys_for_type("temp_hum_sensor"), do: [:sensor]
+  defp required_keys_for_type("water_meter"), do: [:meter]
   defp required_keys_for_type(_), do: []
 end

@@ -2,6 +2,9 @@ defmodule PouCon.Application do
   @moduledoc false
   use Application
 
+  # Capture Mix.env at compile time since Mix is not available in releases
+  @env Mix.env()
+
   @impl true
   def start(_type, _args) do
     children =
@@ -9,7 +12,7 @@ defmodule PouCon.Application do
         PouConWeb.Telemetry,
         PouCon.Repo
       ] ++
-        if Mix.env() != :test do
+        if @env != :test do
           [
             # CRITICAL: Validate system time before any logging occurs
             # Compares current time with last logged event to detect RTC failures
@@ -48,7 +51,7 @@ defmodule PouCon.Application do
           {DNSCluster, query: Application.get_env(:pou_con, :dns_cluster_query) || :ignore},
           {Phoenix.PubSub, name: PouCon.PubSub}
         ] ++
-        if Mix.env() != :test do
+        if @env != :test do
           [
             # Task supervisor for async logging writes
             {Task.Supervisor, name: PouCon.TaskSupervisor},

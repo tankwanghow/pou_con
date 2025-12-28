@@ -169,7 +169,7 @@ defmodule PouConWeb.Live.Environment.Control do
               />
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-1 gap-2">
             <div>
               <label class="text-gray-400 text-xs">
                 Pump Order <span class="text-gray-600">({Enum.join(@pumps, ", ")})</span>
@@ -178,15 +178,6 @@ defmodule PouConWeb.Live.Environment.Control do
                 type="text"
                 name="config[pump_order]"
                 value={Ecto.Changeset.get_field(@changeset, :pump_order)}
-                class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
-              />
-            </div>
-            <div>
-              <label class="text-gray-400 text-xs">NC Fans (inverted logic)</label>
-              <input
-                type="text"
-                name="config[nc_fans]"
-                value={Ecto.Changeset.get_field(@changeset, :nc_fans) || ""}
                 class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
               />
             </div>

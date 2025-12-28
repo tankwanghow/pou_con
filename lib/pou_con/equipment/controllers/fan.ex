@@ -19,7 +19,10 @@ defmodule PouCon.Equipment.Controllers.Fan do
       is_running: false,
       mode: :auto,
       error: nil,
-      interlocked: false
+      interlocked: false,
+      # Inverted logic for fail-safe fans (NC relay wiring)
+      # When true: coil OFF = fan runs, coil ON = fan stops
+      inverted: false
     ]
   end
 
@@ -62,7 +65,8 @@ defmodule PouCon.Equipment.Controllers.Fan do
       title: opts[:title] || name,
       on_off_coil: opts[:on_off_coil] || raise("Missing :on_off_coil"),
       running_feedback: opts[:running_feedback] || raise("Missing :running_feedback"),
-      auto_manual: opts[:auto_manual] || raise("Missing :auto_manual")
+      auto_manual: opts[:auto_manual] || raise("Missing :auto_manual"),
+      inverted: opts[:inverted] || false
     }
 
     Phoenix.PubSub.subscribe(PouCon.PubSub, "device_data")
@@ -118,7 +122,8 @@ defmodule PouCon.Equipment.Controllers.Fan do
   def handle_cast(:set_auto, state) do
     Logger.info("[#{state.name}] → AUTO mode")
     @device_manager.command(state.auto_manual, :set_state, %{state: 0})
-    {:noreply, sync_coil(%{state | mode: :auto})}
+    # Turn off the coil when switching to AUTO mode (start with clean state)
+    {:noreply, sync_coil(%{state | mode: :auto, commanded_on: false})}
   end
 
   @impl GenServer
@@ -144,7 +149,15 @@ defmodule PouCon.Equipment.Controllers.Fan do
       end
     end
 
-    case @device_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)}) do
+    # For inverted wiring (fail-safe fans): coil OFF = fan runs, coil ON = fan stops
+    coil_value =
+      if state.inverted do
+        if(cmd, do: 0, else: 1)
+      else
+        if(cmd, do: 1, else: 0)
+      end
+
+    case @device_manager.command(coil, :set_state, %{state: coil_value}) do
       {:ok, :success} ->
         sync_and_update(state)
 
@@ -198,7 +211,14 @@ defmodule PouCon.Equipment.Controllers.Fan do
             {:ok, %{:state => fb_state}} = fb_res
             {:ok, %{:state => mode_state}} = mode_res
 
-            actual_on = coil_state == 1
+            # For inverted wiring: coil OFF (0) = fan ON, coil ON (1) = fan OFF
+            actual_on =
+              if state.inverted do
+                coil_state == 0
+              else
+                coil_state == 1
+              end
+
             is_running = fb_state == 1
             mode = if mode_state == 1, do: :manual, else: :auto
 
@@ -325,7 +345,8 @@ defmodule PouCon.Equipment.Controllers.Fan do
       mode: state.mode,
       error: state.error,
       error_message: error_message(state.error),
-      interlocked: state.interlocked
+      interlocked: state.interlocked,
+      inverted: state.inverted
     }
 
     {:reply, reply, state}

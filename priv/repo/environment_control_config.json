@@ -1,0 +1,21 @@
+{
+"environment_control_config": [
+	{
+		"id" : 1,
+		"temp_min" : 25,
+		"temp_max" : 32,
+		"hum_min" : 40,
+		"hum_max" : 80,
+		"min_fans" : 7,
+		"max_fans" : 14,
+		"min_pumps" : 0,
+		"max_pumps" : 3,
+		"fan_order" : "fan_1, fan_2, fan_3, fan_4, fan_5, fan_6, fan_7, fan_8, fan_9, fan_10, fan_11, fan_12, fan_13, fan_14",
+		"pump_order" : "pump_1, pump_2, pump_3",
+		"hysteresis" : 2,
+		"enabled" : 1,
+		"inserted_at" : "2025-12-05T09:48:06",
+		"updated_at" : "2025-12-09T06:30:38",
+		"stagger_delay_seconds" : 5
+	}
+]}

@@ -144,7 +144,8 @@ defmodule PouCon.Equipment.Controllers.Light do
         Logger.error("[#{state.name}] Set auto failed: #{inspect(reason)}")
     end
 
-    {:noreply, sync_coil(%{state | mode: :auto})}
+    # Turn off the coil when switching to AUTO mode (start with clean state)
+    {:noreply, sync_coil(%{state | mode: :auto, commanded_on: false})}
   end
 
   # ——————————————————————————————————————————————————————————————

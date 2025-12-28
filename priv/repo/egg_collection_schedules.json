@@ -1,0 +1,43 @@
+{
+"egg_collection_schedules": [
+	{
+		"id" : 1,
+		"equipment_id" : 15,
+		"name" : null,
+		"start_time" : "08:00:00",
+		"stop_time" : "09:00:00",
+		"enabled" : 1,
+		"inserted_at" : "2025-12-07T12:12:57",
+		"updated_at" : "2025-12-07T12:12:57"
+	},
+	{
+		"id" : 2,
+		"equipment_id" : 33,
+		"name" : null,
+		"start_time" : "09:00:00",
+		"stop_time" : "10:00:00",
+		"enabled" : 1,
+		"inserted_at" : "2025-12-07T12:13:21",
+		"updated_at" : "2025-12-07T12:13:21"
+	},
+	{
+		"id" : 3,
+		"equipment_id" : 34,
+		"name" : null,
+		"start_time" : "08:00:00",
+		"stop_time" : "09:00:00",
+		"enabled" : 1,
+		"inserted_at" : "2025-12-07T12:13:38",
+		"updated_at" : "2025-12-07T12:13:38"
+	},
+	{
+		"id" : 4,
+		"equipment_id" : 35,
+		"name" : null,
+		"start_time" : "09:00:00",
+		"stop_time" : "10:00:00",
+		"enabled" : 1,
+		"inserted_at" : "2025-12-07T12:13:53",
+		"updated_at" : "2025-12-07T12:13:53"
+	}
+]}

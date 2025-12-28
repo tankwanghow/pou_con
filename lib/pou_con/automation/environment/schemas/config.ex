@@ -15,7 +15,6 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
     field :pump_order, :string, default: ""
     field :hysteresis, :float, default: 2.0
     field :stagger_delay_seconds, :integer, default: 5
-    field :nc_fans, :string, default: ""
     field :enabled, :boolean, default: false
 
     timestamps()
@@ -36,7 +35,6 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
       :pump_order,
       :hysteresis,
       :stagger_delay_seconds,
-      :nc_fans,
       :enabled
     ])
     |> validate_required([:temp_min, :temp_max, :hum_min, :hum_max])

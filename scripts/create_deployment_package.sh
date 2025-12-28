@@ -97,6 +97,7 @@ Environment="DATABASE_PATH=/var/lib/pou_con/pou_con_prod.db"
 Environment="SECRET_KEY_BASE=CHANGE_THIS_SECRET_KEY"
 Environment="PHX_HOST=localhost"
 Environment="MIX_ENV=prod"
+Environment="PHX_SERVER=true"
 ExecStart=/opt/pou_con/bin/pou_con start
 ExecStop=/opt/pou_con/bin/pou_con stop
 Restart=always
@@ -115,14 +116,14 @@ EOSERVICE
 
 echo "8. Generating SECRET_KEY_BASE..."
 SECRET_KEY=$(openssl rand -base64 48)
-sed -i "s/CHANGE_THIS_SECRET_KEY/$SECRET_KEY/" /etc/systemd/system/pou_con.service
+sed -i "s|CHANGE_THIS_SECRET_KEY|$SECRET_KEY|" /etc/systemd/system/pou_con.service
 
 echo "9. Reloading systemd..."
 systemctl daemon-reload
 
 echo "10. Running database migrations..."
 cd "$INSTALL_DIR"
-sudo -u "$SERVICE_USER" DATABASE_PATH="$DATA_DIR/pou_con_prod.db" ./bin/pou_con eval "PouCon.Release.migrate"
+sudo -u "$SERVICE_USER" DATABASE_PATH="$DATA_DIR/pou_con_prod.db" SECRET_KEY_BASE="$SECRET_KEY" ./bin/pou_con eval "PouCon.Release.migrate"
 
 echo "11. Verifying database permissions..."
 if [ -f "$DATA_DIR/pou_con_prod.db" ]; then

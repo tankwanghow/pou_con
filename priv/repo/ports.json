@@ -1,0 +1,25 @@
+{
+"ports": [
+	{
+		"id" : 1,
+		"device_path" : "ttyUSB0",
+		"speed" : 9600,
+		"parity" : "none",
+		"data_bits" : 8,
+		"stop_bits" : 1,
+		"description" : null,
+		"inserted_at" : "2025-10-31T05:06:01",
+		"updated_at" : "2025-10-31T05:06:01"
+	},
+	{
+		"id" : 2,
+		"device_path" : "virtual",
+		"speed" : 9600,
+		"parity" : "none",
+		"data_bits" : 8,
+		"stop_bits" : 1,
+		"description" : "Virtual Port",
+		"inserted_at" : "2025-10-31T08:34:00",
+		"updated_at" : "2025-10-31T08:34:00"
+	}
+]}

@@ -27,6 +27,9 @@ defmodule PouCon.Equipment.EquipmentLoader do
             "temp_hum_sensor" ->
               PouCon.Equipment.Controllers.TempHumSen
 
+            "water_meter" ->
+              PouCon.Equipment.Controllers.WaterMeter
+
             "pump" ->
               PouCon.Equipment.Controllers.Pump
 

@@ -1,0 +1,102 @@
+{
+"feeding_schedules": [
+	{
+		"id" : 1,
+		"move_to_back_limit_time" : "08:00:00",
+		"move_to_front_limit_time" : "07:30:00",
+		"feedin_front_limit_bucket_id" : 14,
+		"enabled" : 1,
+		"inserted_at" : "2025-12-07T10:03:19",
+		"updated_at" : "2025-12-14T03:56:03"
+	},
+	{
+		"id" : 2,
+		"move_to_back_limit_time" : "08:00:00",
+		"move_to_front_limit_time" : "08:30:00",
+		"feedin_front_limit_bucket_id" : 14,
+		"enabled" : 1,
+		"inserted_at" : "2025-12-07T10:05:59",
+		"updated_at" : "2025-12-09T06:29:55"
+	},
+	{
+		"id" : 3,
+		"move_to_back_limit_time" : "09:00:00",
+		"move_to_front_limit_time" : "09:30:00",
+		"feedin_front_limit_bucket_id" : 14,
+		"enabled" : 1,
+		"inserted_at" : "2025-12-07T10:09:49",
+		"updated_at" : "2025-12-09T06:29:56"
+	},
+	{
+		"id" : 4,
+		"move_to_back_limit_time" : "10:00:00",
+		"move_to_front_limit_time" : "10:30:00",
+		"feedin_front_limit_bucket_id" : 14,
+		"enabled" : 1,
+		"inserted_at" : "2025-12-07T10:10:05",
+		"updated_at" : "2025-12-09T06:29:57"
+	},
+	{
+		"id" : 5,
+		"move_to_back_limit_time" : "11:00:00",
+		"move_to_front_limit_time" : "11:30:00",
+		"feedin_front_limit_bucket_id" : 14,
+		"enabled" : 1,
+		"inserted_at" : "2025-12-07T10:10:54",
+		"updated_at" : "2025-12-09T06:29:58"
+	},
+	{
+		"id" : 6,
+		"move_to_back_limit_time" : "12:00:00",
+		"move_to_front_limit_time" : "12:30:00",
+		"feedin_front_limit_bucket_id" : 14,
+		"enabled" : 1,
+		"inserted_at" : "2025-12-07T10:11:28",
+		"updated_at" : "2025-12-09T06:29:59"
+	},
+	{
+		"id" : 7,
+		"move_to_back_limit_time" : "13:00:00",
+		"move_to_front_limit_time" : "13:30:00",
+		"feedin_front_limit_bucket_id" : 14,
+		"enabled" : 1,
+		"inserted_at" : "2025-12-07T10:14:32",
+		"updated_at" : "2025-12-09T06:30:00"
+	},
+	{
+		"id" : 8,
+		"move_to_back_limit_time" : "14:00:00",
+		"move_to_front_limit_time" : "14:30:00",
+		"feedin_front_limit_bucket_id" : 14,
+		"enabled" : 1,
+		"inserted_at" : "2025-12-07T10:14:46",
+		"updated_at" : "2025-12-09T06:30:01"
+	},
+	{
+		"id" : 9,
+		"move_to_back_limit_time" : "15:00:00",
+		"move_to_front_limit_time" : "15:30:00",
+		"feedin_front_limit_bucket_id" : 14,
+		"enabled" : 1,
+		"inserted_at" : "2025-12-07T10:15:01",
+		"updated_at" : "2025-12-09T06:30:02"
+	},
+	{
+		"id" : 10,
+		"move_to_back_limit_time" : "16:00:00",
+		"move_to_front_limit_time" : "16:30:00",
+		"feedin_front_limit_bucket_id" : 14,
+		"enabled" : 1,
+		"inserted_at" : "2025-12-07T10:15:18",
+		"updated_at" : "2025-12-09T06:30:03"
+	},
+	{
+		"id" : 11,
+		"move_to_back_limit_time" : "17:00:00",
+		"move_to_front_limit_time" : "17:30:00",
+		"feedin_front_limit_bucket_id" : 14,
+		"enabled" : 1,
+		"inserted_at" : "2025-12-07T10:15:34",
+		"updated_at" : "2025-12-09T06:30:04"
+	}
+]}

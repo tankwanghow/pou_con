@@ -202,12 +202,14 @@ defmodule PouConWeb.Live.Dashboard.Index do
           <% temphums = Enum.filter(@equipment, &(&1.type == "temp_hum_sensor")) %>
           <% fans = Enum.filter(@equipment, &(&1.type == "fan")) %>
           <% pumps = Enum.filter(@equipment, &(&1.type == "pump")) %>
+          <% water_meters = Enum.filter(@equipment, &(&1.type == "water_meter")) %>
           <.live_component
             module={PouConWeb.Components.Summaries.EnvironmentComponent}
             id="environment"
             pumps={pumps}
             fans={fans}
             temphums={temphums}
+            water_meters={water_meters}
           />
         </div>
       <% end %>

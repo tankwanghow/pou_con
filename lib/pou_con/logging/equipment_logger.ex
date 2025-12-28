@@ -11,6 +11,9 @@ defmodule PouCon.Logging.EquipmentLogger do
 
   require Logger
 
+  # Capture Mix.env at compile time since Mix is not available in releases
+  @env Mix.env()
+
   @doc """
   Log equipment start event.
 
@@ -67,7 +70,7 @@ defmodule PouCon.Logging.EquipmentLogger do
   """
   def log_event(attrs) do
     # Check if system time is valid before logging (skip in test env)
-    if Mix.env() != :test and not time_valid?() do
+    if @env != :test and not time_valid?() do
       Logger.debug("Skipping log event for #{attrs[:equipment_name]} - system time invalid")
 
       :time_invalid

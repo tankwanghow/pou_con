@@ -2,6 +2,9 @@ defmodule PouConWeb.AuthHooks do
   import Phoenix.LiveView
   import Phoenix.Component
 
+  # Capture Mix.env at compile time since Mix is not available in releases
+  @env Mix.env()
+
   def on_mount(:default, _params, _session, socket) do
     {:cont, socket}
   end
@@ -43,7 +46,7 @@ defmodule PouConWeb.AuthHooks do
   # Helper to safely check time validity
   defp check_time_valid? do
     # Skip check in test environment
-    if Mix.env() == :test do
+    if @env == :test do
       true
     else
       try do

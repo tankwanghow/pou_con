@@ -14,6 +14,9 @@ defmodule PouCon.Equipment.Controllers.Egg do
       :on_off_coil,
       :running_feedback,
       :auto_manual,
+      # Physical selector switch for manual control (optional, nil if not configured)
+      # Only active in MANUAL mode - ignored in AUTO mode
+      :manual_switch,
       # Operator intent
       :commanded_on,
       # Current coil state
@@ -22,6 +25,8 @@ defmodule PouCon.Equipment.Controllers.Egg do
       # :auto | :manual
       :mode,
       :error,
+      # Track last switch position for edge detection (only log on change)
+      last_switch_on: false,
       interlocked: false
     ]
   end
@@ -68,6 +73,7 @@ defmodule PouCon.Equipment.Controllers.Egg do
       on_off_coil: opts[:on_off_coil] || raise("Missing :on_off_coil"),
       running_feedback: opts[:running_feedback] || raise("Missing :running_feedback"),
       auto_manual: opts[:auto_manual] || raise("Missing :auto_manual"),
+      manual_switch: opts[:manual_switch],
       commanded_on: false,
       actual_on: false,
       is_running: false,
@@ -144,7 +150,8 @@ defmodule PouCon.Equipment.Controllers.Egg do
         Logger.error("[#{state.name}] Set auto failed: #{inspect(reason)}")
     end
 
-    {:noreply, sync_coil(%{state | mode: :auto})}
+    # Turn off the coil when switching to AUTO mode (start with clean state)
+    {:noreply, sync_coil(%{state | mode: :auto, commanded_on: false})}
   end
 
   # ——————————————————————————————————————————————————————————————
@@ -222,9 +229,17 @@ defmodule PouCon.Equipment.Controllers.Egg do
     fb_res = @device_manager.get_cached_data(state.running_feedback)
     mode_res = @device_manager.get_cached_data(state.auto_manual)
 
+    # Read manual switch if configured
+    switch_res =
+      if state.manual_switch do
+        @device_manager.get_cached_data(state.manual_switch)
+      else
+        nil
+      end
+
     results = [coil_res, fb_res, mode_res]
 
-    {new_state, temp_error} =
+    {new_state, temp_error, switch_changed} =
       cond do
         Enum.any?(results, &match?({:error, _}, &1)) ->
           Logger.error("[#{state.name}] Sensor timeout → entering safe state")
@@ -237,7 +252,7 @@ defmodule PouCon.Equipment.Controllers.Egg do
               error: :timeout
           }
 
-          {safe, :timeout}
+          {safe, :timeout, false}
 
         true ->
           try do
@@ -249,19 +264,36 @@ defmodule PouCon.Equipment.Controllers.Egg do
             is_running = fb_state == 1
             mode = if mode_state == 1, do: :manual, else: :auto
 
+            # Read switch position (only used in MANUAL mode)
+            switch_on = read_switch_position(switch_res)
+
+            # Detect switch position change (edge detection)
+            switch_changed =
+              state.manual_switch != nil and switch_on != state.last_switch_on
+
+            # In MANUAL mode with switch configured, switch controls commanded_on
+            commanded_on =
+              if mode == :manual and state.manual_switch != nil do
+                switch_on
+              else
+                state.commanded_on
+              end
+
             updated = %State{
               state
               | actual_on: actual_on,
                 is_running: is_running,
                 mode: mode,
+                commanded_on: commanded_on,
+                last_switch_on: switch_on,
                 error: nil
             }
 
-            {updated, nil}
+            {updated, nil, switch_changed}
           rescue
             e in [MatchError, KeyError] ->
               Logger.error("[#{state.name}] Data parsing error: #{Exception.format(:error, e)}")
-              {%State{state | error: :invalid_data}, :invalid_data}
+              {%State{state | error: :invalid_data}, :invalid_data, false}
           end
       end
 
@@ -283,7 +315,15 @@ defmodule PouCon.Equipment.Controllers.Egg do
         false
       end
 
-    %State{new_state | error: error, interlocked: interlocked}
+    final_state = %State{new_state | error: error, interlocked: interlocked}
+
+    # In MANUAL mode with switch, sync coil ONLY when switch position changes
+    if final_state.mode == :manual and switch_changed and
+         final_state.commanded_on != final_state.actual_on do
+      sync_coil(final_state)
+    else
+      final_state
+    end
   end
 
   # Defensive: never crash on nil state
@@ -291,6 +331,13 @@ defmodule PouCon.Equipment.Controllers.Egg do
     Logger.error("Egg: sync_and_update called with nil state!")
     %State{name: "recovered", error: :crashed_previously}
   end
+
+  # Read switch position from device data result
+  defp read_switch_position(nil), do: false
+  defp read_switch_position({:error, _}), do: false
+  defp read_switch_position({:ok, %{state: 1}}), do: true
+  defp read_switch_position({:ok, %{state: 0}}), do: false
+  defp read_switch_position(_), do: false
 
   defp detect_error(_state, temp_error) when temp_error != nil, do: temp_error
 

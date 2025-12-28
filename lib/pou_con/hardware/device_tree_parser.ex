@@ -14,11 +14,22 @@ defmodule PouCon.Hardware.DeviceTreeParser do
             value_str = String.trim(value_part)
 
             value =
-              if String.starts_with?(value_str, "\"") and String.ends_with?(value_str, "\"") do
-                inner = String.slice(value_str, 1..-2//1)
-                String.trim(inner)
-              else
-                value_str
+              cond do
+                # Handle quoted strings
+                String.starts_with?(value_str, "\"") and String.ends_with?(value_str, "\"") ->
+                  inner = String.slice(value_str, 1..-2//1)
+                  String.trim(inner)
+
+                # Handle boolean values
+                value_str in ["true", "True", "TRUE"] ->
+                  true
+
+                value_str in ["false", "False", "FALSE"] ->
+                  false
+
+                # Default: keep as string
+                true ->
+                  value_str
               end
 
             if key == "" or value == "" do

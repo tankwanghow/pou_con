@@ -19,6 +19,9 @@ defmodule PouConWeb.Live.Reports.Index do
       |> assign(:filter_mode, "all")
       |> assign(:filter_hours, "24")
       |> assign(:selected_sensor, nil)
+      |> assign(:selected_water_meter, nil)
+      |> assign(:water_meter_snapshots, [])
+      |> assign(:daily_consumption, [])
       |> assign(:date_from, Date.add(Date.utc_today(), -7))
       |> assign(:date_to, Date.utc_today())
       |> load_data()
@@ -47,6 +50,10 @@ defmodule PouConWeb.Live.Reports.Index do
     {:noreply, socket |> assign(:selected_sensor, sensor) |> load_data()}
   end
 
+  def handle_event("select_water_meter", %{"meter" => meter}, socket) do
+    {:noreply, socket |> assign(:selected_water_meter, meter) |> load_data()}
+  end
+
   def handle_event("change_date_range", params, socket) do
     socket =
       socket
@@ -61,6 +68,7 @@ defmodule PouConWeb.Live.Reports.Index do
     case socket.assigns.view_mode do
       "events" -> load_events(socket)
       "sensors" -> load_sensors(socket)
+      "water_meters" -> load_water_meters(socket)
       "summaries" -> load_summaries(socket)
       "errors" -> load_errors(socket)
       _ -> socket
@@ -116,6 +124,26 @@ defmodule PouConWeb.Live.Reports.Index do
     |> assign(:sensor_snapshots, snapshots)
   end
 
+  defp load_water_meters(socket) do
+    meter = socket.assigns.selected_water_meter || get_first_water_meter(socket)
+    hours = 24
+
+    {snapshots, consumption} =
+      if meter do
+        {
+          PeriodicLogger.get_water_meter_snapshots(meter, hours),
+          PeriodicLogger.get_daily_water_consumption(meter, 7)
+        }
+      else
+        {[], []}
+      end
+
+    socket
+    |> assign(:selected_water_meter, meter)
+    |> assign(:water_meter_snapshots, snapshots)
+    |> assign(:daily_consumption, consumption)
+  end
+
   defp load_summaries(socket) do
     summaries = DailySummaryTask.get_summaries(socket.assigns.date_from, socket.assigns.date_to)
     assign(socket, :summaries, summaries)
@@ -133,6 +161,15 @@ defmodule PouConWeb.Live.Reports.Index do
     |> case do
       nil -> nil
       sensor -> sensor.name
+    end
+  end
+
+  defp get_first_water_meter(socket) do
+    socket.assigns.equipment_list
+    |> Enum.find(&(&1.type == "water_meter"))
+    |> case do
+      nil -> nil
+      meter -> meter.name
     end
   end
 
@@ -166,6 +203,13 @@ defmodule PouConWeb.Live.Reports.Index do
           </button>
           <button
             phx-click="change_view"
+            phx-value-view="water_meters"
+            class={"px-4 py-2 rounded " <> if @view_mode == "water_meters", do: "bg-cyan-600 text-white", else: "bg-gray-700 text-gray-300"}
+          >
+            Water Meters
+          </button>
+          <button
+            phx-click="change_view"
             phx-value-view="summaries"
             class={"px-4 py-2 rounded " <> if @view_mode == "summaries", do: "bg-blue-600 text-white", else: "bg-gray-700 text-gray-300"}
           >
@@ -179,7 +223,7 @@ defmodule PouConWeb.Live.Reports.Index do
             Errors
           </button>
         </div>
-        
+
     <!-- Equipment Events View -->
         <%= if @view_mode == "events" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">
@@ -249,7 +293,7 @@ defmodule PouConWeb.Live.Reports.Index do
                 <%= for event <- @events do %>
                   <tr class="border-t border-gray-700 hover:bg-gray-500">
                     <td class="p-2">
-                      {Calendar.strftime(event.inserted_at, "%m-%d %H:%M:%S")}
+                      {Calendar.strftime(to_local(event.inserted_at), "%d-%m-%Y %H:%M:%S")}
                     </td>
                     <td class="p-2 font-medium">{event.equipment_name}</td>
                     <td class="p-2">
@@ -278,7 +322,7 @@ defmodule PouConWeb.Live.Reports.Index do
             <% end %>
           </div>
         <% end %>
-        
+
     <!-- Sensor Data View -->
         <%= if @view_mode == "sensors" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">
@@ -312,7 +356,7 @@ defmodule PouConWeb.Live.Reports.Index do
                   <%= for snapshot <- Enum.reverse(@sensor_snapshots) do %>
                     <tr class="border-t border-gray-200 hover:bg-blue-400">
                       <td class="p-2 text-gray-200">
-                        {Calendar.strftime(snapshot.inserted_at, "%m-%d %H:%M")}
+                        {Calendar.strftime(to_local(snapshot.inserted_at), "%d-%m-%Y %H:%M")}
                       </td>
                       <td class="p-2 text-right font-medium text-yellow-200">
                         {if snapshot.temperature, do: Float.round(snapshot.temperature, 1), else: "-"}
@@ -334,7 +378,93 @@ defmodule PouConWeb.Live.Reports.Index do
             </div>
           <% end %>
         <% end %>
-        
+
+    <!-- Water Meters View -->
+        <%= if @view_mode == "water_meters" do %>
+          <div class="bg-gray-400 p-4 rounded-lg mb-4">
+            <h3 class="text-lg font-semibold mb-3">Select Water Meter</h3>
+            <div class="flex gap-2">
+              <%= for eq <- Enum.filter(@equipment_list, &(&1.type == "water_meter")) do %>
+                <button
+                  phx-click="select_water_meter"
+                  phx-value-meter={eq.name}
+                  class={"px-4 py-2 rounded " <> if @selected_water_meter == eq.name, do: "bg-cyan-600 text-white", else: "bg-gray-700 text-gray-300"}
+                >
+                  {eq.title || eq.name}
+                </button>
+              <% end %>
+            </div>
+          </div>
+
+          <%= if @selected_water_meter do %>
+            <!-- Daily Consumption Summary -->
+            <%= if !Enum.empty?(@daily_consumption) do %>
+              <div class="bg-gray-800 rounded-lg p-4 mb-4">
+                <h4 class="text-lg font-semibold mb-3 text-cyan-400">Daily Water Consumption (Last 7 Days)</h4>
+                <div class="grid grid-cols-7 gap-2">
+                  <%= for day <- @daily_consumption do %>
+                    <div class="bg-gray-700 p-3 rounded text-center">
+                      <div class="text-xs text-gray-400">{Calendar.strftime(day.date, "%d-%m-%Y")}</div>
+                      <div class="text-lg font-bold text-cyan-300">{day.consumption}</div>
+                      <div class="text-xs text-gray-500">m³</div>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+
+            <!-- Raw Data Table -->
+            <%= if !Enum.empty?(@water_meter_snapshots) do %>
+              <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <table class="w-full text-sm">
+                  <thead class="bg-cyan-600">
+                    <tr>
+                      <th class="p-2 text-left">Time</th>
+                      <th class="p-2 text-right">Flow Rate (m³/h)</th>
+                      <th class="p-2 text-right">Cumulative (m³)</th>
+                      <th class="p-2 text-right">Temperature (°C)</th>
+                      <th class="p-2 text-right">Pressure (MPa)</th>
+                      <th class="p-2 text-right">Battery (V)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%= for snapshot <- Enum.reverse(@water_meter_snapshots) do %>
+                      <tr class="border-t border-gray-700 hover:bg-gray-600">
+                        <td class="p-2 text-gray-200">
+                          {Calendar.strftime(to_local(snapshot.inserted_at), "%d-%m-%Y %H:%M")}
+                        </td>
+                        <td class="p-2 text-right font-medium text-cyan-300">
+                          {format_float(snapshot.flow_rate, 3)}
+                        </td>
+                        <td class="p-2 text-right font-medium text-blue-300">
+                          {format_float(snapshot.positive_flow, 3)}
+                        </td>
+                        <td class="p-2 text-right font-medium text-yellow-300">
+                          {format_float(snapshot.temperature, 1)}
+                        </td>
+                        <td class="p-2 text-right font-medium text-green-300">
+                          {format_float(snapshot.pressure, 2)}
+                        </td>
+                        <td class="p-2 text-right font-medium text-gray-300">
+                          {format_float(snapshot.battery_voltage, 2)}
+                        </td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            <% else %>
+              <div class="bg-gray-800 p-8 rounded-lg text-center text-gray-400">
+                No water meter data available. Snapshots are recorded every 30 minutes.
+              </div>
+            <% end %>
+          <% else %>
+            <div class="bg-gray-800 p-8 rounded-lg text-center text-gray-400">
+              No water meters configured.
+            </div>
+          <% end %>
+        <% end %>
+
     <!-- Daily Summaries View -->
         <%= if @view_mode == "summaries" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">
@@ -405,7 +535,7 @@ defmodule PouConWeb.Live.Reports.Index do
             <% end %>
           </div>
         <% end %>
-        
+
     <!-- Errors View -->
         <%= if @view_mode == "errors" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">
@@ -436,7 +566,7 @@ defmodule PouConWeb.Live.Reports.Index do
                 <%= for error <- @errors do %>
                   <tr class="border-t border-gray-700 bg-rose-900 hover:bg-rose-700">
                     <td class="p-2 text-gray-200">
-                      {Calendar.strftime(error.inserted_at, "%m-%d %H:%M:%S")}
+                      {Calendar.strftime(to_local(error.inserted_at), "%d-%m-%Y %H:%M:%S")}
                     </td>
                     <td class="p-2 font-medium text-gray-200">{error.equipment_name}</td>
                     <td class="p-2 text-gray-200">{error.from_value || "-"}</td>
@@ -471,4 +601,35 @@ defmodule PouConWeb.Live.Reports.Index do
   defp mode_badge("auto"), do: "px-2 py-1 rounded bg-blue-600 text-white text-xs"
   defp mode_badge("manual"), do: "px-2 py-1 rounded bg-amber-600 text-white text-xs"
   defp mode_badge(_), do: "px-2 py-1 rounded bg-gray-600 text-white text-xs"
+
+  defp format_float(nil, _precision), do: "-"
+  defp format_float(value, precision) when is_float(value), do: Float.round(value, precision)
+  defp format_float(value, _precision), do: value
+
+  # Convert UTC datetime to local time using configured timezone from app_config
+  defp to_local(nil), do: nil
+
+  defp to_local(%DateTime{} = dt) do
+    timezone = PouCon.Auth.get_timezone()
+
+    case DateTime.shift_zone(dt, timezone) do
+      {:ok, local_dt} -> local_dt
+      {:error, _} -> dt
+    end
+  end
+
+  defp to_local(%NaiveDateTime{} = ndt) do
+    timezone = PouCon.Auth.get_timezone()
+
+    # Convert NaiveDateTime to DateTime (assume UTC), then shift to local timezone
+    ndt
+    |> DateTime.from_naive!("Etc/UTC")
+    |> DateTime.shift_zone(timezone)
+    |> case do
+      {:ok, local_dt} -> local_dt
+      {:error, _} -> ndt
+    end
+  end
+
+  defp to_local(other), do: other
 end

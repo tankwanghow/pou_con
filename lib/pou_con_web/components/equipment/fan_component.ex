@@ -24,6 +24,11 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
           <div class={"h-4 w-4 flex-shrink-0 rounded-full bg-#{@display.color}-500 animate-pulse" <> if(@display.is_running, do: "", else: "")}>
           </div>
           <span class="font-bold text-gray-700 text-xl truncate">{@status.title}</span>
+          <%= if @display.is_failsafe do %>
+            <span class="flex-shrink-0 px-1.5 py-0.5 text-[10px] font-bold uppercase bg-sky-100 text-sky-700 rounded border border-sky-300" title="Fail-safe: Fan runs if power/system fails">
+              FS
+            </span>
+          <% end %>
         </div>
 
         <div class="flex bg-gray-200 rounded p-1 flex-shrink-0 ml-2">
@@ -158,15 +163,51 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
   end
 
   # ——————————————————————————————————————————————
-  # Logic Helpers
+  # Public Icon (shared with summary components)
   # ——————————————————————————————————————————————
 
-  defp calculate_display_data(%{error: :invalid_data}) do
+  @doc """
+  Renders a fan icon SVG.
+  Accepts assigns with :color (default "gray").
+  """
+  attr :color, :string, default: "gray"
+  attr :class, :string, default: ""
+
+  def fan_icon(assigns) do
+    ~H"""
+    <div class={[
+      "relative h-10 w-10 rounded-full border-2 border-#{@color}-500",
+      @class
+    ]}>
+      <div class="absolute inset-0 flex justify-center">
+        <div class={"h-5 w-1 border-2 rounded-full border-#{@color}-500"}></div>
+      </div>
+      <div class="absolute inset-0 flex justify-center rotate-[120deg]">
+        <div class={"h-5 w-1 border-2 rounded-full border-#{@color}-500"}></div>
+      </div>
+      <div class="absolute inset-0 flex justify-center rotate-[240deg]">
+        <div class={"h-5 w-1 border-2 rounded-full border-#{@color}-500"}></div>
+      </div>
+    </div>
+    """
+  end
+
+  # ——————————————————————————————————————————————
+  # Display Data (public for summary components)
+  # ——————————————————————————————————————————————
+
+  @doc """
+  Calculates display data for fan status.
+  Returns a map with color, animation, and state information.
+  Used by both FanComponent and summary components.
+  """
+  def calculate_display_data(%{error: :invalid_data}) do
     %{
       is_offline: true,
       is_error: false,
       is_running: false,
       is_interlocked: false,
+      is_failsafe: false,
       mode: :auto,
       state_text: "OFFLINE",
       color: "gray",
@@ -174,10 +215,11 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
     }
   end
 
-  defp calculate_display_data(status) do
+  def calculate_display_data(status) do
     is_running = status.is_running
     has_error = not is_nil(status.error)
     is_interlocked = Map.get(status, :interlocked, false)
+    is_failsafe = Map.get(status, :inverted, false)
 
     {color, spin_class} =
       cond do
@@ -192,10 +234,12 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
       is_error: has_error,
       is_running: is_running,
       is_interlocked: is_interlocked,
+      is_failsafe: is_failsafe,
       mode: status.mode,
       state_text: if(is_running, do: "RUNNING", else: "STOPPED"),
       color: color,
       spin_class: spin_class,
+      anim_class: spin_class,
       err_msg: status.error_message
     }
   end

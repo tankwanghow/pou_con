@@ -11,7 +11,6 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   require Logger
 
   alias PouCon.Automation.Environment.Configs
-  alias PouCon.Automation.Environment.Schemas.Config
   alias PouCon.Equipment.Controllers.{Fan, Pump, TempHumSen}
   alias PouCon.Logging.EquipmentLogger
 
@@ -250,52 +249,25 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   end
 
   defp try_turn_on_fan(name, state) do
-    config = Configs.get_config()
-    nc_fans = Config.parse_order(config.nc_fans)
-    is_nc = name in nc_fans
-
     try do
       status = Fan.status(name)
 
       if status[:mode] == :auto do
-        # NC fans: turn_off command = fan runs (coil OFF = NC contact closed)
-        # Normal fans: turn_on command = fan runs
-        if is_nc do
-          # Coil is ON, NC fan is OFF, need to turn OFF coil
-          if status[:commanded_on] do
-            Fan.turn_off(name)
+        if not status[:commanded_on] do
+          Fan.turn_on(name)
 
-            Logger.info("[Environment] Turning ON NC fan: #{name} (coil OFF)")
+          Logger.info("[Environment] Turning ON fan: #{name}")
 
-            # Log auto-control action
-            EquipmentLogger.log_start(name, "auto", "auto_control", %{
-              "temp" => state.avg_temp,
-              "reason" => "temperature_control",
-              "nc_fan" => true
-            })
+          # Log auto-control action
+          EquipmentLogger.log_start(name, "auto", "auto_control", %{
+            "temp" => state.avg_temp,
+            "reason" => "temperature_control"
+          })
 
-            true
-          else
-            # Already in correct state (coil OFF = fan ON)
-            true
-          end
+          true
         else
-          if not status[:commanded_on] do
-            Fan.turn_on(name)
-
-            Logger.info("[Environment] Turning ON fan: #{name}")
-
-            # Log auto-control action
-            EquipmentLogger.log_start(name, "auto", "auto_control", %{
-              "temp" => state.avg_temp,
-              "reason" => "temperature_control"
-            })
-
-            true
-          else
-            # Already on
-            true
-          end
+          # Already on
+          true
         end
       else
         # Not in auto mode
@@ -309,52 +281,25 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   end
 
   defp try_turn_off_fan(name, state) do
-    config = Configs.get_config()
-    nc_fans = Config.parse_order(config.nc_fans)
-    is_nc = name in nc_fans
-
     try do
       status = Fan.status(name)
 
       if status[:mode] == :auto do
-        # NC fans: turn_on command = fan stops (coil ON = NC contact open)
-        # Normal fans: turn_off command = fan stops
-        if is_nc do
-          # Coil is OFF, NC fan is ON, need to turn ON coil
-          if not status[:commanded_on] do
-            Fan.turn_on(name)
+        if status[:commanded_on] do
+          Fan.turn_off(name)
 
-            Logger.info("[Environment] Turning OFF NC fan: #{name} (coil ON)")
+          Logger.info("[Environment] Turning OFF fan: #{name}")
 
-            # Log auto-control action
-            EquipmentLogger.log_stop(name, "auto", "auto_control", "on", %{
-              "temp" => state.avg_temp,
-              "reason" => "temperature_control",
-              "nc_fan" => true
-            })
+          # Log auto-control action
+          EquipmentLogger.log_stop(name, "auto", "auto_control", "on", %{
+            "temp" => state.avg_temp,
+            "reason" => "temperature_control"
+          })
 
-            :success
-          else
-            # Already in correct state (coil ON = fan OFF)
-            :success
-          end
+          :success
         else
-          if status[:commanded_on] do
-            Fan.turn_off(name)
-
-            Logger.info("[Environment] Turning OFF fan: #{name}")
-
-            # Log auto-control action
-            EquipmentLogger.log_stop(name, "auto", "auto_control", "on", %{
-              "temp" => state.avg_temp,
-              "reason" => "temperature_control"
-            })
-
-            :success
-          else
-            # Already off
-            :success
-          end
+          # Already off
+          :success
         end
       else
         # Not in auto mode - return :manual_mode to remove from tracking

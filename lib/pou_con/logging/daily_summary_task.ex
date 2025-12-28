@@ -13,6 +13,9 @@ defmodule PouCon.Logging.DailySummaryTask do
 
   import Ecto.Query
 
+  # Capture Mix.env at compile time since Mix is not available in releases
+  @env Mix.env()
+
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   end
@@ -50,7 +53,7 @@ defmodule PouCon.Logging.DailySummaryTask do
   # Generate summary for yesterday
   defp generate_yesterday_summary do
     # Skip if system time is invalid (only check in non-test env)
-    if Mix.env() != :test and not time_valid?() do
+    if @env != :test and not time_valid?() do
       Logger.debug("Skipping daily summary - system time invalid")
     else
       yesterday = Date.add(Date.utc_today(), -1)

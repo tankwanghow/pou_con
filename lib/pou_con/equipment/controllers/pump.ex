@@ -118,7 +118,8 @@ defmodule PouCon.Equipment.Controllers.Pump do
   def handle_cast(:set_auto, state) do
     Logger.info("[#{state.name}] → AUTO mode")
     @device_manager.command(state.auto_manual, :set_state, %{state: 0})
-    {:noreply, sync_coil(%{state | mode: :auto})}
+    # Turn off the coil when switching to AUTO mode (start with clean state)
+    {:noreply, sync_coil(%{state | mode: :auto, commanded_on: false})}
   end
 
   @impl GenServer

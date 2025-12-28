@@ -55,9 +55,10 @@ defmodule PouCon.Hardware.Modbus.SimulatedAdapter do
     # State structure:
     # %{
     #   slaves: %{slave_id => %{coils: %{}, registers: %{}, inputs: %{}}},
-    #   offline: MapSet.new()  # Set of offline slave_ids
+    #   offline: MapSet.new(),  # Set of offline slave_ids
+    #   water_meters: %{slave_id => %{cumulative_flow: float, flow_rate: float, temperature: float, last_update: timestamp}}
     # }
-    {:ok, %{slaves: %{}, offline: MapSet.new()}}
+    {:ok, %{slaves: %{}, offline: MapSet.new(), water_meters: %{}}}
   end
 
   @impl true
@@ -144,7 +145,7 @@ defmodule PouCon.Hardware.Modbus.SimulatedAdapter do
     {:ok, new_state}
   end
 
-  # Read Input Registers (rir) - Temperature/Humidity
+  # Read Input Registers (rir) - Temperature/Humidity sensors
   defp handle_command({:rir, slave_id, start_addr, count}, state) do
     # Simulate temp/humidity
     # Temp ~ 25.0 (250), Hum ~ 60.0 (600)
@@ -166,6 +167,25 @@ defmodule PouCon.Hardware.Modbus.SimulatedAdapter do
       end
 
     {{:ok, values}, state}
+  end
+
+  # Read Holding Registers (rhr) - Water meters and general purpose
+  defp handle_command({:rhr, slave_id, start_addr, count}, state) do
+    # Check if this looks like a water meter read (reading from register 0x0001, 28 registers)
+    if start_addr == 0x0001 and count == 28 do
+      # Dynamic water meter simulation with real cumulative flow
+      {values, new_state} = simulate_water_meter_dynamic(slave_id, state)
+      {{:ok, values}, new_state}
+    else
+      # Return stored registers if present, else return zeros
+      values =
+        for i <- 0..(count - 1) do
+          addr = start_addr + i
+          get_register(state, slave_id, addr, 0)
+        end
+
+      {{:ok, values}, state}
+    end
   end
 
   # Preset Holding Register (phr) - Write Register (Slave ID Change)
@@ -226,5 +246,145 @@ defmodule PouCon.Hardware.Modbus.SimulatedAdapter do
     new_slave_data = Map.put(slave_data, type, new_type_data)
     new_slaves = Map.put(slaves, slave_id, new_slave_data)
     %{state | slaves: new_slaves}
+  end
+
+  # ------------------------------------------------------------------ #
+  # Water Meter Dynamic Simulation
+  # ------------------------------------------------------------------ #
+
+  # Simulates water meter with real cumulative flow and random values
+  # Returns {list_of_28_registers, updated_state}
+  defp simulate_water_meter_dynamic(slave_id, state) do
+    now = System.monotonic_time(:millisecond)
+
+    # Get or initialize water meter state
+    meter_state = Map.get(state.water_meters, slave_id, nil)
+
+    {meter_state, new_cumulative} =
+      case meter_state do
+        nil ->
+          # Initialize new water meter with random starting values
+          initial = %{
+            cumulative_flow: 0.0,
+            flow_rate: random_flow_rate(),
+            temperature: random_temperature(),
+            last_update: now
+          }
+
+          {initial, 0.0}
+
+        %{last_update: last_update, cumulative_flow: cumulative, flow_rate: flow_rate} = ms ->
+          # Calculate elapsed time and accumulate flow
+          elapsed_hours = (now - last_update) / 1000.0 / 3600.0
+          flow_added = flow_rate * elapsed_hours
+          new_cumulative = cumulative + flow_added
+
+          # Update flow rate and temperature with small random changes (jitter)
+          updated = %{
+            ms
+            | cumulative_flow: new_cumulative,
+              flow_rate: jitter_flow_rate(flow_rate),
+              temperature: jitter_temperature(ms.temperature),
+              last_update: now
+          }
+
+          {updated, new_cumulative}
+      end
+
+    # Build the 28 register values
+    {reg1_pos, reg2_pos} = encode_float_le(new_cumulative)
+    {reg1_neg, reg2_neg} = encode_float_le(0.0)
+    {reg1_flow, reg2_flow} = encode_float_le(meter_state.flow_rate)
+    {reg1_remain, reg2_remain} = encode_float_le(100.0)
+    {reg1_pressure, reg2_pressure} = encode_float_le(0.3 + :rand.uniform() * 0.2)
+    {reg1_temp, reg2_temp} = encode_float_le(meter_state.temperature)
+    {reg1_batt, reg2_batt} = encode_float_le(3.5 + :rand.uniform() * 0.3)
+
+    registers = [
+      # 0x0001-0x0002: Positive cumulative flow (indices 0-1)
+      reg1_pos,
+      reg2_pos,
+      # 0x0003-0x0004: Negative cumulative flow (indices 2-3)
+      reg1_neg,
+      reg2_neg,
+      # 0x0005-0x0006: Instantaneous flow rate (indices 4-5)
+      reg1_flow,
+      reg2_flow,
+      # 0x0007: Pipe status - full (index 6)
+      0x00AA,
+      # 0x0008-0x0009: Remaining flow (indices 7-8)
+      reg1_remain,
+      reg2_remain,
+      # 0x000A-0x000B: Pressure (indices 9-10)
+      reg1_pressure,
+      reg2_pressure,
+      # 0x000C-0x000D: Temperature (indices 11-12)
+      reg1_temp,
+      reg2_temp,
+      # 0x000E: Device address (index 13)
+      slave_id,
+      # 0x000F-0x0011: Communication params (indices 14-16)
+      0x0000,
+      0x0000,
+      0x0000,
+      # 0x0012-0x0015: Meter address (indices 17-20)
+      0x0000,
+      0x0000,
+      0x0000,
+      0x0000,
+      # 0x0016-0x0019: Device time (indices 21-24)
+      0x0000,
+      0x0000,
+      0x0000,
+      0x0000,
+      # 0x001A-0x001B: Battery voltage (indices 25-26)
+      reg1_batt,
+      reg2_batt,
+      # 0x001C: Valve status - open (index 27)
+      0x0001
+    ]
+
+    # Update state with new water meter values
+    new_water_meters = Map.put(state.water_meters, slave_id, meter_state)
+    new_state = %{state | water_meters: new_water_meters}
+
+    {registers, new_state}
+  end
+
+  # Random flow rate between 0.1 and 2.0 m³/h (typical water meter range)
+  defp random_flow_rate do
+    0.1 + :rand.uniform() * 1.9
+  end
+
+  # Random temperature between 15.0 and 35.0 °C
+  defp random_temperature do
+    15.0 + :rand.uniform() * 20.0
+  end
+
+  # Add small random jitter to flow rate (±10%)
+  defp jitter_flow_rate(current_rate) do
+    jitter = current_rate * 0.1 * (:rand.uniform() * 2 - 1)
+    new_rate = current_rate + jitter
+    # Keep within reasonable bounds
+    max(0.05, min(3.0, new_rate))
+  end
+
+  # Add small random jitter to temperature (±0.5°C)
+  defp jitter_temperature(current_temp) do
+    jitter = (:rand.uniform() * 2 - 1) * 0.5
+    new_temp = current_temp + jitter
+    # Keep within reasonable bounds
+    max(10.0, min(40.0, new_temp))
+  end
+
+  # Encode a float value to two 16-bit Modbus registers (little-endian format)
+  # This is the reverse of decode_float_le in XintaiWaterMeter
+  defp encode_float_le(value) when is_float(value) do
+    <<reg1::big-16, reg2::big-16>> = <<value::float-little-32>>
+    {reg1, reg2}
+  end
+
+  defp encode_float_le(value) when is_integer(value) do
+    encode_float_le(value * 1.0)
   end
 end

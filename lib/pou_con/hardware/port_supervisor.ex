@@ -31,8 +31,32 @@ defmodule PouCon.Hardware.PortSupervisor do
   end
 
   def stop_modbus_master(pid) do
-    PouCon.Utils.Modbus.close(pid)
-    PouCon.Utils.Modbus.stop(pid)
+    # Wrap in try/catch since the process may be in a bad state
+    # (e.g., USB unplugged causing :ebadf errors)
+    try do
+      PouCon.Utils.Modbus.close(pid)
+    catch
+      _, _ -> :ok
+    end
+
+    try do
+      PouCon.Utils.Modbus.stop(pid)
+    catch
+      _, _ -> :ok
+    end
+
+    # Always terminate the child to clean up the supervisor
     DynamicSupervisor.terminate_child(__MODULE__, pid)
+  end
+
+  def stop_all_children do
+    DynamicSupervisor.which_children(__MODULE__)
+    |> Enum.each(fn {_, pid, _, _} ->
+      DynamicSupervisor.terminate_child(__MODULE__, pid)
+    end)
+  end
+
+  def list_children do
+    DynamicSupervisor.which_children(__MODULE__)
   end
 end

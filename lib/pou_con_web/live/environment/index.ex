@@ -194,6 +194,13 @@ defmodule PouConWeb.Live.Environment.Index do
               </span>
             </div>
           </div>
+          <%= for eq <- Enum.filter(@equipment, &(&1.type == "water_meter")) |> Enum.sort_by(& &1.title) do %>
+          <.live_component
+            module={PouConWeb.Components.Equipment.WaterMeterComponent}
+            id={eq.name}
+            equipment={eq}
+          />
+        <% end %>
         </div>
         <!-- Fans -->
         <div class="flex flex-wrap gap-1 mb-6">

@@ -6,6 +6,11 @@ defmodule PouCon.Hardware.DeviceManager do
 
   All coordination, state machines, and control flow moved to **DeviceController** modules.
 
+  Device-specific protocol implementations are in separate modules:
+  - `PouCon.Hardware.Devices.WaveshareDigitalIO` - Digital IO modules
+  - `PouCon.Hardware.Devices.CytronTempHumSensor` - Temperature/humidity sensors
+  - `PouCon.Hardware.Devices.XintaiWaterMeter` - Water meters
+
   This version is:
   - **Simple**
   - **Scalable**
@@ -19,8 +24,9 @@ defmodule PouCon.Hardware.DeviceManager do
   require Logger
   import Ecto.Query, warn: false
 
-  alias PouCon.Equipment.Schemas.{Device, VirtualDigitalState}
+  alias PouCon.Equipment.Schemas.Device
   alias PouCon.Hardware.Ports.Port
+  alias PouCon.Hardware.Devices.{WaveshareDigitalIO, CytronTempHumSensor, XintaiWaterMeter, Virtual}
   alias PouCon.Repo
   alias Phoenix.PubSub
 
@@ -168,82 +174,41 @@ defmodule PouCon.Hardware.DeviceManager do
   # Client API – Slave ID change
   # ------------------------------------------------------------------ #
 
-  def set_slave_id_for_waveshare(port_device_path, old_slave_id, new_slave_id)
-      when is_binary(port_device_path) and is_integer(old_slave_id) and is_integer(new_slave_id) and
-             new_slave_id >= 1 and new_slave_id <= 255 do
-    GenServer.call(
-      __MODULE__,
-      {:set_slave_id_waveshare, port_device_path, old_slave_id, new_slave_id}
-    )
-  end
+  @doc """
+  Changes the Modbus slave ID for a device.
 
-  def set_slave_id_for_temperature(port_device_path, old_slave_id, new_slave_id)
-      when is_binary(port_device_path) and is_integer(old_slave_id) and is_integer(new_slave_id) and
+  ## Parameters
+  - `device_type` - One of `:waveshare`, `:cytron`, `:xintai`
+  - `port_device_path` - The serial port path (e.g., "/dev/ttyUSB0")
+  - `old_slave_id` - Current slave ID of the device
+  - `new_slave_id` - New slave ID to set (1-255)
+
+  ## Examples
+
+      DeviceManager.set_slave_id(:waveshare, "/dev/ttyUSB0", 1, 2)
+      DeviceManager.set_slave_id(:cytron, "/dev/ttyUSB0", 1, 5)
+      DeviceManager.set_slave_id(:xintai, "/dev/ttyUSB0", 1, 10)
+  """
+  def set_slave_id(device_type, port_device_path, old_slave_id, new_slave_id)
+      when device_type in [:waveshare, :cytron, :xintai] and
+             is_binary(port_device_path) and
+             is_integer(old_slave_id) and
+             is_integer(new_slave_id) and
              new_slave_id >= 1 and new_slave_id <= 255 do
     GenServer.call(
       __MODULE__,
-      {:set_slave_id_temperature, port_device_path, old_slave_id, new_slave_id}
+      {:set_slave_id, device_type, port_device_path, old_slave_id, new_slave_id}
     )
   end
 
   # ------------------------------------------------------------------ #
-  # GenServer Callbacks – Slave ID change handlers
+  # GenServer Callbacks – Slave ID change handler
   # ------------------------------------------------------------------ #
 
   @impl GenServer
-  def handle_call({:set_slave_id_waveshare, port_path, old_slave_id, new_slave_id}, _from, state) do
-    with {:ok, port} <- Map.fetch(state.ports, port_path),
-         true <- port.modbus_pid != nil,
-         modbus_pid <- port.modbus_pid do
-      case PouCon.Utils.Modbus.request(modbus_pid, {:phr, 0, 0x4000, new_slave_id}) do
-        :ok ->
-          Repo.update_all(
-            from(d in Device,
-              where: d.port_device_path == ^port_path and d.slave_id == ^old_slave_id
-            ),
-            set: [slave_id: new_slave_id]
-          )
-
-          GenServer.cast(self(), :reload)
-          {:reply, {:ok, :success}, state}
-
-        {:error, reason} ->
-          {:reply, {:error, reason}, state}
-      end
-    else
-      :error -> {:reply, {:error, :port_not_found}, state}
-      false -> {:reply, {:error, :port_not_connected}, state}
-    end
-  end
-
-  @impl GenServer
-  def handle_call(
-        {:set_slave_id_temperature, port_path, old_slave_id, new_slave_id},
-        _from,
-        state
-      ) do
-    with {:ok, port} <- Map.fetch(state.ports, port_path),
-         true <- port.modbus_pid != nil,
-         modbus_pid <- port.modbus_pid do
-      case PouCon.Utils.Modbus.request(modbus_pid, {:phr, old_slave_id, 0x0101, new_slave_id}) do
-        :ok ->
-          Repo.update_all(
-            from(d in Device,
-              where: d.port_device_path == ^port_path and d.slave_id == ^old_slave_id
-            ),
-            set: [slave_id: new_slave_id]
-          )
-
-          GenServer.cast(self(), :reload)
-          {:reply, {:ok, :success}, state}
-
-        {:error, reason} ->
-          {:reply, {:error, reason}, state}
-      end
-    else
-      :error -> {:reply, {:error, :port_not_found}, state}
-      false -> {:reply, {:error, :port_not_connected}, state}
-    end
+  def handle_call({:set_slave_id, device_type, port_path, old_slave_id, new_slave_id}, _from, state) do
+    device_module = get_device_type_module(device_type)
+    do_set_slave_id(state, port_path, old_slave_id, new_slave_id, device_module)
   end
 
   # ------------------------------------------------------------------ #
@@ -254,10 +219,8 @@ defmodule PouCon.Hardware.DeviceManager do
     case get_device_and_modbus(state, device_name) do
       {:ok, dev, modbus} ->
         if dev.port_device_path == "virtual" do
-          # For virtual devices, we write to the DB state
-          # Reuse write_virtual_digital_input logic
-          # signature: write_virtual_digital_input(_modbus, slave_id, _reg, {:set_state, %{state: v}}, ch)
-          write_virtual_digital_input(
+          # For virtual devices, write to DB state via Virtual module
+          Virtual.write_virtual_digital_input(
             nil,
             dev.slave_id,
             0,
@@ -374,13 +337,15 @@ defmodule PouCon.Hardware.DeviceManager do
         else
           result =
             try do
+              module = get_device_module(write_fn)
+
               if modbus do
                 Task.async(fn ->
-                  apply(__MODULE__, write_fn, [modbus, sid, reg, {action, params}, ch])
+                  apply(module, write_fn, [modbus, sid, reg, {action, params}, ch])
                 end)
                 |> Task.await(@modbus_timeout)
               else
-                apply(__MODULE__, write_fn, [modbus, sid, reg, {action, params}, ch])
+                apply(module, write_fn, [modbus, sid, reg, {action, params}, ch])
               end
             catch
               :exit, reason ->
@@ -470,10 +435,13 @@ defmodule PouCon.Hardware.DeviceManager do
   end
 
   @impl GenServer
-  def handle_cast(:reload, state) do
-    Enum.each(state.ports, fn {_, p} ->
-      if p.modbus_pid, do: PouCon.Hardware.PortSupervisor.stop_modbus_master(p.modbus_pid)
-    end)
+  def handle_cast(:reload, _state) do
+    # Stop ALL children in the supervisor (not just the ones we know about)
+    # This handles auto-restarted processes we may have lost track of
+    PouCon.Hardware.PortSupervisor.stop_all_children()
+
+    # Small delay to allow OS to release serial ports
+    Process.sleep(1000)
 
     # Reload from DB, this effectively clears failure_counts and skips
     {:noreply, load_state_from_db()}
@@ -580,16 +548,18 @@ defmodule PouCon.Hardware.DeviceManager do
             port -> port.modbus_pid
           end
 
-        # 3. Execute Poll
+        # 3. Execute Poll (dispatch to device module)
         poll_result =
           try do
+            module = get_device_module(read_fn)
+
             if modbus do
               Task.async(fn ->
-                apply(__MODULE__, read_fn, [modbus, slave_id, register, nil])
+                apply(module, read_fn, [modbus, slave_id, register, nil])
               end)
               |> Task.await(@modbus_timeout)
             else
-              apply(__MODULE__, read_fn, [modbus, slave_id, register, nil])
+              apply(module, read_fn, [modbus, slave_id, register, nil])
             end
           catch
             :exit, reason ->
@@ -636,10 +606,16 @@ defmodule PouCon.Hardware.DeviceManager do
         "Poll timeout #{current_count}/#{@max_consecutive_timeouts} for #{port_path} slave #{slave_id}"
       )
 
+      IO.inspect(
+          "Poll timeout #{current_count}/#{@max_consecutive_timeouts} for #{port_path} slave #{slave_id}"
+        )
+
       if current_count >= @max_consecutive_timeouts do
         Logger.error(
           "Slave #{slave_id} on #{port_path} reached max timeouts. Skipping until reload."
         )
+
+        IO.inspect("Slave #{slave_id} on #{port_path} reached max timeouts. Skipping until reload.")
 
         new_skipped = MapSet.put(state.skipped_slaves, {port_path, slave_id})
         new_counts = Map.put(state.failure_counts, {port_path, slave_id}, current_count)
@@ -657,90 +633,35 @@ defmodule PouCon.Hardware.DeviceManager do
   end
 
   # ------------------------------------------------------------------ #
-  # Generic Read/Write Functions (Pure I/O)
+  # Device Module Dispatch
+  # Maps function names to their device modules
   # ------------------------------------------------------------------ #
-  def read_digital_input(modbus, slave_id, register, _channel \\ nil) do
-    case PouCon.Utils.Modbus.request(modbus, {:ri, slave_id, register, 8}) do
-      {:ok, channels} ->
-        {:ok, %{channels: channels}}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  def read_digital_output(modbus, slave_id, register, _channel \\ nil) do
-    case PouCon.Utils.Modbus.request(modbus, {:rc, slave_id, register, 8}) do
-      {:ok, channels} ->
-        {:ok, %{channels: channels}}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  def write_digital_output(
-        modbus,
-        slave_id,
-        _register,
-        {:set_state, %{state: value}},
-        channel
-      )
-      when value in [0, 1] do
-    case PouCon.Utils.Modbus.request(modbus, {:fc, slave_id, channel - 1, value}) do
-      :ok -> {:ok, :success}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  def read_virtual_digital_input(_modbus, slave_id, _reg, _ch) do
-    states =
-      Repo.all(
-        from vs in VirtualDigitalState,
-          where: vs.slave_id == ^slave_id,
-          select: {vs.channel, vs.state}
-      )
-      |> Map.new()
-
-    if states == %{} do
-      {:ok, %{channels: []}}
-    else
-      max_ch = Enum.max(Map.keys(states))
-      channels = Enum.map(1..max_ch, &Map.get(states, &1, 0))
-      {:ok, %{channels: channels}}
-    end
-  end
-
-  def write_virtual_digital_input(_modbus, slave_id, _reg, {:set_state, %{state: v}}, ch)
-      when v in [0, 1] do
-    attrs = %{slave_id: slave_id, channel: ch, state: v}
-
-    case Repo.get_by(VirtualDigitalState, slave_id: slave_id, channel: ch) do
-      nil ->
-        %VirtualDigitalState{} |> VirtualDigitalState.changeset(attrs) |> Repo.insert()
-
-      rec ->
-        rec |> VirtualDigitalState.changeset(attrs) |> Repo.update()
-    end
-    |> case do
-      {:ok, _} -> {:ok, :success}
-      err -> err
-    end
-  end
-
-  def read_temperature_humidity(modbus, slave_id, register, _channel \\ nil) do
-    case PouCon.Utils.Modbus.request(modbus, {:rir, slave_id, register, 2}) do
-      {:ok, [temp_raw, hum_raw]} ->
-        {:ok, %{temperature: temp_raw / 10, humidity: hum_raw / 10}}
-
-      {:error, reason} ->
-        {:error, reason}
+  defp get_device_module(fn_name) do
+    case fn_name do
+      # Waveshare Digital IO modules
+      :read_digital_input -> WaveshareDigitalIO
+      :read_digital_output -> WaveshareDigitalIO
+      :write_digital_output -> WaveshareDigitalIO
+      # Cytron Temperature/Humidity sensor
+      :read_temperature_humidity -> CytronTempHumSensor
+      # Xintai Water Meter
+      :read_water_meter -> XintaiWaterMeter
+      :write_water_meter_valve -> XintaiWaterMeter
+      :write_water_meter_reset -> XintaiWaterMeter
+      # Virtual devices (simulation)
+      :read_virtual_digital_input -> Virtual
+      :write_virtual_digital_input -> Virtual
     end
   end
 
   # ------------------------------------------------------------------ #
   # Utility
   # ------------------------------------------------------------------ #
+
+  defp get_device_type_module(:waveshare), do: WaveshareDigitalIO
+  defp get_device_type_module(:cytron), do: CytronTempHumSensor
+  defp get_device_type_module(:xintai), do: XintaiWaterMeter
+
   defp get_device_and_modbus(state, name) do
     with {:ok, dev} <- Map.fetch(state.devices, name),
          {:ok, port} <- Map.fetch(state.ports, dev.port_device_path),
@@ -749,6 +670,31 @@ defmodule PouCon.Hardware.DeviceManager do
     else
       :error -> {:error, :not_found}
       false -> {:error, :port_not_connected}
+    end
+  end
+
+  defp do_set_slave_id(state, port_path, old_slave_id, new_slave_id, device_module) do
+    with {:ok, port} <- Map.fetch(state.ports, port_path),
+         true <- port.modbus_pid != nil,
+         modbus_pid <- port.modbus_pid do
+      case device_module.set_slave_id(modbus_pid, old_slave_id, new_slave_id) do
+        :ok ->
+          Repo.update_all(
+            from(d in Device,
+              where: d.port_device_path == ^port_path and d.slave_id == ^old_slave_id
+            ),
+            set: [slave_id: new_slave_id]
+          )
+
+          GenServer.cast(self(), :reload)
+          {:reply, {:ok, :success}, state}
+
+        {:error, reason} ->
+          {:reply, {:error, reason}, state}
+      end
+    else
+      :error -> {:reply, {:error, :port_not_found}, state}
+      false -> {:reply, {:error, :port_not_connected}, state}
     end
   end
 end
