@@ -1,6 +1,9 @@
 #!/bin/bash
 # Deploy PouCon to Raspberry Pi CM4 (Bookworm)
 # Usage: ./scripts/deploy_to_cm4.sh <cm4-ip-address> [--build-only]
+#
+# This script uses Docker buildx with QEMU emulation to cross-compile
+# for ARM64 (Raspberry Pi 3B+/4/CM4).
 
 set -e  # Exit on error
 
@@ -14,7 +17,7 @@ NC='\033[0m' # No Color
 CM4_IP=$1
 BUILD_ONLY=$2
 PROJECT_DIR=$(pwd)
-RELEASE_TAR="pou_con_release.tar.gz"
+RELEASE_TAR="pou_con_release_arm.tar.gz"
 REMOTE_USER="pi"
 REMOTE_DIR="/opt/pou_con"
 
@@ -36,51 +39,50 @@ check_requirements() {
 
     if ! command -v docker &> /dev/null; then
         print_error "Docker is not installed. Please install Docker first."
+        print_error "Run: ./scripts/setup_docker_arm.sh"
+        exit 1
+    fi
+
+    if ! docker buildx version &> /dev/null; then
+        print_error "Docker buildx is not available."
+        print_error "Run: ./scripts/setup_docker_arm.sh"
         exit 1
     fi
 
     if [ -z "$CM4_IP" ] && [ "$BUILD_ONLY" != "--build-only" ]; then
         print_error "Usage: $0 <cm4-ip-address> [--build-only]"
         echo "Example: $0 192.168.1.100"
-        echo "Build only: $0 - --build-only"
+        echo "Build only: $0 --build-only"
         exit 1
     fi
 
-    echo "✓ Docker found"
+    echo "✓ Docker and buildx found"
 }
 
 build_release() {
-    print_step "Building release with Bookworm Docker container..."
+    print_step "Building ARM64 release using Docker buildx..."
+    print_step "This uses Dockerfile.arm with cross-compilation (10-20 minutes)..."
 
     # Clean previous builds
-    rm -f "$RELEASE_TAR"
+    rm -rf output
+    mkdir -p output
 
-    # Build using Bookworm container to match CM4
-    docker run -it --rm \
-        -v "$PROJECT_DIR:/app" \
-        -w /app \
-        hexpm/elixir:1.15.7-erlang-26.1.2-debian-bookworm-20231009-slim \
-        bash -c "
-            set -e
-            echo 'Installing Hex and Rebar...'
-            mix local.hex --force
-            mix local.rebar --force
+    # Build for ARM64 using Dockerfile.arm and buildx
+    docker buildx build \
+        --platform linux/arm64 \
+        --output type=local,dest=./output \
+        -f Dockerfile.arm \
+        --progress=plain \
+        .
 
-            echo 'Fetching dependencies...'
-            mix deps.get --only prod
+    # Check if build succeeded
+    if [ ! -f "output/$RELEASE_TAR" ]; then
+        print_error "Build failed - release tarball not found"
+        exit 1
+    fi
 
-            echo 'Building assets...'
-            MIX_ENV=prod mix assets.deploy
-
-            echo 'Creating release...'
-            MIX_ENV=prod mix release
-
-            echo 'Release build complete!'
-        "
-
-    # Package release
-    print_step "Packaging release..."
-    tar -czf "$RELEASE_TAR" -C _build/prod/rel/pou_con .
+    # Move to project root for easier access
+    cp "output/$RELEASE_TAR" "./$RELEASE_TAR"
 
     echo "✓ Release built: $RELEASE_TAR ($(du -h $RELEASE_TAR | cut -f1))"
 }
@@ -113,7 +115,7 @@ deploy_to_cm4() {
 
         echo "Extracting release..."
         sudo mkdir -p /opt/pou_con
-        sudo tar -xzf /tmp/pou_con_release.tar.gz -C /opt/pou_con
+        sudo tar -xzf /tmp/pou_con_release_arm.tar.gz -C /opt/pou_con
         sudo chown -R pi:pi /opt/pou_con
 
         echo "Restoring data and config..."
@@ -134,6 +136,8 @@ deploy_to_cm4() {
         if [ -f .env ]; then
             export $(cat .env | xargs)
             ./bin/pou_con eval "PouCon.Release.migrate()" || echo "Migration failed or no new migrations"
+            echo "Running seeds..."
+            ./bin/pou_con eval "PouCon.Release.seed()" || echo "Seeding failed or already seeded"
         else
             echo "WARNING: No .env file found. Skipping migrations."
         fi
@@ -144,7 +148,7 @@ deploy_to_cm4() {
         echo "Deployment complete!"
 
         # Cleanup
-        rm -f /tmp/pou_con_release.tar.gz
+        rm -f /tmp/pou_con_release_arm.tar.gz
         sudo rm -rf /tmp/pou_con_data_backup /tmp/pou_con_env_backup
 ENDSSH
 

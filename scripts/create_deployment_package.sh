@@ -125,7 +125,10 @@ echo "10. Running database migrations..."
 cd "$INSTALL_DIR"
 sudo -u "$SERVICE_USER" DATABASE_PATH="$DATA_DIR/pou_con_prod.db" SECRET_KEY_BASE="$SECRET_KEY" ./bin/pou_con eval "PouCon.Release.migrate"
 
-echo "11. Verifying database permissions..."
+echo "11. Running database seeds..."
+sudo -u "$SERVICE_USER" DATABASE_PATH="$DATA_DIR/pou_con_prod.db" SECRET_KEY_BASE="$SECRET_KEY" ./bin/pou_con eval "PouCon.Release.seed" || echo "Seeding failed or already seeded"
+
+echo "12. Verifying database permissions..."
 if [ -f "$DATA_DIR/pou_con_prod.db" ]; then
     chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR/pou_con_prod.db"
     chmod 644 "$DATA_DIR/pou_con_prod.db"

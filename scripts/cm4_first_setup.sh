@@ -21,37 +21,33 @@ echo "════════════════════════�
 echo ""
 
 # 1. Install dependencies
+# Note: Erlang/OTP is NOT needed - the release includes ERTS (embedded runtime)
+# We only need SQLite for database and openssl for key generation
 print_step "Installing system dependencies..."
 sudo apt update
 sudo apt install -y \
-    erlang-base \
-    erlang-dev \
-    erlang-parsetools \
-    erlang-eunit \
-    erlang-ssl \
-    erlang-inets \
-    erlang-crypto \
     sqlite3 \
     libsqlite3-dev \
     openssl
 
 echo "✓ Dependencies installed"
+echo "  (Erlang not required - release includes embedded runtime)"
 
 # 2. Check for release package
-if [ ! -f /tmp/pou_con_release.tar.gz ] && [ ! -f ~/pou_con_release.tar.gz ]; then
+if [ ! -f /tmp/pou_con_release_arm.tar.gz ] && [ ! -f ~/pou_con_release_arm.tar.gz ]; then
     echo ""
     echo -e "${YELLOW}Release package not found.${NC}"
-    echo "Please transfer pou_con_release.tar.gz to this machine first:"
-    echo "  scp pou_con_release.tar.gz pi@<cm4-ip>:/home/pi/"
+    echo "Please transfer pou_con_release_arm.tar.gz to this machine first:"
+    echo "  scp pou_con_release_arm.tar.gz pi@<cm4-ip>:/home/pi/"
     echo ""
     echo "Then run this script again."
     exit 1
 fi
 
 # Use package from /tmp if exists, otherwise from home
-RELEASE_PKG="/tmp/pou_con_release.tar.gz"
+RELEASE_PKG="/tmp/pou_con_release_arm.tar.gz"
 if [ ! -f "$RELEASE_PKG" ]; then
-    RELEASE_PKG="~/pou_con_release.tar.gz"
+    RELEASE_PKG=~/pou_con_release_arm.tar.gz
 fi
 
 # 3. Extract release
