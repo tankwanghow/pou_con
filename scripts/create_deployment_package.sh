@@ -218,6 +218,12 @@ if [ -f "scripts/setup_kiosk.sh" ]; then
     chmod +x "$PACKAGE_DIR/setup_kiosk.sh"
 fi
 
+# Copy house setup script for HTTPS configuration
+if [ -f "scripts/setup_house.sh" ]; then
+    cp scripts/setup_house.sh "$PACKAGE_DIR/"
+    chmod +x "$PACKAGE_DIR/setup_house.sh"
+fi
+
 # Copy setup_sudo.sh for system time management (if it exists)
 if [ -f "setup_sudo.sh" ]; then
     cp setup_sudo.sh "$PACKAGE_DIR/"
@@ -237,6 +243,7 @@ Contents:
   - deploy.sh        : Deployment script (runs setup_sudo.sh automatically)
   - backup.sh        : Backup script
   - uninstall.sh     : Uninstall script
+  - setup_house.sh   : House setup (house_id + HTTPS certificates)
   - setup_sudo.sh    : System time management setup (auto-run by deploy.sh)
   - setup_kiosk.sh   : Optional touchscreen kiosk mode setup
   - README.txt       : This file

@@ -43,4 +43,4 @@ npm-debug.log
 *.db-*
 
 /output/
-*.tar.gz
+*.tar.gzpriv/house_id

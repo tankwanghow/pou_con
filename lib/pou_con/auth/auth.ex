@@ -43,24 +43,34 @@ defmodule PouCon.Auth do
     end
   end
 
+  @default_house_id_file "/etc/pou_con/house_id"
+
+  @doc """
+  Reads house_id from file (default: /etc/pou_con/house_id).
+
+  The file is created during deployment and contains a single line
+  with the house identifier (e.g., "H1", "HOUSE2", "FARM_A").
+
+  The file path can be configured via:
+    config :pou_con, :house_id_file, "/path/to/house_id"
+
+  Returns uppercase house_id or "NOT SET" if file doesn't exist.
+  """
   def get_house_id do
-    case Repo.get_by(AppConfig, key: "house_id") do
-      nil -> "House ID Not Set"
-      config -> config.value || "House ID Not Set"
-    end
-  end
+    file_path = Application.get_env(:pou_con, :house_id_file, @default_house_id_file)
 
-  def set_house_id(house_id) do
-    case Repo.get_by(AppConfig, key: "house_id") do
-      nil ->
-        %AppConfig{}
-        |> AppConfig.changeset(%{key: "house_id", value: house_id})
-        |> Repo.insert()
+    case File.read(file_path) do
+      {:ok, content} ->
+        content
+        |> String.trim()
+        |> String.upcase()
+        |> case do
+          "" -> "NOT SET"
+          id -> id
+        end
 
-      config ->
-        config
-        |> AppConfig.changeset(%{value: house_id})
-        |> Repo.update()
+      {:error, _} ->
+        "NOT SET"
     end
   end
 

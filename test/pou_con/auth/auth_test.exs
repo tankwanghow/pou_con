@@ -116,52 +116,45 @@ defmodule PouCon.AuthTest do
 
   describe "get_house_id/0" do
     setup do
-      Repo.delete_all(AppConfig)
-      :ok
+      # Create a temporary file for testing
+      test_file = Path.join(System.tmp_dir!(), "test_house_id_#{:rand.uniform(100_000)}")
+      Application.put_env(:pou_con, :house_id_file, test_file)
+
+      on_exit(fn ->
+        File.rm(test_file)
+        Application.delete_env(:pou_con, :house_id_file)
+      end)
+
+      {:ok, test_file: test_file}
     end
 
-    test "returns house ID when set" do
-      %AppConfig{}
-      |> AppConfig.changeset(%{key: "house_id", value: "HOUSE-123"})
-      |> Repo.insert!()
-
+    test "returns house ID when file exists", %{test_file: test_file} do
+      File.write!(test_file, "house-123\n")
       assert Auth.get_house_id() == "HOUSE-123"
     end
 
-    test "returns default message when not set" do
-      assert Auth.get_house_id() == "House ID Not Set"
+    test "returns uppercase house ID", %{test_file: test_file} do
+      File.write!(test_file, "h1")
+      assert Auth.get_house_id() == "H1"
     end
 
-    test "returns default message when value is nil" do
-      %AppConfig{}
-      |> AppConfig.changeset(%{key: "house_id"})
-      |> Repo.insert!()
-
-      assert Auth.get_house_id() == "House ID Not Set"
-    end
-  end
-
-  describe "set_house_id/1" do
-    setup do
-      Repo.delete_all(AppConfig)
-      :ok
+    test "trims whitespace from house ID", %{test_file: test_file} do
+      File.write!(test_file, "  farm_a  \n")
+      assert Auth.get_house_id() == "FARM_A"
     end
 
-    test "creates new house ID when not exists" do
-      assert {:ok, config} = Auth.set_house_id("HOUSE-456")
-      assert config.key == "house_id"
-      assert config.value == "HOUSE-456"
-      assert Auth.get_house_id() == "HOUSE-456"
+    test "returns NOT SET when file does not exist" do
+      assert Auth.get_house_id() == "NOT SET"
     end
 
-    test "updates existing house ID" do
-      %AppConfig{}
-      |> AppConfig.changeset(%{key: "house_id", value: "OLD-ID"})
-      |> Repo.insert!()
+    test "returns NOT SET when file is empty", %{test_file: test_file} do
+      File.write!(test_file, "")
+      assert Auth.get_house_id() == "NOT SET"
+    end
 
-      assert {:ok, config} = Auth.set_house_id("NEW-ID")
-      assert config.value == "NEW-ID"
-      assert Auth.get_house_id() == "NEW-ID"
+    test "returns NOT SET when file contains only whitespace", %{test_file: test_file} do
+      File.write!(test_file, "   \n  ")
+      assert Auth.get_house_id() == "NOT SET"
     end
   end
 end

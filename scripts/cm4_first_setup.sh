@@ -74,18 +74,13 @@ DATABASE_PATH=/opt/pou_con/data/pou_con_prod.db
 
 # Phoenix
 SECRET_KEY_BASE=${SECRET_KEY}
-PHX_HOST=localhost
-PORT=4000
+PHX_SERVER=true
 
 # Environment
 MIX_ENV=prod
 
 # Hardware (0 = real hardware, 1 = simulation)
 SIMULATE_DEVICES=0
-
-# System identification (optional)
-FARM_NAME="My Poultry Farm"
-HOUSE_NUMBER="House 1"
 EOF
     echo "✓ Created .env file"
 fi
@@ -197,13 +192,23 @@ fi
 
 echo ""
 echo "═══════════════════════════════════════════"
-echo -e "${GREEN}  Setup Complete!${NC}"
+echo -e "${GREEN}  Base Setup Complete!${NC}"
 echo "═══════════════════════════════════════════"
 echo ""
-echo "Next steps:"
-echo "  1. Get CM4 IP address: hostname -I"
-echo "  2. Access web interface: http://$(hostname -I | awk '{print $1}'):4000"
-echo "  3. Default login: admin / admin123 (change immediately!)"
+echo -e "${YELLOW}NEXT: Run house setup to configure HTTPS:${NC}"
+echo ""
+echo "  1. Copy CA files from your dev machine:"
+echo "     scp priv/ssl/ca/ca.crt priv/ssl/ca/ca.key pi@$(hostname -I | awk '{print $1}'):/tmp/"
+echo ""
+echo "  2. Run house setup on this Pi:"
+echo "     /opt/pou_con/scripts/setup_house.sh"
+echo ""
+echo "  3. Restart service:"
+echo "     sudo systemctl restart pou_con"
+echo ""
+echo "  4. Access via: https://poucon.<house_id>"
+echo ""
+echo "═══════════════════════════════════════════"
 echo ""
 echo "Configuration workflow:"
 echo "  Admin → Ports → Add RS485/Modbus ports"
@@ -218,9 +223,4 @@ echo "  sudo systemctl restart pou_con    # Restart service"
 echo ""
 echo "⚠ IMPORTANT: You need to log out and log back in for serial port"
 echo "   permissions to take effect (dialout group membership)."
-echo ""
-echo "Optional: Run 'sudo raspi-config' to:"
-echo "  - Disable GUI (saves RAM): System → Boot to Console"
-echo "  - Enable VNC for remote access"
-echo "  - Set timezone and locale"
 echo ""

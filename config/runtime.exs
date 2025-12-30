@@ -44,21 +44,41 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
-  host = System.get_env("PHX_HOST") || "example.com"
-  port = String.to_integer(System.get_env("PORT") || "4000")
+  # Read house_id from file to construct hostname: poucon.{house_id}
+  house_id =
+    case File.read("/etc/pou_con/house_id") do
+      {:ok, content} -> content |> String.trim() |> String.downcase()
+      {:error, _} -> "unknown"
+    end
+
+  # Hostname format: poucon.{house_id} (e.g., poucon.h1, poucon.house2)
+  host = System.get_env("PHX_HOST") || "poucon.#{house_id}"
 
   config :pou_con, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
+  # SSL certificate paths (created during deployment)
+  ssl_key = System.get_env("SSL_KEY_PATH") || "/etc/pou_con/ssl/server.key"
+  ssl_cert = System.get_env("SSL_CERT_PATH") || "/etc/pou_con/ssl/server.crt"
+
   config :pou_con, PouConWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
+    # HTTP on port 80 redirects to HTTPS
     http: [
-      # Enable IPv6 and bind on all interfaces.
-      # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
-      # See the documentation on https://hexdocs.pm/bandit/Bandit.html#t:options/0
-      # for details about using IPv6 vs IPv4 and loopback vs public addresses.
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
-      port: port
+      port: 80
     ],
+    # HTTPS on port 443
+    https: [
+      ip: {0, 0, 0, 0, 0, 0, 0, 0},
+      port: 443,
+      cipher_suite: :strong,
+      keyfile: ssl_key,
+      certfile: ssl_cert
+    ],
+    # Force redirect HTTP to HTTPS
+    force_ssl: [rewrite_on: [:x_forwarded_proto], host: nil],
+    # Allow LiveView WebSocket connections from any origin (required for LAN access)
+    check_origin: false,
     secret_key_base: secret_key_base
 
   # ## SSL Support

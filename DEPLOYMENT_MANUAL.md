@@ -17,13 +17,18 @@ This is the comprehensive deployment manual for PouCon, an industrial automation
    - [5.2 Master Image Deployment](#52-master-image-deployment)
    - [5.3 CM4 Deployment](#53-cm4-deployment)
    - [5.4 Existing System Deployment](#54-existing-system-deployment)
-6. [Touchscreen & Kiosk Setup](#6-touchscreen--kiosk-setup)
-7. [System Time Recovery](#7-system-time-recovery)
-8. [Configuration](#8-configuration)
-9. [Backup and Recovery](#9-backup-and-recovery)
-10. [Troubleshooting](#10-troubleshooting)
-11. [Scripts Reference](#11-scripts-reference)
-12. [Quick Reference](#12-quick-reference)
+6. [HTTPS & Multi-House Setup](#6-https--multi-house-setup)
+   - [6.1 Overview](#61-overview)
+   - [6.2 Certificate Authority Setup](#62-certificate-authority-setup)
+   - [6.3 House Setup](#63-house-setup)
+   - [6.4 Client Device Setup](#64-client-device-setup)
+7. [Touchscreen & Kiosk Setup](#7-touchscreen--kiosk-setup)
+8. [System Time Recovery](#8-system-time-recovery)
+9. [Configuration](#9-configuration)
+10. [Backup and Recovery](#10-backup-and-recovery)
+11. [Troubleshooting](#11-troubleshooting)
+12. [Scripts Reference](#12-scripts-reference)
+13. [Quick Reference](#13-quick-reference)
 
 ---
 
@@ -79,13 +84,15 @@ This is the comprehensive deployment manual for PouCon, an industrial automation
 
 **On your development machine (one-time setup):**
 ```bash
-./scripts/setup_docker_arm.sh
+./scripts/setup_docker_arm.sh    # Docker for ARM builds
+./scripts/setup_ca.sh            # Create Certificate Authority for HTTPS
 ```
 
 **Every time you want to deploy (10-20 minutes):**
 ```bash
 ./scripts/build_and_package.sh
 cp pou_con_deployment_*.tar.gz /media/usb_drive/
+cp priv/ssl/ca/ca.crt priv/ssl/ca/ca.key /media/usb_drive/  # For HTTPS setup
 ```
 
 **At poultry house (5-10 minutes, no internet):**
@@ -94,11 +101,18 @@ tar -xzf pou_con_deployment_*.tar.gz
 cd deployment_package_*/
 sudo ./deploy.sh
 sudo systemctl enable pou_con
+
+# Configure house identity and HTTPS
+cp /media/usb/ca.* /tmp/          # Copy CA files
+./setup_house.sh                   # Prompts for house_id (e.g., h1, h2)
 sudo systemctl start pou_con
-hostname -I  # Get Pi's IP
 ```
 
-Access at `http://<pi-ip>:4000`, login `admin`/`admin`, change password immediately.
+Access at `https://poucon.<house_id>` (e.g., `https://poucon.h1`), login `admin`/`admin`, change password immediately.
+
+**On user devices (one-time):**
+- Install `ca.crt` as trusted certificate
+- Add to `/etc/hosts` or router DNS: `<pi-ip> poucon.<house_id>`
 
 ## 2.2 Detailed Walkthrough
 
@@ -699,9 +713,182 @@ sudo systemctl disable avahi-daemon
 
 ---
 
-# 6. Touchscreen & Kiosk Setup
+# 6. HTTPS & Multi-House Setup
 
 ## 6.1 Overview
+
+PouCon supports secure HTTPS access across multiple poultry houses on the same network. Each house runs its own instance with a unique identifier.
+
+**Architecture:**
+```
+Network (same router)
+├── House 1: https://poucon.h1 (Pi @ 192.168.1.101)
+├── House 2: https://poucon.h2 (Pi @ 192.168.1.102)
+├── House 3: https://poucon.h3 (Pi @ 192.168.1.103)
+└── User devices: iPad/mobile with CA cert installed
+    └── /etc/hosts or router DNS maps hostnames to IPs
+```
+
+**Key Files:**
+| File | Location | Purpose |
+|------|----------|---------|
+| `house_id` | `/etc/pou_con/house_id` | House identifier (e.g., "h1") |
+| `server.crt` | `/etc/pou_con/ssl/server.crt` | SSL certificate for this house |
+| `server.key` | `/etc/pou_con/ssl/server.key` | SSL private key |
+| `ca.crt` | `/etc/pou_con/ssl/ca.crt` | CA certificate (same on all houses) |
+
+**Ports:**
+- HTTP (80): Redirects to HTTPS
+- HTTPS (443): Main application
+
+## 6.2 Certificate Authority Setup
+
+Run **once** on your development machine to create a CA that signs certificates for all houses.
+
+```bash
+./scripts/setup_ca.sh
+```
+
+This creates:
+- `priv/ssl/ca/ca.crt` - CA certificate (distribute to user devices)
+- `priv/ssl/ca/ca.key` - CA private key (KEEP SECRET, use for signing)
+
+**IMPORTANT:** Back up these files securely. If lost, you must regenerate and reinstall CA on all devices.
+
+## 6.3 House Setup
+
+Run on **each Raspberry Pi** to configure house identity and generate SSL certificate.
+
+### Prerequisites
+
+1. PouCon deployed via `deploy.sh` or `cm4_first_setup.sh`
+2. CA files copied to Pi: `scp priv/ssl/ca/* pi@<pi-ip>:/tmp/`
+
+### Setup Process
+
+```bash
+# SSH to the Pi
+ssh pi@<pi-ip>
+
+# Run house setup
+./setup_house.sh
+# Or if using deployment package:
+/opt/pou_con/scripts/setup_house.sh
+```
+
+**Prompts:**
+1. **House ID**: Enter identifier (e.g., `h1`, `house2`, `farm_a`)
+   - Will be uppercased in UI display
+   - Used to construct hostname: `poucon.<house_id>`
+
+2. **Set system hostname?**: Recommended yes
+   - Sets Pi's hostname to `poucon.<house_id>`
+
+**What it does:**
+1. Writes house_id to `/etc/pou_con/house_id`
+2. Generates SSL certificate for `poucon.<house_id>`
+3. Signs certificate with your CA
+4. Installs certificates to `/etc/pou_con/ssl/`
+5. Optionally sets system hostname
+
+### After Setup
+
+```bash
+# Restart service to apply HTTPS
+sudo systemctl restart pou_con
+
+# Verify HTTPS is working
+curl -k https://localhost
+```
+
+## 6.4 Client Device Setup
+
+Users need two things to access houses via HTTPS:
+
+### 1. Install CA Certificate (One-Time)
+
+The CA certificate must be installed on each device that will access PouCon.
+
+**iOS/iPadOS:**
+1. Transfer `ca.crt` to device (AirDrop, email, or USB)
+2. Open the file → "Profile Downloaded" notification appears
+3. Settings → General → VPN & Device Management
+4. Tap the profile and Install
+5. Settings → General → About → Certificate Trust Settings
+6. Enable full trust for your CA
+
+**Android:**
+1. Copy `ca.crt` to device
+2. Settings → Security → Install from storage
+3. Select `ca.crt`, name it (e.g., "PouCon Farm")
+4. Install as "CA certificate"
+
+**Windows:**
+1. Double-click `ca.crt`
+2. Install Certificate → Local Machine → Trusted Root Certification Authorities
+
+**macOS:**
+1. Double-click `ca.crt` to add to Keychain
+2. Keychain Access → Find certificate → Get Info
+3. Trust → Always Trust
+
+### 2. Configure Hostname Resolution
+
+Devices need to resolve `poucon.<house_id>` to the Pi's IP address.
+
+**Option A: Router DNS (Recommended for multiple devices)**
+- Access router admin panel
+- Add DNS entries:
+  ```
+  poucon.h1 → 192.168.1.101
+  poucon.h2 → 192.168.1.102
+  ```
+
+**Option B: Device /etc/hosts (Per-device)**
+
+On each device, add to `/etc/hosts`:
+```
+192.168.1.101  poucon.h1
+192.168.1.102  poucon.h2
+192.168.1.103  poucon.h3
+```
+
+**iOS/Android:** Requires jailbreak/root or use a local DNS app.
+
+### 3. Access the Application
+
+Open browser and navigate to:
+```
+https://poucon.h1
+https://poucon.h2
+```
+
+No port number needed (uses standard HTTPS port 443).
+
+## 6.5 Troubleshooting HTTPS
+
+**Certificate warnings in browser:**
+- CA certificate not installed or not trusted
+- Hostname doesn't match certificate (check `/etc/pou_con/house_id`)
+
+**Connection refused:**
+- Service not running: `sudo systemctl status pou_con`
+- Firewall blocking ports 80/443: `sudo ufw allow 80,443/tcp`
+
+**"NET::ERR_CERT_AUTHORITY_INVALID":**
+- CA not trusted on device
+- Re-install CA certificate and enable full trust
+
+**Check certificate details:**
+```bash
+openssl x509 -in /etc/pou_con/ssl/server.crt -text -noout
+```
+
+---
+
+# 7. Touchscreen & Kiosk Setup
+
+## 7.1 Overview
 
 **What kiosk mode does:**
 - Pi boots directly to PouCon interface
@@ -710,7 +897,7 @@ sudo systemctl disable avahi-daemon
 - Auto-restarts browser if it crashes
 - No keyboard/mouse needed
 
-## 6.2 Hardware Options
+## 7.2 Hardware Options
 
 ### Standard Pi + External Touchscreen
 
@@ -728,7 +915,7 @@ sudo systemctl disable avahi-daemon
 - Waveshare CM4-Panel-10.1-B ($200-250)
 - Seeed Studio reTerminal DM ($250-300)
 
-## 6.3 Kiosk Setup
+## 7.3 Kiosk Setup
 
 ### Quick Setup
 
@@ -804,7 +991,7 @@ EndSection
 EOF
 ```
 
-## 6.4 Industrial Panel Setup
+## 7.4 Industrial Panel Setup
 
 **For vendor-provided panels:**
 
@@ -829,16 +1016,16 @@ display_lcd_rotate=1
 
 ---
 
-# 7. System Time Recovery
+# 8. System Time Recovery
 
-## 7.1 Problem: RTC Battery Failure
+## 8.1 Problem: RTC Battery Failure
 
 When the Raspberry Pi's RTC battery dies, the system clock resets after power failure. This causes:
 - Log entries with wrong timestamps
 - Scheduler confusion
 - Report generation issues
 
-## 7.2 One-Time Setup
+## 8.2 One-Time Setup
 
 Enable web-based time setting:
 
@@ -849,7 +1036,7 @@ sudo bash setup_sudo.sh
 
 This allows the web application to set system time without password.
 
-## 7.3 Recovery Steps
+## 8.3 Recovery Steps
 
 ### Via Web Interface (Recommended)
 
@@ -873,7 +1060,7 @@ sudo hwclock --systohc
 date
 ```
 
-## 7.4 Prevention
+## 8.4 Prevention
 
 **Replace the RTC battery (CR2032)** - proper long-term fix.
 
@@ -885,9 +1072,9 @@ sudo timedatectl set-ntp true
 
 ---
 
-# 8. Configuration
+# 9. Configuration
 
-## 8.1 Environment Variables
+## 9.1 Environment Variables
 
 Environment variables are stored in systemd service file:
 `/etc/systemd/system/pou_con.service`
@@ -908,7 +1095,7 @@ Environment variables are stored in systemd service file:
 | `MIX_ENV` | Environment | `prod` |
 | `POOL_SIZE` | DB connection pool | `5` |
 
-## 8.2 Changing Configuration
+## 9.2 Changing Configuration
 
 ```bash
 # 1. Stop service
@@ -925,7 +1112,7 @@ sudo systemctl daemon-reload
 sudo systemctl start pou_con
 ```
 
-## 8.3 Network Configuration
+## 9.3 Network Configuration
 
 ### Static IP
 
@@ -957,9 +1144,9 @@ sudo systemctl restart wpa_supplicant
 
 ---
 
-# 9. Backup and Recovery
+# 10. Backup and Recovery
 
-## 9.1 Automated Backup
+## 10.1 Automated Backup
 
 ```bash
 # Schedule daily backups via cron
@@ -969,7 +1156,7 @@ sudo crontab -e
 0 2 * * * /opt/pou_con_deployment/backup.sh
 ```
 
-## 9.2 Manual Backup
+## 10.2 Manual Backup
 
 ```bash
 # Create instant backup
@@ -979,7 +1166,7 @@ sudo /opt/pou_con_deployment/backup.sh
 sudo cp /var/backups/pou_con/pou_con_backup_*.tar.gz /media/pi/USB/
 ```
 
-## 9.3 Restore from Backup
+## 10.3 Restore from Backup
 
 ```bash
 # Stop service
@@ -995,7 +1182,7 @@ sudo chown pou_con:pou_con /var/lib/pou_con/pou_con_prod.db
 sudo systemctl start pou_con
 ```
 
-## 9.4 Replacing Failed Controller
+## 10.4 Replacing Failed Controller
 
 **Quick Swap Process:**
 
@@ -1009,9 +1196,9 @@ sudo systemctl start pou_con
 
 ---
 
-# 10. Troubleshooting
+# 11. Troubleshooting
 
-## 10.1 Service Won't Start
+## 11.1 Service Won't Start
 
 ```bash
 # Check logs
@@ -1029,7 +1216,7 @@ sudo chown -R pou_con:pou_con /opt/pou_con /var/lib/pou_con
 sudo netstat -tlnp | grep 4000
 ```
 
-## 10.2 Cannot Access Web Interface
+## 11.2 Cannot Access Web Interface
 
 ```bash
 # Check service
@@ -1045,7 +1232,7 @@ sudo ufw allow 4000/tcp
 hostname -I
 ```
 
-## 10.3 Modbus Communication Errors
+## 11.3 Modbus Communication Errors
 
 ```bash
 # Check USB devices
@@ -1056,7 +1243,7 @@ sudo usermod -a -G dialout pou_con
 sudo systemctl restart pou_con
 ```
 
-## 10.4 Database Issues
+## 11.4 Database Issues
 
 ```bash
 # Check integrity
@@ -1070,7 +1257,7 @@ sudo -u pou_con DATABASE_PATH=/var/lib/pou_con/pou_con_prod.db \
 sudo systemctl start pou_con
 ```
 
-## 10.5 Disk Space Issues
+## 11.5 Disk Space Issues
 
 ```bash
 # Check usage
@@ -1080,7 +1267,7 @@ df -h
 sudo journalctl --vacuum-time=7d
 ```
 
-## 10.6 Touchscreen Issues
+## 11.6 Touchscreen Issues
 
 **Touch not detected:**
 ```bash
@@ -1104,7 +1291,7 @@ sudo apt install xinput-calibrator
 DISPLAY=:0.0 xinput_calibrator
 ```
 
-## 10.7 Build Fails
+## 11.7 Build Fails
 
 **Docker not found:**
 ```bash
@@ -1125,9 +1312,9 @@ docker buildx rm multiarch
 
 ---
 
-# 11. Scripts Reference
+# 12. Scripts Reference
 
-## 11.1 Build Scripts
+## 12.1 Build Scripts
 
 | Script | Purpose |
 |--------|---------|
@@ -1136,15 +1323,17 @@ docker buildx rm multiarch
 | `create_deployment_package.sh` | Create deployment tarball |
 | `build_and_package.sh` | All-in-one: build + package |
 
-## 11.2 Deployment Scripts
+## 12.2 Deployment Scripts
 
 | Script | Purpose |
 |--------|---------|
 | `deploy_to_cm4.sh` | Automated deployment to CM4 |
 | `cm4_first_setup.sh` | First-time CM4 setup |
+| `setup_ca.sh` | Create Certificate Authority (run once) |
+| `setup_house.sh` | Configure house_id + SSL cert (run per house) |
 | `setup_kiosk.sh` | Configure kiosk mode |
 
-## 11.3 Package Scripts (Inside deployment package)
+## 12.3 Package Scripts (Inside deployment package)
 
 | Script | Purpose |
 |--------|---------|
@@ -1152,7 +1341,7 @@ docker buildx rm multiarch
 | `backup.sh` | Create database backup |
 | `uninstall.sh` | Remove PouCon |
 
-## 11.4 Usage Examples
+## 12.4 Usage Examples
 
 ```bash
 # Build and package
@@ -1170,9 +1359,9 @@ docker buildx rm multiarch
 
 ---
 
-# 12. Quick Reference
+# 13. Quick Reference
 
-## 12.1 Service Commands
+## 13.1 Service Commands
 
 ```bash
 sudo systemctl start pou_con      # Start
@@ -1182,7 +1371,7 @@ sudo systemctl status pou_con     # Status
 sudo systemctl enable pou_con     # Enable on boot
 ```
 
-## 12.2 Log Commands
+## 13.2 Log Commands
 
 ```bash
 sudo journalctl -u pou_con -f          # Follow logs
@@ -1190,7 +1379,7 @@ sudo journalctl -u pou_con -n 100      # Last 100 lines
 sudo journalctl -u pou_con --since today
 ```
 
-## 12.3 System Commands
+## 13.3 System Commands
 
 ```bash
 hostname -I                       # Get IP address
@@ -1201,7 +1390,7 @@ sudo reboot                       # Reboot
 sudo shutdown -h now              # Shutdown
 ```
 
-## 12.4 Database Commands
+## 13.4 Database Commands
 
 ```bash
 sqlite3 /var/lib/pou_con/pou_con_prod.db
@@ -1212,7 +1401,7 @@ SELECT * FROM equipment;          # Query data
 .quit                             # Exit
 ```
 
-## 12.5 File Locations
+## 13.5 File Locations
 
 **On Development Machine:**
 ```
@@ -1238,22 +1427,29 @@ pou_con/
 /var/log/pou_con/                  # Logs
 /var/backups/pou_con/              # Backups
 /etc/systemd/system/pou_con.service # Service config
+/etc/pou_con/house_id              # House identifier
+/etc/pou_con/ssl/                  # SSL certificates
+  ├── server.crt                   # Server certificate
+  ├── server.key                   # Server private key
+  └── ca.crt                       # CA certificate
 ```
 
-## 12.6 Default Credentials
+## 13.6 Default Credentials
 
 - **Web Interface:** `admin` / `admin`
 - **SSH:** `pi` / (your password)
 
 **CHANGE DEFAULT PASSWORDS IMMEDIATELY!**
 
-## 12.7 Port Numbers
+## 13.7 Port Numbers
 
-| Service | Port |
-|---------|------|
-| PouCon Web Interface | 4000 |
-| SSH | 22 |
-| Modbus TCP (if used) | 502 |
+| Service | Port | Notes |
+|---------|------|-------|
+| PouCon HTTPS | 443 | Production (with HTTPS setup) |
+| PouCon HTTP | 80 | Redirects to HTTPS |
+| PouCon Dev | 4000 | Development mode |
+| SSH | 22 | |
+| Modbus TCP (if used) | 502 | |
 
 ---
 
@@ -1263,6 +1459,8 @@ pou_con/
 
 - [ ] Build production release
 - [ ] Create deployment package
+- [ ] Run `setup_ca.sh` (if not already done)
+- [ ] Copy CA files (ca.crt, ca.key) to USB drive
 - [ ] Prepare master SD card image (if applicable)
 - [ ] Copy deployment package to USB drive
 - [ ] Pack hardware (Pi, SD cards, adapters, cables)
@@ -1273,8 +1471,10 @@ pou_con/
 - [ ] Connect RS485 adapters
 - [ ] Boot Pi and verify USB devices detected
 - [ ] Deploy application
-- [ ] Enable and start service
-- [ ] Verify web interface accessible
+- [ ] Enable service
+- [ ] Run `setup_house.sh` (enter house_id, generate SSL cert)
+- [ ] Start service
+- [ ] Verify HTTPS accessible (`https://poucon.<house_id>`)
 - [ ] **Change admin password**
 - [ ] Configure ports and devices
 - [ ] Configure equipment
@@ -1282,11 +1482,14 @@ pou_con/
 - [ ] Configure automation
 - [ ] Test automation
 - [ ] Create initial backup
-- [ ] Document IP address and location
-- [ ] Label Pi with site name
+- [ ] Document IP address, house_id, and location
+- [ ] Label Pi with house_id
 
 ## Post-Deployment
 
+- [ ] Configure client devices:
+  - [ ] Install CA certificate on iPads/phones
+  - [ ] Add hostname to router DNS or device /etc/hosts
 - [ ] Monitor for 24 hours
 - [ ] Review logs for errors
 - [ ] Train operators

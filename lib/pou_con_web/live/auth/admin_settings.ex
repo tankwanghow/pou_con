@@ -13,9 +13,9 @@ defmodule PouConWeb.Live.Auth.AdminSettings do
          to_form(%{
            "user_password" => "",
            "user_password_confirmation" => "",
-           "house_id" => house_id || "",
            "timezone" => timezone || ""
          }),
+       house_id: house_id,
        error: nil,
        timezones: Tzdata.canonical_zone_list()
      )}
@@ -50,7 +50,12 @@ defmodule PouConWeb.Live.Auth.AdminSettings do
 
         <div>
           <label class="block font-medium">House ID</label>
-          <.input field={@form[:house_id]} type="text" placeholder="e.g., HOME-001" />
+          <div class="px-3 py-2 bg-gray-100 border border-gray-300 rounded font-mono">
+            {@house_id}
+          </div>
+          <p class="text-sm text-gray-500 mt-1">
+            Read from /etc/pou_con/house_id (set during deployment)
+          </p>
         </div>
 
         <div>
@@ -81,7 +86,6 @@ defmodule PouConWeb.Live.Auth.AdminSettings do
   def handle_event("save", params, socket) do
     user_pwd = params["user_password"]
     confirm = params["user_password_confirmation"]
-    house_id = params["house_id"]
     timezone = params["timezone"]
 
     cond do
@@ -95,7 +99,6 @@ defmodule PouConWeb.Live.Auth.AdminSettings do
         results =
           [
             if(user_pwd != "", do: Auth.update_password(user_pwd, :user), else: {:ok, nil}),
-            if(house_id != "", do: Auth.set_house_id(house_id), else: {:ok, nil}),
             if(timezone != "", do: Auth.set_timezone(timezone), else: {:ok, nil})
           ]
 

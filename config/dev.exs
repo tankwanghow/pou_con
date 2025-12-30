@@ -1,5 +1,8 @@
 import Config
 
+# Development house_id file (create with: echo "dev" > priv/house_id)
+config :pou_con, :house_id_file, Path.expand("../priv/house_id", __DIR__)
+
 # Configure your database
 config :pou_con, PouCon.Repo,
   database: Path.expand("../pou_con_dev.db", __DIR__),
