@@ -211,7 +211,7 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
       mode: :auto,
       state_text: "OFFLINE",
       color: "gray",
-      spin_class: ""
+      anim_class: ""
     }
   end
 
@@ -221,7 +221,7 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
     is_interlocked = Map.get(status, :interlocked, false)
     is_failsafe = Map.get(status, :inverted, false)
 
-    {color, spin_class} =
+    {color, anim_class} =
       cond do
         has_error -> {"rose", ""}
         is_interlocked -> {"amber", ""}
@@ -238,8 +238,7 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
       mode: status.mode,
       state_text: if(is_running, do: "RUNNING", else: "STOPPED"),
       color: color,
-      spin_class: spin_class,
-      anim_class: spin_class,
+      anim_class: anim_class,
       err_msg: status.error_message
     }
   end
