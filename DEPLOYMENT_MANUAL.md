@@ -88,30 +88,24 @@ This is the comprehensive deployment manual for PouCon, an industrial automation
 ./scripts/setup_ca.sh            # Create Certificate Authority for HTTPS
 ```
 
-**Every time you want to deploy (10-20 minutes):**
+**Every time you want to deploy:**
 ```bash
-./scripts/build_and_package.sh
+./scripts/build_and_package.sh   # Build + package (includes CA files automatically)
 cp pou_con_deployment_*.tar.gz /media/usb_drive/
-cp priv/ssl/ca/ca.crt priv/ssl/ca/ca.key /media/usb_drive/  # For HTTPS setup
 ```
 
-**At poultry house (5-10 minutes, no internet):**
+**At poultry house (plug USB, deploy, unplug):**
 ```bash
 tar -xzf pou_con_deployment_*.tar.gz
 cd deployment_package_*/
-sudo ./deploy.sh
-sudo systemctl enable pou_con
-
-# Configure house identity and HTTPS
-cp /media/usb/ca.* /tmp/          # Copy CA files
-./setup_house.sh                   # Prompts for house_id (e.g., h1, h2)
-sudo systemctl start pou_con
+sudo ./deploy.sh                  # All-in-one: prompts for house_id, installs everything
+# Done! Unplug USB drive
 ```
 
 Access at `https://poucon.<house_id>` (e.g., `https://poucon.h1`), login `admin`/`admin`, change password immediately.
 
 **On user devices (one-time):**
-- Install `ca.crt` as trusted certificate
+- Install `ca.crt` as trusted certificate (included in deployment package)
 - Add to `/etc/hosts` or router DNS: `<pi-ip> poucon.<house_id>`
 
 ## 2.2 Detailed Walkthrough
@@ -169,24 +163,26 @@ cp pou_con_deployment_*.tar.gz /media/$USER/<usb-label>/
 
 **Prerequisites on Raspberry Pi:**
 - Raspberry Pi OS (64-bit) installed
-- Basic system packages: `sqlite3`, `openssl`, `ca-certificates`, `libncurses5`
 - RS485 USB adapters connected
 
-**Deployment Process (5-10 minutes):**
+**Deployment Process (plug USB → deploy → unplug):**
 
 ```bash
-# 1. Transfer package to Pi (via USB or network)
-cd ~
-cp /media/pi/*/pou_con_deployment_*.tar.gz ./
-
-# 2. Extract and deploy
+# 1. Insert USB drive and extract package
+cd /media/pi/*/                   # Navigate to USB drive
 tar -xzf pou_con_deployment_*.tar.gz
 cd deployment_package_*/
+
+# 2. Run all-in-one deployment
 sudo ./deploy.sh
 
-# 3. Start service
-sudo systemctl enable pou_con
-sudo systemctl start pou_con
+# Follow prompts:
+# - Enter house_id (e.g., h1, h2, farm_a)
+# - Confirm hostname (poucon.<house_id>)
+# - Optionally set system hostname
+
+# 3. Done! Service starts automatically
+# Unplug USB drive
 
 # 4. Verify running
 sudo systemctl status pou_con
@@ -195,9 +191,20 @@ sudo systemctl status pou_con
 hostname -I
 ```
 
+**What deploy.sh does automatically:**
+1. Installs system dependencies (sqlite3, openssl, libncurses5)
+2. Creates `pou_con` system user and directories
+3. Writes house_id to `/etc/pou_con/house_id`
+4. Generates SSL certificate signed by included CA
+5. Installs application to `/opt/pou_con`
+6. Configures privileged ports (80/443)
+7. Installs and enables systemd service
+8. Runs database migrations
+9. Starts the service
+
 ### Phase 4: Initial Configuration (Web Interface)
 
-1. Access: `http://<pi-ip>:4000`
+1. Access: `https://poucon.<house_id>` (or `http://<pi-ip>` if DNS not configured)
 2. Login: `admin` / `admin`
 3. **CHANGE PASSWORD IMMEDIATELY**
 4. Configure Hardware:
@@ -423,41 +430,51 @@ Best for: Single installations, testing new versions
 ```
 deployment_package_YYYYMMDD_HHMMSS/
 ├── pou_con/           # Application release
-├── deploy.sh          # Deployment script
+├── deploy.sh          # All-in-one deployment script
+├── ca.crt             # CA certificate (for SSL)
+├── ca.key             # CA private key (for signing SSL certs)
 ├── backup.sh          # Backup script
 ├── uninstall.sh       # Uninstall script
+├── setup_house.sh     # House reconfiguration (if needed later)
 ├── setup_kiosk.sh     # Kiosk setup (optional)
+├── setup_sudo.sh      # System time management setup
 └── README.txt         # Quick guide
 ```
 
 ### Deployment Steps
 
 ```bash
-# 1. Transfer to Pi
-scp pou_con_deployment_*.tar.gz pi@<pi-ip>:~/
+# 1. Copy package to USB drive
+cp pou_con_deployment_*.tar.gz /media/$USER/<usb-drive>/
 
-# 2. SSH to Pi
-ssh pi@<pi-ip>
-
-# 3. Extract and deploy
+# 2. At poultry house - extract and deploy
 tar -xzf pou_con_deployment_*.tar.gz
 cd deployment_package_*/
 sudo ./deploy.sh
 
-# 4. Start service
-sudo systemctl enable pou_con
-sudo systemctl start pou_con
+# 3. Follow prompts:
+#    - Enter house_id (e.g., h1, h2, farm_a)
+#    - Confirm configuration
+#    - Optionally set system hostname
+
+# 4. Done! Service starts automatically
 ```
 
 ### What deploy.sh Does
 
-1. Creates `pou_con` system user
-2. Installs to `/opt/pou_con`
-3. Creates database directory at `/var/lib/pou_con`
-4. Configures serial port permissions
-5. Installs systemd service
-6. Generates SECRET_KEY_BASE
-7. Runs database migrations
+1. **Prompts for house_id** (e.g., h1, house2, farm_a)
+2. **Installs dependencies** (sqlite3, openssl, libncurses5)
+3. **Creates system user** (`pou_con`) and directories
+4. **Writes house_id** to `/etc/pou_con/house_id`
+5. **Generates SSL certificate** signed by included CA
+6. **Installs application** to `/opt/pou_con`
+7. **Configures privileged ports** (80/443) via setcap
+8. **Sets up system time management** (for RTC battery failure recovery)
+9. **Installs systemd service** with AmbientCapabilities
+10. **Generates SECRET_KEY_BASE** and configures service
+11. **Runs database migrations and seeds**
+12. **Optionally sets system hostname** to `poucon.<house_id>`
+13. **Enables and starts the service**
 
 ## 5.2 Master Image Deployment
 
@@ -594,20 +611,34 @@ make
 
 **For industrial panels with pre-installed OS:**
 
+**Recommended: Use deployment package (same as standard Pi)**
+
 ```bash
-# 1. On dev machine - Build using Docker buildx
-./scripts/build_arm.sh
+# 1. On dev machine - Build and package
+./scripts/build_and_package.sh
 
-# Creates output/pou_con_release_arm.tar.gz
+# 2. Copy to USB drive
+cp pou_con_deployment_*.tar.gz /media/$USER/<usb-drive>/
 
-# 2. Deploy to CM4
-./scripts/deploy_to_cm4.sh <CM4-IP>
+# 3. At CM4 - Extract and deploy
+tar -xzf pou_con_deployment_*.tar.gz
+cd deployment_package_*/
+sudo ./deploy.sh
 
-# Or build only (for manual deployment):
-./scripts/deploy_to_cm4.sh --build-only
+# Follow prompts for house_id, done!
 ```
 
-**Manual deployment:**
+**Alternative: Direct network deployment**
+
+```bash
+# 1. Build using Docker buildx
+./scripts/build_arm.sh
+
+# 2. Deploy directly to CM4
+./scripts/deploy_to_cm4.sh <CM4-IP>
+```
+
+**Manual deployment (if needed):**
 
 ```bash
 # Transfer release
@@ -617,7 +648,7 @@ scp output/pou_con_release_arm.tar.gz pi@<CM4-IP>:/tmp/
 ssh pi@<CM4-IP>
 
 # Install dependencies (if not already)
-sudo apt install -y sqlite3 libsqlite3-dev openssl
+sudo apt install -y sqlite3 libsqlite3-dev openssl libncurses5
 
 # Extract and configure
 sudo mkdir -p /opt/pou_con
@@ -757,47 +788,52 @@ This creates:
 
 ## 6.3 House Setup
 
-Run on **each Raspberry Pi** to configure house identity and generate SSL certificate.
+House configuration is **automatically handled by `deploy.sh`** during initial deployment.
 
-### Prerequisites
+### During Initial Deployment
 
-1. PouCon deployed via `deploy.sh` or `cm4_first_setup.sh`
-2. CA files copied to Pi: `scp priv/ssl/ca/* pi@<pi-ip>:/tmp/`
+When you run `sudo ./deploy.sh`, it will:
+1. **Prompt for house_id** (e.g., `h1`, `house2`, `farm_a`)
+2. **Generate SSL certificate** signed by the included CA files
+3. **Write house_id** to `/etc/pou_con/house_id`
+4. **Install certificates** to `/etc/pou_con/ssl/`
+5. **Optionally set system hostname** to `poucon.<house_id>`
 
-### Setup Process
+**No separate setup step is required!**
+
+### Reconfiguring an Existing Installation
+
+If you need to change house_id or regenerate SSL certificates later:
 
 ```bash
 # SSH to the Pi
 ssh pi@<pi-ip>
 
-# Run house setup
-./setup_house.sh
-# Or if using deployment package:
-/opt/pou_con/scripts/setup_house.sh
+# Stop the service first
+sudo systemctl stop pou_con
+
+# Run house setup script
+cd /path/to/deployment_package
+sudo ./setup_house.sh
+
+# Restart service
+sudo systemctl start pou_con
 ```
 
 **Prompts:**
-1. **House ID**: Enter identifier (e.g., `h1`, `house2`, `farm_a`)
+1. **House ID**: Enter new identifier (e.g., `h1`, `house2`, `farm_a`)
    - Will be uppercased in UI display
    - Used to construct hostname: `poucon.<house_id>`
 
 2. **Set system hostname?**: Recommended yes
-   - Sets Pi's hostname to `poucon.<house_id>`
 
-**What it does:**
-1. Writes house_id to `/etc/pou_con/house_id`
-2. Generates SSL certificate for `poucon.<house_id>`
-3. Signs certificate with your CA
-4. Installs certificates to `/etc/pou_con/ssl/`
-5. Optionally sets system hostname
-
-### After Setup
+### Verify HTTPS
 
 ```bash
-# Restart service to apply HTTPS
-sudo systemctl restart pou_con
+# Check certificate details
+openssl x509 -in /etc/pou_con/ssl/server.crt -text -noout | grep -A1 "Subject:"
 
-# Verify HTTPS is working
+# Test HTTPS locally
 curl -k https://localhost
 ```
 
@@ -1337,7 +1373,8 @@ docker buildx rm multiarch
 
 | Script | Purpose |
 |--------|---------|
-| `deploy.sh` | Install PouCon on Pi |
+| `deploy.sh` | **All-in-one deployment**: installs deps, prompts for house_id, generates SSL, configures and starts service |
+| `setup_house.sh` | Reconfigure house_id and regenerate SSL certificate (for existing installations) |
 | `backup.sh` | Create database backup |
 | `uninstall.sh` | Remove PouCon |
 
@@ -1457,25 +1494,30 @@ pou_con/
 
 ## Pre-Deployment (Office)
 
-- [ ] Build production release
-- [ ] Create deployment package
-- [ ] Run `setup_ca.sh` (if not already done)
-- [ ] Copy CA files (ca.crt, ca.key) to USB drive
-- [ ] Prepare master SD card image (if applicable)
+- [ ] Run `setup_ca.sh` (one-time, if not already done)
+- [ ] Build and package: `./scripts/build_and_package.sh`
 - [ ] Copy deployment package to USB drive
+- [ ] Prepare master SD card image (if applicable)
 - [ ] Pack hardware (Pi, SD cards, adapters, cables)
 
 ## On-Site Deployment
 
-- [ ] Flash SD card (if new Pi)
+- [ ] Flash SD card with Raspberry Pi OS (if new Pi)
 - [ ] Connect RS485 adapters
-- [ ] Boot Pi and verify USB devices detected
-- [ ] Deploy application
-- [ ] Enable service
-- [ ] Run `setup_house.sh` (enter house_id, generate SSL cert)
-- [ ] Start service
-- [ ] Verify HTTPS accessible (`https://poucon.<house_id>`)
-- [ ] **Change admin password**
+- [ ] Boot Pi and insert USB drive
+- [ ] Extract and run deployment:
+  ```bash
+  tar -xzf pou_con_deployment_*.tar.gz
+  cd deployment_package_*/
+  sudo ./deploy.sh
+  ```
+- [ ] Enter house_id when prompted (e.g., h1, h2, farm_a)
+- [ ] Confirm configuration and wait for completion
+- [ ] Unplug USB drive
+- [ ] Verify service running: `sudo systemctl status pou_con`
+- [ ] Note IP address: `hostname -I`
+- [ ] Access web interface: `https://poucon.<house_id>`
+- [ ] **Change admin password immediately**
 - [ ] Configure ports and devices
 - [ ] Configure equipment
 - [ ] Test manual control
@@ -1488,16 +1530,17 @@ pou_con/
 ## Post-Deployment
 
 - [ ] Configure client devices:
-  - [ ] Install CA certificate on iPads/phones
+  - [ ] Copy `ca.crt` from deployment package to devices
+  - [ ] Install CA certificate on iPads/phones (see Section 6.4)
   - [ ] Add hostname to router DNS or device /etc/hosts
 - [ ] Monitor for 24 hours
-- [ ] Review logs for errors
+- [ ] Review logs: `sudo journalctl -u pou_con -f`
 - [ ] Train operators
 - [ ] Schedule maintenance check
 - [ ] Update deployment inventory
 
 ---
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Last Updated:** December 2025
-**Generated from:** Combined project documentation files
+**Change:** Simplified deployment with all-in-one deploy.sh (CA files included in package)
