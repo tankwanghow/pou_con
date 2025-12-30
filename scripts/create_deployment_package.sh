@@ -32,11 +32,21 @@ cat > "$PACKAGE_DIR/deploy.sh" << 'EOF'
 #!/bin/bash
 set -e
 
-echo "=== PouCon Deployment Script ==="
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+echo ""
+echo "═══════════════════════════════════════════"
+echo "  PouCon Deployment Script"
+echo "═══════════════════════════════════════════"
+echo ""
 
 # Variables
 INSTALL_DIR="/opt/pou_con"
 DATA_DIR="/var/lib/pou_con"
+POUCON_CONFIG_DIR="/etc/pou_con"
 SERVICE_USER="pou_con"
 
 # Check if running as root
@@ -45,7 +55,12 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-echo "1. Creating application user..."
+echo "1. Installing system dependencies..."
+apt-get update -qq
+apt-get install -y -qq sqlite3 libsqlite3-dev openssl libncurses5 > /dev/null
+echo "   Dependencies installed"
+
+echo "2. Creating application user..."
 if ! id "$SERVICE_USER" &>/dev/null; then
     useradd -r -s /bin/false -d "$DATA_DIR" "$SERVICE_USER"
     echo "   User $SERVICE_USER created"
@@ -53,35 +68,50 @@ else
     echo "   User $SERVICE_USER already exists"
 fi
 
-echo "2. Creating directories..."
+echo "3. Creating directories..."
 mkdir -p "$INSTALL_DIR"
 mkdir -p "$DATA_DIR"
+mkdir -p "$POUCON_CONFIG_DIR/ssl"
 mkdir -p /var/log/pou_con
 mkdir -p /var/backups/pou_con
 
-echo "3. Copying application files..."
+echo "4. Copying application files..."
 cp -r pou_con/* "$INSTALL_DIR/"
 
-echo "4. Setting directory permissions..."
+# Copy setup scripts to install dir for later use
+if [ -f "setup_house.sh" ]; then
+    cp setup_house.sh "$INSTALL_DIR/scripts/" 2>/dev/null || mkdir -p "$INSTALL_DIR/scripts" && cp setup_house.sh "$INSTALL_DIR/scripts/"
+fi
+
+echo "5. Setting directory permissions..."
 chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
 chown -R "$SERVICE_USER:$SERVICE_USER" /var/log/pou_con
-# Ensure database directory is writable
+chown -R root:root "$POUCON_CONFIG_DIR"
 chmod 755 "$DATA_DIR"
+chmod 755 "$POUCON_CONFIG_DIR"
 
-echo "5. Setting up USB serial port permissions..."
+echo "6. Setting up USB serial port permissions..."
 usermod -a -G dialout "$SERVICE_USER"
 
-echo "6. Setting up web-based system time management..."
+echo "7. Allowing binding to privileged ports (80/443)..."
+# Allow the BEAM VM to bind to ports < 1024 (needed for HTTP/HTTPS)
+if [ -f "$INSTALL_DIR/erts-"*/bin/beam.smp ]; then
+    setcap 'cap_net_bind_service=+ep' "$INSTALL_DIR"/erts-*/bin/beam.smp
+    echo "   Privileged port binding enabled"
+else
+    echo "   WARNING: Could not find beam.smp - may need manual setcap"
+fi
+
+echo "8. Setting up web-based system time management..."
 if [ -f "setup_sudo.sh" ]; then
     bash setup_sudo.sh
     echo "   System time management configured"
 else
-    echo "   WARNING: setup_sudo.sh not found - skipping time management setup"
-    echo "   You can set it up later by running: sudo bash setup_sudo.sh"
+    echo "   WARNING: setup_sudo.sh not found - skipping"
 fi
 
-echo "7. Installing systemd service..."
+echo "9. Installing systemd service..."
 cat > /etc/systemd/system/pou_con.service << 'EOSERVICE'
 [Unit]
 Description=PouCon Industrial Control System
@@ -92,10 +122,8 @@ Type=simple
 User=pou_con
 Group=pou_con
 WorkingDirectory=/opt/pou_con
-Environment="PORT=4000"
 Environment="DATABASE_PATH=/var/lib/pou_con/pou_con_prod.db"
 Environment="SECRET_KEY_BASE=CHANGE_THIS_SECRET_KEY"
-Environment="PHX_HOST=localhost"
 Environment="MIX_ENV=prod"
 Environment="PHX_SERVER=true"
 ExecStart=/opt/pou_con/bin/pou_con start
@@ -106,48 +134,59 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=pou_con
 
+# Allow binding to privileged ports
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
 # Security hardening
-NoNewPrivileges=true
 PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
 EOSERVICE
 
-echo "8. Generating SECRET_KEY_BASE..."
+echo "10. Generating SECRET_KEY_BASE..."
 SECRET_KEY=$(openssl rand -base64 48)
 sed -i "s|CHANGE_THIS_SECRET_KEY|$SECRET_KEY|" /etc/systemd/system/pou_con.service
 
-echo "9. Reloading systemd..."
+echo "11. Reloading systemd..."
 systemctl daemon-reload
 
-echo "10. Running database migrations..."
+echo "12. Running database migrations..."
 cd "$INSTALL_DIR"
 sudo -u "$SERVICE_USER" DATABASE_PATH="$DATA_DIR/pou_con_prod.db" SECRET_KEY_BASE="$SECRET_KEY" ./bin/pou_con eval "PouCon.Release.migrate"
 
-echo "11. Running database seeds..."
-sudo -u "$SERVICE_USER" DATABASE_PATH="$DATA_DIR/pou_con_prod.db" SECRET_KEY_BASE="$SECRET_KEY" ./bin/pou_con eval "PouCon.Release.seed" || echo "Seeding failed or already seeded"
+echo "13. Running database seeds..."
+sudo -u "$SERVICE_USER" DATABASE_PATH="$DATA_DIR/pou_con_prod.db" SECRET_KEY_BASE="$SECRET_KEY" ./bin/pou_con eval "PouCon.Release.seed" || echo "Seeding skipped or already done"
 
-echo "12. Verifying database permissions..."
+echo "14. Verifying database permissions..."
 if [ -f "$DATA_DIR/pou_con_prod.db" ]; then
     chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR/pou_con_prod.db"
     chmod 644 "$DATA_DIR/pou_con_prod.db"
     echo "   Database permissions verified"
-else
-    echo "   WARNING: Database file not found - may be created on first run"
 fi
 
 echo ""
-echo "=== Deployment Complete! ==="
+echo -e "${GREEN}═══════════════════════════════════════════${NC}"
+echo -e "${GREEN}  Base Deployment Complete!${NC}"
+echo -e "${GREEN}═══════════════════════════════════════════${NC}"
 echo ""
-echo "Next steps:"
-echo "  1. Enable service: sudo systemctl enable pou_con"
-echo "  2. Start service:  sudo systemctl start pou_con"
-echo "  3. Check status:   sudo systemctl status pou_con"
-echo "  4. View logs:      sudo journalctl -u pou_con -f"
+echo -e "${YELLOW}NEXT: Configure house identity and HTTPS:${NC}"
 echo ""
-echo "Access the web interface at http://$(hostname -I | awk '{print $1}'):4000"
+echo "  1. Copy CA files from your deployment USB:"
+echo "     cp /media/pi/<usb>/ca.crt /media/pi/<usb>/ca.key /tmp/"
+echo ""
+echo "  2. Run house setup:"
+echo "     $INSTALL_DIR/scripts/setup_house.sh"
+echo "     (or ./setup_house.sh if in deployment package dir)"
+echo ""
+echo "  3. Enable and start service:"
+echo "     sudo systemctl enable pou_con"
+echo "     sudo systemctl start pou_con"
+echo ""
+echo "  4. Access via: https://poucon.<house_id>"
+echo ""
 echo "Default login: admin / admin (CHANGE IMMEDIATELY)"
+echo ""
 EOF
 
 chmod +x "$PACKAGE_DIR/deploy.sh"
