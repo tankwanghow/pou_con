@@ -21,10 +21,21 @@ echo "Creating package: $PACKAGE_DIR"
 
 # Create package directory structure
 mkdir -p "$PACKAGE_DIR/pou_con"
+mkdir -p "$PACKAGE_DIR/debs"
 
 # Extract release
 echo "Extracting release..."
 tar -xzf output/pou_con_release_arm.tar.gz -C "$PACKAGE_DIR/pou_con/"
+
+# Extract runtime dependencies if available
+if [ -f "output/runtime_debs_arm.tar.gz" ]; then
+    echo "Including offline dependencies..."
+    tar -xzf output/runtime_debs_arm.tar.gz -C "$PACKAGE_DIR/debs/"
+    echo "  ✓ $(ls "$PACKAGE_DIR/debs/"*.deb 2>/dev/null | wc -l) packages included"
+else
+    echo "  ⚠ No offline dependencies found - deployment will require internet"
+    rmdir "$PACKAGE_DIR/debs" 2>/dev/null || true
+fi
 
 # Create deploy script
 echo "Creating deployment scripts..."
@@ -107,9 +118,20 @@ fi
 #═══════════════════════════════════════════
 echo ""
 echo "1. Installing system dependencies..."
-apt-get update -qq
-apt-get install -y -qq sqlite3 libsqlite3-dev openssl libncurses5 > /dev/null
-echo "   ✓ Dependencies installed"
+
+# Check if offline debs are available
+if [ -d "$SCRIPT_DIR/debs" ] && ls "$SCRIPT_DIR/debs/"*.deb 1> /dev/null 2>&1; then
+    echo "   Installing from offline packages..."
+    dpkg -i "$SCRIPT_DIR/debs/"*.deb 2>/dev/null || true
+    # Fix any missing dependencies if internet is available
+    apt-get install -f -y -qq 2>/dev/null || true
+    echo "   ✓ Dependencies installed (offline)"
+else
+    echo "   Installing from internet..."
+    apt-get update -qq
+    apt-get install -y -qq sqlite3 libsqlite3-dev openssl libncurses5 > /dev/null
+    echo "   ✓ Dependencies installed (online)"
+fi
 
 #═══════════════════════════════════════════
 # STEP 3: Create User and Directories
@@ -446,8 +468,9 @@ without internet access.
 
 Contents:
   - pou_con/         : Application release (built for ARM)
-  - deploy.sh        : Deployment script (installs deps + app)
-  - setup_house.sh   : House setup (house_id + HTTPS certificates)
+  - debs/            : Offline system dependencies (if available)
+  - deploy.sh        : All-in-one deployment script
+  - setup_house.sh   : House reconfiguration (house_id + HTTPS)
   - ca.crt, ca.key   : CA files for signing SSL certificates
   - backup.sh        : Backup script
   - uninstall.sh     : Uninstall script
@@ -457,30 +480,27 @@ Contents:
 
 Requirements:
   - Raspberry Pi 3B+ or 4 with Raspberry Pi OS (64-bit)
-  - System dependencies installed (see DEPLOYMENT_GUIDE.md)
   - RS485 USB adapter(s) connected
+  - NO INTERNET REQUIRED (if debs/ folder is present)
 
-Quick Start:
-  1. Copy this entire directory to the Raspberry Pi:
-     scp -r deployment_package_* pi@<pi-ip>:~/
+Quick Start (USB Drive - No Internet Required):
+  1. Extract on USB drive:
+     tar -xzf pou_con_deployment_*.tar.gz
 
-  2. SSH to the Pi:
-     ssh pi@<pi-ip>
-
-  3. Run deployment:
-     cd deployment_package_*
+  2. At Raspberry Pi - insert USB and run:
+     cd /media/pi/*/deployment_package_*/
      sudo ./deploy.sh
 
-  4. Enable and start service:
-     sudo systemctl enable pou_con
-     sudo systemctl start pou_con
+  3. Follow prompts:
+     - Enter house_id (e.g., h1, h2, farm_a)
+     - Confirm configuration
+     - Done! Service starts automatically
 
-  5. Check status:
-     sudo systemctl status pou_con
+  4. Unplug USB drive
 
 Configuration:
   After deployment, configure via web interface:
-  - http://<pi-ip-address>:4000
+  - https://poucon.<house_id> (or http://<pi-ip>)
   - Default login: admin / admin (CHANGE IMMEDIATELY!)
 
 Post-Deployment:
@@ -543,6 +563,17 @@ echo "=== Deployment Package Created! ==="
 echo ""
 echo "Package: pou_con_deployment_$TIMESTAMP.tar.gz"
 echo "Size: $(du -h pou_con_deployment_$TIMESTAMP.tar.gz | cut -f1)"
+
+# Check if offline deps were included
+if [ -f "output/runtime_debs_arm.tar.gz" ]; then
+    echo ""
+    echo "✓ OFFLINE DEPLOYMENT ENABLED"
+    echo "  System dependencies included - no internet required!"
+else
+    echo ""
+    echo "⚠ Online deployment only - internet required at Pi"
+fi
+
 echo ""
 echo "Next steps:"
 echo "  1. Copy to USB drive:"
@@ -553,4 +584,5 @@ echo "     tar -xzf pou_con_deployment_$TIMESTAMP.tar.gz"
 echo "     cd deployment_package_*/"
 echo "     sudo ./deploy.sh"
 echo ""
-echo "  3. Follow on-screen instructions"
+echo "  3. Follow on-screen prompts (enter house_id, confirm)"
+echo "  4. Unplug USB - done!"

@@ -15,6 +15,21 @@ RUN apt-get update -y && apt-get install -y \
     npm \
     && apt-get clean && rm -f /var/lib/apt/lists/*_*
 
+# Download runtime dependencies as .deb files for offline installation
+RUN mkdir -p /debs && cd /debs && \
+    apt-get update && \
+    apt-get download \
+        sqlite3 \
+        libsqlite3-0 \
+        openssl \
+        libssl3 \
+        libncurses6 \
+        libtinfo6 \
+        libncurses5 \
+        libreadline8 \
+        2>/dev/null || true && \
+    ls -la /debs/
+
 # Prepare build dir
 WORKDIR /app
 
@@ -51,6 +66,10 @@ RUN mix release
 RUN cd /app/_build/prod/rel/pou_con && \
     tar -czf /pou_con_release_arm.tar.gz .
 
-# Final stage - just the tarball
+# Package the debs into a tarball
+RUN cd /debs && tar -czf /runtime_debs_arm.tar.gz *.deb 2>/dev/null || echo "No debs found"
+
+# Final stage - release tarball and debs
 FROM scratch AS export
 COPY --from=builder /pou_con_release_arm.tar.gz /
+COPY --from=builder /runtime_debs_arm.tar.gz /

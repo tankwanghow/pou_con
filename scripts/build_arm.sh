@@ -56,6 +56,18 @@ echo "=== Build Complete! ==="
 echo ""
 echo "Release: output/pou_con_release_arm.tar.gz"
 echo "Size: $(du -h output/pou_con_release_arm.tar.gz | cut -f1)"
+
+# Check for runtime debs
+if [ -f "output/runtime_debs_arm.tar.gz" ]; then
+    echo ""
+    echo "Runtime dependencies: output/runtime_debs_arm.tar.gz"
+    echo "Size: $(du -h output/runtime_debs_arm.tar.gz | cut -f1)"
+    echo "  ✓ Offline deployment enabled"
+else
+    echo ""
+    echo "⚠ Runtime dependencies not found - deployment will require internet"
+fi
+
 echo ""
 echo "Next step: Create deployment package"
 echo "  ./scripts/create_deployment_package.sh"

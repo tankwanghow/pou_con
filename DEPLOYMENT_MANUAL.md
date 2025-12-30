@@ -94,7 +94,7 @@ This is the comprehensive deployment manual for PouCon, an industrial automation
 cp pou_con_deployment_*.tar.gz /media/usb_drive/
 ```
 
-**At poultry house (plug USB, deploy, unplug):**
+**At poultry house (plug USB, deploy, unplug - NO INTERNET REQUIRED):**
 ```bash
 tar -xzf pou_con_deployment_*.tar.gz
 cd deployment_package_*/
@@ -430,6 +430,7 @@ Best for: Single installations, testing new versions
 ```
 deployment_package_YYYYMMDD_HHMMSS/
 ├── pou_con/           # Application release
+├── debs/              # Offline system dependencies (ARM64 .deb files)
 ├── deploy.sh          # All-in-one deployment script
 ├── ca.crt             # CA certificate (for SSL)
 ├── ca.key             # CA private key (for signing SSL certs)
@@ -440,6 +441,8 @@ deployment_package_YYYYMMDD_HHMMSS/
 ├── setup_sudo.sh      # System time management setup
 └── README.txt         # Quick guide
 ```
+
+**Offline Deployment:** The `debs/` folder contains pre-downloaded ARM64 packages (sqlite3, openssl, libncurses, etc.) enabling deployment without internet access.
 
 ### Deployment Steps
 
@@ -1541,6 +1544,8 @@ pou_con/
 
 ---
 
-**Document Version:** 1.1
+**Document Version:** 1.2
 **Last Updated:** December 2025
-**Change:** Simplified deployment with all-in-one deploy.sh (CA files included in package)
+**Changes:**
+- v1.2: Added offline deployment (system dependencies included in package)
+- v1.1: Simplified deployment with all-in-one deploy.sh (CA files included)
