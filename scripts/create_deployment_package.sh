@@ -35,11 +35,16 @@ set -e
 # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+RED='\033[0;31m'
 NC='\033[0m'
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo ""
 echo "═══════════════════════════════════════════"
-echo "  PouCon Deployment Script"
+echo "  PouCon Complete Deployment"
 echo "═══════════════════════════════════════════"
 echo ""
 
@@ -47,43 +52,162 @@ echo ""
 INSTALL_DIR="/opt/pou_con"
 DATA_DIR="/var/lib/pou_con"
 POUCON_CONFIG_DIR="/etc/pou_con"
+SSL_DIR="$POUCON_CONFIG_DIR/ssl"
 SERVICE_USER="pou_con"
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
-  echo "Please run as root (use sudo)"
+  echo -e "${RED}Please run as root (use sudo)${NC}"
   exit 1
 fi
 
+# Check for CA files
+if [ ! -f "$SCRIPT_DIR/ca.crt" ] || [ ! -f "$SCRIPT_DIR/ca.key" ]; then
+    echo -e "${RED}ERROR: CA files not found in deployment package!${NC}"
+    echo "Expected: $SCRIPT_DIR/ca.crt and $SCRIPT_DIR/ca.key"
+    echo "Run ./scripts/setup_ca.sh on your dev machine first."
+    exit 1
+fi
+
+#═══════════════════════════════════════════
+# STEP 1: Prompt for House ID
+#═══════════════════════════════════════════
+echo -e "${CYAN}═══════════════════════════════════════════${NC}"
+echo -e "${CYAN}  House Configuration${NC}"
+echo -e "${CYAN}═══════════════════════════════════════════${NC}"
+echo ""
+echo "Enter the house identifier for this installation."
+echo "Examples: h1, h2, house1, farm_a, building_north"
+echo ""
+read -p "House ID: " HOUSE_ID
+
+if [ -z "$HOUSE_ID" ]; then
+    echo -e "${RED}ERROR: House ID cannot be empty${NC}"
+    exit 1
+fi
+
+# Normalize house_id (lowercase, trim whitespace)
+HOUSE_ID=$(echo "$HOUSE_ID" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+HOSTNAME="poucon.$HOUSE_ID"
+
+echo ""
+echo "Configuration:"
+echo -e "  House ID:  ${CYAN}$HOUSE_ID${NC}"
+echo -e "  Hostname:  ${CYAN}$HOSTNAME${NC}"
+echo -e "  URL:       ${CYAN}https://$HOSTNAME${NC}"
+echo ""
+read -p "Proceed? (Y/n): " confirm
+if [[ "$confirm" =~ ^[Nn]$ ]]; then
+    echo "Cancelled."
+    exit 0
+fi
+
+#═══════════════════════════════════════════
+# STEP 2: Install Dependencies
+#═══════════════════════════════════════════
+echo ""
 echo "1. Installing system dependencies..."
 apt-get update -qq
 apt-get install -y -qq sqlite3 libsqlite3-dev openssl libncurses5 > /dev/null
-echo "   Dependencies installed"
+echo "   ✓ Dependencies installed"
 
+#═══════════════════════════════════════════
+# STEP 3: Create User and Directories
+#═══════════════════════════════════════════
 echo "2. Creating application user..."
 if ! id "$SERVICE_USER" &>/dev/null; then
     useradd -r -s /bin/false -d "$DATA_DIR" "$SERVICE_USER"
-    echo "   User $SERVICE_USER created"
+    echo "   ✓ User $SERVICE_USER created"
 else
-    echo "   User $SERVICE_USER already exists"
+    echo "   ✓ User $SERVICE_USER already exists"
 fi
 
 echo "3. Creating directories..."
 mkdir -p "$INSTALL_DIR"
 mkdir -p "$DATA_DIR"
-mkdir -p "$POUCON_CONFIG_DIR/ssl"
+mkdir -p "$POUCON_CONFIG_DIR"
+mkdir -p "$SSL_DIR"
 mkdir -p /var/log/pou_con
 mkdir -p /var/backups/pou_con
 
-echo "4. Copying application files..."
-cp -r pou_con/* "$INSTALL_DIR/"
+#═══════════════════════════════════════════
+# STEP 4: Write House ID
+#═══════════════════════════════════════════
+echo "4. Writing house_id..."
+echo "$HOUSE_ID" > "$POUCON_CONFIG_DIR/house_id"
+chmod 644 "$POUCON_CONFIG_DIR/house_id"
+echo "   ✓ House ID: $HOUSE_ID"
 
-# Copy setup scripts to install dir for later use
-if [ -f "setup_house.sh" ]; then
-    cp setup_house.sh "$INSTALL_DIR/scripts/" 2>/dev/null || mkdir -p "$INSTALL_DIR/scripts" && cp setup_house.sh "$INSTALL_DIR/scripts/"
-fi
+#═══════════════════════════════════════════
+# STEP 5: Generate SSL Certificate
+#═══════════════════════════════════════════
+echo "5. Generating SSL certificate..."
 
-echo "5. Setting directory permissions..."
+# Get Pi's IP address
+PI_IP=$(hostname -I | awk '{print $1}')
+
+# Create temp directory for cert generation
+TEMP_DIR=$(mktemp -d)
+cd "$TEMP_DIR"
+
+# Generate server private key
+openssl genrsa -out server.key 2048 2>/dev/null
+
+# Create CSR
+openssl req -new -key server.key \
+    -out server.csr \
+    -subj "/CN=$HOSTNAME/O=PouCon/C=MY" 2>/dev/null
+
+# Create extension file with SAN
+cat > server.ext << EXTEOF
+authorityKeyIdentifier=keyIdentifier,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = $HOSTNAME
+DNS.2 = poucon.$HOUSE_ID.local
+DNS.3 = localhost
+IP.1 = $PI_IP
+IP.2 = 127.0.0.1
+EXTEOF
+
+# Sign with CA (valid 2 years)
+openssl x509 -req -in server.csr \
+    -CA "$SCRIPT_DIR/ca.crt" -CAkey "$SCRIPT_DIR/ca.key" \
+    -CAcreateserial \
+    -out server.crt \
+    -days 730 \
+    -sha256 \
+    -extfile server.ext 2>/dev/null
+
+# Install certificates
+cp server.key "$SSL_DIR/server.key"
+cp server.crt "$SSL_DIR/server.crt"
+cp "$SCRIPT_DIR/ca.crt" "$SSL_DIR/ca.crt"
+
+chmod 600 "$SSL_DIR/server.key"
+chmod 644 "$SSL_DIR/server.crt"
+chmod 644 "$SSL_DIR/ca.crt"
+
+# Cleanup
+cd "$SCRIPT_DIR"
+rm -rf "$TEMP_DIR"
+
+echo "   ✓ SSL certificate generated for $HOSTNAME"
+
+#═══════════════════════════════════════════
+# STEP 6: Copy Application Files
+#═══════════════════════════════════════════
+echo "6. Copying application files..."
+cp -r "$SCRIPT_DIR/pou_con/"* "$INSTALL_DIR/"
+
+#═══════════════════════════════════════════
+# STEP 7: Set Permissions
+#═══════════════════════════════════════════
+echo "7. Setting permissions..."
 chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
 chown -R "$SERVICE_USER:$SERVICE_USER" /var/log/pou_con
@@ -91,28 +215,36 @@ chown -R root:root "$POUCON_CONFIG_DIR"
 chmod 755 "$DATA_DIR"
 chmod 755 "$POUCON_CONFIG_DIR"
 
-echo "6. Setting up USB serial port permissions..."
+# Serial port permissions
 usermod -a -G dialout "$SERVICE_USER"
 
-echo "7. Allowing binding to privileged ports (80/443)..."
-# Allow the BEAM VM to bind to ports < 1024 (needed for HTTP/HTTPS)
-if [ -f "$INSTALL_DIR/erts-"*/bin/beam.smp ]; then
+#═══════════════════════════════════════════
+# STEP 8: Allow Privileged Ports
+#═══════════════════════════════════════════
+echo "8. Allowing privileged ports (80/443)..."
+if ls "$INSTALL_DIR"/erts-*/bin/beam.smp 1> /dev/null 2>&1; then
     setcap 'cap_net_bind_service=+ep' "$INSTALL_DIR"/erts-*/bin/beam.smp
-    echo "   Privileged port binding enabled"
+    echo "   ✓ Port binding enabled"
 else
-    echo "   WARNING: Could not find beam.smp - may need manual setcap"
+    echo "   ⚠ beam.smp not found - may need manual setcap"
 fi
 
-echo "8. Setting up web-based system time management..."
-if [ -f "setup_sudo.sh" ]; then
-    bash setup_sudo.sh
-    echo "   System time management configured"
+#═══════════════════════════════════════════
+# STEP 9: System Time Management
+#═══════════════════════════════════════════
+echo "9. Setting up system time management..."
+if [ -f "$SCRIPT_DIR/setup_sudo.sh" ]; then
+    bash "$SCRIPT_DIR/setup_sudo.sh"
+    echo "   ✓ Time management configured"
 else
-    echo "   WARNING: setup_sudo.sh not found - skipping"
+    echo "   ⚠ setup_sudo.sh not found - skipping"
 fi
 
-echo "9. Installing systemd service..."
-cat > /etc/systemd/system/pou_con.service << 'EOSERVICE'
+#═══════════════════════════════════════════
+# STEP 10: Install Systemd Service
+#═══════════════════════════════════════════
+echo "10. Installing systemd service..."
+cat > /etc/systemd/system/pou_con.service << EOSERVICE
 [Unit]
 Description=PouCon Industrial Control System
 After=network.target
@@ -133,59 +265,84 @@ RestartSec=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=pou_con
-
-# Allow binding to privileged ports
 AmbientCapabilities=CAP_NET_BIND_SERVICE
-
-# Security hardening
 PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
 EOSERVICE
 
-echo "10. Generating SECRET_KEY_BASE..."
+# Generate and set SECRET_KEY_BASE
 SECRET_KEY=$(openssl rand -base64 48)
 sed -i "s|CHANGE_THIS_SECRET_KEY|$SECRET_KEY|" /etc/systemd/system/pou_con.service
 
-echo "11. Reloading systemd..."
 systemctl daemon-reload
+echo "   ✓ Service installed"
 
-echo "12. Running database migrations..."
+#═══════════════════════════════════════════
+# STEP 11: Database Setup
+#═══════════════════════════════════════════
+echo "11. Running database migrations..."
 cd "$INSTALL_DIR"
 sudo -u "$SERVICE_USER" DATABASE_PATH="$DATA_DIR/pou_con_prod.db" SECRET_KEY_BASE="$SECRET_KEY" ./bin/pou_con eval "PouCon.Release.migrate"
 
-echo "13. Running database seeds..."
-sudo -u "$SERVICE_USER" DATABASE_PATH="$DATA_DIR/pou_con_prod.db" SECRET_KEY_BASE="$SECRET_KEY" ./bin/pou_con eval "PouCon.Release.seed" || echo "Seeding skipped or already done"
+echo "12. Running database seeds..."
+sudo -u "$SERVICE_USER" DATABASE_PATH="$DATA_DIR/pou_con_prod.db" SECRET_KEY_BASE="$SECRET_KEY" ./bin/pou_con eval "PouCon.Release.seed" 2>/dev/null || true
 
-echo "14. Verifying database permissions..."
 if [ -f "$DATA_DIR/pou_con_prod.db" ]; then
     chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR/pou_con_prod.db"
     chmod 644 "$DATA_DIR/pou_con_prod.db"
-    echo "   Database permissions verified"
 fi
 
+#═══════════════════════════════════════════
+# STEP 12: Set Hostname (Optional)
+#═══════════════════════════════════════════
+echo ""
+read -p "Set system hostname to '$HOSTNAME'? (Y/n): " set_hostname
+if [[ ! "$set_hostname" =~ ^[Nn]$ ]]; then
+    hostnamectl set-hostname "$HOSTNAME"
+    if ! grep -q "$HOSTNAME" /etc/hosts; then
+        echo "127.0.0.1 $HOSTNAME" >> /etc/hosts
+    fi
+    echo "   ✓ Hostname set"
+fi
+
+#═══════════════════════════════════════════
+# STEP 13: Enable and Start Service
+#═══════════════════════════════════════════
+echo ""
+echo "13. Starting PouCon service..."
+systemctl enable pou_con
+systemctl start pou_con
+sleep 3
+
+if systemctl is-active --quiet pou_con; then
+    echo -e "   ${GREEN}✓ Service started successfully!${NC}"
+else
+    echo -e "   ${YELLOW}⚠ Service may not have started. Check: sudo journalctl -u pou_con${NC}"
+fi
+
+#═══════════════════════════════════════════
+# DONE!
+#═══════════════════════════════════════════
 echo ""
 echo -e "${GREEN}═══════════════════════════════════════════${NC}"
-echo -e "${GREEN}  Base Deployment Complete!${NC}"
+echo -e "${GREEN}  Deployment Complete!${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════${NC}"
 echo ""
-echo -e "${YELLOW}NEXT: Configure house identity and HTTPS:${NC}"
+echo "  House ID:    $HOUSE_ID"
+echo "  IP Address:  $PI_IP"
+echo "  URL:         https://$HOSTNAME"
 echo ""
-echo "  1. Copy CA files from your deployment USB:"
-echo "     cp /media/pi/<usb>/ca.crt /media/pi/<usb>/ca.key /tmp/"
-echo ""
-echo "  2. Run house setup:"
-echo "     $INSTALL_DIR/scripts/setup_house.sh"
-echo "     (or ./setup_house.sh if in deployment package dir)"
-echo ""
-echo "  3. Enable and start service:"
-echo "     sudo systemctl enable pou_con"
-echo "     sudo systemctl start pou_con"
-echo ""
-echo "  4. Access via: https://poucon.<house_id>"
+echo -e "${YELLOW}CLIENT DEVICE SETUP:${NC}"
+echo "  1. Install ca.crt on mobile/iPad (one-time)"
+echo "  2. Add to DNS or /etc/hosts:"
+echo "     $PI_IP  $HOSTNAME"
+echo "  3. Access: https://$HOSTNAME"
 echo ""
 echo "Default login: admin / admin (CHANGE IMMEDIATELY)"
+echo ""
+echo -e "${GREEN}You can now unplug the USB drive.${NC}"
 echo ""
 EOF
 
@@ -263,6 +420,16 @@ if [ -f "scripts/setup_house.sh" ]; then
     chmod +x "$PACKAGE_DIR/setup_house.sh"
 fi
 
+# Copy CA files for HTTPS setup (if they exist)
+if [ -f "priv/ssl/ca/ca.crt" ] && [ -f "priv/ssl/ca/ca.key" ]; then
+    echo "Including CA files for HTTPS setup..."
+    cp priv/ssl/ca/ca.crt "$PACKAGE_DIR/"
+    cp priv/ssl/ca/ca.key "$PACKAGE_DIR/"
+    echo "  ✓ CA files included"
+else
+    echo "  ⚠ CA files not found - run ./scripts/setup_ca.sh first if you need HTTPS"
+fi
+
 # Copy setup_sudo.sh for system time management (if it exists)
 if [ -f "setup_sudo.sh" ]; then
     cp setup_sudo.sh "$PACKAGE_DIR/"
@@ -279,10 +446,11 @@ without internet access.
 
 Contents:
   - pou_con/         : Application release (built for ARM)
-  - deploy.sh        : Deployment script (runs setup_sudo.sh automatically)
+  - deploy.sh        : Deployment script (installs deps + app)
+  - setup_house.sh   : House setup (house_id + HTTPS certificates)
+  - ca.crt, ca.key   : CA files for signing SSL certificates
   - backup.sh        : Backup script
   - uninstall.sh     : Uninstall script
-  - setup_house.sh   : House setup (house_id + HTTPS certificates)
   - setup_sudo.sh    : System time management setup (auto-run by deploy.sh)
   - setup_kiosk.sh   : Optional touchscreen kiosk mode setup
   - README.txt       : This file
