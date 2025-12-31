@@ -122,8 +122,9 @@ echo "1. Installing system dependencies..."
 # Check if offline debs are available
 if [ -d "$SCRIPT_DIR/debs" ] && ls "$SCRIPT_DIR/debs/"*.deb 1> /dev/null 2>&1; then
     echo "   Installing from offline packages..."
-    dpkg -i "$SCRIPT_DIR/debs/"*.deb 2>/dev/null || true
-    # Fix any missing dependencies if internet is available
+    # Install debs, showing errors
+    dpkg -i "$SCRIPT_DIR/debs/"*.deb 2>&1 | grep -v "^Selecting\|^Preparing\|^Unpacking\|^Setting up" || true
+    # Fix any broken dependencies
     apt-get install -f -y -qq 2>/dev/null || true
     echo "   ✓ Dependencies installed (offline)"
 else
@@ -132,6 +133,16 @@ else
     apt-get install -y -qq sqlite3 libsqlite3-dev openssl libncurses5 > /dev/null
     echo "   ✓ Dependencies installed (online)"
 fi
+
+# Verify critical tools are available
+for cmd in openssl sqlite3; do
+    if ! command -v $cmd &> /dev/null; then
+        echo -e "   ${RED}ERROR: $cmd not found after installation${NC}"
+        echo "   Try: apt-get update && apt-get install -y $cmd"
+        exit 1
+    fi
+done
+echo "   ✓ All required tools available"
 
 #═══════════════════════════════════════════
 # STEP 3: Create User and Directories
@@ -165,24 +176,50 @@ echo "   ✓ House ID: $HOUSE_ID"
 #═══════════════════════════════════════════
 echo "5. Generating SSL certificate..."
 
+# Check if openssl is available
+if ! command -v openssl &> /dev/null; then
+    echo -e "   ${RED}ERROR: openssl not found${NC}"
+    echo "   Try: apt-get update && apt-get install -y openssl"
+    exit 1
+fi
+
+# Check if CA files exist
+if [ ! -f "$SCRIPT_DIR/ca.crt" ] || [ ! -f "$SCRIPT_DIR/ca.key" ]; then
+    echo -e "   ${RED}ERROR: CA files not found in deployment package${NC}"
+    echo "   Expected: $SCRIPT_DIR/ca.crt and $SCRIPT_DIR/ca.key"
+    exit 1
+fi
+
 # Get Pi's IP address
 PI_IP=$(hostname -I | awk '{print $1}')
+if [ -z "$PI_IP" ]; then
+    PI_IP="127.0.0.1"
+    echo "   ⚠ Could not detect IP, using 127.0.0.1"
+fi
 
 # Create temp directory for cert generation
 TEMP_DIR=$(mktemp -d)
 cd "$TEMP_DIR"
 
 # Generate server private key
-openssl genrsa -out server.key 2048 2>/dev/null
+echo "   Generating private key..."
+if ! openssl genrsa -out server.key 2048 2>&1; then
+    echo -e "   ${RED}ERROR: Failed to generate private key${NC}"
+    exit 1
+fi
 
 # Create CSR
-openssl req -new -key server.key \
+echo "   Creating certificate request..."
+if ! openssl req -new -key server.key \
     -out server.csr \
-    -subj "/CN=$HOSTNAME/O=PouCon/C=MY" 2>/dev/null
+    -subj "/CN=$HOSTNAME/O=PouCon/C=MY" 2>&1; then
+    echo -e "   ${RED}ERROR: Failed to create CSR${NC}"
+    exit 1
+fi
 
 # Create extension file with SAN
 cat > server.ext << EXTEOF
-authorityKeyIdentifier=keyIdentifier,issuer
+authorityKeyIdentifier=keyid,issuer
 basicConstraints=CA:FALSE
 keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
 extendedKeyUsage = serverAuth
@@ -197,13 +234,28 @@ IP.2 = 127.0.0.1
 EXTEOF
 
 # Sign with CA (valid 2 years)
-openssl x509 -req -in server.csr \
+echo "   Signing certificate with CA..."
+if ! openssl x509 -req -in server.csr \
     -CA "$SCRIPT_DIR/ca.crt" -CAkey "$SCRIPT_DIR/ca.key" \
     -CAcreateserial \
     -out server.crt \
     -days 730 \
     -sha256 \
-    -extfile server.ext 2>/dev/null
+    -extfile server.ext 2>&1; then
+    echo -e "   ${RED}ERROR: Failed to sign certificate${NC}"
+    echo "   Check that ca.crt and ca.key are valid"
+    cd "$SCRIPT_DIR"
+    rm -rf "$TEMP_DIR"
+    exit 1
+fi
+
+# Verify certificate was created
+if [ ! -f server.crt ] || [ ! -s server.crt ]; then
+    echo -e "   ${RED}ERROR: Certificate file not created or empty${NC}"
+    cd "$SCRIPT_DIR"
+    rm -rf "$TEMP_DIR"
+    exit 1
+fi
 
 # Install certificates
 cp server.key "$SSL_DIR/server.key"
