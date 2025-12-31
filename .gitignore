@@ -43,4 +43,7 @@ npm-debug.log
 *.db-*
 
 /output/
-*.tar.gzpriv/house_id
+*.tar.gz
+
+priv/house_id
+priv/ssl

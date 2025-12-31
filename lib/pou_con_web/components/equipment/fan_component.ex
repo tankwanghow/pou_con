@@ -65,7 +65,7 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
         <div class={[
           "my-2 ml-3",
           "relative h-16 w-16 rounded-full border-4 border-#{@display.color}-500",
-          @display.spin_class
+          @display.anim_class
         ]}>
           <div class="absolute inset-0 flex justify-center">
             <div class={"h-8 w-2 border-4 rounded-full border-#{@display.color}-500"}></div>
