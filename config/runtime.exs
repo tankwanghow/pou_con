@@ -62,7 +62,7 @@ if config_env() == :prod do
 
   config :pou_con, PouConWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
-    # HTTP on port 80 redirects to HTTPS
+    # HTTP on port 80 (will redirect to HTTPS via force_ssl in prod.exs)
     http: [
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
       port: 80
@@ -75,8 +75,7 @@ if config_env() == :prod do
       keyfile: ssl_key,
       certfile: ssl_cert
     ],
-    # Force redirect HTTP to HTTPS
-    force_ssl: [rewrite_on: [:x_forwarded_proto], host: nil],
+    # Note: force_ssl is set in prod.exs (compile-time option)
     # Allow LiveView WebSocket connections from any origin (required for LAN access)
     check_origin: false,
     secret_key_base: secret_key_base
