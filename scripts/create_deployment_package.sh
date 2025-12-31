@@ -262,6 +262,11 @@ cp server.key "$SSL_DIR/server.key"
 cp server.crt "$SSL_DIR/server.crt"
 cp "$SCRIPT_DIR/ca.crt" "$SSL_DIR/ca.crt"
 
+# Set ownership so pou_con user can read the key
+chown "$SERVICE_USER:$SERVICE_USER" "$SSL_DIR/server.key"
+chown "$SERVICE_USER:$SERVICE_USER" "$SSL_DIR/server.crt"
+chown root:root "$SSL_DIR/ca.crt"
+
 chmod 600 "$SSL_DIR/server.key"
 chmod 644 "$SSL_DIR/server.crt"
 chmod 644 "$SSL_DIR/ca.crt"
