@@ -114,6 +114,41 @@ if [[ "$confirm" =~ ^[Nn]$ ]]; then
 fi
 
 #═══════════════════════════════════════════
+# STEP 1b: Configure Serial Port
+#═══════════════════════════════════════════
+echo ""
+echo -e "${CYAN}═══════════════════════════════════════════${NC}"
+echo -e "${CYAN}  Serial Port Configuration${NC}"
+echo -e "${CYAN}═══════════════════════════════════════════${NC}"
+echo ""
+echo "Select the Modbus RS485 serial port type:"
+echo ""
+echo "  1) USB Adapter (ttyUSB0) - Raspberry Pi with USB-RS485 adapter"
+echo "  2) Built-in RS485 (ttyAMA0) - RevPi Connect 5 RS485 variant"
+echo "  3) Custom - Enter a custom device path"
+echo ""
+read -p "Select [1-3] (default: 1): " PORT_CHOICE
+
+case "$PORT_CHOICE" in
+    2)
+        MODBUS_PORT="ttyAMA0"
+        echo -e "   Selected: ${CYAN}Built-in RS485 (/dev/ttyAMA0)${NC}"
+        ;;
+    3)
+        read -p "   Enter device path (without /dev/): " CUSTOM_PORT
+        MODBUS_PORT="${CUSTOM_PORT:-ttyUSB0}"
+        echo -e "   Selected: ${CYAN}Custom (/dev/$MODBUS_PORT)${NC}"
+        ;;
+    *)
+        MODBUS_PORT="ttyUSB0"
+        echo -e "   Selected: ${CYAN}USB Adapter (/dev/ttyUSB0)${NC}"
+        ;;
+esac
+
+# Store port choice for seed script
+export MODBUS_PORT_PATH="$MODBUS_PORT"
+
+#═══════════════════════════════════════════
 # STEP 2: Install Dependencies
 #═══════════════════════════════════════════
 echo ""
@@ -366,7 +401,8 @@ cd "$INSTALL_DIR"
 sudo -u "$SERVICE_USER" DATABASE_PATH="$DATA_DIR/pou_con_prod.db" SECRET_KEY_BASE="$SECRET_KEY" ./bin/pou_con eval "PouCon.Release.migrate"
 
 echo "12. Running database seeds..."
-sudo -u "$SERVICE_USER" DATABASE_PATH="$DATA_DIR/pou_con_prod.db" SECRET_KEY_BASE="$SECRET_KEY" ./bin/pou_con eval "PouCon.Release.seed" 2>/dev/null || true
+echo "    Serial port: $MODBUS_PORT_PATH"
+sudo -u "$SERVICE_USER" DATABASE_PATH="$DATA_DIR/pou_con_prod.db" SECRET_KEY_BASE="$SECRET_KEY" MODBUS_PORT_PATH="$MODBUS_PORT_PATH" ./bin/pou_con eval "PouCon.Release.seed" 2>/dev/null || true
 
 if [ -f "$DATA_DIR/pou_con_prod.db" ]; then
     chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR/pou_con_prod.db"
@@ -409,9 +445,10 @@ echo -e "${GREEN}═════════════════════
 echo -e "${GREEN}  Deployment Complete!${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════${NC}"
 echo ""
-echo "  House ID:    $HOUSE_ID"
-echo "  IP Address:  $PI_IP"
-echo "  URL:         https://$HOSTNAME"
+echo "  House ID:      $HOUSE_ID"
+echo "  Serial Port:   /dev/$MODBUS_PORT_PATH"
+echo "  IP Address:    $PI_IP"
+echo "  URL:           https://$HOSTNAME"
 echo ""
 echo -e "${YELLOW}CLIENT DEVICE SETUP:${NC}"
 echo "  1. Install ca.crt on mobile/iPad (one-time)"
@@ -493,6 +530,19 @@ if [ -f "scripts/setup_kiosk.sh" ]; then
     chmod +x "$PACKAGE_DIR/setup_kiosk.sh"
 fi
 
+# Copy RevPi-specific scripts
+if [ -f "scripts/verify_revpi_hardware.sh" ]; then
+    cp scripts/verify_revpi_hardware.sh "$PACKAGE_DIR/"
+    chmod +x "$PACKAGE_DIR/verify_revpi_hardware.sh"
+    echo "  ✓ RevPi hardware verification script included"
+fi
+
+if [ -f "scripts/revpi_first_setup.sh" ]; then
+    cp scripts/revpi_first_setup.sh "$PACKAGE_DIR/"
+    chmod +x "$PACKAGE_DIR/revpi_first_setup.sh"
+    echo "  ✓ RevPi first-time setup script included"
+fi
+
 # Copy house setup script for HTTPS configuration
 if [ -f "scripts/setup_house.sh" ]; then
     cp scripts/setup_house.sh "$PACKAGE_DIR/"
@@ -524,20 +574,24 @@ This package contains everything needed to deploy PouCon to a Raspberry Pi
 without internet access.
 
 Contents:
-  - pou_con/         : Application release (built for ARM)
-  - debs/            : Offline system dependencies (if available)
-  - deploy.sh        : All-in-one deployment script
-  - setup_house.sh   : House reconfiguration (house_id + HTTPS)
-  - ca.crt, ca.key   : CA files for signing SSL certificates
-  - backup.sh        : Backup script
-  - uninstall.sh     : Uninstall script
-  - setup_sudo.sh    : System time management setup (auto-run by deploy.sh)
-  - setup_kiosk.sh   : Optional touchscreen kiosk mode setup
-  - README.txt       : This file
+  - pou_con/                   : Application release (built for ARM)
+  - debs/                      : Offline system dependencies (if available)
+  - deploy.sh                  : All-in-one deployment script
+  - setup_house.sh             : House reconfiguration (house_id + HTTPS)
+  - ca.crt, ca.key             : CA files for signing SSL certificates
+  - backup.sh                  : Backup script
+  - uninstall.sh               : Uninstall script
+  - setup_sudo.sh              : System time management setup (auto-run by deploy.sh)
+  - setup_kiosk.sh             : Optional touchscreen kiosk mode setup
+  - verify_revpi_hardware.sh   : RevPi hardware verification (optional)
+  - revpi_first_setup.sh       : RevPi first-time setup (optional)
+  - README.txt                 : This file
 
 Requirements:
-  - Raspberry Pi 3B+ or 4 with Raspberry Pi OS (64-bit)
-  - RS485 USB adapter(s) connected
+  - Raspberry Pi 3B+/4/5 with Raspberry Pi OS (64-bit), OR
+  - RevPi Connect 5 with RevPi OS (Debian Bookworm), OR
+  - Any ARM64 Linux system with Debian/Ubuntu
+  - RS485 USB adapter(s) OR built-in RS485 (RevPi RS485 variant)
   - NO INTERNET REQUIRED (if debs/ folder is present)
 
 Quick Start (USB Drive - No Internet Required):
@@ -554,6 +608,21 @@ Quick Start (USB Drive - No Internet Required):
      - Done! Service starts automatically
 
   4. Unplug USB drive
+
+RevPi Connect 5 Deployment:
+  For RevPi Connect 5, the process is identical. Optional extra steps:
+
+  1. First-time RevPi setup (on fresh RevPi OS):
+     sudo ./revpi_first_setup.sh
+
+  2. Verify hardware before deployment:
+     sudo ./verify_revpi_hardware.sh
+
+  3. Serial port configuration:
+     - Built-in RS485 (RevPi RS485 variant): /dev/ttyAMA0
+     - USB adapter: /dev/ttyUSB0
+
+  See REVPI_DEPLOYMENT_GUIDE.md for detailed instructions.
 
 Configuration:
   After deployment, configure via web interface:

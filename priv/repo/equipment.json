@@ -386,5 +386,14 @@
 		"device_tree" : "on_off_coil: WS-17-O-05\nrunning_feedback: WS-17-I-05\nauto_manual: VT-200-31",
 		"inserted_at" : "2025-11-20T16:40:18",
 		"updated_at" : "2025-12-02T06:56:20"
+	},
+	{
+		"id" : 48,
+		"name" : "water_meter_1",
+		"title" : "Water Meter 1",
+		"type" : "water_meter",
+		"device_tree" : "meter: WM-01",
+		"inserted_at" : "2026-01-01T00:00:00",
+		"updated_at" : "2026-01-01T00:00:00"
 	}
 ]}

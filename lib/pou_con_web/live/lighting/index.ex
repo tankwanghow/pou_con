@@ -137,7 +137,7 @@ defmodule PouConWeb.Live.Lighting.Index do
       <.header>
         Lighting
         <:actions>
-          <.btn_link to={~p"/lighting/schedules"} label="Schedules" />
+          <.btn_link to={~p"/admin/lighting/schedules"} label="Schedules" />
           <.dashboard_link />
         </:actions>
       </.header>

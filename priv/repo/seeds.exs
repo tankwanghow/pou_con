@@ -4,18 +4,65 @@
 # Or in release: ./bin/pou_con eval "PouCon.Release.seed"
 #
 # IMPORTANT: Order matters! Tables with foreign keys must be seeded after their dependencies.
+#
+# Serial Port Configuration:
+#   Set MODBUS_PORT_PATH environment variable to configure the serial port.
+#   - USB adapter (default): MODBUS_PORT_PATH=ttyUSB0
+#   - RevPi built-in RS485:  MODBUS_PORT_PATH=ttyAMA0
+#   - Multiple ports:        MODBUS_PORT_PATH=ttyUSB0 (then manually add ttyAMA0 via Admin UI)
 
 alias PouCon.Repo
 
 defmodule Seeds do
   @moduledoc """
   Helper module for seeding database from JSON files.
+
+  Supports runtime configuration of serial port path via MODBUS_PORT_PATH env var.
+  This allows the same seed files to work on both Raspberry Pi (USB adapter)
+  and RevPi Connect 5 (built-in RS485).
   """
 
   @seed_dir Path.dirname(__ENV__.file)
 
+  # Default serial port - can be overridden via MODBUS_PORT_PATH env var
+  @default_port "ttyUSB0"
+
+  # Ports that should never be replaced (virtual devices, etc.)
+  @protected_ports ["virtual"]
+
+  defp serial_port_path do
+    System.get_env("MODBUS_PORT_PATH", @default_port)
+  end
+
+  # Replace ttyUSB0 with configured port, but preserve protected ports (virtual, etc.)
+  defp replace_port_path(value) when is_binary(value) do
+    # Don't modify protected ports like "virtual"
+    if value in @protected_ports do
+      value
+    else
+      configured_port = serial_port_path()
+
+      if configured_port != @default_port do
+        String.replace(value, @default_port, configured_port)
+      else
+        value
+      end
+    end
+  end
+
+  defp replace_port_path(value), do: value
+
   def run do
     IO.puts("Starting database seed...")
+
+    # Log configured serial port
+    port = serial_port_path()
+
+    if port != @default_port do
+      IO.puts("  Using configured serial port: #{port}")
+    else
+      IO.puts("  Using default serial port: #{port}")
+    end
 
     # Order matters - seed tables in dependency order
     seed_ports()
@@ -35,7 +82,8 @@ defmodule Seeds do
     seed_from_json("ports.json", "ports", "ports", fn row ->
       %{
         id: row["id"],
-        device_path: row["device_path"],
+        # Apply port path replacement (ttyUSB0 -> configured port)
+        device_path: replace_port_path(row["device_path"]),
         speed: row["speed"],
         parity: row["parity"],
         data_bits: row["data_bits"],
@@ -58,7 +106,8 @@ defmodule Seeds do
         register: row["register"],
         channel: row["channel"],
         description: row["description"],
-        port_device_path: row["port_device_path"]
+        # Apply port path replacement (ttyUSB0 -> configured port)
+        port_device_path: replace_port_path(row["port_device_path"])
       }
       |> with_timestamps()
     end)
@@ -78,15 +127,20 @@ defmodule Seeds do
   end
 
   defp seed_virtual_digital_states do
-    seed_from_json("virtual_digital_states.json", "virtual_digital_states", "virtual_digital_states", fn row ->
-      %{
-        id: row["id"],
-        slave_id: row["slave_id"],
-        channel: row["channel"],
-        state: row["state"]
-      }
-      |> with_timestamps()
-    end)
+    seed_from_json(
+      "virtual_digital_states.json",
+      "virtual_digital_states",
+      "virtual_digital_states",
+      fn row ->
+        %{
+          id: row["id"],
+          slave_id: row["slave_id"],
+          channel: row["channel"],
+          state: row["state"]
+        }
+        |> with_timestamps()
+      end
+    )
   end
 
   defp seed_interlock_rules do
@@ -102,26 +156,52 @@ defmodule Seeds do
   end
 
   defp seed_environment_control_config do
-    seed_from_json("environment_control_config.json", "environment_control_config", "environment_control_config", fn row ->
-      %{
-        id: row["id"],
-        temp_min: row["temp_min"],
-        temp_max: row["temp_max"],
-        hum_min: row["hum_min"],
-        hum_max: row["hum_max"],
-        min_fans: row["min_fans"],
-        max_fans: row["max_fans"],
-        min_pumps: row["min_pumps"],
-        max_pumps: row["max_pumps"],
-        fan_order: row["fan_order"],
-        pump_order: row["pump_order"],
-        hysteresis: row["hysteresis"],
-        enabled: row["enabled"],
-        stagger_delay_seconds: row["stagger_delay_seconds"],
-        nc_fans: row["nc_fans"]
-      }
-      |> with_timestamps()
-    end)
+    seed_from_json(
+      "environment_control_config.json",
+      "environment_control_config",
+      "environment_control_config",
+      fn row ->
+        %{
+          id: row["id"],
+          stagger_delay_seconds: row["stagger_delay_seconds"],
+          delay_between_step_seconds: row["delay_between_step_seconds"],
+          hum_min: row["hum_min"],
+          hum_max: row["hum_max"],
+          enabled: row["enabled"],
+          step_1_temp: row["step_1_temp"],
+          step_1_fans: row["step_1_fans"],
+          step_1_pumps: row["step_1_pumps"],
+          step_2_temp: row["step_2_temp"],
+          step_2_fans: row["step_2_fans"],
+          step_2_pumps: row["step_2_pumps"],
+          step_3_temp: row["step_3_temp"],
+          step_3_fans: row["step_3_fans"],
+          step_3_pumps: row["step_3_pumps"],
+          step_4_temp: row["step_4_temp"],
+          step_4_fans: row["step_4_fans"],
+          step_4_pumps: row["step_4_pumps"],
+          step_5_temp: row["step_5_temp"],
+          step_5_fans: row["step_5_fans"],
+          step_5_pumps: row["step_5_pumps"],
+          step_6_temp: row["step_6_temp"],
+          step_6_fans: row["step_6_fans"],
+          step_6_pumps: row["step_6_pumps"],
+          step_7_temp: row["step_7_temp"],
+          step_7_fans: row["step_7_fans"],
+          step_7_pumps: row["step_7_pumps"],
+          step_8_temp: row["step_8_temp"],
+          step_8_fans: row["step_8_fans"],
+          step_8_pumps: row["step_8_pumps"],
+          step_9_temp: row["step_9_temp"],
+          step_9_fans: row["step_9_fans"],
+          step_9_pumps: row["step_9_pumps"],
+          step_10_temp: row["step_10_temp"],
+          step_10_fans: row["step_10_fans"],
+          step_10_pumps: row["step_10_pumps"]
+        }
+        |> with_timestamps()
+      end
+    )
   end
 
   defp seed_light_schedules do
@@ -139,17 +219,22 @@ defmodule Seeds do
   end
 
   defp seed_egg_collection_schedules do
-    seed_from_json("egg_collection_schedules.json", "egg_collection_schedules", "egg_collection_schedules", fn row ->
-      %{
-        id: row["id"],
-        equipment_id: row["equipment_id"],
-        name: row["name"],
-        start_time: parse_time(row["start_time"]),
-        stop_time: parse_time(row["stop_time"]),
-        enabled: row["enabled"]
-      }
-      |> with_timestamps()
-    end)
+    seed_from_json(
+      "egg_collection_schedules.json",
+      "egg_collection_schedules",
+      "egg_collection_schedules",
+      fn row ->
+        %{
+          id: row["id"],
+          equipment_id: row["equipment_id"],
+          name: row["name"],
+          start_time: parse_time(row["start_time"]),
+          stop_time: parse_time(row["stop_time"]),
+          enabled: row["enabled"]
+        }
+        |> with_timestamps()
+      end
+    )
   end
 
   defp seed_feeding_schedules do
@@ -199,6 +284,7 @@ defmodule Seeds do
   end
 
   defp parse_time(nil), do: nil
+
   defp parse_time(str) when is_binary(str) do
     case Time.from_iso8601(str) do
       {:ok, time} -> time

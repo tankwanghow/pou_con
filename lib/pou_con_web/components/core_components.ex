@@ -231,6 +231,7 @@ defmodule PouConWeb.CoreComponents do
       <label>
         <span :if={@label} class="label mb-1">{@label}</span>
         <textarea
+          phx-hook="SimpleKeyboard"
           id={@id}
           name={@name}
           class={[

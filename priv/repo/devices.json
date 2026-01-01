@@ -1791,5 +1791,19 @@
 		"port_device_path" : "ttyUSB0",
 		"inserted_at" : "2025-12-02T06:51:31",
 		"updated_at" : "2025-12-02T06:51:31"
+	},
+	{
+		"id" : 164,
+		"name" : "WM-01",
+		"type" : "water_meter",
+		"slave_id" : 8,
+		"read_fn" : "read_water_meter",
+		"write_fn" : null,
+		"register" : 0,
+		"channel" : 0,
+		"description" : "Xintai Water Meter",
+		"port_device_path" : "ttyUSB0",
+		"inserted_at" : "2026-01-01T00:00:00",
+		"updated_at" : "2026-01-01T00:00:00"
 	}
 ]}

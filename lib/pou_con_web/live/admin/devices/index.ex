@@ -13,6 +13,7 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
           <div class="flex items-center">
             <form phx-change="filter" phx-submit="filter">
               <input
+              phx-hook="SimpleKeyboard"
                 id="filter-input"
                 type="search"
                 name="filter"

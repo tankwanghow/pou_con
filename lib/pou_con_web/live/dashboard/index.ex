@@ -145,6 +145,7 @@ defmodule PouConWeb.Live.Dashboard.Index do
         >
           <.icon name="hero-arrow-path" />
         </.link>
+        <%!-- Admin-only controls --%>
         <%= if @current_role == :admin do %>
           <.link
             href="/admin/settings"
@@ -154,7 +155,7 @@ defmodule PouConWeb.Live.Dashboard.Index do
           </.link>
           <.link
             :if={System.get_env("SIMULATE_DEVICES") == "1"}
-            href="/simulation"
+            href="/admin/simulation"
             class="px-3 py-1 rounded bg-cyan-200 border border-cyan-600"
           >
             <.icon name="hero-beaker-solid" />
@@ -165,7 +166,6 @@ defmodule PouConWeb.Live.Dashboard.Index do
           >
             <.icon name="hero-link-micro" />
           </.link>
-
           <.link
             href="/admin/ports"
             class="px-3 py-1 rounded bg-orange-200 border border-orange-600"
@@ -188,13 +188,23 @@ defmodule PouConWeb.Live.Dashboard.Index do
         <.link href="/reports" class="px-3 py-1 rounded bg-yellow-200 border border-yellow-600">
           <.icon name="hero-presentation-chart-bar" />
         </.link>
-        <.link
-          href={~p"/logout"}
-          method="post"
-          class="px-3 py-1 rounded bg-rose-200 border border-rose-600 font-medium"
-        >
-          <.icon name="hero-arrow-right-start-on-rectangle" />
-        </.link>
+        <%!-- Show login or logout based on auth state --%>
+        <%= if @current_role == :admin do %>
+          <.link
+            href={~p"/logout"}
+            method="post"
+            class="px-3 py-1 rounded bg-rose-200 border border-rose-600 font-medium"
+          >
+            <.icon name="hero-arrow-right-start-on-rectangle" />
+          </.link>
+        <% else %>
+          <.link
+            href="/login"
+            class="px-3 py-1 rounded bg-blue-200 border border-blue-600 font-medium"
+          >
+            <.icon name="hero-key" />
+          </.link>
+        <% end %>
       </div>
 
       <%= if @view_mode == "page_1" do %>

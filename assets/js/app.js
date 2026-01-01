@@ -131,7 +131,8 @@ Hooks.SimpleKeyboard = {
           const activeEl = window.keyboardInputs[window.keyboard.options.inputName];
           if (activeEl) {
             activeEl.value = input;
-            // this.pushEvent("update_input", { value: input });
+            // Dispatch input event to trigger LiveView's phx-change handler
+            activeEl.dispatchEvent(new Event('input', { bubbles: true }));
           }
         },
         onKeyReleased: button => {

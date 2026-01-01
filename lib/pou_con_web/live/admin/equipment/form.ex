@@ -148,7 +148,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
 
   defp return_to(nil), do: "index"
   defp return_to(val), do: val
-  defp return_path("simulation", _device), do: ~p"/simulation"
+  defp return_path("simulation", _device), do: ~p"/admin/simulation"
   defp return_path("index", _device), do: ~p"/admin/equipment"
   defp return_path(_, _device), do: ~p"/admin/equipment"
 end

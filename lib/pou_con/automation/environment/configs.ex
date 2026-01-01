@@ -33,64 +33,90 @@ defmodule PouCon.Automation.Environment.Configs do
   end
 
   @doc """
-  Calculate target fan count based on current temperature.
-  Uses linear interpolation between min_fans (at temp_min) and max_fans (at temp_max).
+  Get the equipment to control based on current temperature and humidity.
+  Returns {fans_list, pumps_list} where each is a list of equipment names.
+  Filters out equipment in MANUAL mode.
+
+  Humidity overrides:
+  - If humidity >= hum_max: all pumps stop (returns empty pump list)
+  - If humidity <= hum_min: all configured pumps run (returns all pumps from all steps)
+  - Otherwise: pumps from step configuration
   """
-  def calculate_fan_count(%Config{} = config, current_temp) when is_number(current_temp) do
+  def get_equipment_for_conditions(%Config{} = config, current_temp, current_humidity)
+      when is_number(current_temp) do
+    # Get step-based fans (temperature controls fans)
+    fans =
+      case Config.find_step_for_temp(config, current_temp) do
+        nil -> []
+        step -> filter_auto_mode_fans(step.fans)
+      end
+
+    # Determine pumps based on humidity overrides
+    pumps = determine_pumps(config, current_temp, current_humidity)
+
+    {fans, pumps}
+  end
+
+  def get_equipment_for_conditions(_config, _temp, _humidity), do: {[], []}
+
+  defp determine_pumps(config, current_temp, current_humidity) when is_number(current_humidity) do
     cond do
-      current_temp <= config.temp_min ->
-        config.min_fans
+      # Humidity too high - stop all pumps
+      current_humidity >= config.hum_max ->
+        []
 
-      current_temp >= config.temp_max ->
-        config.max_fans
+      # Humidity too low - run all available pumps from all active steps
+      current_humidity <= config.hum_min ->
+        get_all_configured_pumps(config)
+        |> filter_auto_mode_pumps()
 
+      # Normal - use step configuration
       true ->
-        range = config.temp_max - config.temp_min
-        ratio = (current_temp - config.temp_min) / range
-        fan_range = config.max_fans - config.min_fans
-        config.min_fans + round(ratio * fan_range)
+        case Config.find_step_for_temp(config, current_temp) do
+          nil -> []
+          step -> filter_auto_mode_pumps(step.pumps)
+        end
     end
   end
 
-  def calculate_fan_count(_config, _temp), do: 0
-
-  @doc """
-  Calculate target pump count based on current humidity.
-  INVERTED: More pumps when humidity is LOW (to add moisture), fewer when HIGH.
-  """
-  def calculate_pump_count(%Config{} = config, current_hum) when is_number(current_hum) do
-    cond do
-      # High humidity → minimum pumps (or off)
-      current_hum >= config.hum_max ->
-        config.min_pumps
-
-      # Low humidity → maximum pumps
-      current_hum <= config.hum_min ->
-        config.max_pumps
-
-      true ->
-        # Linear interpolation (inverted)
-        range = config.hum_max - config.hum_min
-        # Higher humidity = lower ratio = fewer pumps
-        ratio = (config.hum_max - current_hum) / range
-        pump_range = config.max_pumps - config.min_pumps
-        config.min_pumps + round(ratio * pump_range)
+  defp determine_pumps(config, current_temp, _humidity) do
+    # No humidity reading - fall back to step configuration
+    case Config.find_step_for_temp(config, current_temp) do
+      nil -> []
+      step -> filter_auto_mode_pumps(step.pumps)
     end
   end
 
-  def calculate_pump_count(_config, _hum), do: 0
+  @doc """
+  Get all unique pump names configured across all active steps.
+  Used when humidity is below minimum and all pumps should run.
+  """
+  def get_all_configured_pumps(config) do
+    config
+    |> Config.get_active_steps()
+    |> Enum.flat_map(& &1.pumps)
+    |> Enum.uniq()
+  end
 
   @doc """
-  Get ordered list of fans to control, limited to `count`.
-  Filters out fans in MANUAL mode to avoid blocking subsequent fans.
+  Check humidity override status.
+  Returns :force_all_on, :force_all_off, or :normal
   """
-  def get_fans_to_turn_on(%Config{fan_order: order}, count) do
+  def humidity_override_status(%Config{} = config, current_humidity)
+      when is_number(current_humidity) do
+    cond do
+      current_humidity >= config.hum_max -> :force_all_off
+      current_humidity <= config.hum_min -> :force_all_on
+      true -> :normal
+    end
+  end
+
+  def humidity_override_status(_config, _humidity), do: :normal
+
+  defp filter_auto_mode_fans(fan_names) do
     alias PouCon.Equipment.Controllers.Fan
 
-    order
-    |> Config.parse_order()
-    |> Enum.filter(fn name ->
-      # Only include fans in AUTO mode
+    Enum.filter(fan_names, fn name ->
       try do
         case Fan.status(name) do
           %{mode: :auto} -> true
@@ -102,20 +128,12 @@ defmodule PouCon.Automation.Environment.Configs do
         :exit, _ -> false
       end
     end)
-    |> Enum.take(count)
   end
 
-  @doc """
-  Get ordered list of pumps to control, limited to `count`.
-  Filters out pumps in MANUAL mode to avoid blocking subsequent pumps.
-  """
-  def get_pumps_to_turn_on(%Config{pump_order: order}, count) do
+  defp filter_auto_mode_pumps(pump_names) do
     alias PouCon.Equipment.Controllers.Pump
 
-    order
-    |> Config.parse_order()
-    |> Enum.filter(fn name ->
-      # Only include pumps in AUTO mode
+    Enum.filter(pump_names, fn name ->
       try do
         case Pump.status(name) do
           %{mode: :auto} -> true
@@ -127,6 +145,5 @@ defmodule PouCon.Automation.Environment.Configs do
         :exit, _ -> false
       end
     end)
-    |> Enum.take(count)
   end
 end

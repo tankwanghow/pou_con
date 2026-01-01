@@ -157,7 +157,7 @@ defmodule PouConWeb.Live.Environment.Index do
       <.header>
         Environment
         <:actions>
-          <.btn_link to={~p"/environment/control"} label="Configure" />
+          <.btn_link to={~p"/admin/environment/control"} label="Configure" />
           <.dashboard_link />
         </:actions>
       </.header>

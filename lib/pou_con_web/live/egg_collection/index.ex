@@ -137,7 +137,7 @@ defmodule PouConWeb.Live.EggCollection.Index do
       <.header>
         Egg Collection
         <:actions>
-          <.btn_link to={~p"/egg_collection/schedules"} label="Schedules" />
+          <.btn_link to={~p"/admin/egg_collection/schedules"} label="Schedules" />
           <.dashboard_link />
         </:actions>
       </.header>

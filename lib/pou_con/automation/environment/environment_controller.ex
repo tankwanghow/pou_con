@@ -6,11 +6,20 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   Subscribes to device data changes via PubSub and reacts when sensor readings update.
   Only affects devices in AUTO mode.
   Uses staggered switching to avoid turning all devices on/off at once.
+
+  Step-based control:
+  - Temperature determines which step is active (and thus which fans/pumps)
+  - delay_between_step_seconds prevents rapid step changes
+
+  Humidity overrides:
+  - If humidity >= hum_max: all pumps stop
+  - If humidity <= hum_min: all pumps run
   """
   use GenServer
   require Logger
 
   alias PouCon.Automation.Environment.Configs
+  alias PouCon.Automation.Environment.Schemas.Config, as: ConfigSchema
   alias PouCon.Equipment.Controllers.{Fan, Pump, TempHumSen}
   alias PouCon.Logging.EquipmentLogger
 
@@ -19,12 +28,15 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   defmodule State do
     defstruct avg_temp: nil,
               avg_humidity: nil,
-              target_fan_count: 0,
-              target_pump_count: 0,
+              target_fans: [],
+              target_pumps: [],
               current_fans_on: [],
               current_pumps_on: [],
-              last_temp: nil,
+              current_step: nil,
+              last_step: nil,
+              last_step_change_time: nil,
               last_switch_time: nil,
+              humidity_override: :normal,
               enabled: false
   end
 
@@ -71,8 +83,10 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       enabled: config.enabled,
       avg_temp: state.avg_temp,
       avg_humidity: state.avg_humidity,
-      target_fan_count: state.target_fan_count,
-      target_pump_count: state.target_pump_count,
+      current_step: state.current_step,
+      humidity_override: state.humidity_override,
+      target_fans: state.target_fans,
+      target_pumps: state.target_pumps,
       fans_on: state.current_fans_on,
       pumps_on: state.current_pumps_on
     }
@@ -122,23 +136,40 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
     unless config.enabled do
       %State{
         state
-        | target_fan_count: 0,
-          target_pump_count: 0,
+        | target_fans: [],
+          target_pumps: [],
           current_fans_on: [],
           current_pumps_on: [],
+          current_step: nil,
+          humidity_override: :normal,
           enabled: false
       }
     else
-      temp_for_calc = apply_hysteresis(state.avg_temp, state.last_temp, config.hysteresis)
-      target_fans = Configs.calculate_fan_count(config, temp_for_calc)
-      target_pumps = Configs.calculate_pump_count(config, state.avg_humidity)
-
-      target_fan_list = Configs.get_fans_to_turn_on(config, target_fans)
-      target_pump_list = Configs.get_pumps_to_turn_on(config, target_pumps)
-
-      # Check if enough time has passed since last switch
-      delay_ms = (config.stagger_delay_seconds || 5) * 1000
       now = System.monotonic_time(:millisecond)
+
+      # Get the current step based on temperature
+      new_step = ConfigSchema.find_step_for_temp(config, state.avg_temp)
+      new_step_num = if new_step, do: new_step.step, else: nil
+
+      # Check if step change is allowed (delay_between_step_seconds)
+      {effective_step, last_step, last_step_change_time} =
+        check_step_change_allowed(
+          new_step_num,
+          state.last_step,
+          state.last_step_change_time,
+          config.delay_between_step_seconds,
+          now
+        )
+
+      # Get humidity override status
+      humidity_override = Configs.humidity_override_status(config, state.avg_humidity)
+
+      # Get equipment lists based on effective step and humidity
+      {target_fan_list, target_pump_list} =
+        Configs.get_equipment_for_conditions(config, state.avg_temp, state.avg_humidity)
+
+      # Check if enough time has passed since last switch (stagger delay)
+      delay_ms = (config.stagger_delay_seconds || 5) * 1000
       can_switch = state.last_switch_time == nil or now - state.last_switch_time >= delay_ms
 
       {new_fans_on, new_pumps_on, switched?} =
@@ -159,14 +190,41 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
 
       %State{
         state
-        | target_fan_count: target_fans,
-          target_pump_count: target_pumps,
+        | target_fans: target_fan_list,
+          target_pumps: target_pump_list,
           current_fans_on: new_fans_on,
           current_pumps_on: new_pumps_on,
-          last_temp: state.avg_temp,
+          current_step: effective_step,
+          last_step: last_step,
+          last_step_change_time: last_step_change_time,
           last_switch_time: new_switch_time,
+          humidity_override: humidity_override,
           enabled: true
       }
+    end
+  end
+
+  # Check if step change is allowed based on delay_between_step_seconds
+  defp check_step_change_allowed(new_step, last_step, last_change_time, delay_seconds, now) do
+    delay_ms = (delay_seconds || 120) * 1000
+
+    cond do
+      # First time or no previous step
+      last_step == nil ->
+        {new_step, new_step, now}
+
+      # Same step - no change needed
+      new_step == last_step ->
+        {new_step, last_step, last_change_time}
+
+      # Different step - check if enough time has passed
+      last_change_time == nil or now - last_change_time >= delay_ms ->
+        Logger.info("[Environment] Step change: #{last_step} -> #{new_step}")
+        {new_step, new_step, now}
+
+      # Not enough time - keep current step
+      true ->
+        {last_step, last_step, last_change_time}
     end
   end
 
@@ -261,7 +319,8 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
           # Log auto-control action
           EquipmentLogger.log_start(name, "auto", "auto_control", %{
             "temp" => state.avg_temp,
-            "reason" => "temperature_control"
+            "step" => state.current_step,
+            "reason" => "step_control"
           })
 
           true
@@ -293,7 +352,8 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
           # Log auto-control action
           EquipmentLogger.log_stop(name, "auto", "auto_control", "on", %{
             "temp" => state.avg_temp,
-            "reason" => "temperature_control"
+            "step" => state.current_step,
+            "reason" => "step_control"
           })
 
           :success
@@ -318,11 +378,12 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
 
       if status[:mode] == :auto and not status[:commanded_on] do
         Pump.turn_on(name)
-        Logger.info("[Environment] Turning ON pump: #{name}")
+        Logger.info("[Environment] Turning ON pump: #{name} (humidity: #{state.avg_humidity}%)")
 
         # Log auto-control action
         EquipmentLogger.log_start(name, "auto", "auto_control", %{
           "humidity" => state.avg_humidity,
+          "humidity_override" => state.humidity_override,
           "reason" => "humidity_control"
         })
 
@@ -344,11 +405,12 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       if status[:mode] == :auto do
         if status[:commanded_on] do
           Pump.turn_off(name)
-          Logger.info("[Environment] Turning OFF pump: #{name}")
+          Logger.info("[Environment] Turning OFF pump: #{name} (humidity: #{state.avg_humidity}%)")
 
           # Log auto-control action
           EquipmentLogger.log_stop(name, "auto", "auto_control", "on", %{
             "humidity" => state.avg_humidity,
+            "humidity_override" => state.humidity_override,
             "reason" => "humidity_control"
           })
 
@@ -367,9 +429,4 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       :exit, _ -> :error
     end
   end
-
-  defp apply_hysteresis(nil, _last, _buffer), do: nil
-  defp apply_hysteresis(current, nil, _buffer), do: current
-  defp apply_hysteresis(current, last, buffer) when abs(current - last) < buffer, do: last
-  defp apply_hysteresis(current, _last, _buffer), do: current
 end

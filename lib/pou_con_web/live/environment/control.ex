@@ -11,7 +11,7 @@ defmodule PouConWeb.Live.Environment.Control do
     socket =
       socket
       |> assign(:config, config)
-      |> assign(:changeset, Config.changeset(config, %{}))
+      |> assign(:form, to_form(Config.changeset(config, %{}), as: :config))
       |> assign(:fans, list_equipment("fan"))
       |> assign(:pumps, list_equipment("pump"))
 
@@ -19,9 +19,13 @@ defmodule PouConWeb.Live.Environment.Control do
   end
 
   @impl true
-  def handle_event("change", %{"config" => params}, socket) do
-    changeset = Config.changeset(socket.assigns.config, params)
-    {:noreply, assign(socket, :changeset, changeset)}
+  def handle_event("validate", %{"config" => params}, socket) do
+    changeset =
+      socket.assigns.config
+      |> Config.changeset(params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, :form, to_form(changeset, as: :config))}
   end
 
   @impl true
@@ -31,11 +35,11 @@ defmodule PouConWeb.Live.Environment.Control do
         {:noreply,
          socket
          |> assign(:config, config)
-         |> assign(:changeset, Config.changeset(config, %{}))
+         |> assign(:form, to_form(Config.changeset(config, %{}), as: :config))
          |> put_flash(:info, "Configuration saved!")}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, :changeset, changeset)}
+        {:noreply, assign(socket, :form, to_form(changeset, as: :config))}
     end
   end
 
@@ -50,7 +54,6 @@ defmodule PouConWeb.Live.Environment.Control do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
-      <%!-- <div class="p-3 mx-auto max-w-5xl"> --%>
       <div class="flex justify-between items-center mb-3">
         <h1 class="text-xl font-bold text-green-600">Environment Control</h1>
         <div class="flex gap-2">
@@ -58,145 +61,104 @@ defmodule PouConWeb.Live.Environment.Control do
         </div>
       </div>
 
-      <.form for={@changeset} phx-submit="save" phx-change="change" class="space-y-3">
-        <div class="bg-gray-800 p-3 rounded-lg border border-gray-700">
-          <div class="flex items-center justify-end gap-2 mb-3">
-            <input type="hidden" name="config[enabled]" value="false" />
-            <input
-              type="checkbox"
-              name="config[enabled]"
-              value="true"
-              checked={Ecto.Changeset.get_field(@changeset, :enabled)}
-              class="rounded bg-gray-900 border-gray-600 w-5 h-5"
-            />
-            <label class="text-white font-medium">Auto Control Enabled</label>
-          </div>
-          <div class="grid grid-cols-5 gap-2 mb-3">
-            <div>
-              <label class="text-gray-400 text-xs">Temp Min</label>
-              <input
-                type="number"
-                step="0.1"
-                name="config[temp_min]"
-                value={Ecto.Changeset.get_field(@changeset, :temp_min)}
-                class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
-              />
-            </div>
-            <div>
-              <label class="text-gray-400 text-xs">Temp Max</label>
-              <input
-                type="number"
-                step="0.1"
-                name="config[temp_max]"
-                value={Ecto.Changeset.get_field(@changeset, :temp_max)}
-                class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
-              />
-            </div>
-            <div>
-              <label class="text-gray-400 text-xs">Min Fans</label>
-              <input
-                type="number"
-                name="config[min_fans]"
-                value={Ecto.Changeset.get_field(@changeset, :min_fans)}
-                class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
-              />
-            </div>
-            <div>
-              <label class="text-gray-400 text-xs">Max Fans</label>
-              <input
-                type="number"
-                name="config[max_fans]"
-                value={Ecto.Changeset.get_field(@changeset, :max_fans)}
-                class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
-              />
-            </div>
-            <div>
-              <label class="text-gray-400 text-xs">Hum Min</label>
-              <input
-                type="number"
-                step="0.1"
-                name="config[hum_min]"
-                value={Ecto.Changeset.get_field(@changeset, :hum_min)}
-                class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
-              />
-            </div>
-            <div>
-              <label class="text-gray-400 text-xs">Hum Max</label>
-              <input
-                type="number"
-                step="0.1"
-                name="config[hum_max]"
-                value={Ecto.Changeset.get_field(@changeset, :hum_max)}
-                class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
-              />
-            </div>
-            <div>
-              <label class="text-gray-400 text-xs">Min Pumps</label>
-              <input
-                type="number"
-                name="config[min_pumps]"
-                value={Ecto.Changeset.get_field(@changeset, :min_pumps)}
-                class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
-              />
-            </div>
-            <div>
-              <label class="text-gray-400 text-xs">Max Pumps</label>
-              <input
-                type="number"
-                name="config[max_pumps]"
-                value={Ecto.Changeset.get_field(@changeset, :max_pumps)}
-                class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
-              />
-            </div>
-
-            <div>
-              <label class="text-gray-400 text-xs">Hysteresis (°C)</label>
-              <input
-                type="number"
-                step="0.1"
-                name="config[hysteresis]"
-                value={Ecto.Changeset.get_field(@changeset, :hysteresis)}
-                class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
-              />
-            </div>
-            <div>
-              <label class="text-gray-400 text-xs">Stagger Delay (s)</label>
-              <input
-                type="number"
-                name="config[stagger_delay_seconds]"
-                value={Ecto.Changeset.get_field(@changeset, :stagger_delay_seconds) || 5}
-                class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
-              />
-            </div>
-          </div>
-          <div class="grid grid-cols-1 gap-2">
-            <div>
-              <label class="text-gray-400 text-xs">
-                Pump Order <span class="text-gray-600">({Enum.join(@pumps, ", ")})</span>
-              </label>
-              <input
-                type="text"
-                name="config[pump_order]"
-                value={Ecto.Changeset.get_field(@changeset, :pump_order)}
-                class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
-              />
-            </div>
-          </div>
-          <div class="grid mb-3">
-            <div>
-              <label class="text-gray-400 text-xs">
-                Fan Order <span class="text-gray-600">({Enum.join(@fans, ", ")})</span>
-              </label>
-              <input
-                type="text"
-                name="config[fan_order]"
-                value={Ecto.Changeset.get_field(@changeset, :fan_order)}
-                class="w-full bg-gray-900 border-gray-600 rounded text-white p-1.5 text-sm"
-              />
+      <.form for={@form} phx-submit="save" phx-change="validate" class="space-y-3">
+        <div class="p-3">
+          <p class="text-sm font-medium text-gray-500 mb-2">
+            Set temp=0 to disable a step. Steps are evaluated in ascending temp order.
+          </p>
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <div class="text-sm text-gray-600">
+              Available: <span class="font-mono">{Enum.join(@fans, ", ")}</span>
+              <span class="font-mono">{Enum.join(@pumps, ", ")}</span>
             </div>
           </div>
 
-          <div class="grid mb-3"></div>
+          <div class="mb-3">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="bg-gray-100">
+                    <th class="text-center w-[5%]">Step</th>
+                    <th class="text-left w-[11%]">Temp (°C)</th>
+                    <th class="text-left w-[50%]">Fans</th>
+                    <th class="text-left w-[36%]">Pumps</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for n <- 1..10 do %>
+                    <tr class="border-b">
+                      <td class="font-bold text-black text-center">
+                        {n}
+                      </td>
+                      <td>
+                        <.input
+                          field={@form[String.to_atom("step_#{n}_temp")]}
+                          type="number"
+                          step="0.1"
+                        />
+                      </td>
+                      <td>
+                        <.input
+                          field={@form[String.to_atom("step_#{n}_fans")]}
+                          type="textarea"
+                        />
+                      </td>
+                      <td>
+                        <.input
+                          field={@form[String.to_atom("step_#{n}_pumps")]}
+                          type="textarea"
+                        />
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        <div>
+          <div class="grid grid-cols-5 gap-2 items-center">
+            <div>
+              <.input
+                field={@form[:stagger_delay_seconds]}
+                type="number"
+                label="Stagger Delay (s)"
+              />
+            </div>
+            <div>
+              <.input
+                field={@form[:delay_between_step_seconds]}
+                type="number"
+                label="Step Change Delay (s)"
+              />
+            </div>
+            <div>
+              <.input
+                field={@form[:hum_min]}
+                type="number"
+                step="0.1"
+                label="Hum Min (%)"
+              />
+            </div>
+            <div>
+              <.input
+                field={@form[:hum_max]}
+                type="number"
+                step="0.1"
+                label="Hum Max (%)"
+              />
+            </div>
+            <div>
+              <.input
+                field={@form[:enabled]}
+                type="checkbox"
+                label="Auto Enabled"
+              />
+            </div>
+            </div>
+            <p class="text-xs text-gray-500 mb-3">
+            Humidity overrides: All pumps stop if humidity &gt;= Hum Max. All pumps run if humidity &lt;= Hum Min.
+          </p>
+          </div>
 
           <button
             type="submit"
@@ -206,7 +168,6 @@ defmodule PouConWeb.Live.Environment.Control do
           </button>
         </div>
       </.form>
-      <%!-- </div> --%>
     </Layouts.app>
     """
   end
