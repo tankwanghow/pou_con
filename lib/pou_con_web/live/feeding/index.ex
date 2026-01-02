@@ -132,7 +132,7 @@ defmodule PouConWeb.Live.Feeding.Index do
       <.header>
         Feeding
         <:actions>
-          <.btn_link to="/feeding_schedule" label="Schedule" />
+          <.btn_link to="/admin/feeding_schedule" label="Schedule" />
           <.dashboard_link />
         </:actions>
       </.header>
