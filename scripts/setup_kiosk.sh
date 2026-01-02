@@ -52,23 +52,76 @@ sudo apt install -y chromium-browser unclutter xdotool
 # Create kiosk script directory
 echo "2. Creating kiosk startup script..."
 mkdir -p ~/.local/bin
+mkdir -p ~/.local/share/poucon
+
+# Create loading page (black screen that auto-redirects when PouCon is ready)
+cat > ~/.local/share/poucon/loading.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Loading...</title>
+  <style>
+    * { margin: 0; padding: 0; }
+    body {
+      background: #000;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: system-ui, sans-serif;
+      color: #333;
+    }
+    .loader {
+      text-align: center;
+      opacity: 0;
+      animation: fadeIn 2s ease-in 3s forwards;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #333;
+      border-top-color: #666;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { to { opacity: 1; } }
+  </style>
+</head>
+<body>
+  <div class="loader">
+    <div class="spinner"></div>
+    <div>Starting PouCon...</div>
+  </div>
+  <script>
+    const target = 'http://localhost:4000';
+    const maxAttempts = 60;
+    let attempts = 0;
+
+    function checkServer() {
+      attempts++;
+      fetch(target, { mode: 'no-cors' })
+        .then(() => { window.location.href = target; })
+        .catch(() => {
+          if (attempts < maxAttempts) {
+            setTimeout(checkServer, 2000);
+          } else {
+            document.body.innerHTML = '<div style="color:#c00;text-align:center;padding:20px;">Failed to connect to PouCon.<br>Please check the service.</div>';
+          }
+        });
+    }
+
+    // Start checking after a brief delay
+    setTimeout(checkServer, 3000);
+  </script>
+</body>
+</html>
+HTMLEOF
 
 cat > ~/.local/bin/start_poucon_kiosk.sh << 'EOF'
 #!/bin/bash
-
-# Wait for PouCon service to be ready
-echo "Waiting for PouCon service..."
-sleep 10
-
-# Wait for PouCon to be actually responding
-for i in {1..30}; do
-    if curl -s http://localhost:4000 > /dev/null; then
-        echo "PouCon is ready!"
-        break
-    fi
-    echo "Waiting for PouCon to respond... ($i/30)"
-    sleep 2
-done
 
 # Hide mouse cursor after 0.1 seconds of inactivity
 unclutter -idle 0.1 -root &
@@ -81,7 +134,8 @@ xset s noblank
 # Optional: Set brightness (uncomment and adjust for your panel)
 # echo 200 | sudo tee /sys/class/backlight/*/brightness > /dev/null 2>&1
 
-# Start Chromium in fullscreen mode (F11 to toggle, Alt+Tab to switch apps)
+# Start Chromium immediately with loading page (shows black screen)
+# The loading page will auto-redirect to PouCon when it's ready
 chromium-browser \
   --start-fullscreen \
   --noerrdialogs \
@@ -95,7 +149,7 @@ chromium-browser \
   --disk-cache-dir=/dev/null \
   --overscroll-history-navigation=0 \
   --disable-pinch \
-  http://localhost:4000
+  file://$HOME/.local/share/poucon/loading.html
 EOF
 
 chmod +x ~/.local/bin/start_poucon_kiosk.sh
