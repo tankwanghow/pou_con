@@ -30,8 +30,12 @@ if [ ! -d /usr/share/lightdm ]; then
     exit 1
 fi
 
-echo "This will configure the Pi to boot directly to PouCon kiosk mode"
+echo "This will configure the Pi to boot directly to PouCon in fullscreen mode"
 echo "on the connected touchscreen display."
+echo ""
+echo "Keyboard shortcuts available after setup:"
+echo "  F11       - Toggle fullscreen on/off"
+echo "  Alt+Tab   - Switch between applications"
 echo ""
 read -p "Continue? (y/n) " -n 1 -r
 echo
@@ -77,9 +81,9 @@ xset s noblank
 # Optional: Set brightness (uncomment and adjust for your panel)
 # echo 200 | sudo tee /sys/class/backlight/*/brightness > /dev/null 2>&1
 
-# Start Chromium in kiosk mode
+# Start Chromium in fullscreen mode (F11 to toggle, Alt+Tab to switch apps)
 chromium-browser \
-  --kiosk \
+  --start-fullscreen \
   --noerrdialogs \
   --disable-infobars \
   --disable-session-crashed-bubble \
@@ -100,11 +104,11 @@ chmod +x ~/.local/bin/start_poucon_kiosk.sh
 echo "3. Creating autostart configuration..."
 mkdir -p ~/.config/autostart
 
-cat > ~/.config/autostart/poucon-kiosk.desktop << 'EOF'
+cat > ~/.config/autostart/poucon-kiosk.desktop << EOF
 [Desktop Entry]
 Type=Application
 Name=PouCon Kiosk
-Exec=/home/pi/.local/bin/start_poucon_kiosk.sh
+Exec=$HOME/.local/bin/start_poucon_kiosk.sh
 X-GNOME-Autostart-enabled=true
 EOF
 
@@ -123,13 +127,14 @@ EOF
 
 # Check and enable auto-login
 echo "5. Checking auto-login configuration..."
+CURRENT_USER=$(whoami)
 if ! grep -q "^autologin-user=" /etc/lightdm/lightdm.conf 2>/dev/null; then
-    echo "   Enabling auto-login..."
-    sudo sed -i 's/^#autologin-user=/autologin-user=pi/' /etc/lightdm/lightdm.conf
+    echo "   Enabling auto-login for user: $CURRENT_USER"
+    sudo sed -i "s/^#autologin-user=/autologin-user=$CURRENT_USER/" /etc/lightdm/lightdm.conf
 
     # If that didn't work, add it manually
     if ! grep -q "^autologin-user=" /etc/lightdm/lightdm.conf 2>/dev/null; then
-        sudo sed -i '/^\[Seat:\*\]/a autologin-user=pi' /etc/lightdm/lightdm.conf
+        sudo sed -i "/^\[Seat:\*\]/a autologin-user=$CURRENT_USER" /etc/lightdm/lightdm.conf
     fi
 else
     echo "   Auto-login already enabled"
@@ -152,14 +157,18 @@ echo "=== Kiosk Setup Complete! ==="
 echo ""
 echo "Next steps:"
 echo "  1. Reboot: sudo reboot"
-echo "  2. Pi will boot directly to PouCon kiosk mode"
+echo "  2. Pi will boot directly to PouCon in fullscreen"
 echo "  3. Touch screen to interact with controls"
+echo ""
+echo "Keyboard shortcuts:"
+echo "  F11       - Toggle fullscreen on/off"
+echo "  Alt+Tab   - Switch between applications"
 echo ""
 echo "To disable kiosk mode:"
 echo "  rm ~/.config/autostart/poucon-kiosk.desktop"
 echo "  rm ~/.local/bin/start_poucon_kiosk.sh"
 echo ""
-echo "To customize kiosk settings, edit:"
+echo "To customize settings, edit:"
 echo "  ~/.local/bin/start_poucon_kiosk.sh"
 echo ""
 echo "For troubleshooting, see TOUCHSCREEN_KIOSK_SETUP.md"
