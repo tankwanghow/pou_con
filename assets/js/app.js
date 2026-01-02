@@ -106,24 +106,23 @@ Hooks.SimpleKeyboard = {
         layoutName: "default",
         layout: {
           default: [
-            'q w e r t y u i o p',
-            'a s d f g h j k l',
-            '{shift} z x c v b n m',
-            '{numbers} , {space} . {bksp}'
+            '1 2 3 4 5 6 7 8 9 0 - =',
+            'q w e r t y u i o p [ ]',
+            'a s d f g h j k l ; \'',
+            '{shift} z x c v b n m , .',
+            '{space} {bksp}'
           ],
           shift: [
-            'Q W E R T Y U I O P',
-            'A S D F G H J K L',
-            '{shift} Z X C V B N M',
-            '{numbers} , {space} . {bksp}'
-          ],
-          numbers: ["1 2 3", "4 5 6", "7 8 9", "{abc} 0 , . {bksp}"]
+            '! @ # $ % ^ & * ( ) _ +',
+            'Q W E R T Y U I O P { }',
+            'A S D F G H J K L : "',
+            '{shift} Z X C V B N M < > ?',
+            '{space} {bksp}'
+          ]
         },
         display: {
-          "{numbers}": "123",
           "{bksp}": "⌫",
-          "{shift}": "⇧",
-          "{abc}": "ABC",
+          "{shift}": "⇧"
         },
         useMouseEvents: true,          // Enable mouse event handling for desktop
         preventMouseDownDefault: true, // Prevent default mousedown to keep input focus
