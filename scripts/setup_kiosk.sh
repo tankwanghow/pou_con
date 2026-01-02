@@ -96,7 +96,7 @@ cat > ~/.local/share/poucon/loading.html << 'HTMLEOF'
     <div>Starting PouCon...</div>
   </div>
   <script>
-    const target = 'http://localhost:4000';
+    const target = 'http://localhost';
     const maxAttempts = 60;
     let attempts = 0;
 
