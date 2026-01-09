@@ -53,7 +53,9 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
     test "validates stagger_delay_seconds minimum" do
       changeset = %Config{} |> Config.changeset(%{stagger_delay_seconds: 1})
       refute changeset.valid?
-      assert %{stagger_delay_seconds: ["must be greater than or equal to 2"]} = errors_on(changeset)
+
+      assert %{stagger_delay_seconds: ["must be greater than or equal to 2"]} =
+               errors_on(changeset)
     end
 
     test "validates delay_between_step_seconds minimum" do

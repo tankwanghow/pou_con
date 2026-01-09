@@ -28,7 +28,11 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
           is_running={@display.is_moving}
         >
           <:controls>
-            <Shared.mode_toggle mode={@display.mode} is_offline={@display.state_text == "OFFLINE"} myself={@myself} />
+            <Shared.mode_toggle
+              mode={@display.mode}
+              is_offline={@display.state_text == "OFFLINE"}
+              myself={@myself}
+            />
           </:controls>
         </Shared.equipment_header>
 

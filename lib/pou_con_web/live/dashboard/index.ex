@@ -185,18 +185,17 @@ defmodule PouConWeb.Live.Dashboard.Index do
       <div class="flex flex-wrap items-center gap-1 mb-1 justify-center items-center">
         <%!-- Flock Summary --%>
 
-            <.live_component
-              module={PouConWeb.Components.Summaries.FlockSummaryComponent}
-              id="flock_summary"
-              flock_data={@flock_data}
-            />
+        <.live_component
+          module={PouConWeb.Components.Summaries.FlockSummaryComponent}
+          id="flock_summary"
+          flock_data={@flock_data}
+        />
 
-            <%!-- Operations Tasks Summary --%>
-            <.live_component
-              module={PouConWeb.Components.Summaries.TasksSummaryComponent}
-              id="tasks_summary"
-            />
-
+        <%!-- Operations Tasks Summary --%>
+        <.live_component
+          module={PouConWeb.Components.Summaries.TasksSummaryComponent}
+          id="tasks_summary"
+        />
 
         <%!-- Environment (Temperature, Humidity, Fans, Pumps, Water) --%>
         <% temphums = Enum.filter(@equipment, &(&1.type == "temp_hum_sensor")) %>

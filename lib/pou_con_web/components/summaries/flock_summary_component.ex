@@ -29,7 +29,7 @@ defmodule PouConWeb.Components.Summaries.FlockSummaryComponent do
           phx-target={@myself}
           class="cursor-pointer hover:bg-gray-50 transition-colors"
         >
-
+          
     <!-- Stats Grid - 2 rows x 5 columns -->
           <div class="grid grid-cols-5 gap-1 p-2 text-center">
             <!-- Row 1: Flock Info -->

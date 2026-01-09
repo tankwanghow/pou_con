@@ -22,43 +22,47 @@ defmodule PouConWeb.Components.Equipment.LightComponent do
     ~H"""
     <div>
       <Shared.equipment_card is_error={@display.is_error}>
-      <Shared.equipment_header
-        title={@status.title}
-        color={@display.color}
-        is_running={@display.is_running}
-      >
-        <:controls>
-          <Shared.mode_toggle mode={@display.mode} is_offline={@display.is_offline} myself={@myself} />
-        </:controls>
-      </Shared.equipment_header>
+        <Shared.equipment_header
+          title={@status.title}
+          color={@display.color}
+          is_running={@display.is_running}
+        >
+          <:controls>
+            <Shared.mode_toggle
+              mode={@display.mode}
+              is_offline={@display.is_offline}
+              myself={@myself}
+            />
+          </:controls>
+        </Shared.equipment_header>
 
-      <Shared.equipment_body>
-        <:icon>
-          <.light_visualization
-            color={@display.color}
-            anim_class={@display.anim_class}
-            is_running={@display.is_running}
-          />
-        </:icon>
-        <:controls>
-          <Shared.state_text
-            text={@display.state_text}
-            color={@display.color}
-            is_error={@display.is_error}
-            error_message={@display.err_msg}
-          />
-          <Shared.power_control
-            is_offline={@display.is_offline}
-            is_interlocked={@display.is_interlocked}
-            is_running={@display.is_running}
-            is_error={@display.is_error}
-            mode={@display.mode}
-            myself={@myself}
-            start_color="emerald"
-          />
-        </:controls>
-      </Shared.equipment_body>
-    </Shared.equipment_card>
+        <Shared.equipment_body>
+          <:icon>
+            <.light_visualization
+              color={@display.color}
+              anim_class={@display.anim_class}
+              is_running={@display.is_running}
+            />
+          </:icon>
+          <:controls>
+            <Shared.state_text
+              text={@display.state_text}
+              color={@display.color}
+              is_error={@display.is_error}
+              error_message={@display.err_msg}
+            />
+            <Shared.power_control
+              is_offline={@display.is_offline}
+              is_interlocked={@display.is_interlocked}
+              is_running={@display.is_running}
+              is_error={@display.is_error}
+              mode={@display.mode}
+              myself={@myself}
+              start_color="emerald"
+            />
+          </:controls>
+        </Shared.equipment_body>
+      </Shared.equipment_card>
     </div>
     """
   end

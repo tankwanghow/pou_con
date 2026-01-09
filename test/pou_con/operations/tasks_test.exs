@@ -229,7 +229,9 @@ defmodule PouCon.Operations.TasksTest do
     end
 
     test "fails with invalid frequency_type" do
-      assert {:error, changeset} = Tasks.create_template(%{name: "Test", frequency_type: "hourly"})
+      assert {:error, changeset} =
+               Tasks.create_template(%{name: "Test", frequency_type: "hourly"})
+
       assert %{frequency_type: ["is invalid"]} = errors_on(changeset)
     end
 
@@ -649,7 +651,11 @@ defmodule PouCon.Operations.TasksTest do
       assert TaskTemplate.frequency_label(monthly) == "Monthly"
 
       every_n =
-        template_fixture(%{category: category, frequency_type: "every_n_days", frequency_value: 3})
+        template_fixture(%{
+          category: category,
+          frequency_type: "every_n_days",
+          frequency_value: 3
+        })
 
       assert TaskTemplate.frequency_label(every_n) == "Every 3 Days"
     end

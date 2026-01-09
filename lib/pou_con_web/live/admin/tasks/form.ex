@@ -146,7 +146,7 @@ defmodule PouConWeb.Live.Admin.Tasks.Form do
               />
             </div>
           </div>
-
+          
     <!-- Schedule -->
           <div class="space-y-3">
             <h3 class="font-semibold text-lg border-b pb-1">Schedule</h3>
@@ -199,10 +199,8 @@ defmodule PouConWeb.Live.Admin.Tasks.Form do
               />
             </div>
           </div>
-
-
         </div>
-
+        
     <!-- Options -->
         <div class="flex flex-wrap gap-6">
           <label class="flex items-center gap-2">
@@ -215,7 +213,7 @@ defmodule PouConWeb.Live.Admin.Tasks.Form do
             <span>Require Notes on Completion</span>
           </label>
         </div>
-
+        
     <!-- Submit -->
         <div class="pt-4">
           <button

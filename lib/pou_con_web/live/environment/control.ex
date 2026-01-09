@@ -118,77 +118,75 @@ defmodule PouConWeb.Live.Environment.Control do
             <% end %>
           </div>
 
-
-            <% n = @current_step %>
-            <div class="card bg-base-100 shadow-xl p-4">
-              <div class="grid grid-cols-1 gap-2">
-                <.input
-                  field={@form[String.to_atom("step_#{n}_temp")]}
-                  type="number"
-                  step="0.1"
-                  class="input input-lg"
-                  label="Target Temperature (°C)"
-                  placeholder="e.g. 25.0"
-                />
-                <div class="flex flex-wrap gap-2">
-                  <%= for fan <- @fans do %>
-                    <label class={
-                      if fan in (String.split(
-                                   Map.get(@config, String.to_atom(~s/step_#{n}_fans/)) || "",
+          <% n = @current_step %>
+          <div class="card bg-base-100 shadow-xl p-4">
+            <div class="grid grid-cols-1 gap-2">
+              <.input
+                field={@form[String.to_atom("step_#{n}_temp")]}
+                type="number"
+                step="0.1"
+                class="input input-lg"
+                label="Target Temperature (°C)"
+                placeholder="e.g. 25.0"
+              />
+              <div class="flex flex-wrap gap-2">
+                <%= for fan <- @fans do %>
+                  <label class={
+                    if fan in (String.split(
+                                 Map.get(@config, String.to_atom(~s/step_#{n}_fans/)) || "",
+                                 ", "
+                               )
+                               |> Enum.map(&String.trim/1)
+                               |> Enum.filter(&(&1 != ""))),
+                       do: "btn-active btn btn-lg btn-outline btn-info",
+                       else: "btn btn-lg btn-outline btn-info"
+                  }>
+                    <.input
+                      type="checkbox"
+                      name={"step_#{n}_fans_#{fan}"}
+                      checked={
+                        fan in (String.split(
+                                  Map.get(@config, String.to_atom(~s/step_#{n}_fans/)) || "",
+                                  ", "
+                                )
+                                |> Enum.map(&String.trim/1)
+                                |> Enum.filter(&(&1 != "")))
+                      }
+                      class="hidden"
+                    />
+                    <span class="font-medium text-lg">{fan}</span>
+                  </label>
+                <% end %>
+                <%= for pump <- @pumps do %>
+                  <label class={
+                    if pump in (String.split(
+                                  Map.get(@config, String.to_atom(~s/step_#{n}_pumps/)) || "",
+                                  ", "
+                                )
+                                |> Enum.map(&String.trim/1)
+                                |> Enum.filter(&(&1 != ""))),
+                       do: "btn-active btn btn-lg btn-outline btn-success",
+                       else: "btn btn-lg btn-outline btn-success"
+                  }>
+                    <.input
+                      type="checkbox"
+                      name={"step_#{n}_pumps_#{pump}"}
+                      checked={
+                        pump in (String.split(
+                                   Map.get(@config, String.to_atom(~s/step_#{n}_pumps/)) || "",
                                    ", "
                                  )
                                  |> Enum.map(&String.trim/1)
-                                 |> Enum.filter(&(&1 != ""))),
-                         do: "btn-active btn btn-lg btn-outline btn-info",
-                         else: "btn btn-lg btn-outline btn-info"
-                    }>
-                      <.input
-                        type="checkbox"
-                        name={"step_#{n}_fans_#{fan}"}
-                        checked={
-                          fan in (String.split(
-                                    Map.get(@config, String.to_atom(~s/step_#{n}_fans/)) || "",
-                                    ", "
-                                  )
-                                  |> Enum.map(&String.trim/1)
-                                  |> Enum.filter(&(&1 != "")))
-                        }
-                        class="hidden"
-                      />
-                      <span class="font-medium text-lg">{fan}</span>
-                    </label>
-                  <% end %>
-                  <%= for pump <- @pumps do %>
-                    <label class={
-                      if pump in (String.split(
-                                    Map.get(@config, String.to_atom(~s/step_#{n}_pumps/)) || "",
-                                    ", "
-                                  )
-                                  |> Enum.map(&String.trim/1)
-                                  |> Enum.filter(&(&1 != ""))),
-                         do: "btn-active btn btn-lg btn-outline btn-success",
-                         else: "btn btn-lg btn-outline btn-success"
-                    }>
-                      <.input
-                        type="checkbox"
-                        name={"step_#{n}_pumps_#{pump}"}
-                        checked={
-                          pump in (String.split(
-                                     Map.get(@config, String.to_atom(~s/step_#{n}_pumps/)) || "",
-                                     ", "
-                                   )
-                                   |> Enum.map(&String.trim/1)
-                                   |> Enum.filter(&(&1 != "")))
-                        }
-                        class="hidden"
-                      />
-                      <span class="font-medium text-lg">{pump}</span>
-                    </label>
-                  <% end %>
-                </div>
+                                 |> Enum.filter(&(&1 != "")))
+                      }
+                      class="hidden"
+                    />
+                    <span class="font-medium text-lg">{pump}</span>
+                  </label>
+                <% end %>
               </div>
             </div>
-
+          </div>
 
           <div class="card bg-base-200 shadow-lg p-2 mt-2">
             <h3 class="text-2xl font-bold mb-2 text-gray-800">Global Settings</h3>

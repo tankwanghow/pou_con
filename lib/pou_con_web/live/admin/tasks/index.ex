@@ -90,7 +90,7 @@ defmodule PouConWeb.Live.Admin.Tasks.Index do
           </div>
         </:actions>
       </.header>
-
+      
     <!-- Header Row -->
       <div class="text-xs font-medium flex flex-row text-center bg-cyan-200 border-b border-t border-cyan-400 py-2">
         <div class="w-[5%]">En</div>

@@ -36,7 +36,12 @@ defmodule PouConWeb.Components.Equipment.WaterMeterComponent do
 
           <div class="flex-1 flex flex-col justify-center">
             <.meter_row label="Usage" value={@display.usage} color={@display.usage_color} bold={true} />
-            <.meter_row label="Flow" value={@display.flow_rate} color={@display.flow_color} bold={true} />
+            <.meter_row
+              label="Flow"
+              value={@display.flow_rate}
+              color={@display.flow_color}
+              bold={true}
+            />
             <.meter_row label="Temp" value={@display.temperature} color={@display.temp_color} />
             <.meter_row label="Pres" value={@display.pressure} color={@display.temp_color} />
           </div>
