@@ -77,27 +77,30 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
             <div class="w-[15%]">{equipment.title}</div>
             <div class="w-[10%]">{equipment.type}</div>
             <div class="w-[43%] wrap">{equipment.device_tree}</div>
-            <div :if={!@readonly} class="w-[17%]">
+            <div :if={!@readonly} class="w-[17%] flex justify-center gap-2">
               <.link
                 navigate={~p"/admin/equipment/#{equipment.id}/edit"}
-                class="p-1 border-1 rounded-xl border-blue-600 bg-blue-200"
+                class="p-2 border-1 rounded-xl border-blue-600 bg-blue-200"
+                title="Edit"
               >
-                <.icon name="hero-pencil-square-mini" class="text-blue-600" />
+                <.icon name="hero-pencil-square" class="text-blue-600 w-5 h-5" />
               </.link>
 
               <.link
                 phx-click={JS.push("copy", value: %{id: equipment.id})}
-                class="p-1 border-1 rounded-xl border-green-600 bg-green-200 mx-2"
+                class="p-2 border-1 rounded-xl border-green-600 bg-green-200"
+                title="Copy"
               >
-                <.icon name="hero-document-duplicate-mini" class="text-green-600" />
+                <.icon name="hero-document-duplicate" class="text-green-600 w-5 h-5" />
               </.link>
 
               <.link
                 phx-click={JS.push("delete", value: %{id: equipment.id}) |> hide("##{equipment.id}")}
                 data-confirm="Are you sure?"
-                class="p-1 border-1 rounded-xl border-rose-600 bg-rose-200"
+                class="p-2 border-1 rounded-xl border-rose-600 bg-rose-200"
+                title="Delete"
               >
-                <.icon name="hero-trash-mini" class="text-rose-600" />
+                <.icon name="hero-trash" class="text-rose-600 w-5 h-5" />
               </.link>
             </div>
           </div>

@@ -114,14 +114,14 @@ defmodule PouConWeb.Live.Lighting.Schedules do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-3/5">
+    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-4/5">
       <.header>
         Light Schedules
         <:actions>
           <.btn_link to={~p"/lighting"} label="Back" />
         </:actions>
       </.header>
-
+      
     <!-- Schedule Management -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Schedule Form -->
@@ -132,21 +132,20 @@ defmodule PouConWeb.Live.Lighting.Schedules do
 
           <.form for={@form} phx-change="validate_schedule" phx-submit="save_schedule">
             <div class="grid grid-cols-2 gap-2">
-
-
+              
     <!-- On Time -->
               <div>
                 <label class="block text-sm font-medium">On Time</label>
                 <.input type="time" field={@form[:on_time]} required />
               </div>
-
+              
     <!-- Off Time -->
               <div>
                 <label class="block text-sm font-medium">Off Time</label>
                 <.input type="time" field={@form[:off_time]} required />
               </div>
-
-                            <!-- Light -->
+              
+    <!-- Light -->
               <div>
                 <label class="block text-sm font-medium">Light</label>
                 <.input
@@ -157,7 +156,7 @@ defmodule PouConWeb.Live.Lighting.Schedules do
                   required
                 />
               </div>
-
+              
     <!-- Enabled Checkbox -->
               <div class="flex items-center">
                 <label class="flex items-center gap-2">
@@ -165,7 +164,7 @@ defmodule PouConWeb.Live.Lighting.Schedules do
                   <span class="text-sm">Enabled</span>
                 </label>
               </div>
-
+              
     <!-- Buttons -->
               <div class="flex gap-2 items-center">
                 <.button type="submit">
@@ -184,71 +183,68 @@ defmodule PouConWeb.Live.Lighting.Schedules do
             </div>
           </.form>
         </div>
-
+        
     <!-- Schedule List -->
         <div>
           <%= if Enum.empty?(@schedules) do %>
             <p class="text-gray-400 text-sm italic">No schedules configured yet.</p>
           <% else %>
             <%= for schedule <- @schedules do %>
-              <div class={"py-1 px-2 rounded-lg border flex gap-1 items-center " <> if schedule.enabled, do: "bg-blue-900 border-blue-600 text-white", else: "bg-gray-800 border-gray-600 text-gray-200"}>
+              <div class={"py-1 px-2 rounded-lg border flex gap-1 items-center justify-between " <> if schedule.enabled, do: "bg-blue-900 border-blue-600 text-white", else: "bg-gray-800 border-gray-600 text-gray-200"}>
                 <!-- Light Name -->
-                <div class="font-mono flex">
+                <div class="font-mono w-[20%]">
                   <span class="font-semibold text-white">
                     {schedule.equipment.title || schedule.equipment.name}
                   </span>
-                  <%= if schedule.name do %>
-                    <span class="text-gray-300 block">({schedule.name})</span>
-                  <% end %>
                 </div>
-
+                
     <!-- ON Time -->
-                <div class="flex flex-wrap items-center gap-1">
+                <div class="flex flex-wrap items-center gap-1 w-[20%]">
                   <div class="text-center w-full text-green-400 font-semibold">ON</div>
                   <div class="text-center w-full text-gray-100">
                     {Calendar.strftime(schedule.on_time, "%I:%M %p")}
                   </div>
                 </div>
-
+                
     <!-- Separator -->
                 <div class="text-gray-400">|</div>
-
+                
     <!-- OFF Time -->
-                <div class="flex flex-wrap items-center gap-1">
+                <div class="flex flex-wrap items-center gap-1 w-[20%]">
                   <div class="text-center w-full text-rose-400 font-semibold">OFF</div>
                   <div class="text-center w-full text-gray-100">
                     {Calendar.strftime(schedule.off_time, "%I:%M %p")}
                   </div>
                 </div>
-
+                
     <!-- CRUD Buttons -->
-                <div class="flex flex-wrap items-center gap-1">
+                <div class="flex flex-wrap items-center gap-1 w-[40%]">
                   <button
                     phx-click="toggle_schedule"
                     phx-value-id={schedule.id}
-                    class={"px-2 py-1 text-xs rounded " <> if schedule.enabled, do: "bg-green-600 hover:bg-green-700", else: "bg-gray-600 hover:bg-gray-700"}
+                    class={"px-4 py-2 text-sm rounded-lg " <> if schedule.enabled, do: "bg-green-600 hover:bg-green-700", else: "bg-gray-600 hover:bg-gray-700"}
                     title={if schedule.enabled, do: "Disable", else: "Enable"}
                   >
-                    {if schedule.enabled, do: "✓", else: "○"}
+                    {if schedule.enabled, do: "ON", else: "OFF"}
                   </button>
 
                   <button
                     phx-click="edit_schedule"
                     phx-value-id={schedule.id}
-                    class="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700"
+                    class="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700"
                     title="Edit"
                   >
-                    ✎
+                    Edit
                   </button>
 
                   <button
                     phx-click="delete_schedule"
                     phx-value-id={schedule.id}
                     data-confirm="Delete this schedule?"
-                    class="px-2 py-1 text-xs rounded bg-rose-600 hover:bg-rose-700"
+                    class="px-4 py-2 text-sm rounded-lg bg-rose-600 hover:bg-rose-700"
                     title="Delete"
                   >
-                    ×
+                    Del
                   </button>
                 </div>
               </div>

@@ -40,7 +40,10 @@
           >
             Loading time...
           </div>
-          <div :if={assigns[:system_time_valid] == false} class="text-center font-normal text-amber-200">
+          <div
+            :if={assigns[:system_time_valid] == false}
+            class="text-center font-normal text-amber-200"
+          >
             !! System Time Error !!
             <.link href="/admin/system_time" class="text-blue-400">
               Try Fix...

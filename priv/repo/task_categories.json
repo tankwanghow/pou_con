@@ -1,0 +1,10 @@
+{
+  "task_categories": [
+    {"id": 1, "name": "Cleaning", "color": "cyan", "icon": "hero-sparkles", "sort_order": 1},
+    {"id": 2, "name": "Machinery", "color": "amber", "icon": "hero-cog-6-tooth", "sort_order": 2},
+    {"id": 3, "name": "Feed Supply", "color": "emerald", "icon": "hero-cube", "sort_order": 3},
+    {"id": 4, "name": "Biosecurity", "color": "rose", "icon": "hero-shield-check", "sort_order": 4},
+    {"id": 5, "name": "Inspection", "color": "blue", "icon": "hero-clipboard-document-check", "sort_order": 5},
+    {"id": 6, "name": "Maintenance", "color": "purple", "icon": "hero-wrench-screwdriver", "sort_order": 6}
+  ]
+}

@@ -3,21 +3,20 @@ defmodule PouConWeb.Live.Dashboard.Index do
 
   alias PouCon.Equipment.EquipmentCommands
   alias PouCon.Hardware.DeviceManager
+  alias PouCon.Flock.Flocks
 
   @pubsub_topic "device_data"
 
   @impl true
-  def mount(params, session, socket) do
+  def mount(_params, session, socket) do
     role = session["current_role"] || :none
     if connected?(socket), do: Phoenix.PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
     equipment = PouCon.Equipment.Devices.list_equipment()
-
-    # Read page from URL params, default to page_1
-    view_mode = params["page"] || "page_1"
+    flock_data = Flocks.get_dashboard_flock_data()
 
     socket =
       socket
-      |> assign(:view_mode, view_mode)
+      |> assign(:flock_data, flock_data)
       |> assign(equipment: equipment, now: DateTime.utc_now(), current_role: role)
 
     {:ok, fetch_all_status(socket)}
@@ -28,11 +27,6 @@ defmodule PouConWeb.Live.Dashboard.Index do
     DeviceManager.reload()
     PouCon.Equipment.EquipmentLoader.reload_controllers()
     {:noreply, assign(socket, data: DeviceManager.get_all_cached_data())}
-  end
-
-  @impl true
-  def handle_event("change_view", %{"view" => view}, socket) do
-    {:noreply, socket |> assign(:view_mode, view)}
   end
 
   @impl true
@@ -118,30 +112,11 @@ defmodule PouConWeb.Live.Dashboard.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-3/5">
+    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-4/5">
       <div class="flex flex-wrap gap-2 items-center mb-2">
         <.link
-          id="page-1-btn"
-          phx-click="change_view"
-          phx-value-view="page_1"
-          phx-hook="SaveDashboardPage"
-          class="px-3 py-1 text-sm rounded text-white bg-blue-800 border border-black"
-        >
-          Page 1
-        </.link>
-        <.link
-          id="page-2-btn"
-          phx-click="change_view"
-          phx-value-view="page_2"
-          phx-hook="SaveDashboardPage"
-          class="px-3 py-1 text-sm rounded text-white bg-blue-800 border border-black"
-        >
-          Page 2
-        </.link>
-
-        <.link
           phx-click="reload_ports"
-          class="ml-auto px-3 py-1 rounded bg-green-200 border border-green-600"
+          class="px-3 py-1 rounded bg-green-200 border border-green-600"
         >
           <.icon name="hero-arrow-path" />
         </.link>
@@ -193,70 +168,99 @@ defmodule PouConWeb.Live.Dashboard.Index do
           <.link
             href={~p"/logout"}
             method="post"
-            class="px-3 py-1 rounded bg-rose-200 border border-rose-600 font-medium"
+            class="ml-auto px-3 py-1 rounded bg-rose-200 border border-rose-600 font-medium"
           >
             <.icon name="hero-arrow-right-start-on-rectangle" />
           </.link>
         <% else %>
           <.link
             href="/login"
-            class="px-3 py-1 rounded bg-blue-200 border border-blue-600 font-medium"
+            class="ml-auto px-3 py-1 rounded bg-blue-200 border border-blue-600 font-medium"
           >
             <.icon name="hero-key" />
           </.link>
         <% end %>
       </div>
 
-      <%= if @view_mode == "page_1" do %>
-        <div class="flex flex-wrap items-center gap-1 mb-1 mx-auto">
-          <% temphums = Enum.filter(@equipment, &(&1.type == "temp_hum_sensor")) %>
-          <% fans = Enum.filter(@equipment, &(&1.type == "fan")) %>
-          <% pumps = Enum.filter(@equipment, &(&1.type == "pump")) %>
-          <% water_meters = Enum.filter(@equipment, &(&1.type == "water_meter")) %>
-          <.live_component
-            module={PouConWeb.Components.Summaries.EnvironmentComponent}
-            id="environment"
-            pumps={pumps}
-            fans={fans}
-            temphums={temphums}
-            water_meters={water_meters}
-          />
-        </div>
-      <% end %>
-      <%= if @view_mode == "page_2" do %>
-        <div class="flex flex-wrap items-center gap-1 mb-1 mx-auto">
-          <% eggs = Enum.filter(@equipment, &(&1.type == "egg")) %>
-          <.live_component
-            module={PouConWeb.Components.Summaries.EggSummaryComponent}
-            id="egg_summ"
-            equipments={eggs}
-          />
-          <% feedings = Enum.filter(@equipment, &(&1.type == "feeding")) %>
-          <% feed_ins = Enum.filter(@equipment, &(&1.type == "feed_in")) %>
-          <.live_component
-            module={PouConWeb.Components.Summaries.FeedingSummaryComponent}
-            id="feeding_summ"
-            equipments={feedings}
-            feed_ins={feed_ins}
-          />
-          <% lights = Enum.filter(@equipment, &(&1.type == "light")) %>
-          <.live_component
-            module={PouConWeb.Components.Summaries.LightSummaryComponent}
-            id="light_summ"
-            equipments={lights}
-          />
-          <% dungs = Enum.filter(@equipment, &(&1.type == "dung")) %>
-          <% dunghs = Enum.filter(@equipment, &(&1.type == "dung_horz")) %>
-          <% dunges = Enum.filter(@equipment, &(&1.type == "dung_exit")) %>
-          <.live_component
-            module={PouConWeb.Components.Summaries.DungSummaryComponent}
-            id="dung_summ"
-            equipments={dungs}
-            dung_horzs={dunghs}
-            dung_exits={dunges}
-          />
-        </div>
-      <% end %>
+      <div class="flex flex-wrap items-center gap-1 mb-1 justify-center items-center">
+        <%!-- Flock Summary --%>
+
+            <.live_component
+              module={PouConWeb.Components.Summaries.FlockSummaryComponent}
+              id="flock_summary"
+              flock_data={@flock_data}
+            />
+
+            <%!-- Operations Tasks Summary --%>
+            <.live_component
+              module={PouConWeb.Components.Summaries.TasksSummaryComponent}
+              id="tasks_summary"
+            />
+
+
+        <%!-- Environment (Temperature, Humidity, Fans, Pumps, Water) --%>
+        <% temphums = Enum.filter(@equipment, &(&1.type == "temp_hum_sensor")) %>
+        <% fans = Enum.filter(@equipment, &(&1.type == "fan")) %>
+        <% pumps = Enum.filter(@equipment, &(&1.type == "pump")) %>
+        <% water_meters = Enum.filter(@equipment, &(&1.type == "water_meter")) %>
+
+        <.live_component
+          module={PouConWeb.Components.Summaries.TempHumWaterSummaryComponent}
+          id="temphumwater"
+          temphums={temphums}
+          water_meters={water_meters}
+        />
+
+        <.live_component
+          module={PouConWeb.Components.Summaries.FansSummaryComponent}
+          id="fans"
+          fans={fans}
+        />
+
+        <.live_component
+          module={PouConWeb.Components.Summaries.PumpsSummaryComponent}
+          id="pumps"
+          pumps={pumps}
+        />
+
+        <%!-- Egg Collection --%>
+        <% eggs = Enum.filter(@equipment, &(&1.type == "egg")) %>
+        <.live_component
+          module={PouConWeb.Components.Summaries.EggSummaryComponent}
+          id="egg_summ"
+          equipments={eggs}
+        />
+
+        <%!-- Feeding --%>
+        <% feedings = Enum.filter(@equipment, &(&1.type == "feeding")) %>
+        <% feed_ins = Enum.filter(@equipment, &(&1.type == "feed_in")) %>
+        <.live_component
+          module={PouConWeb.Components.Summaries.FeedingSummaryComponent}
+          id="feeding_summ"
+          equipments={feedings}
+          feed_ins={feed_ins}
+        />
+
+        <%!-- Lighting --%>
+        <% lights = Enum.filter(@equipment, &(&1.type == "light")) %>
+        <.live_component
+          module={PouConWeb.Components.Summaries.LightSummaryComponent}
+          id="light_summ"
+          equipments={lights}
+        />
+
+        <%!-- Dung/Manure --%>
+        <% dungs = Enum.filter(@equipment, &(&1.type == "dung")) %>
+        <% dunghs = Enum.filter(@equipment, &(&1.type == "dung_horz")) %>
+        <% dunges = Enum.filter(@equipment, &(&1.type == "dung_exit")) %>
+        <.live_component
+          module={PouConWeb.Components.Summaries.DungSummaryComponent}
+          id="dung_summ"
+          equipments={dungs}
+          dung_horzs={dunghs}
+          dung_exits={dunges}
+        />
+      </div>
     </Layouts.app>
     """
   end

@@ -223,7 +223,7 @@ defmodule PouConWeb.Live.Reports.Index do
             Errors
           </button>
         </div>
-
+        
     <!-- Equipment Events View -->
         <%= if @view_mode == "events" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">
@@ -322,7 +322,7 @@ defmodule PouConWeb.Live.Reports.Index do
             <% end %>
           </div>
         <% end %>
-
+        
     <!-- Sensor Data View -->
         <%= if @view_mode == "sensors" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">
@@ -378,7 +378,7 @@ defmodule PouConWeb.Live.Reports.Index do
             </div>
           <% end %>
         <% end %>
-
+        
     <!-- Water Meters View -->
         <%= if @view_mode == "water_meters" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">
@@ -400,11 +400,15 @@ defmodule PouConWeb.Live.Reports.Index do
             <!-- Daily Consumption Summary -->
             <%= if !Enum.empty?(@daily_consumption) do %>
               <div class="bg-gray-800 rounded-lg p-4 mb-4">
-                <h4 class="text-lg font-semibold mb-3 text-cyan-400">Daily Water Consumption (Last 7 Days)</h4>
+                <h4 class="text-lg font-semibold mb-3 text-cyan-400">
+                  Daily Water Consumption (Last 7 Days)
+                </h4>
                 <div class="grid grid-cols-7 gap-2">
                   <%= for day <- @daily_consumption do %>
                     <div class="bg-gray-700 p-3 rounded text-center">
-                      <div class="text-xs text-gray-400">{Calendar.strftime(day.date, "%d-%m-%Y")}</div>
+                      <div class="text-xs text-gray-400">
+                        {Calendar.strftime(day.date, "%d-%m-%Y")}
+                      </div>
                       <div class="text-lg font-bold text-cyan-300">{day.consumption}</div>
                       <div class="text-xs text-gray-500">m³</div>
                     </div>
@@ -412,8 +416,8 @@ defmodule PouConWeb.Live.Reports.Index do
                 </div>
               </div>
             <% end %>
-
-            <!-- Raw Data Table -->
+            
+    <!-- Raw Data Table -->
             <%= if !Enum.empty?(@water_meter_snapshots) do %>
               <div class="bg-gray-800 rounded-lg overflow-hidden">
                 <table class="w-full text-sm">
@@ -464,7 +468,7 @@ defmodule PouConWeb.Live.Reports.Index do
             </div>
           <% end %>
         <% end %>
-
+        
     <!-- Daily Summaries View -->
         <%= if @view_mode == "summaries" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">
@@ -535,7 +539,7 @@ defmodule PouConWeb.Live.Reports.Index do
             <% end %>
           </div>
         <% end %>
-
+        
     <!-- Errors View -->
         <%= if @view_mode == "errors" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">

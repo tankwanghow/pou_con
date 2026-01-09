@@ -13,7 +13,7 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
           <div class="flex items-center">
             <form phx-change="filter" phx-submit="filter">
               <input
-              phx-hook="SimpleKeyboard"
+                phx-hook="SimpleKeyboard"
                 id="filter-input"
                 type="search"
                 name="filter"
@@ -88,27 +88,30 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
             <div class="w-[10%]">{device.slave_id}/{device.register}/{device.channel}</div>
             <div class="w-[22%]">{device.read_fn}</div>
             <div class="w-[22%]">{device.write_fn}</div>
-            <div :if={!@readonly} class="w-[16%]">
+            <div :if={!@readonly} class="w-[16%] flex justify-center gap-2">
               <.link
                 navigate={~p"/admin/devices/#{device.id}/edit"}
-                class="p-1 border-1 rounded-xl border-blue-600 bg-blue-200"
+                class="p-2 border-1 rounded-xl border-blue-600 bg-blue-200"
+                title="Edit"
               >
-                <.icon name="hero-pencil-square-mini" class="text-blue-600" />
+                <.icon name="hero-pencil-square" class="text-blue-600 w-5 h-5" />
               </.link>
 
               <.link
                 phx-click={JS.push("copy", value: %{id: device.id})}
-                class="p-1 border-1 rounded-xl border-green-600 bg-green-200 mx-1"
+                class="p-2 border-1 rounded-xl border-green-600 bg-green-200"
+                title="Copy"
               >
-                <.icon name="hero-document-duplicate-mini" class="text-green-600" />
+                <.icon name="hero-document-duplicate" class="text-green-600 w-5 h-5" />
               </.link>
 
               <.link
                 phx-click={JS.push("delete", value: %{id: device.id}) |> hide("##{device.id}")}
                 data-confirm="Are you sure?"
-                class="p-1 border-1 rounded-xl border-rose-600 bg-rose-200"
+                class="p-2 border-1 rounded-xl border-rose-600 bg-rose-200"
+                title="Delete"
               >
-                <.icon name="hero-trash-mini" class="text-rose-600" />
+                <.icon name="hero-trash" class="text-rose-600 w-5 h-5" />
               </.link>
             </div>
           </div>

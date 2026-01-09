@@ -22,15 +22,16 @@ defmodule PouCon.Release do
     load_app()
 
     for repo <- repos() do
-      {:ok, _, _} = Ecto.Migrator.with_repo(repo, fn _repo ->
-        seed_path = Application.app_dir(@app, "priv/repo/seeds.exs")
+      {:ok, _, _} =
+        Ecto.Migrator.with_repo(repo, fn _repo ->
+          seed_path = Application.app_dir(@app, "priv/repo/seeds.exs")
 
-        if File.exists?(seed_path) do
-          Code.eval_file(seed_path)
-        else
-          IO.puts("Seed file not found: #{seed_path}")
-        end
-      end)
+          if File.exists?(seed_path) do
+            Code.eval_file(seed_path)
+          else
+            IO.puts("Seed file not found: #{seed_path}")
+          end
+        end)
     end
   end
 

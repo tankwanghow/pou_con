@@ -1,21 +1,17 @@
 defmodule PouConWeb.Components.Equipment.FeedInComponent do
   use PouConWeb, :live_component
+
   alias PouCon.Equipment.Controllers.FeedIn
+  alias PouConWeb.Components.Equipment.Shared
 
   @impl true
   def update(assigns, socket) do
-    status =
-      if assigns[:equipment] do
-        assigns.equipment.status
-      else
-        assigns[:status]
-      end || %{error: :invalid_data}
-
+    equipment = assigns[:equipment]
+    status = equipment.status || %{error: :invalid_data}
     display_data = calculate_display_data(status)
 
     {:ok,
      socket
-     |> assign(assigns)
      |> assign(:status, status)
      |> assign(:device_name, assigns.id)
      |> assign(:display, display_data)}
@@ -24,131 +20,96 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class={"flex flex-col bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-80 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
-      <!-- HEADER -->
-      <div class="flex items-center justify-between px-4 py-4 bg-gray-50 border-b border-gray-100">
-        <div class="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
-          <div class={"h-4 w-4 flex-shrink-0 rounded-full bg-#{@display.color}-500 " <> if(@display.is_running, do: "animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]", else: "")}>
+    <div>
+      <Shared.equipment_card is_error={@display.is_error}>
+        <Shared.equipment_header
+          title={@status.title || @status.name}
+          color={@display.color}
+          is_running={@display.is_running}
+        >
+          <:controls>
+            <Shared.mode_toggle mode={@display.mode} is_offline={false} myself={@myself} />
+          </:controls>
+        </Shared.equipment_header>
+
+        <div class="flex items-center gap-4 p-4 flex-1">
+          <div class="flex-shrink-0 flex flex-col items-center gap-2">
+            <.feed_in_visualization status={@status} display={@display} />
           </div>
-          <span class="font-bold text-gray-700 text-xl truncate">
-            {@status.title || @status.name}
-          </span>
-        </div>
 
-        <div class="flex bg-gray-200 rounded p-1 flex-shrink-0 ml-2">
-          <button
-            phx-click="set_mode"
-            phx-value-mode="auto"
-            phx-target={@myself}
-            class={[
-              "px-3 py-1 rounded text-base font-bold uppercase transition-all touch-manipulation",
-              @display.mode == :auto && "bg-white text-indigo-600 shadow-sm",
-              @display.mode != :auto && "text-gray-500 hover:text-gray-700"
-            ]}
-          >
-            Auto
-          </button>
-          <button
-            phx-click="set_mode"
-            phx-value-mode="manual"
-            phx-target={@myself}
-            class={[
-              "px-3 py-1 rounded text-base font-bold uppercase transition-all touch-manipulation",
-              @display.mode == :manual && "bg-white text-gray-800 shadow-sm",
-              @display.mode != :manual && "text-gray-500 hover:text-gray-700"
-            ]}
-          >
-            Man
-          </button>
-        </div>
-      </div>
-
-      <!-- BODY -->
-      <div class="flex items-center gap-4 p-4 flex-1">
-        <!-- Left: Physical Visualization -->
-        <div class="flex-shrink-0 flex flex-col items-center gap-2">
-          <div class={[
-            "relative h-16 w-16 flex items-center justify-center transition-colors",
-            get_beaker_container_class(@status)
-          ]}>
-            <.icon
-              name="hero-arrow-down-tray"
-              class={"w-12 h-12 -mt-4 " <> if(@status.is_running, do: "animate-bounce", else: "")}
+          <div class="flex-1 min-w-0 flex flex-col gap-1">
+            <div class={"text-lg font-bold text-center truncate text-#{@display.color}-700"}>
+              {@display.state_text}
+            </div>
+            <.feed_in_control
+              mode={@display.mode}
+              is_interlocked={@display.is_interlocked}
+              commanded_on={@status.commanded_on}
+              myself={@myself}
             />
-            <%= if @status.bucket_full do %>
-              <div class="absolute inset-0 flex items-center justify-center">
-                <span class="text-sm font-black text-emerald-600 bg-emerald-100 px-2 py-1 rounded-full shadow-sm border border-emerald-300">
-                  FULL
-                </span>
-              </div>
-            <% end %>
           </div>
         </div>
-
-        <!-- Right: Single Toggle Button -->
-        <div class="flex-1 min-w-0 flex flex-col gap-1">
-          <!-- Status Text -->
-          <div class={"text-lg font-bold text-center truncate text-#{@display.color}-700"}>
-            {@display.state_text}
-          </div>
-          <div class="flex">
-            <%= if @display.mode == :manual and @display.is_interlocked do %>
-              <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-amber-600 bg-amber-100 border border-amber-300 cursor-not-allowed uppercase">
-                BLOCKED
-              </div>
-            <% else %>
-              <button
-                phx-click={get_toggle_action(@display.mode, @status.commanded_on)}
-                phx-target={@myself}
-                disabled={@display.mode == :auto}
-                class={[
-                  "w-full py-4 px-2 rounded flex items-center justify-center text-lg font-bold uppercase transition-all border shadow-sm",
-                  get_toggle_btn_class(@display.mode, @status.commanded_on)
-                ]}
-              >
-                <%= if @status.commanded_on do %>
-                  Stop
-                <% else %>
-                  Start
-                <% end %>
-              </button>
-            <% end %>
-          </div>
-        </div>
-      </div>
+      </Shared.equipment_card>
     </div>
     """
   end
 
   # ——————————————————————————————————————————————————————————————
-  # Helpers
+  # Private Components
   # ——————————————————————————————————————————————————————————————
 
-  # If ON, click stops
-  defp get_toggle_action(:manual, true), do: "turn_off"
-  # If OFF, click starts
-  defp get_toggle_action(:manual, false), do: "turn_on"
-  # Read-only in Auto
-  defp get_toggle_action(:auto, _), do: nil
+  attr :status, :map, required: true
+  attr :display, :map, required: true
 
-  defp get_toggle_btn_class(mode, commanded_on) do
-    cond do
-      # Case: System is ON (User sees STOP)
-      commanded_on ->
-        if mode == :manual,
-          do:
-            "bg-rose-500 text-white border-rose-600 hover:bg-rose-600 active:scale-95 touch-manipulation",
-          # Auto Indicator (Red-ish)
-          else: "bg-rose-50 text-rose-400 border-rose-100 cursor-not-allowed opacity-80"
+  defp feed_in_visualization(assigns) do
+    ~H"""
+    <div class={[
+      "relative h-16 w-16 flex items-center justify-center transition-colors",
+      get_beaker_container_class(@status)
+    ]}>
+      <.icon
+        name="hero-arrow-down-tray"
+        class={"w-12 h-12 -mt-4 " <> if(@status.is_running, do: "animate-bounce", else: "")}
+      />
+      <%= if @status.bucket_full do %>
+        <div class="absolute inset-0 flex items-center justify-center">
+          <span class="text-sm font-black text-emerald-600 bg-emerald-100 px-2 py-1 rounded-full shadow-sm border border-emerald-300">
+            FULL
+          </span>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
 
-      # Case: System is OFF (User sees START)
-      true ->
-        if mode == :manual,
-          do:
-            "bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600 active:scale-95 touch-manipulation",
-          # Auto Indicator (Green-ish)
-          else: "bg-emerald-50 text-emerald-500 border-emerald-100 cursor-not-allowed opacity-80"
-    end
+  attr :mode, :atom, required: true
+  attr :is_interlocked, :boolean, required: true
+  attr :commanded_on, :boolean, required: true
+  attr :myself, :any, required: true
+
+  defp feed_in_control(assigns) do
+    ~H"""
+    <div class="flex">
+      <%= cond do %>
+        <% @mode != :manual -> %>
+          <Shared.system_button />
+        <% @is_interlocked -> %>
+          <Shared.blocked_button />
+        <% true -> %>
+          <button
+            phx-click={if @commanded_on, do: "turn_off", else: "turn_on"}
+            phx-target={@myself}
+            class={[
+              "w-full py-4 px-2 rounded flex items-center justify-center text-lg font-bold uppercase transition-all border shadow-sm active:scale-95 touch-manipulation",
+              @commanded_on && "bg-rose-500 text-white border-rose-600 hover:bg-rose-600",
+              !@commanded_on && "bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600"
+            ]}
+          >
+            {if @commanded_on, do: "Stop", else: "Start"}
+          </button>
+      <% end %>
+    </div>
+    """
   end
 
   # ——————————————————————————————————————————————————————————————

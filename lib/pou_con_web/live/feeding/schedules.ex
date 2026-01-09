@@ -123,7 +123,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
       </.header>
 
       <div class="p-2">
-
+        
     <!-- Schedule Management -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <!-- Schedule Form -->
@@ -141,7 +141,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                   </label>
                   <.input type="time" field={@form[:move_to_back_limit_time]} />
                 </div>
-
+                
     <!-- Move to Front Limit Time -->
                 <div class="col-span-4">
                   <label class="block text-sm font-medium">
@@ -149,7 +149,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                   </label>
                   <.input type="time" field={@form[:move_to_front_limit_time]} />
                 </div>
-
+                
     <!-- FeedIn Trigger Bucket -->
                 <div class="col-span-8">
                   <label class="block text-sm font-medium">
@@ -162,7 +162,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                     prompt="None - Don't enable FeedIn"
                   />
                 </div>
-
+                
     <!-- Enabled Checkbox -->
                 <div class="flex gap-3">
                   <div class="flex items-center col-span-2">
@@ -171,7 +171,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                       <span class="text-sm">Enabled</span>
                     </label>
                   </div>
-
+                  
     <!-- Buttons -->
                   <div class="flex gap-2 items-center col-span-2">
                     <.button type="submit">
@@ -196,7 +196,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
               Each schedule affects ALL feeding buckets simultaneously. At least one time must be set (Back or Front).
             </div>
           </div>
-
+          
     <!-- Schedule List -->
           <div>
             <h2 class="text-lg font-semibold mb-2">Configured Schedules</h2>
@@ -236,34 +236,34 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                         </div>
                       <% end %>
                     </div>
-    <!-- CRUD Buttons -->
-                    <div class="flex flex-wrap text-white gap-1">
+                    <!-- CRUD Buttons -->
+                    <div class="flex flex-wrap text-white gap-2">
                       <button
                         phx-click="toggle_schedule"
                         phx-value-id={schedule.id}
-                        class={"px-2 py-1 text-xs rounded " <> if schedule.enabled, do: "bg-green-600 hover:bg-green-700", else: "bg-gray-600 hover:bg-gray-700"}
+                        class={"px-4 py-2 text-sm rounded-lg " <> if schedule.enabled, do: "bg-green-600 hover:bg-green-700", else: "bg-gray-600 hover:bg-gray-700"}
                         title={if schedule.enabled, do: "Disable", else: "Enable"}
                       >
-                        {if schedule.enabled, do: "✓", else: "○"}
+                        {if schedule.enabled, do: "ON", else: "OFF"}
                       </button>
 
                       <button
                         phx-click="edit_schedule"
                         phx-value-id={schedule.id}
-                        class="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700"
+                        class="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700"
                         title="Edit"
                       >
-                        ✎
+                        Edit
                       </button>
 
                       <button
                         phx-click="delete_schedule"
                         phx-value-id={schedule.id}
                         data-confirm="Delete this schedule?"
-                        class="px-2 py-1 text-xs rounded bg-rose-600 hover:bg-rose-700"
+                        class="px-4 py-2 text-sm rounded-lg bg-rose-600 hover:bg-rose-700"
                         title="Delete"
                       >
-                        ×
+                        Del
                       </button>
                     </div>
                   </div>

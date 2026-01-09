@@ -82,7 +82,8 @@ defmodule PouCon.Hardware.Devices.WaveshareDigitalIO do
 
   Returns: `:ok` or `{:error, reason}`
   """
-  def set_slave_id(modbus, _old_slave_id, new_slave_id) when new_slave_id >= 1 and new_slave_id <= 255 do
+  def set_slave_id(modbus, _old_slave_id, new_slave_id)
+      when new_slave_id >= 1 and new_slave_id <= 255 do
     # Write to slave ID 0 (broadcast), register 0x4000
     PouCon.Utils.Modbus.request(modbus, {:phr, 0, @slave_id_register, new_slave_id})
   end

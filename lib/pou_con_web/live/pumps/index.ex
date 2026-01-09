@@ -1,0 +1,103 @@
+defmodule PouConWeb.Live.Pumps.Index do
+  use PouConWeb, :live_view
+
+  alias PouCon.Equipment.EquipmentCommands
+
+  @pubsub_topic "device_data"
+
+  @impl true
+  def mount(_params, _session, socket) do
+    if connected?(socket), do: Phoenix.PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
+    equipment = PouCon.Equipment.Devices.list_equipment()
+
+    socket =
+      socket
+      |> assign(equipment: equipment, now: DateTime.utc_now())
+
+    {:ok, fetch_all_status(socket)}
+  end
+
+  @impl true
+  def handle_info(:data_refreshed, socket) do
+    {:noreply, fetch_all_status(socket)}
+  end
+
+  defp fetch_all_status(socket) do
+    equipment_with_status =
+      socket.assigns.equipment
+      |> Enum.filter(&(&1.type == "pump"))
+      |> Task.async_stream(
+        fn eq ->
+          status =
+            case EquipmentCommands.get_status(eq.name) do
+              %{} = status_map ->
+                status_map
+
+              {:error, :not_found} ->
+                %{
+                  error: :not_running,
+                  error_message: "Controller not running",
+                  is_running: false,
+                  title: eq.title
+                }
+
+              {:error, :timeout} ->
+                %{
+                  error: :timeout,
+                  error_message: "Controller timeout",
+                  is_running: false,
+                  title: eq.title
+                }
+
+              _ ->
+                %{
+                  error: :unresponsive,
+                  error_message: "No response",
+                  is_running: false,
+                  title: eq.title
+                }
+            end
+
+          Map.put(eq, :status, status)
+        end,
+        timeout: 1000,
+        max_concurrency: 30
+      )
+      |> Enum.map(fn
+        {:ok, eq} -> eq
+        {:exit, _} -> nil
+        _ -> nil
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    socket
+    |> assign(pumps: equipment_with_status, now: DateTime.utc_now())
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <Layouts.app flash={@flash}>
+      <.header>
+        Pumps
+        <:actions>
+          <.btn_link to={~p"/admin/environment/control"} label="Configure" />
+          <.dashboard_link />
+        </:actions>
+      </.header>
+
+      <div class="p-4">
+        <div class="flex flex-wrap gap-1">
+          <%= for eq <- @pumps |> Enum.sort_by(& &1.title) do %>
+            <.live_component
+              module={PouConWeb.Components.Equipment.PumpComponent}
+              id={eq.name}
+              equipment={eq}
+            />
+          <% end %>
+        </div>
+      </div>
+    </Layouts.app>
+    """
+  end
+end

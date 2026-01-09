@@ -35,13 +35,15 @@ defmodule PouConWeb.Live.Auth.Setup do
             label="Confirm Password"
             required
           />
-
-          <button
-            type="submit"
-            class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md"
-          >
-            Create Admin Account
-          </button>
+          <div class="flex gap-3">
+            <.dashboard_link />
+            <button
+              type="submit"
+              class="w-[70%] bg-green-600 hover:bg-green-700 text-white py-2 rounded-md"
+            >
+              Create Admin Account
+            </button>
+          </div>
         </.form>
       </div>
     </div>

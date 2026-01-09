@@ -405,7 +405,10 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       if status[:mode] == :auto do
         if status[:commanded_on] do
           Pump.turn_off(name)
-          Logger.info("[Environment] Turning OFF pump: #{name} (humidity: #{state.avg_humidity}%)")
+
+          Logger.info(
+            "[Environment] Turning OFF pump: #{name} (humidity: #{state.avg_humidity}%)"
+          )
 
           # Log auto-control action
           EquipmentLogger.log_stop(name, "auto", "auto_control", "on", %{

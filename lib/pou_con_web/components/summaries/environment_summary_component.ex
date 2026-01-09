@@ -55,18 +55,18 @@ defmodule PouConWeb.Components.Summaries.EnvironmentComponent do
       <div class="flex flex-wrap">
         <!-- Temperature/Humidity Sensors -->
         <.temphum_item :for={eq <- @temphums} eq={eq} />
-
+        
     <!-- Average Stats -->
         <.stats_panel stats={@stats} />
-
-    <!-- Fans -->
-        <.fan_item :for={eq <- @fans} eq={eq} />
-
-    <!-- Pumps -->
-        <.pump_item :for={eq <- @pumps} eq={eq} />
-
+        
     <!-- Water Meters -->
         <.water_meter_item :for={eq <- @water_meters} eq={eq} />
+        
+    <!-- Fans -->
+        <.fan_item :for={eq <- @fans} eq={eq} />
+        
+    <!-- Pumps -->
+        <.pump_item :for={eq <- @pumps} eq={eq} />
       </div>
     </div>
     """

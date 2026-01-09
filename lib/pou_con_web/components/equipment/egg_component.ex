@@ -1,6 +1,8 @@
 defmodule PouConWeb.Components.Equipment.EggComponent do
   use PouConWeb, :live_component
+
   alias PouCon.Equipment.Controllers.Egg
+  alias PouConWeb.Components.Equipment.Shared
 
   @impl true
   def update(assigns, socket) do
@@ -18,106 +20,71 @@ defmodule PouConWeb.Components.Equipment.EggComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class={"bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-80 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
-      <div class="flex items-center justify-between px-4 py-4 bg-gray-50 border-b border-gray-100">
-        <div class="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
-          <div class={"h-4 w-4 flex-shrink-0 rounded-full bg-#{@display.color}-500 animate-pulse" <> if(@display.is_running, do: "", else: "")}>
-          </div>
-          <span class="font-bold text-gray-700 text-xl truncate">{@status.title}</span>
-        </div>
+    <div>
+      <Shared.equipment_card is_error={@display.is_error}>
+      <Shared.equipment_header
+        title={@status.title}
+        color={@display.color}
+        is_running={@display.is_running}
+      >
+        <:controls>
+          <Shared.mode_toggle mode={@display.mode} is_offline={@display.is_offline} myself={@myself} />
+        </:controls>
+      </Shared.equipment_header>
 
-        <div class="flex bg-gray-200 rounded p-1 flex-shrink-0 ml-2">
-          <button
-            phx-click="set_mode"
-            phx-value-mode="auto"
-            phx-target={@myself}
-            disabled={@display.is_offline}
-            class={[
-              "px-3 py-1 rounded text-base font-bold uppercase transition-all focus:outline-none",
-              @display.mode == :auto && "bg-white text-indigo-600 shadow-sm",
-              @display.mode != :auto && "text-gray-500 hover:text-gray-700"
-            ]}
-          >
-            Auto
-          </button>
-          <button
-            phx-click="set_mode"
-            phx-value-mode="manual"
-            phx-target={@myself}
-            disabled={@display.is_offline}
-            class={[
-              "px-3 py-1 rounded text-base font-bold uppercase transition-all focus:outline-none",
-              @display.mode == :manual && "bg-white text-gray-800 shadow-sm",
-              @display.mode != :manual && "text-gray-500 hover:text-gray-700"
-            ]}
-          >
-            Man
-          </button>
-        </div>
-      </div>
+      <Shared.equipment_body>
+        <:icon>
+          <.egg_visualization color={@display.color} anim_class={@display.anim_class} />
+        </:icon>
+        <:controls>
+          <Shared.state_text
+            text={@display.state_text}
+            color={@display.color}
+            is_error={@display.is_error}
+            error_message={@display.err_msg}
+          />
+          <Shared.power_control
+            is_offline={@display.is_offline}
+            is_interlocked={@display.is_interlocked}
+            is_running={@display.is_running}
+            is_error={@display.is_error}
+            mode={@display.mode}
+            myself={@myself}
+            start_color="emerald"
+          />
+        </:controls>
+      </Shared.equipment_body>
+    </Shared.equipment_card>
+    </div>
+    """
+  end
 
-      <div class="flex items-center gap-4 p-4">
-        <div class={[@display.anim_class, "text-#{@display.color}-500"]}>
-          <svg class="scale-200" width="64" height="32" viewBox="-5.0 -10.0 110.0 135.0" fill="currentColor">
-            <path
-              d="m52.082 77.082c9.207 0 16.668-7.4609 16.668-16.664h4.168c0 11.504-9.3281 20.832-20.836 20.832z"
-              fill-rule="evenodd"
-            />
-            <path
-              d="m28.246 28.492c-5.9023 10.484-9.4961 23.156-9.4961 31.926 0 17.086 13.809 29.164 31.25 29.164s31.25-12.078 31.25-29.164c0-8.7695-3.5938-21.441-9.4961-31.926-2.9375-5.2227-6.3906-9.793-10.141-13.031-3.7539-3.2422-7.6719-5.043-11.613-5.043s-7.8594 1.8008-11.613 5.043c-3.75 3.2383-7.2031 7.8086-10.141 13.031zm7.418-16.188c4.2227-3.6484 9.0742-6.0547 14.336-6.0547s10.113 2.4062 14.336 6.0547c4.2266 3.6523 7.957 8.6484 11.051 14.145 6.1641 10.953 10.031 24.324 10.031 33.969 0 19.73-16.039 33.332-35.418 33.332s-35.418-13.602-35.418-33.332c0-9.6445 3.8672-23.016 10.031-33.969 3.0938-5.4961 6.8242-10.492 11.051-14.145z"
-              fill-rule="evenodd"
-            />
-          </svg>
-        </div>
+  # ——————————————————————————————————————————————
+  # Egg Visualization (equipment-specific)
+  # ——————————————————————————————————————————————
 
-        <div class="flex-1 flex flex-col gap-1 min-w-0">
-          <div class={"text-lg font-bold uppercase tracking-wide text-#{@display.color}-500 truncate"}>
-            <%= if @display.is_error do %>
-              {@display.err_msg}
-            <% else %>
-              {@display.state_text}
-            <% end %>
-          </div>
+  attr :color, :string, default: "gray"
+  attr :anim_class, :string, default: ""
 
-          <%= if @display.is_offline do %>
-            <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
-              Offline
-            </div>
-          <% else %>
-            <%= if @display.mode == :manual do %>
-              <%= if @display.is_interlocked do %>
-                <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-amber-600 bg-amber-100 border border-amber-300 cursor-not-allowed uppercase">
-                  BLOCKED
-                </div>
-              <% else %>
-                <button
-                  phx-click="toggle_power"
-                  phx-target={@myself}
-                  class={[
-                    "w-full py-4 px-2 rounded font-bold text-lg shadow-sm transition-all text-white flex items-center justify-center gap-1 active:scale-95",
-                    (@display.is_running or @display.is_error) && "bg-red-500 hover:bg-red-600",
-                    (!@display.is_running and !@display.is_error) && "bg-emerald-500 hover:bg-emerald-600"
-                  ]}
-                >
-                  <.icon name="hero-power" class="w-5 h-5" />
-                  <%= cond do %>
-                    <% @display.is_error -> %>
-                      RESET
-                    <% @display.is_running -> %>
-                      STOP
-                    <% true -> %>
-                      START
-                  <% end %>
-                </button>
-              <% end %>
-            <% else %>
-              <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
-                System
-              </div>
-            <% end %>
-          <% end %>
-        </div>
-      </div>
+  defp egg_visualization(assigns) do
+    ~H"""
+    <div class={[@anim_class, "text-#{@color}-500"]}>
+      <svg
+        class="scale-200"
+        width="64"
+        height="32"
+        viewBox="-5.0 -10.0 110.0 135.0"
+        fill="currentColor"
+      >
+        <path
+          d="m52.082 77.082c9.207 0 16.668-7.4609 16.668-16.664h4.168c0 11.504-9.3281 20.832-20.836 20.832z"
+          fill-rule="evenodd"
+        />
+        <path
+          d="m28.246 28.492c-5.9023 10.484-9.4961 23.156-9.4961 31.926 0 17.086 13.809 29.164 31.25 29.164s31.25-12.078 31.25-29.164c0-8.7695-3.5938-21.441-9.4961-31.926-2.9375-5.2227-6.3906-9.793-10.141-13.031-3.7539-3.2422-7.6719-5.043-11.613-5.043s-7.8594 1.8008-11.613 5.043c-3.75 3.2383-7.2031 7.8086-10.141 13.031zm7.418-16.188c4.2227-3.6484 9.0742-6.0547 14.336-6.0547s10.113 2.4062 14.336 6.0547c4.2266 3.6523 7.957 8.6484 11.051 14.145 6.1641 10.953 10.031 24.324 10.031 33.969 0 19.73-16.039 33.332-35.418 33.332s-35.418-13.602-35.418-33.332c0-9.6445 3.8672-23.016 10.031-33.969 3.0938-5.4961 6.8242-10.492 11.051-14.145z"
+          fill-rule="evenodd"
+        />
+      </svg>
     </div>
     """
   end
@@ -128,7 +95,6 @@ defmodule PouConWeb.Components.Equipment.EggComponent do
 
   @impl true
   def handle_event("set_mode", %{"mode" => mode}, socket) do
-    # Explicit Mode Setting (Safer than toggling)
     name = socket.assigns.device_name
 
     case mode do
@@ -155,7 +121,7 @@ defmodule PouConWeb.Components.Equipment.EggComponent do
   end
 
   # ——————————————————————————————————————————————
-  # Logic Helpers
+  # Display Data
   # ——————————————————————————————————————————————
 
   defp calculate_display_data(%{error: :invalid_data}) do

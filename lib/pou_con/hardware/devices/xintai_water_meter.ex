@@ -91,9 +91,7 @@ defmodule PouCon.Hardware.Devices.XintaiWaterMeter do
         {:ok, parse_registers(registers)}
 
       {:ok, registers} ->
-        Logger.warning(
-          "[Xintai] Unexpected register count: #{length(registers)}, expected 28"
-        )
+        Logger.warning("[Xintai] Unexpected register count: #{length(registers)}, expected 28")
 
         {:error, :invalid_response}
 
@@ -271,7 +269,8 @@ defmodule PouCon.Hardware.Devices.XintaiWaterMeter do
 
   Returns: `:ok` or `{:error, reason}`
   """
-  def set_slave_id(modbus, old_slave_id, new_slave_id) when new_slave_id >= 1 and new_slave_id <= 255 do
+  def set_slave_id(modbus, old_slave_id, new_slave_id)
+      when new_slave_id >= 1 and new_slave_id <= 255 do
     PouCon.Utils.Modbus.request(modbus, {:phr, old_slave_id, @reg_device_address, new_slave_id})
   end
 end

@@ -79,7 +79,10 @@ defmodule PouCon.Equipment.Schemas.Equipment do
 
   defp required_keys_for_type("fan"), do: [:on_off_coil, :running_feedback, :auto_manual]
   defp required_keys_for_type("pump"), do: [:on_off_coil, :running_feedback, :auto_manual]
-  defp required_keys_for_type("egg"), do: [:on_off_coil, :running_feedback, :auto_manual, :manual_switch]
+
+  defp required_keys_for_type("egg"),
+    do: [:on_off_coil, :running_feedback, :auto_manual, :manual_switch]
+
   defp required_keys_for_type("light"), do: [:on_off_coil, :running_feedback, :auto_manual]
   defp required_keys_for_type("dung"), do: [:on_off_coil, :running_feedback]
   defp required_keys_for_type("dung_horz"), do: [:on_off_coil, :running_feedback]

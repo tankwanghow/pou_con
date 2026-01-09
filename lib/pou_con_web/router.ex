@@ -60,7 +60,9 @@ defmodule PouConWeb.Router do
     live("/reports", Live.Reports.Index, :index)
 
     # Equipment monitoring pages (public - users can view status)
-    live("/environment", Live.Environment.Index, :index)
+    live("/temp_hum_water", Live.TempHumWater.Index, :index)
+    live("/fans", Live.Fans.Index, :index)
+    live("/pumps", Live.Pumps.Index, :index)
     live("/lighting", Live.Lighting.Index, :index)
     live("/egg_collection", Live.EggCollection.Index, :index)
     live("/feed", Live.Feeding.Index, :index)
@@ -111,6 +113,33 @@ defmodule PouConWeb.Router do
 
       # Feeding schedules (admin only)
       live("/feeding_schedule", Live.Feeding.Schedules, :index)
+
+      # Flock management (admin only)
+      live("/flocks", Live.Admin.Flock.Index, :index)
+      live("/flocks/new", Live.Admin.Flock.Form, :new)
+      live("/flocks/:id/edit", Live.Admin.Flock.Form, :edit)
+
+      # Operations task templates (admin only)
+      live("/tasks", Live.Admin.Tasks.Index, :index)
+      live("/tasks/new", Live.Admin.Tasks.Form, :new)
+      live("/tasks/:id/edit", Live.Admin.Tasks.Form, :edit)
+    end
+  end
+
+  # --------------------------------------------------------------------
+  # Authenticated Routes (Any logged-in user can access)
+  # --------------------------------------------------------------------
+  scope "/", PouConWeb do
+    pipe_through([:browser, :authenticated])
+
+    live_session :require_authenticated_user,
+      on_mount: [{PouConWeb.AuthHooks, :ensure_authenticated}] do
+      # Flock pages - accessible to any authenticated user
+      live("/flock/:id/logs", Live.Flock.Logs, :index)
+      live("/flock/:id/daily-yields", Live.Flock.DailyYields, :index)
+
+      # Operations tasks - accessible to any authenticated user
+      live("/operations/tasks", Live.Operations.Tasks, :index)
     end
   end
 end

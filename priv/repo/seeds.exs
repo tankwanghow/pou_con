@@ -74,6 +74,8 @@ defmodule Seeds do
     seed_light_schedules()
     seed_egg_collection_schedules()
     seed_feeding_schedules()
+    seed_task_categories()
+    seed_task_templates()
 
     IO.puts("Database seed completed!")
   end
@@ -245,6 +247,37 @@ defmodule Seeds do
         move_to_front_limit_time: parse_time(row["move_to_front_limit_time"]),
         feedin_front_limit_bucket_id: row["feedin_front_limit_bucket_id"],
         enabled: row["enabled"]
+      }
+      |> with_timestamps()
+    end)
+  end
+
+  defp seed_task_categories do
+    seed_from_json("task_categories.json", "task_categories", "task_categories", fn row ->
+      %{
+        id: row["id"],
+        name: row["name"],
+        color: row["color"],
+        icon: row["icon"],
+        sort_order: row["sort_order"]
+      }
+      |> with_timestamps()
+    end)
+  end
+
+  defp seed_task_templates do
+    seed_from_json("task_templates.json", "task_templates", "task_templates", fn row ->
+      %{
+        id: row["id"],
+        name: row["name"],
+        description: row["description"],
+        category_id: row["category_id"],
+        frequency_type: row["frequency_type"],
+        frequency_value: row["frequency_value"],
+        time_window: row["time_window"],
+        priority: row["priority"],
+        enabled: row["enabled"],
+        requires_notes: row["requires_notes"]
       }
       |> with_timestamps()
     end)

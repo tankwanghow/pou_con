@@ -45,7 +45,8 @@ defmodule PouCon.Hardware.Devices.CytronTempHumSensor do
 
   Returns: `:ok` or `{:error, reason}`
   """
-  def set_slave_id(modbus, old_slave_id, new_slave_id) when new_slave_id >= 1 and new_slave_id <= 255 do
+  def set_slave_id(modbus, old_slave_id, new_slave_id)
+      when new_slave_id >= 1 and new_slave_id <= 255 do
     PouCon.Utils.Modbus.request(modbus, {:phr, old_slave_id, @slave_id_register, new_slave_id})
   end
 end

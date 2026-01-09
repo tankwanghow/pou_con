@@ -67,7 +67,8 @@ defmodule PouCon.MixProject do
       {:modbux, "~> 0.3"},
       {:circuits_uart, "~> 1.5"},
       {:tzdata, "~> 1.1"},
-      {:mox, "~> 1.0", only: :test}
+      {:mox, "~> 1.0", only: :test},
+      {:number, "~> 1.0"}
     ]
   end
 

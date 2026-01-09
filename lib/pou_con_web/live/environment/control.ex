@@ -115,49 +115,49 @@ defmodule PouConWeb.Live.Environment.Control do
               </table>
             </div>
           </div>
-        <div>
-          <div class="grid grid-cols-5 gap-2 items-center">
-            <div>
-              <.input
-                field={@form[:stagger_delay_seconds]}
-                type="number"
-                label="Stagger Delay (s)"
-              />
-            </div>
-            <div>
-              <.input
-                field={@form[:delay_between_step_seconds]}
-                type="number"
-                label="Step Change Delay (s)"
-              />
-            </div>
-            <div>
-              <.input
-                field={@form[:hum_min]}
-                type="number"
-                step="0.1"
-                label="Hum Min (%)"
-              />
-            </div>
-            <div>
-              <.input
-                field={@form[:hum_max]}
-                type="number"
-                step="0.1"
-                label="Hum Max (%)"
-              />
-            </div>
-            <div>
-              <.input
-                field={@form[:enabled]}
-                type="checkbox"
-                label="Auto Enabled"
-              />
-            </div>
+          <div>
+            <div class="grid grid-cols-5 gap-2 items-center">
+              <div>
+                <.input
+                  field={@form[:stagger_delay_seconds]}
+                  type="number"
+                  label="Stagger Delay (s)"
+                />
+              </div>
+              <div>
+                <.input
+                  field={@form[:delay_between_step_seconds]}
+                  type="number"
+                  label="Step Change Delay (s)"
+                />
+              </div>
+              <div>
+                <.input
+                  field={@form[:hum_min]}
+                  type="number"
+                  step="0.1"
+                  label="Hum Min (%)"
+                />
+              </div>
+              <div>
+                <.input
+                  field={@form[:hum_max]}
+                  type="number"
+                  step="0.1"
+                  label="Hum Max (%)"
+                />
+              </div>
+              <div>
+                <.input
+                  field={@form[:enabled]}
+                  type="checkbox"
+                  label="Auto Enabled"
+                />
+              </div>
             </div>
             <p class="text-xs text-gray-500 mb-3">
-            Humidity overrides: All pumps stop if humidity &gt;= Hum Max. All pumps run if humidity &lt;= Hum Min.
-          </p>
+              Humidity overrides: All pumps stop if humidity &gt;= Hum Max. All pumps run if humidity &lt;= Hum Min.
+            </p>
           </div>
 
           <button

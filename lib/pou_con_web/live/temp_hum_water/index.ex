@@ -1,47 +1,20 @@
-defmodule PouConWeb.Live.Environment.Index do
+defmodule PouConWeb.Live.TempHumWater.Index do
   use PouConWeb, :live_view
 
   alias PouCon.Equipment.EquipmentCommands
-  alias PouCon.Hardware.DeviceManager
 
   @pubsub_topic "device_data"
 
   @impl true
-  def mount(_params, session, socket) do
-    role = session["current_role"] || :none
+  def mount(_params, _session, socket) do
     if connected?(socket), do: Phoenix.PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
     equipment = PouCon.Equipment.Devices.list_equipment()
 
     socket =
       socket
-      |> assign(equipment: equipment, now: DateTime.utc_now(), current_role: role)
+      |> assign(equipment: equipment, now: DateTime.utc_now())
 
     {:ok, fetch_all_status(socket)}
-  end
-
-  @impl true
-  def handle_event("reload_ports", _, socket) do
-    DeviceManager.reload()
-    PouCon.Equipment.EquipmentLoader.reload_controllers()
-    {:noreply, assign(socket, data: DeviceManager.get_all_cached_data())}
-  end
-
-  # ———————————————————— Toggle On/Off ————————————————————
-  def handle_event("toggle_on_off", %{"name" => name, "value" => "on"}, socket) do
-    send_command(socket, name, :turn_on)
-  end
-
-  def handle_event("toggle_on_off", %{"name" => name}, socket) do
-    send_command(socket, name, :turn_off)
-  end
-
-  # ———————————————————— Auto/Manual ————————————————————
-  def handle_event("toggle_auto_manual", %{"name" => name, "value" => "on"}, socket) do
-    send_command(socket, name, :set_auto)
-  end
-
-  def handle_event("toggle_auto_manual", %{"name" => name}, socket) do
-    send_command(socket, name, :set_manual)
   end
 
   @impl true
@@ -52,6 +25,7 @@ defmodule PouConWeb.Live.Environment.Index do
   defp fetch_all_status(socket) do
     equipment_with_status =
       socket.assigns.equipment
+      |> Enum.filter(&(&1.type in ["temp_hum_sensor", "water_meter"]))
       |> Task.async_stream(
         fn eq ->
           status =
@@ -90,35 +64,11 @@ defmodule PouConWeb.Live.Environment.Index do
         max_concurrency: 30
       )
       |> Enum.map(fn
-        {:ok, eq} ->
-          eq
-
-        {:exit, _} ->
-          %{
-            name: "timeout",
-            title: "Timeout",
-            type: "unknown",
-            status: %{
-              error: :timeout,
-              error_message: "Task timeout",
-              is_running: false,
-              title: "Timeout"
-            }
-          }
-
-        _ ->
-          %{
-            name: "error",
-            title: "Error",
-            type: "unknown",
-            status: %{
-              error: :unknown,
-              error_message: "Unknown error",
-              is_running: false,
-              title: "Error"
-            }
-          }
+        {:ok, eq} -> eq
+        {:exit, _} -> nil
+        _ -> nil
       end)
+      |> Enum.reject(&is_nil/1)
 
     # Calculate averages from temp_hum_sensor equipment
     sensors = Enum.filter(equipment_with_status, &(&1.type == "temp_hum_sensor"))
@@ -137,27 +87,13 @@ defmodule PouConWeb.Live.Environment.Index do
     |> assign(avg_temp: avg_temp, avg_hum: avg_hum, avg_dew: avg_dew)
   end
 
-  # Send command using generic interface
-  defp send_command(socket, name, action) do
-    case action do
-      :turn_on -> EquipmentCommands.turn_on(name)
-      :turn_off -> EquipmentCommands.turn_off(name)
-      :set_auto -> EquipmentCommands.set_auto(name)
-      :set_manual -> EquipmentCommands.set_manual(name)
-    end
-
-    {:noreply, socket}
-  end
-
-  # ———————————————————— Render ————————————————————
   @impl true
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
       <.header>
-        Environment
+        Temperature, Humidity & Water
         <:actions>
-          <.btn_link to={~p"/admin/environment/control"} label="Configure" />
           <.dashboard_link />
         </:actions>
       </.header>
@@ -171,7 +107,6 @@ defmodule PouConWeb.Live.Environment.Index do
               equipment={eq}
             />
           <% end %>
-          <!-- Averages Bar -->
 
           <div class="w-80 h-45.5 align-center pt-9 text-3xl bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden transition-colors duration-300">
             <div class="text-center">
@@ -194,28 +129,12 @@ defmodule PouConWeb.Live.Environment.Index do
               </span>
             </div>
           </div>
+        </div>
+
+        <div class="flex flex-wrap gap-1">
           <%= for eq <- Enum.filter(@equipment, &(&1.type == "water_meter")) |> Enum.sort_by(& &1.title) do %>
-          <.live_component
-            module={PouConWeb.Components.Equipment.WaterMeterComponent}
-            id={eq.name}
-            equipment={eq}
-          />
-        <% end %>
-        </div>
-        <!-- Fans -->
-        <div class="flex flex-wrap gap-1 mb-6">
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "fan")) |> Enum.sort_by(& &1.title) do %>
             <.live_component
-              module={PouConWeb.Components.Equipment.FanComponent}
-              id={eq.name}
-              equipment={eq}
-            />
-          <% end %>
-        </div>
-        <div class="flex flex-wrap gap-1 mb-6">
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "pump")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.PumpComponent}
+              module={PouConWeb.Components.Equipment.WaterMeterComponent}
               id={eq.name}
               equipment={eq}
             />

@@ -57,7 +57,13 @@ defmodule PouCon.Hardware.Devices.Virtual do
 
   Returns: `{:ok, :success}` or `{:error, changeset}`
   """
-  def write_virtual_digital_input(_modbus, slave_id, _register, {:set_state, %{state: value}}, channel)
+  def write_virtual_digital_input(
+        _modbus,
+        slave_id,
+        _register,
+        {:set_state, %{state: value}},
+        channel
+      )
       when value in [0, 1] do
     attrs = %{slave_id: slave_id, channel: channel, state: value}
 

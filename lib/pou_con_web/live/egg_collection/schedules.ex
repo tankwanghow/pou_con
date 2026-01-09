@@ -114,7 +114,7 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-3/5">
+    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-4/5">
       <.header>
         Egg Collection Schedules
         <:actions>
@@ -188,64 +188,61 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
             <p class="text-gray-400 text-sm italic">No schedules configured yet.</p>
           <% else %>
             <%= for schedule <- @schedules do %>
-              <div class={"py-1 px-2 rounded-lg border flex items-center gap-2 justify-center " <> if schedule.enabled, do: "bg-blue-900 border-blue-600 text-white", else: "bg-gray-800 border-gray-600 text-gray-200"}>
+              <div class={"py-1 px-2 rounded-lg border flex items-center justify-between " <> if schedule.enabled, do: "bg-blue-900 border-blue-600 text-white", else: "bg-gray-800 border-gray-600 text-gray-200"}>
                 <!-- Equipment Name -->
-                <div class="font-mono w-full">
+                <div class="font-mono w-[20%]">
                   <span class="font-semibold text-white text-sm">
                     {schedule.equipment.title || schedule.equipment.name}
                   </span>
-                  <%= if schedule.name do %>
-                    <span class="text-xs text-gray-300 block">({schedule.name})</span>
-                  <% end %>
                 </div>
                 
     <!-- START Time -->
-                <div class="flex flex-wrap w-full text-center items-center gap-1">
-                  <div class="text-green-400 font-semibold">ON</div>
-                  <div class="text-gray-100">
+                <div class="flex justify-center flex-wrap gap-1 w-[20%] text-center">
+                  <span class="text-green-400 font-semibold">ON</span>
+                  <span class="text-gray-100">
                     {Calendar.strftime(schedule.start_time, "%I:%M %p")}
-                  </div>
+                  </span>
                 </div>
                 
     <!-- Separator -->
-                <div class="text-gray-400">|</div>
+                <div class="text-gray-400 font-bold">|</div>
                 
     <!-- STOP Time -->
-                <div class="flex flex-wrap w-full text-center items-center gap-1">
-                  <div class="text-rose-400 font-semibold">OFF</div>
-                  <div class="text-gray-100">
+                <div class="flex justify-center flex-wrap gap-1 w-[20%] text-center">
+                  <span class="text-rose-400 font-semibold">OFF</span>
+                  <span class="text-gray-100">
                     {Calendar.strftime(schedule.stop_time, "%I:%M %p")}
-                  </div>
+                  </span>
                 </div>
                 
     <!-- CRUD Buttons -->
-                <div class="flex flex-wrap w-full gap-1">
+                <div class="flex justify-center flex-wrap gap-1 w-[40%]">
                   <button
                     phx-click="toggle_schedule"
                     phx-value-id={schedule.id}
-                    class={"px-2 py-1 text-xs rounded " <> if schedule.enabled, do: "bg-green-600 hover:bg-green-700", else: "bg-gray-600 hover:bg-gray-700"}
+                    class={"px-4 py-2 text-sm rounded-lg " <> if schedule.enabled, do: "bg-green-600 hover:bg-green-700", else: "bg-gray-600 hover:bg-gray-700"}
                     title={if schedule.enabled, do: "Disable", else: "Enable"}
                   >
-                    {if schedule.enabled, do: "✓", else: "○"}
+                    {if schedule.enabled, do: "ON", else: "OFF"}
                   </button>
 
                   <button
                     phx-click="edit_schedule"
                     phx-value-id={schedule.id}
-                    class="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700"
+                    class="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700"
                     title="Edit"
                   >
-                    ✎
+                    Edit
                   </button>
 
                   <button
                     phx-click="delete_schedule"
                     phx-value-id={schedule.id}
                     data-confirm="Delete this schedule?"
-                    class="px-2 py-1 text-xs rounded bg-rose-600 hover:bg-rose-700"
+                    class="px-4 py-2 text-sm rounded-lg bg-rose-600 hover:bg-rose-700"
                     title="Delete"
                   >
-                    ×
+                    Del
                   </button>
                 </div>
               </div>

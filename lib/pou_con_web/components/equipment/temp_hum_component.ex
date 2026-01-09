@@ -106,18 +106,34 @@ defmodule PouConWeb.Components.Equipment.TempHumComponent do
   end
 
   defp calculate_display_data(status) do
-    main_color = "green"
+    temp = status[:temperature]
+    hum = status[:humidity]
+    dew = status[:dew_point]
 
-    %{
-      is_error: false,
-      main_color: main_color,
-      temp: "#{status.temperature}°C",
-      hum: "#{status.humidity}%",
-      dew: "#{status.dew_point}°C",
-      temp_color: get_temp_color(status.temperature),
-      hum_color: get_hum_color(status.humidity),
-      dew_color: get_dew_color(status.dew_point, status.temperature)
-    }
+    # Handle nil values (sensor not yet providing data)
+    if is_nil(temp) or is_nil(hum) or is_nil(dew) do
+      %{
+        is_error: true,
+        main_color: "gray",
+        temp: "--.-",
+        hum: "--.-",
+        dew: "--.-",
+        temp_color: "gray",
+        hum_color: "gray",
+        dew_color: "gray"
+      }
+    else
+      %{
+        is_error: false,
+        main_color: "green",
+        temp: "#{temp}°C",
+        hum: "#{hum}%",
+        dew: "#{dew}°C",
+        temp_color: get_temp_color(temp),
+        hum_color: get_hum_color(hum),
+        dew_color: get_dew_color(dew, temp)
+      }
+    end
   end
 
   defp get_temp_color(temp) do

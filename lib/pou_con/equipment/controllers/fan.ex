@@ -2,8 +2,8 @@ defmodule PouCon.Equipment.Controllers.Fan do
   use GenServer
   require Logger
 
-  alias PouCon.Automation.Interlock.InterlockController
   alias PouCon.Logging.EquipmentLogger
+  alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
 
   @device_manager Application.compile_env(:pou_con, :device_manager)
 
@@ -30,7 +30,7 @@ defmodule PouCon.Equipment.Controllers.Fan do
   # Public API
   # ——————————————————————————————————————————————————————————————
   def start_link(opts),
-    do: GenServer.start_link(__MODULE__, opts, name: via(Keyword.fetch!(opts, :name)))
+    do: GenServer.start_link(__MODULE__, opts, name: Helpers.via(Keyword.fetch!(opts, :name)))
 
   def start(opts) when is_list(opts) do
     name = Keyword.fetch!(opts, :name)
@@ -47,11 +47,11 @@ defmodule PouCon.Equipment.Controllers.Fan do
     end
   end
 
-  def turn_on(name), do: GenServer.cast(via(name), :turn_on)
-  def turn_off(name), do: GenServer.cast(via(name), :turn_off)
-  def set_auto(name), do: GenServer.cast(via(name), :set_auto)
-  def set_manual(name), do: GenServer.cast(via(name), :set_manual)
-  def status(name), do: GenServer.call(via(name), :status)
+  def turn_on(name), do: GenServer.cast(Helpers.via(name), :turn_on)
+  def turn_off(name), do: GenServer.cast(Helpers.via(name), :turn_off)
+  def set_auto(name), do: GenServer.cast(Helpers.via(name), :set_auto)
+  def set_manual(name), do: GenServer.cast(Helpers.via(name), :set_manual)
+  def status(name), do: GenServer.call(Helpers.via(name), :status)
 
   # ——————————————————————————————————————————————————————————————
   # Init
@@ -75,42 +75,18 @@ defmodule PouCon.Equipment.Controllers.Fan do
 
   @impl GenServer
   def handle_continue(:initial_poll, state), do: {:noreply, sync_and_update(state)}
+
   @impl GenServer
   def handle_info(:data_refreshed, state), do: {:noreply, sync_and_update(state)}
 
   @impl GenServer
   def handle_cast(:turn_on, state) do
-    can_start =
-      try do
-        case InterlockController.can_start?(state.name) do
-          {:ok, :allowed} -> true
-          {:error, _reason} -> false
-        end
-      rescue
-        _ -> true
-      catch
-        :exit, _ -> true
-      end
-
-    if can_start do
+    if Helpers.check_interlock(state.name) do
       {:noreply, sync_coil(%{state | commanded_on: true})}
     else
       Logger.warning("[#{state.name}] Turn ON blocked by interlock rules")
-
-      # Log interlock block
       mode = if state.mode == :auto, do: "auto", else: "manual"
-
-      EquipmentLogger.log_event(%{
-        equipment_name: state.name,
-        event_type: "error",
-        from_value: "off",
-        to_value: "blocked",
-        mode: mode,
-        triggered_by: "interlock",
-        metadata: Jason.encode!(%{"reason" => "interlock_blocked"}),
-        inserted_at: DateTime.utc_now()
-      })
-
+      Helpers.log_interlock_block(state.name, mode)
       {:noreply, state}
     end
   end
@@ -238,23 +214,16 @@ defmodule PouCon.Equipment.Controllers.Fan do
           end
       end
 
-    error = detect_error(new_state, temp_error)
+    error = Helpers.detect_error(new_state, temp_error)
 
     # Compare with the PREVIOUS state's error, not new_state.error (which is nil)
     if error != state.error do
-      log_error_transition(state.name, state.error, error, new_state)
+      mode_fn = fn s -> if s.mode == :auto, do: "auto", else: "manual" end
+      Helpers.log_error_transition(state.name, state.error, error, new_state, mode_fn)
     end
 
     # Check interlock status when stopped and no error
-    interlocked =
-      if !new_state.is_running and is_nil(error) do
-        case InterlockController.can_start?(state.name) do
-          {:ok, :allowed} -> false
-          {:error, _} -> true
-        end
-      else
-        false
-      end
+    interlocked = Helpers.check_interlock_status(state.name, new_state.is_running, error)
 
     %State{new_state | error: error, interlocked: interlocked}
   end
@@ -263,72 +232,6 @@ defmodule PouCon.Equipment.Controllers.Fan do
   defp sync_and_update(nil) do
     Logger.error("Fan: sync_and_update called with nil state!")
     %State{name: "recovered", error: :crashed_previously}
-  end
-
-  defp detect_error(_state, temp_error) when temp_error != nil, do: temp_error
-
-  defp detect_error(state, _nil) do
-    cond do
-      state.actual_on && !state.is_running -> :on_but_not_running
-      !state.actual_on && state.is_running -> :off_but_running
-      true -> nil
-    end
-  end
-
-  defp log_error_transition(name, old_error, new_error, current_state) do
-    # Determine mode from current state
-    mode = if current_state.mode == :manual, do: "manual", else: "auto"
-
-    cond do
-      # Transition from error to normal (recovery)
-      old_error != nil && new_error == nil ->
-        current_status =
-          cond do
-            current_state.is_running -> "running"
-            current_state.actual_on -> "on"
-            true -> "off"
-          end
-
-        Logger.info("[#{name}] Error CLEARED: #{old_error} -> #{current_status}")
-
-        # Log recovery - equipment is now in normal state
-        if current_state.is_running do
-          EquipmentLogger.log_start(name, mode, "system", %{
-            "from_error" => to_string(old_error),
-            "to_state" => current_status
-          })
-        else
-          EquipmentLogger.log_stop(name, mode, "system", "error", %{
-            "from_error" => to_string(old_error),
-            "to_state" => current_status
-          })
-        end
-
-      # Transition from normal to error OR from one error to another
-      new_error != nil && old_error != new_error ->
-        error_type =
-          case new_error do
-            :timeout -> "sensor_timeout"
-            :invalid_data -> "invalid_data"
-            :command_failed -> "command_failed"
-            :on_but_not_running -> "on_but_not_running"
-            :off_but_running -> "off_but_running"
-            :crashed_previously -> "crashed_previously"
-            _ -> "unknown_error"
-          end
-
-        from_state =
-          if old_error,
-            do: to_string(old_error),
-            else: if(current_state.is_running, do: "running", else: "off")
-
-        Logger.error("[#{name}] ERROR: #{error_type}")
-        EquipmentLogger.log_error(name, mode, error_type, from_state)
-
-      # No change in error state - don't log
-      true ->
-        nil
-    end
   end
 
   # ——————————————————————————————————————————————————————————————
@@ -344,22 +247,11 @@ defmodule PouCon.Equipment.Controllers.Fan do
       is_running: state.is_running,
       mode: state.mode,
       error: state.error,
-      error_message: error_message(state.error),
+      error_message: Helpers.error_message(state.error),
       interlocked: state.interlocked,
       inverted: state.inverted
     }
 
     {:reply, reply, state}
   end
-
-  defp error_message(nil), do: "OK"
-  defp error_message(:timeout), do: "SENSOR TIMEOUT"
-  defp error_message(:invalid_data), do: "INVALID DATA"
-  defp error_message(:command_failed), do: "COMMAND FAILED"
-  defp error_message(:on_but_not_running), do: "ON BUT NOT RUNNING"
-  defp error_message(:off_but_running), do: "OFF BUT RUNNING"
-  defp error_message(:crashed_previously), do: "RECOVERED FROM CRASH"
-  defp error_message(_), do: "UNKNOWN ERROR"
-
-  defp via(name), do: {:via, Registry, {PouCon.DeviceControllerRegistry, name}}
 end

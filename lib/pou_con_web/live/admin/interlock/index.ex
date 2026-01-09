@@ -54,34 +54,36 @@ defmodule PouConWeb.Live.Admin.Interlock.Index do
               <span
                 :if={!@readonly}
                 phx-click={JS.push("toggle_enabled", value: %{id: rule.id})}
-                class={"cursor-pointer px-2 py-1 rounded #{if rule.enabled, do: "bg-green-200 text-green-700", else: "bg-gray-200 text-gray-700"}"}
+                class={"cursor-pointer px-3 py-2 rounded-lg text-sm font-medium #{if rule.enabled, do: "bg-green-200 text-green-700", else: "bg-gray-200 text-gray-700"}"}
               >
-                {if rule.enabled, do: "✓ Enabled", else: "✗ Disabled"}
+                {if rule.enabled, do: "ON", else: "OFF"}
               </span>
               <span
                 :if={@readonly}
-                class={"px-2 py-1 rounded #{if rule.enabled, do: "bg-green-200 text-green-700", else: "bg-gray-200 text-gray-700"}"}
+                class={"px-3 py-2 rounded-lg text-sm font-medium #{if rule.enabled, do: "bg-green-200 text-green-700", else: "bg-gray-200 text-gray-700"}"}
               >
-                {if rule.enabled, do: "✓ Enabled", else: "✗ Disabled"}
+                {if rule.enabled, do: "ON", else: "OFF"}
               </span>
             </div>
             <div class="w-[20%] text-gray-600">
               {Calendar.strftime(rule.inserted_at, "%Y-%m-%d %H:%M")}
             </div>
-            <div :if={!@readonly} class="w-[15%]">
+            <div :if={!@readonly} class="w-[15%] flex justify-center gap-2">
               <.link
                 navigate={~p"/admin/interlock/#{rule.id}/edit"}
-                class="p-1 border-1 rounded-xl border-blue-600 bg-blue-200"
+                class="p-2 border-1 rounded-xl border-blue-600 bg-blue-200"
+                title="Edit"
               >
-                <.icon name="hero-pencil-square-mini" class="text-blue-600" />
+                <.icon name="hero-pencil-square" class="text-blue-600 w-5 h-5" />
               </.link>
 
               <.link
                 phx-click={JS.push("delete", value: %{id: rule.id}) |> hide("##{rule.id}")}
                 data-confirm="Are you sure you want to delete this interlock rule?"
-                class="p-1 border-1 rounded-xl border-rose-600 bg-rose-200 ml-2"
+                class="p-2 border-1 rounded-xl border-rose-600 bg-rose-200"
+                title="Delete"
               >
-                <.icon name="hero-trash-mini" class="text-rose-600" />
+                <.icon name="hero-trash" class="text-rose-600 w-5 h-5" />
               </.link>
             </div>
           </div>

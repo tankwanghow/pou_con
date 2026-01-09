@@ -104,50 +104,8 @@ defmodule PouCon.Hardware.DeviceManagerTest do
       assert function_exported?(DeviceManager, :simulate_offline, 2)
     end
 
-    test "exports set_slave_id_for_waveshare/3" do
-      assert function_exported?(DeviceManager, :set_slave_id_for_waveshare, 3)
-    end
-
-    test "exports set_slave_id_for_temperature/3" do
-      assert function_exported?(DeviceManager, :set_slave_id_for_temperature, 3)
-    end
-  end
-
-  describe "read/write functions" do
-    test "exports read_digital_input/3" do
-      assert function_exported?(DeviceManager, :read_digital_input, 3)
-    end
-
-    test "exports read_digital_input/4" do
-      assert function_exported?(DeviceManager, :read_digital_input, 4)
-    end
-
-    test "exports read_digital_output/3" do
-      assert function_exported?(DeviceManager, :read_digital_output, 3)
-    end
-
-    test "exports read_digital_output/4" do
-      assert function_exported?(DeviceManager, :read_digital_output, 4)
-    end
-
-    test "exports write_digital_output/5" do
-      assert function_exported?(DeviceManager, :write_digital_output, 5)
-    end
-
-    test "exports read_virtual_digital_input/4" do
-      assert function_exported?(DeviceManager, :read_virtual_digital_input, 4)
-    end
-
-    test "exports write_virtual_digital_input/5" do
-      assert function_exported?(DeviceManager, :write_virtual_digital_input, 5)
-    end
-
-    test "exports read_temperature_humidity/3" do
-      assert function_exported?(DeviceManager, :read_temperature_humidity, 3)
-    end
-
-    test "exports read_temperature_humidity/4" do
-      assert function_exported?(DeviceManager, :read_temperature_humidity, 4)
+    test "exports set_slave_id/4" do
+      assert function_exported?(DeviceManager, :set_slave_id, 4)
     end
   end
 

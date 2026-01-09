@@ -26,7 +26,14 @@ defmodule PouCon.Hardware.DeviceManager do
 
   alias PouCon.Equipment.Schemas.Device
   alias PouCon.Hardware.Ports.Port
-  alias PouCon.Hardware.Devices.{WaveshareDigitalIO, CytronTempHumSensor, XintaiWaterMeter, Virtual}
+
+  alias PouCon.Hardware.Devices.{
+    WaveshareDigitalIO,
+    CytronTempHumSensor,
+    XintaiWaterMeter,
+    Virtual
+  }
+
   alias PouCon.Repo
   alias Phoenix.PubSub
 
@@ -206,7 +213,11 @@ defmodule PouCon.Hardware.DeviceManager do
   # ------------------------------------------------------------------ #
 
   @impl GenServer
-  def handle_call({:set_slave_id, device_type, port_path, old_slave_id, new_slave_id}, _from, state) do
+  def handle_call(
+        {:set_slave_id, device_type, port_path, old_slave_id, new_slave_id},
+        _from,
+        state
+      ) do
     device_module = get_device_type_module(device_type)
     do_set_slave_id(state, port_path, old_slave_id, new_slave_id, device_module)
   end
@@ -607,15 +618,17 @@ defmodule PouCon.Hardware.DeviceManager do
       )
 
       IO.inspect(
-          "Poll timeout #{current_count}/#{@max_consecutive_timeouts} for #{port_path} slave #{slave_id}"
-        )
+        "Poll timeout #{current_count}/#{@max_consecutive_timeouts} for #{port_path} slave #{slave_id}"
+      )
 
       if current_count >= @max_consecutive_timeouts do
         Logger.error(
           "Slave #{slave_id} on #{port_path} reached max timeouts. Skipping until reload."
         )
 
-        IO.inspect("Slave #{slave_id} on #{port_path} reached max timeouts. Skipping until reload.")
+        IO.inspect(
+          "Slave #{slave_id} on #{port_path} reached max timeouts. Skipping until reload."
+        )
 
         new_skipped = MapSet.put(state.skipped_slaves, {port_path, slave_id})
         new_counts = Map.put(state.failure_counts, {port_path, slave_id}, current_count)

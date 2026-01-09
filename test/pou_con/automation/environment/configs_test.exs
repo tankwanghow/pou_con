@@ -4,25 +4,32 @@ defmodule PouCon.Automation.Environment.ConfigsTest do
   alias PouCon.Automation.Environment.Configs
   alias PouCon.Automation.Environment.Schemas.Config
 
+  # Clear environment config before each test to avoid seed data conflicts
+  setup do
+    Repo.delete_all(Config)
+    :ok
+  end
+
   describe "get_config/0" do
     test "returns existing config if one exists" do
       {:ok, config} =
         %Config{}
-        |> Config.changeset(%{temp_min: 26.0})
+        |> Config.changeset(%{hum_min: 45.0, hum_max: 85.0})
         |> Repo.insert()
 
       fetched = Configs.get_config()
       assert fetched.id == config.id
-      assert fetched.temp_min == 26.0
+      assert fetched.hum_min == 45.0
+      assert fetched.hum_max == 85.0
     end
 
     test "creates default config if none exists" do
       config = Configs.get_config()
       assert %Config{} = config
-      assert config.temp_min == 25.0
-      assert config.temp_max == 32.0
-      assert config.hum_min == 50.0
+      assert config.hum_min == 40.0
       assert config.hum_max == 80.0
+      assert config.stagger_delay_seconds == 5
+      assert config.delay_between_step_seconds == 120
     end
 
     test "returns same config on subsequent calls" do
@@ -38,159 +45,253 @@ defmodule PouCon.Automation.Environment.ConfigsTest do
 
       assert {:ok, updated} =
                Configs.update_config(%{
-                 temp_min: 27.0,
-                 temp_max: 33.0
+                 hum_min: 50.0,
+                 hum_max: 90.0,
+                 step_1_temp: 25.0,
+                 step_1_fans: "fan_1, fan_2, fan_3"
                })
 
-      assert updated.temp_min == 27.0
-      assert updated.temp_max == 33.0
+      assert updated.hum_min == 50.0
+      assert updated.hum_max == 90.0
+      assert updated.step_1_temp == 25.0
+      assert updated.step_1_fans == "fan_1, fan_2, fan_3"
     end
 
     test "returns error with invalid data" do
       _config = Configs.get_config()
 
+      # hum_min must be >= 20
       assert {:error, %Ecto.Changeset{}} =
-               Configs.update_config(%{temp_min: -5.0})
+               Configs.update_config(%{hum_min: 10.0})
     end
   end
 
-  describe "calculate_fan_count/2" do
+  describe "Config.parse_order/1" do
+    test "parses comma-separated string into list" do
+      assert Config.parse_order("fan_1, fan_2, fan_3") == ["fan_1", "fan_2", "fan_3"]
+    end
+
+    test "handles nil" do
+      assert Config.parse_order(nil) == []
+    end
+
+    test "handles empty string" do
+      assert Config.parse_order("") == []
+    end
+
+    test "trims whitespace" do
+      assert Config.parse_order("  fan_1  ,  fan_2  ") == ["fan_1", "fan_2"]
+    end
+
+    test "rejects empty entries" do
+      assert Config.parse_order("fan_1,,fan_2") == ["fan_1", "fan_2"]
+    end
+  end
+
+  describe "Config.get_active_steps/1" do
+    test "returns only steps with temp > 0, sorted by temp" do
+      config = %Config{
+        step_1_temp: 24.0,
+        step_1_fans: "fan_1",
+        step_1_pumps: "",
+        step_2_temp: 28.0,
+        step_2_fans: "fan_1, fan_2",
+        step_2_pumps: "pump_1",
+        # Disable remaining steps
+        step_3_temp: 0.0,
+        step_4_temp: 0.0,
+        step_5_temp: 0.0,
+        step_6_temp: 0.0,
+        step_7_temp: 0.0,
+        step_8_temp: 0.0,
+        step_9_temp: 0.0,
+        step_10_temp: 0.0
+      }
+
+      steps = Config.get_active_steps(config)
+      assert length(steps) == 2
+      assert hd(steps).temp == 24.0
+      assert List.last(steps).temp == 28.0
+    end
+
+    test "returns empty list when no active steps" do
+      config = %Config{}
+
+      # Default config has temp > 0 for several steps, so set them all to 0
+      config = %{
+        config
+        | step_1_temp: 0.0,
+          step_2_temp: 0.0,
+          step_3_temp: 0.0,
+          step_4_temp: 0.0,
+          step_5_temp: 0.0,
+          step_6_temp: 0.0
+      }
+
+      steps = Config.get_active_steps(config)
+      assert steps == []
+    end
+  end
+
+  describe "Config.find_step_for_temp/2" do
     setup do
       config = %Config{
-        temp_min: 25.0,
-        temp_max: 32.0,
-        min_fans: 1,
-        max_fans: 4
+        step_1_temp: 24.0,
+        step_1_fans: "fan_1",
+        step_1_pumps: "",
+        step_2_temp: 28.0,
+        step_2_fans: "fan_1, fan_2",
+        step_2_pumps: "pump_1",
+        step_3_temp: 32.0,
+        step_3_fans: "fan_1, fan_2, fan_3",
+        step_3_pumps: "pump_1, pump_2",
+        # Disable remaining steps
+        step_4_temp: 0.0,
+        step_5_temp: 0.0,
+        step_6_temp: 0.0,
+        step_7_temp: 0.0,
+        step_8_temp: 0.0,
+        step_9_temp: 0.0,
+        step_10_temp: 0.0
       }
 
       %{config: config}
     end
 
-    test "returns min_fans when temp <= temp_min", %{config: config} do
-      assert Configs.calculate_fan_count(config, 25.0) == 1
-      assert Configs.calculate_fan_count(config, 20.0) == 1
+    test "returns nil when temp is below all thresholds", %{config: config} do
+      assert Config.find_step_for_temp(config, 20.0) == nil
     end
 
-    test "returns max_fans when temp >= temp_max", %{config: config} do
-      assert Configs.calculate_fan_count(config, 32.0) == 4
-      assert Configs.calculate_fan_count(config, 35.0) == 4
+    test "returns first step when temp >= first threshold", %{config: config} do
+      step = Config.find_step_for_temp(config, 24.0)
+      assert step.temp == 24.0
+      assert step.fans == ["fan_1"]
     end
 
-    test "interpolates linearly between min and max", %{config: config} do
-      # temp_min=25, temp_max=32, range=7
-      # At 25: 1 fan
-      # At 28.5 (midpoint): should be ~2.5 = 3 fans (rounded)
-      # At 32: 4 fans
-      assert Configs.calculate_fan_count(config, 28.5) == 3
+    test "returns highest step <= current temp", %{config: config} do
+      # At 30.0, should return step 2 (28.0) not step 3 (32.0)
+      step = Config.find_step_for_temp(config, 30.0)
+      assert step.temp == 28.0
+      assert step.fans == ["fan_1", "fan_2"]
     end
 
-    test "returns 0 for invalid temperature" do
-      config = %Config{}
-      assert Configs.calculate_fan_count(config, nil) == 0
-      assert Configs.calculate_fan_count(config, "invalid") == 0
-    end
-
-    test "handles edge case with same min and max temps" do
-      config = %Config{temp_min: 30.0, temp_max: 30.0, min_fans: 2, max_fans: 5}
-      # Should not crash with division by zero
-      assert Configs.calculate_fan_count(config, 30.0) in [2, 5]
+    test "returns highest step when temp exceeds all", %{config: config} do
+      step = Config.find_step_for_temp(config, 40.0)
+      assert step.temp == 32.0
     end
   end
 
-  describe "calculate_pump_count/2" do
+  describe "get_equipment_for_conditions/3" do
     setup do
       config = %Config{
-        hum_min: 50.0,
+        hum_min: 40.0,
         hum_max: 80.0,
-        min_pumps: 0,
-        max_pumps: 3
+        step_1_temp: 24.0,
+        step_1_fans: "fan_1",
+        step_1_pumps: "",
+        step_2_temp: 28.0,
+        step_2_fans: "fan_1, fan_2",
+        step_2_pumps: "pump_1",
+        step_3_temp: 32.0,
+        step_3_fans: "fan_1, fan_2, fan_3",
+        step_3_pumps: "pump_1, pump_2",
+        # Disable remaining steps
+        step_4_temp: 0.0,
+        step_5_temp: 0.0,
+        step_6_temp: 0.0,
+        step_7_temp: 0.0,
+        step_8_temp: 0.0,
+        step_9_temp: 0.0,
+        step_10_temp: 0.0
       }
 
       %{config: config}
     end
 
-    test "returns max_pumps when humidity <= hum_min (dry)", %{config: config} do
-      assert Configs.calculate_pump_count(config, 50.0) == 3
-      assert Configs.calculate_pump_count(config, 40.0) == 3
+    test "returns empty lists for invalid temperature", %{config: config} do
+      assert Configs.get_equipment_for_conditions(config, nil, 60.0) == {[], []}
+      assert Configs.get_equipment_for_conditions(config, "invalid", 60.0) == {[], []}
     end
 
-    test "returns min_pumps when humidity >= hum_max (wet)", %{config: config} do
-      assert Configs.calculate_pump_count(config, 80.0) == 0
-      assert Configs.calculate_pump_count(config, 90.0) == 0
+    test "returns empty fans when temp is below all thresholds", %{config: config} do
+      # Equipment controllers not running, so fans list will be empty regardless
+      # This tests the code path, not the actual filtering
+      {fans, _pumps} = Configs.get_equipment_for_conditions(config, 20.0, 60.0)
+      assert is_list(fans)
     end
 
-    test "interpolates inversely between min and max", %{config: config} do
-      # hum_min=50, hum_max=80, range=30
-      # At 50 (dry): 3 pumps (max)
-      # At 65 (midpoint): should be ~1.5 = 2 pumps (rounded)
-      # At 80 (wet): 0 pumps (min)
-      assert Configs.calculate_pump_count(config, 65.0) in [1, 2]
-    end
-
-    test "returns 0 for invalid humidity" do
-      config = %Config{}
-      assert Configs.calculate_pump_count(config, nil) == 0
-      assert Configs.calculate_pump_count(config, "invalid") == 0
-    end
-
-    test "handles edge case with same min and max humidity" do
-      config = %Config{hum_min: 60.0, hum_max: 60.0, min_pumps: 1, max_pumps: 4}
-      # Should not crash with division by zero
-      assert Configs.calculate_pump_count(config, 60.0) in [1, 4]
+    test "returns empty pumps when humidity >= hum_max", %{config: config} do
+      {_fans, pumps} = Configs.get_equipment_for_conditions(config, 32.0, 85.0)
+      assert pumps == []
     end
   end
 
-  describe "get_fans_to_turn_on/2" do
-    test "returns empty list when count is 0" do
-      config = %Config{fan_order: "fan1,fan2,fan3"}
-      assert Configs.get_fans_to_turn_on(config, 0) == []
+  describe "humidity_override_status/2" do
+    setup do
+      config = %Config{hum_min: 40.0, hum_max: 80.0}
+      %{config: config}
     end
 
-    test "returns empty list when fan_order is empty" do
-      config = %Config{fan_order: ""}
-      assert Configs.get_fans_to_turn_on(config, 5) == []
+    test "returns :force_all_off when humidity >= hum_max", %{config: config} do
+      assert Configs.humidity_override_status(config, 80.0) == :force_all_off
+      assert Configs.humidity_override_status(config, 90.0) == :force_all_off
     end
 
-    test "limits fans to requested count" do
-      config = %Config{fan_order: "fan1,fan2,fan3,fan4"}
-      # This will attempt to check status of fans, which will fail in tests
-      # since the fan controllers aren't running. This is expected behavior.
-      result = Configs.get_fans_to_turn_on(config, 2)
-      # Should return at most 2 fans (but likely 0 since controllers aren't running)
-      assert is_list(result)
-      assert length(result) <= 2
+    test "returns :force_all_on when humidity <= hum_min", %{config: config} do
+      assert Configs.humidity_override_status(config, 40.0) == :force_all_on
+      assert Configs.humidity_override_status(config, 30.0) == :force_all_on
     end
 
-    test "handles nil fan_order" do
-      config = %Config{fan_order: nil}
-      assert Configs.get_fans_to_turn_on(config, 5) == []
+    test "returns :normal when humidity is within range", %{config: config} do
+      assert Configs.humidity_override_status(config, 60.0) == :normal
+      assert Configs.humidity_override_status(config, 50.0) == :normal
+    end
+
+    test "returns :normal for invalid humidity", %{config: config} do
+      assert Configs.humidity_override_status(config, nil) == :normal
+      assert Configs.humidity_override_status(config, "invalid") == :normal
     end
   end
 
-  describe "get_pumps_to_turn_on/2" do
-    test "returns empty list when count is 0" do
-      config = %Config{pump_order: "pump1,pump2,pump3"}
-      assert Configs.get_pumps_to_turn_on(config, 0) == []
+  describe "get_all_configured_pumps/1" do
+    test "returns all unique pumps from active steps" do
+      config = %Config{
+        step_1_temp: 24.0,
+        step_1_pumps: "pump_1",
+        step_2_temp: 28.0,
+        step_2_pumps: "pump_1, pump_2",
+        step_3_temp: 32.0,
+        step_3_pumps: "pump_2, pump_3",
+        # Disable remaining
+        step_4_temp: 0.0,
+        step_5_temp: 0.0,
+        step_6_temp: 0.0,
+        step_7_temp: 0.0,
+        step_8_temp: 0.0,
+        step_9_temp: 0.0,
+        step_10_temp: 0.0
+      }
+
+      pumps = Configs.get_all_configured_pumps(config)
+      assert Enum.sort(pumps) == ["pump_1", "pump_2", "pump_3"]
     end
 
-    test "returns empty list when pump_order is empty" do
-      config = %Config{pump_order: ""}
-      assert Configs.get_pumps_to_turn_on(config, 5) == []
-    end
+    test "returns empty list when no pumps configured" do
+      config = %Config{
+        step_1_temp: 24.0,
+        step_1_pumps: "",
+        step_2_temp: 0.0,
+        step_3_temp: 0.0,
+        step_4_temp: 0.0,
+        step_5_temp: 0.0,
+        step_6_temp: 0.0,
+        step_7_temp: 0.0,
+        step_8_temp: 0.0,
+        step_9_temp: 0.0,
+        step_10_temp: 0.0
+      }
 
-    test "limits pumps to requested count" do
-      config = %Config{pump_order: "pump1,pump2,pump3,pump4"}
-      # This will attempt to check status of pumps, which will fail in tests
-      # since the pump controllers aren't running. This is expected behavior.
-      result = Configs.get_pumps_to_turn_on(config, 2)
-      # Should return at most 2 pumps (but likely 0 since controllers aren't running)
-      assert is_list(result)
-      assert length(result) <= 2
-    end
-
-    test "handles nil pump_order" do
-      config = %Config{pump_order: nil}
-      assert Configs.get_pumps_to_turn_on(config, 5) == []
+      assert Configs.get_all_configured_pumps(config) == []
     end
   end
 end

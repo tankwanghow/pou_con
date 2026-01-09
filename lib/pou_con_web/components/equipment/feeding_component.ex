@@ -1,21 +1,17 @@
 defmodule PouConWeb.Components.Equipment.FeedingComponent do
   use PouConWeb, :live_component
+
   alias PouCon.Equipment.Controllers.Feeding
+  alias PouConWeb.Components.Equipment.Shared
 
   @impl true
   def update(assigns, socket) do
-    status =
-      if assigns[:equipment] do
-        assigns.equipment.status
-      else
-        assigns[:status]
-      end || %{error: :invalid_data}
-
+    equipment = assigns[:equipment]
+    status = equipment.status || %{error: :invalid_data}
     display_data = calculate_display_data(status)
 
     {:ok,
      socket
-     |> assign(assigns)
      |> assign(:status, status)
      |> assign(:device_name, assigns.id)
      |> assign(:display, display_data)}
@@ -24,149 +20,142 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class={"bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-80 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
-      <div class="flex items-center justify-between px-4 py-4 bg-gray-50 border-b border-gray-100">
-        <div class="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
-          <div class={"h-4 w-4 flex-shrink-0 rounded-full bg-#{@display.color}-500 " <> if(@display.is_moving, do: "animate-pulse", else: "")}>
-          </div>
-          <span class="font-bold text-gray-700 text-xl truncate">
-            {@status.title || @status.name}
-          </span>
-        </div>
+    <div>
+      <Shared.equipment_card is_error={@display.is_error}>
+        <Shared.equipment_header
+          title={@status.title || @status.name}
+          color={@display.color}
+          is_running={@display.is_moving}
+        >
+          <:controls>
+            <Shared.mode_toggle mode={@display.mode} is_offline={@display.state_text == "OFFLINE"} myself={@myself} />
+          </:controls>
+        </Shared.equipment_header>
 
-        <div class="flex bg-gray-200 rounded p-1 flex-shrink-0 ml-2">
-          <button
-            phx-click="set_mode"
-            phx-value-mode="auto"
-            phx-target={@myself}
-            class={[
-              "px-3 py-1 rounded text-base font-bold uppercase transition-all focus:outline-none",
-              @display.mode == :auto && "bg-white text-indigo-600 shadow-sm",
-              @display.mode != :auto && "text-gray-500 hover:text-gray-700"
-            ]}
-          >
-            Auto
-          </button>
-          <button
-            phx-click="set_mode"
-            phx-value-mode="manual"
-            phx-target={@myself}
-            class={[
-              "px-3 py-1 rounded text-base font-bold uppercase transition-all focus:outline-none",
-              @display.mode == :manual && "bg-white text-gray-800 shadow-sm",
-              @display.mode != :manual && "text-gray-500 hover:text-gray-700"
-            ]}
-          >
-            Man
-          </button>
+        <div class="flex items-center gap-4 p-4">
+          <div class="flex-shrink-0">
+            <.position_visualization status={@status} display={@display} />
+          </div>
+
+          <div class="flex-1 flex flex-col gap-1 min-w-0">
+            <Shared.state_text
+              text={@display.state_text}
+              color={@display.color}
+              is_error={false}
+            />
+            <.feeding_controls
+              mode={@display.mode}
+              is_interlocked={@display.is_interlocked}
+              is_moving={@display.is_moving}
+              is_error={@display.is_error}
+              at_front={@status.at_front}
+              at_back={@status.at_back}
+              myself={@myself}
+            />
+          </div>
         </div>
+      </Shared.equipment_card>
+    </div>
+    """
+  end
+
+  # ——————————————————————————————————————————————
+  # Private Components
+  # ——————————————————————————————————————————————
+
+  attr :status, :map, required: true
+  attr :display, :map, required: true
+
+  defp position_visualization(assigns) do
+    ~H"""
+    <div class="relative h-16 w-16 flex items-center justify-center overflow-hidden">
+      <div class={[
+        "absolute left-2 h-10 w-2 rounded-full transition-colors z-0",
+        @status.at_front && "bg-blue-500",
+        !@status.at_front && "bg-gray-300"
+      ]}>
       </div>
 
-      <div class="flex items-center gap-4 p-4">
-        <div class="flex-shrink-0">
-          <div class={[
-            "relative h-16 w-16 flex items-center justify-center overflow-hidden"
-          ]}>
-            <div class={[
-              "absolute left-2 h-10 w-2 rounded-full transition-colors z-0",
-              @status.at_front && "bg-blue-500",
-              !@status.at_front && "bg-gray-300"
-            ]}>
-            </div>
+      <div class={[
+        "absolute right-2 h-10 w-2 rounded-full transition-colors z-0",
+        @status.at_back && "bg-blue-500",
+        !@status.at_back && "bg-gray-300"
+      ]}>
+      </div>
 
-            <div class={[
-              "absolute right-2 h-10 w-2 rounded-full transition-colors z-0",
-              @status.at_back && "bg-blue-500",
-              !@status.at_back && "bg-gray-300"
-            ]}>
-            </div>
-
-            <div class={
-              [
-                "relative z-10 h-5 w-5 rounded-sm transition-transform duration-300 shadow-sm",
-
-                # 1. Static Snap
-                @status.at_front && "-translate-x-3 bg-#{@display.color}-500",
-                @status.at_back && "translate-x-3 bg-#{@display.color}-500",
-
-                # 2. Moving Animation
-                @status.target_limit == :to_front_limit && !@status.at_front &&
-                  "-translate-x-1.5 bg-green-500 animate-pulse",
-                @status.target_limit == :to_back_limit && !@status.at_back &&
-                  "translate-x-1.5 bg-green-500 animate-pulse",
-
-                # 3. Idle
-                (!@status.at_back and !@status.at_front and !@display.is_moving and
-                   @display.state_text != "OFFLINE") &&
-                  "bg-#{@display.color}-500",
-                @display.state_text == "OFFLINE" && "bg-gray-500",
-                (@display.state_text != "OFFLINE" and @status.error != nil) && "bg-rose-500"
-              ]
-            }>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex-1 flex flex-col gap-1 min-w-0">
-          <div class={"text-lg font-bold uppercase tracking-wide text-#{@display.color}-700 truncate"}>
-            {@display.state_text}
-          </div>
-
-          <%= if @display.mode == :manual do %>
-            <%= if @display.is_interlocked do %>
-              <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-amber-600 bg-amber-100 border border-amber-300 cursor-not-allowed uppercase">
-                BLOCKED
-              </div>
-            <% else %>
-              <%= if @display.is_moving or @display.is_error do %>
-                <button
-                  phx-click="stop"
-                  phx-target={@myself}
-                  class="w-full py-4 px-2 rounded font-bold text-lg shadow-sm transition-all text-white bg-red-500 hover:bg-red-600 active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <div class="w-3 h-3 bg-white rounded-sm"></div>
-                  {if @display.is_error, do: "RESET", else: "STOP"}
-                </button>
-              <% else %>
-                <div class="flex gap-2">
-                  <button
-                    phx-click="move"
-                    phx-value-dir="front"
-                    phx-target={@myself}
-                    disabled={@status.at_front}
-                    class={[
-                      "flex-1 py-4 rounded font-bold text-lg shadow-sm transition-all text-white flex items-center justify-center active:scale-95",
-                      @status.at_front && "bg-gray-300 cursor-not-allowed opacity-50",
-                      !@status.at_front && "bg-blue-500 hover:bg-blue-600"
-                    ]}
-                  >
-                    <.icon name="hero-chevron-left" class="w-5 h-5" /> Fr
-                  </button>
-
-                  <button
-                    phx-click="move"
-                    phx-value-dir="back"
-                    phx-target={@myself}
-                    disabled={@status.at_back}
-                    class={[
-                      "flex-1 py-4 rounded font-bold text-lg shadow-sm transition-all text-white flex items-center justify-center active:scale-95",
-                      @status.at_back && "bg-gray-300 cursor-not-allowed opacity-50",
-                      !@status.at_back && "bg-blue-500 hover:bg-blue-600"
-                    ]}
-                  >
-                    Bk <.icon name="hero-chevron-right" class="w-5 h-5" />
-                  </button>
-                </div>
-              <% end %>
-            <% end %>
-          <% else %>
-            <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
-              System
-            </div>
-          <% end %>
-        </div>
+      <div class={[
+        "relative z-10 h-5 w-5 rounded-sm transition-transform duration-300 shadow-sm",
+        @status.at_front && "-translate-x-3 bg-#{@display.color}-500",
+        @status.at_back && "translate-x-3 bg-#{@display.color}-500",
+        @status.target_limit == :to_front_limit && !@status.at_front &&
+          "-translate-x-1.5 bg-green-500 animate-pulse",
+        @status.target_limit == :to_back_limit && !@status.at_back &&
+          "translate-x-1.5 bg-green-500 animate-pulse",
+        (!@status.at_back and !@status.at_front and !@display.is_moving and
+           @display.state_text != "OFFLINE") && "bg-#{@display.color}-500",
+        @display.state_text == "OFFLINE" && "bg-gray-500",
+        (@display.state_text != "OFFLINE" and @status.error != nil) && "bg-rose-500"
+      ]}>
       </div>
     </div>
+    """
+  end
+
+  attr :mode, :atom, required: true
+  attr :is_interlocked, :boolean, required: true
+  attr :is_moving, :boolean, required: true
+  attr :is_error, :boolean, required: true
+  attr :at_front, :boolean, required: true
+  attr :at_back, :boolean, required: true
+  attr :myself, :any, required: true
+
+  defp feeding_controls(assigns) do
+    ~H"""
+    <%= cond do %>
+      <% @mode != :manual -> %>
+        <Shared.system_button />
+      <% @is_interlocked -> %>
+        <Shared.blocked_button />
+      <% @is_moving or @is_error -> %>
+        <button
+          phx-click="stop"
+          phx-target={@myself}
+          class="w-full py-4 px-2 rounded font-bold text-lg shadow-sm transition-all text-white bg-red-500 hover:bg-red-600 active:scale-95 flex items-center justify-center gap-2"
+        >
+          <div class="w-3 h-3 bg-white rounded-sm"></div>
+          {if @is_error, do: "RESET", else: "STOP"}
+        </button>
+      <% true -> %>
+        <div class="flex gap-2">
+          <button
+            phx-click="move"
+            phx-value-dir="front"
+            phx-target={@myself}
+            disabled={@at_front}
+            class={[
+              "flex-1 py-4 rounded font-bold text-lg shadow-sm transition-all text-white flex items-center justify-center active:scale-95",
+              @at_front && "bg-gray-300 cursor-not-allowed opacity-50",
+              !@at_front && "bg-blue-500 hover:bg-blue-600"
+            ]}
+          >
+            <.icon name="hero-chevron-left" class="w-5 h-5" /> Fr
+          </button>
+
+          <button
+            phx-click="move"
+            phx-value-dir="back"
+            phx-target={@myself}
+            disabled={@at_back}
+            class={[
+              "flex-1 py-4 rounded font-bold text-lg shadow-sm transition-all text-white flex items-center justify-center active:scale-95",
+              @at_back && "bg-gray-300 cursor-not-allowed opacity-50",
+              !@at_back && "bg-blue-500 hover:bg-blue-600"
+            ]}
+          >
+            Bk <.icon name="hero-chevron-right" class="w-5 h-5" />
+          </button>
+        </div>
+    <% end %>
     """
   end
 
@@ -205,7 +194,14 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
   end
 
   defp calculate_display_data(%{error: :invalid_data}) do
-    %{is_error: false, is_moving: false, is_interlocked: false, mode: :auto, state_text: "OFFLINE", color: "gray"}
+    %{
+      is_error: false,
+      is_moving: false,
+      is_interlocked: false,
+      mode: :auto,
+      state_text: "OFFLINE",
+      color: "gray"
+    }
   end
 
   defp calculate_display_data(status) do
