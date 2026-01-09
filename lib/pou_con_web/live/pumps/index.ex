@@ -87,7 +87,7 @@ defmodule PouConWeb.Live.Pumps.Index do
       </.header>
 
       <div class="p-4">
-        <div class="flex flex-wrap gap-1">
+        <div class="flex flex-wrap gap-1 justify-center">
           <%= for eq <- @pumps |> Enum.sort_by(& &1.title) do %>
             <.live_component
               module={PouConWeb.Components.Equipment.PumpComponent}

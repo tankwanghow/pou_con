@@ -144,7 +144,7 @@ defmodule PouConWeb.Live.Lighting.Index do
 
       <div class="p-4">
         <!-- Lights -->
-        <div class="flex flex-wrap gap-1 mb-6">
+        <div class="flex flex-wrap gap-1 justify-center">
           <%= for eq <- Enum.filter(@equipment, &(&1.type == "light")) |> Enum.sort_by(& &1.title) do %>
             <.live_component
               module={PouConWeb.Components.Equipment.LightComponent}

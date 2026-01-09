@@ -2,7 +2,7 @@
 "equipment": [
 	{
 		"id" : 1,
-		"name" : "fan_1",
+		"name" : "fan_01",
 		"title" : "Fan 01",
 		"type" : "fan",
 		"device_tree" : "on_off_coil: WS-11-O-01\nrunning_feedback: WS-11-I-01\nauto_manual: VT-200-01\ninverted: true",
@@ -11,7 +11,7 @@
 	},
 	{
 		"id" : 2,
-		"name" : "fan_2",
+		"name" : "fan_02",
 		"title" : "Fan 02",
 		"type" : "fan",
 		"device_tree" : "on_off_coil: WS-11-O-02\nrunning_feedback: WS-11-I-02\nauto_manual: VT-200-02\ninverted: true",
@@ -20,7 +20,7 @@
 	},
 	{
 		"id" : 3,
-		"name" : "fan_3",
+		"name" : "fan_03",
 		"title" : "Fan 03",
 		"type" : "fan",
 		"device_tree" : "on_off_coil: WS-11-O-03\nrunning_feedback: WS-11-I-03\nauto_manual: VT-200-03\ninverted: true",
@@ -29,7 +29,7 @@
 	},
 	{
 		"id" : 4,
-		"name" : "fan_4",
+		"name" : "fan_04",
 		"title" : "Fan 04",
 		"type" : "fan",
 		"device_tree" : "on_off_coil: WS-11-O-04\nrunning_feedback: WS-11-I-04\nauto_manual: VT-200-04\ninverted: true",
@@ -38,7 +38,7 @@
 	},
 	{
 		"id" : 5,
-		"name" : "fan_5",
+		"name" : "fan_05",
 		"title" : "Fan 05",
 		"type" : "fan",
 		"device_tree" : "on_off_coil: WS-11-O-05\nrunning_feedback: WS-11-I-05\nauto_manual: VT-200-05\ninverted: true",
@@ -47,7 +47,7 @@
 	},
 	{
 		"id" : 6,
-		"name" : "fan_6",
+		"name" : "fan_06",
 		"title" : "Fan 06",
 		"type" : "fan",
 		"device_tree" : "on_off_coil: WS-11-O-06\nrunning_feedback: WS-11-I-06\nauto_manual: VT-200-06\ninverted: true",
@@ -56,7 +56,7 @@
 	},
 	{
 		"id" : 7,
-		"name" : "fan_7",
+		"name" : "fan_07",
 		"title" : "Fan 07",
 		"type" : "fan",
 		"device_tree" : "on_off_coil: WS-11-O-07\nrunning_feedback: WS-11-I-07\nauto_manual: VT-200-07\ninverted: true",
@@ -128,7 +128,7 @@
 	},
 	{
 		"id" : 19,
-		"name" : "fan_8",
+		"name" : "fan_08",
 		"title" : "Fan 08",
 		"type" : "fan",
 		"device_tree" : "on_off_coil: WS-11-O-08\nrunning_feedback: WS-11-I-08\nauto_manual: VT-200-08\ninverted: false",
@@ -137,7 +137,7 @@
 	},
 	{
 		"id" : 20,
-		"name" : "fan_9",
+		"name" : "fan_09",
 		"title" : "Fan 09",
 		"type" : "fan",
 		"device_tree" : "on_off_coil: WS-12-O-01\nrunning_feedback: WS-12-I-01\nauto_manual: VT-200-09\ninverted: false",
