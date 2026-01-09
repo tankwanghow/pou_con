@@ -97,11 +97,13 @@ defmodule PouConWeb.Live.Environment.Control do
     ~H"""
     <Layouts.app flash={@flash}>
       <div class="max-w-6xl mx-auto">
-        <div class="flex bg-cyan-200 p-4 justify-between items-center rounded-2xl">
-          <p class="font-medium text-gray-700">
-            Steps are evaluated in ascending order. <span class="text-orange-600">Set 0°C to skip.</span>
-          </p>
+        <div class="float-right">
           <.dashboard_link />
+        </div>
+        <div class="bg-blue-200 p-4 rounded-2xl">
+          <p class="text-gray-700">
+            Set temp=0 to disable a step. Steps are evaluated in ascending temp order.
+          </p>
         </div>
 
         <.form for={@form} phx-submit="save" phx-change="validate">
@@ -111,88 +113,85 @@ defmodule PouConWeb.Live.Environment.Control do
                 class={"tab tab-lg bg-green-200 m-0.5 border border-green-600 rounded-xl #{if @current_step == n, do: "tab-active font-bold border-2 bg-green-400", else: ""}"}
                 phx-click={"select_step#{n}"}
               >
-                <% tar_temp = Map.get(@config, String.to_atom("step_#{n}_temp"), 0) |> Float.round(1) %>
-                <%= if tar_temp > 0 do %>
-                  {Map.get(@config, String.to_atom("step_#{n}_temp"), 0) |> Float.round(1)}°C
-                <% else %>
-                  <span class="text-xs">skipped</span>
-                <% end %>
+                Step {n}
               </a>
             <% end %>
           </div>
 
-          <% n = @current_step %>
-          <div class="card bg-base-100 shadow-xl p-4">
-            <div class="grid grid-cols-1 gap-2">
-              <.input
-                field={@form[String.to_atom("step_#{n}_temp")]}
-                type="number"
-                step="0.1"
-                class="input input-lg"
-                label="Target Temperature (°C)"
-                placeholder="e.g. 25.0"
-              />
-              <div class="flex flex-wrap gap-2">
-                <%= for fan <- @fans do %>
-                  <label class={
-                    if fan in (String.split(
-                                 Map.get(@config, String.to_atom(~s/step_#{n}_fans/)) || "",
-                                 ", "
-                               )
-                               |> Enum.map(&String.trim/1)
-                               |> Enum.filter(&(&1 != ""))),
-                       do: "btn-active btn  btn-outline btn-info",
-                       else: "btn btn-outline btn-info"
-                  }>
-                    <.input
-                      type="checkbox"
-                      name={"step_#{n}_fans_#{fan}"}
-                      checked={
-                        fan in (String.split(
-                                  Map.get(@config, String.to_atom(~s/step_#{n}_fans/)) || "",
-                                  ", "
-                                )
-                                |> Enum.map(&String.trim/1)
-                                |> Enum.filter(&(&1 != "")))
-                      }
-                      class="hidden"
-                    />
-                    <span>{fan}</span>
-                  </label>
-                <% end %>
-                <%= for pump <- @pumps do %>
-                  <label class={
-                    if pump in (String.split(
-                                  Map.get(@config, String.to_atom(~s/step_#{n}_pumps/)) || "",
-                                  ", "
-                                )
-                                |> Enum.map(&String.trim/1)
-                                |> Enum.filter(&(&1 != ""))),
-                       do: "btn-active btn btn-outline btn-success",
-                       else: "btn btn-outline btn-success"
-                  }>
-                    <.input
-                      type="checkbox"
-                      name={"step_#{n}_pumps_#{pump}"}
-                      checked={
-                        pump in (String.split(
-                                   Map.get(@config, String.to_atom(~s/step_#{n}_pumps/)) || "",
+
+            <% n = @current_step %>
+            <div class="card bg-base-100 shadow-xl p-4">
+              <div class="grid grid-cols-1 gap-2">
+                <.input
+                  field={@form[String.to_atom("step_#{n}_temp")]}
+                  type="number"
+                  step="0.1"
+                  class="input input-lg"
+                  label="Target Temperature (°C)"
+                  placeholder="e.g. 25.0"
+                />
+                <div class="flex flex-wrap gap-2">
+                  <%= for fan <- @fans do %>
+                    <label class={
+                      if fan in (String.split(
+                                   Map.get(@config, String.to_atom(~s/step_#{n}_fans/)) || "",
                                    ", "
                                  )
                                  |> Enum.map(&String.trim/1)
-                                 |> Enum.filter(&(&1 != "")))
-                      }
-                      class="hidden"
-                    />
-                    <span>{pump}</span>
-                  </label>
-                <% end %>
+                                 |> Enum.filter(&(&1 != ""))),
+                         do: "btn-active btn btn-lg btn-outline btn-info",
+                         else: "btn btn-lg btn-outline btn-info"
+                    }>
+                      <.input
+                        type="checkbox"
+                        name={"step_#{n}_fans_#{fan}"}
+                        checked={
+                          fan in (String.split(
+                                    Map.get(@config, String.to_atom(~s/step_#{n}_fans/)) || "",
+                                    ", "
+                                  )
+                                  |> Enum.map(&String.trim/1)
+                                  |> Enum.filter(&(&1 != "")))
+                        }
+                        class="hidden"
+                      />
+                      <span class="font-medium text-lg">{fan}</span>
+                    </label>
+                  <% end %>
+                  <%= for pump <- @pumps do %>
+                    <label class={
+                      if pump in (String.split(
+                                    Map.get(@config, String.to_atom(~s/step_#{n}_pumps/)) || "",
+                                    ", "
+                                  )
+                                  |> Enum.map(&String.trim/1)
+                                  |> Enum.filter(&(&1 != ""))),
+                         do: "btn-active btn btn-lg btn-outline btn-success",
+                         else: "btn btn-lg btn-outline btn-success"
+                    }>
+                      <.input
+                        type="checkbox"
+                        name={"step_#{n}_pumps_#{pump}"}
+                        checked={
+                          pump in (String.split(
+                                     Map.get(@config, String.to_atom(~s/step_#{n}_pumps/)) || "",
+                                     ", "
+                                   )
+                                   |> Enum.map(&String.trim/1)
+                                   |> Enum.filter(&(&1 != "")))
+                        }
+                        class="hidden"
+                      />
+                      <span class="font-medium text-lg">{pump}</span>
+                    </label>
+                  <% end %>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="card bg-base-200 shadow-xl p-2 my-2">
-            <h3 class="text-2xl font-bold text-gray-800">Global Settings</h3>
+
+          <div class="card bg-base-200 shadow-lg p-2 mt-2">
+            <h3 class="text-2xl font-bold mb-2 text-gray-800">Global Settings</h3>
             <div class="grid grid-cols-2 gap-1">
               <.input
                 field={@form[:stagger_delay_seconds]}
@@ -231,6 +230,12 @@ defmodule PouConWeb.Live.Environment.Control do
               class="checkbox checkbox-lg checkbox-success"
               label="Enable Environment Automation"
             />
+            <div class="alert alert-warning mt-2 p-3">
+              <span>
+                <strong>Humidity Overrides:</strong>
+                All pumps stop if humidity &gt;= Hum Max. All pumps run if humidity &lt;= Hum Min.
+              </span>
+            </div>
           </div>
 
           <.button
