@@ -138,10 +138,10 @@ defmodule PouConWeb.Live.Dung.Index do
 
       <div class="p-4">
         <!-- Fans -->
-        <div class="flex flex-wrap gap-1 mb-6">
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "dung")) |> Enum.sort_by(& &1.title) do %>
+        <div class="flex flex-wrap gap-1 justify-center">
+          <%= for eq <- Enum.filter(@equipment, &(&1.type == "dung_exit")) |> Enum.sort_by(& &1.title) do %>
             <.live_component
-              module={PouConWeb.Components.Equipment.DungComponent}
+              module={PouConWeb.Components.Equipment.DungExitComponent}
               id={eq.name}
               equipment={eq}
             />
@@ -153,9 +153,9 @@ defmodule PouConWeb.Live.Dung.Index do
               equipment={eq}
             />
           <% end %>
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "dung_exit")) |> Enum.sort_by(& &1.title) do %>
+          <%= for eq <- Enum.filter(@equipment, &(&1.type == "dung")) |> Enum.sort_by(& &1.title) do %>
             <.live_component
-              module={PouConWeb.Components.Equipment.DungExitComponent}
+              module={PouConWeb.Components.Equipment.DungComponent}
               id={eq.name}
               equipment={eq}
             />

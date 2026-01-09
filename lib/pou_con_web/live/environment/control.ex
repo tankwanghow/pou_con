@@ -57,7 +57,7 @@ defmodule PouConWeb.Live.Environment.Control do
       <div class="flex justify-between items-center mb-3">
         <h1 class="text-xl font-bold text-green-600">Environment Control</h1>
         <div class="flex gap-2">
-          <.btn_link to={~p"/environment"} label="Back" />
+          <.dashboard_link />
         </div>
       </div>
 
