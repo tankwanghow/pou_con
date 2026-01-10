@@ -3,6 +3,17 @@ import Config
 # Development house_id file (create with: echo "dev" > priv/house_id)
 config :pou_con, :house_id_file, Path.expand("../priv/house_id", __DIR__)
 
+# Development API and house identity configuration
+config :pou_con, :house,
+  id: "dev",
+  name: "Development House"
+
+# API key for development (use any key for testing)
+# In production, set via API_KEY env var or /etc/pou_con/api_key file
+config :pou_con, :api,
+  key: "dev-api-key-for-testing",
+  enabled: true
+
 # Configure your database
 config :pou_con, PouCon.Repo,
   database: Path.expand("../pou_con_dev.db", __DIR__),

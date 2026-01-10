@@ -13,6 +13,17 @@ defmodule PouConWeb.Router do
     plug(:put_secure_browser_headers)
   end
 
+  # API pipeline for central monitoring system
+  pipeline :api do
+    plug(:accepts, ["json"])
+    plug(:fetch_query_params)
+  end
+
+  # API authentication via API key
+  pipeline :api_auth do
+    plug(PouConWeb.Plugs.ApiAuth)
+  end
+
   # HTTP-level auth (initial request only)
   pipeline :authenticated do
     plug(PouConWeb.Plugs.Auth)
@@ -36,6 +47,32 @@ defmodule PouConWeb.Router do
       |> redirect(to: "/login")
       |> halt()
     end
+  end
+
+  # --------------------------------------------------------------------
+  # API Routes (For Central Monitoring System)
+  # Requires API key authentication via header or query param
+  # --------------------------------------------------------------------
+  scope "/api", PouConWeb.API do
+    pipe_through([:api, :api_auth])
+
+    # Real-time status
+    get("/status", StatusController, :index)
+
+    # House info
+    get("/info", SyncController, :info)
+
+    # Sync endpoints for data download
+    get("/sync/counts", SyncController, :all_counts)
+    get("/sync/equipment_events", SyncController, :equipment_events)
+    get("/sync/sensor_snapshots", SyncController, :sensor_snapshots)
+    get("/sync/water_meter_snapshots", SyncController, :water_meter_snapshots)
+    get("/sync/daily_summaries", SyncController, :daily_summaries)
+    get("/sync/flocks", SyncController, :flocks)
+    get("/sync/flock_logs", SyncController, :flock_logs)
+    get("/sync/task_categories", SyncController, :task_categories)
+    get("/sync/task_templates", SyncController, :task_templates)
+    get("/sync/task_completions", SyncController, :task_completions)
   end
 
   # --------------------------------------------------------------------

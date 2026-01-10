@@ -51,6 +51,31 @@ if config_env() == :prod do
       {:error, _} -> "unknown"
     end
 
+  # House name (human-readable) from file or environment
+  house_name =
+    System.get_env("HOUSE_NAME") ||
+      case File.read("/etc/pou_con/house_name") do
+        {:ok, content} -> String.trim(content)
+        {:error, _} -> "House #{house_id}"
+      end
+
+  # API key for central monitoring system authentication
+  # Generate with: mix phx.gen.secret 32
+  api_key = System.get_env("API_KEY") ||
+    case File.read("/etc/pou_con/api_key") do
+      {:ok, content} -> String.trim(content)
+      {:error, _} -> nil
+    end
+
+  # Store house identity and API config for use throughout the app
+  config :pou_con, :house,
+    id: house_id,
+    name: house_name
+
+  config :pou_con, :api,
+    key: api_key,
+    enabled: api_key != nil
+
   # Hostname format: poucon.{house_id} (e.g., poucon.h1, poucon.house2)
   host = System.get_env("PHX_HOST") || "poucon.#{house_id}"
 
