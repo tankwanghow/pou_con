@@ -137,7 +137,8 @@ defmodule PouConWeb.Components.Equipment.EggComponent do
       mode: :auto,
       state_text: "OFFLINE",
       color: "gray",
-      anim_class: ""
+      anim_class: "",
+      err_msg: "offline"
     }
   end
 
