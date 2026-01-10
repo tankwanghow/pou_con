@@ -97,13 +97,11 @@ defmodule PouConWeb.Live.Environment.Control do
     ~H"""
     <Layouts.app flash={@flash}>
       <div class="max-w-6xl mx-auto">
-        <div class="float-right">
-          <.dashboard_link />
-        </div>
-        <div class="bg-blue-200 p-4 rounded-2xl">
+        <div class="flex justify-between items-center bg-blue-200 p-4 rounded-2xl">
           <p class="text-gray-700">
-            Set temp=0 to disable a step. Steps are evaluated in ascending temp order.
+            <span class="font-medium">Temp 0°C to skip a step.</span> Steps are evaluated in ascending temp order.
           </p>
+          <.dashboard_link />
         </div>
 
         <.form for={@form} phx-submit="save" phx-change="validate">
@@ -113,7 +111,12 @@ defmodule PouConWeb.Live.Environment.Control do
                 class={"tab tab-lg bg-green-200 m-0.5 border border-green-600 rounded-xl #{if @current_step == n, do: "tab-active font-bold border-2 bg-green-400", else: ""}"}
                 phx-click={"select_step#{n}"}
               >
-                Step {n}
+                <% temp = Map.get(@config, String.to_atom("step_#{n}_temp")) %>
+                <%= if temp > 0 do %>
+                  {temp}°C
+                <% else %>
+                  skipped
+                <% end %>
               </a>
             <% end %>
           </div>
@@ -129,7 +132,7 @@ defmodule PouConWeb.Live.Environment.Control do
                 label="Target Temperature (°C)"
                 placeholder="e.g. 25.0"
               />
-              <div class="flex flex-wrap gap-2">
+              <div class="flex flex-wrap gap-2 font-mono">
                 <%= for fan <- @fans do %>
                   <label class={
                     if fan in (String.split(
@@ -138,8 +141,8 @@ defmodule PouConWeb.Live.Environment.Control do
                                )
                                |> Enum.map(&String.trim/1)
                                |> Enum.filter(&(&1 != ""))),
-                       do: "btn-active btn btn-lg btn-outline btn-info",
-                       else: "btn btn-lg btn-outline btn-info"
+                       do: "btn-active btn btn-outline btn-info font-bold",
+                       else: "btn btn-outline btn-info font-thin"
                   }>
                     <.input
                       type="checkbox"
@@ -154,7 +157,7 @@ defmodule PouConWeb.Live.Environment.Control do
                       }
                       class="hidden"
                     />
-                    <span class="font-medium text-lg">{fan}</span>
+                    <span>{fan}</span>
                   </label>
                 <% end %>
                 <%= for pump <- @pumps do %>
@@ -165,8 +168,8 @@ defmodule PouConWeb.Live.Environment.Control do
                                 )
                                 |> Enum.map(&String.trim/1)
                                 |> Enum.filter(&(&1 != ""))),
-                       do: "btn-active btn btn-lg btn-outline btn-success",
-                       else: "btn btn-lg btn-outline btn-success"
+                       do: "btn-active btn btn-outline btn-success font-bold",
+                       else: "btn btn-outline btn-success font-medium"
                   }>
                     <.input
                       type="checkbox"
@@ -181,7 +184,7 @@ defmodule PouConWeb.Live.Environment.Control do
                       }
                       class="hidden"
                     />
-                    <span class="font-medium text-lg">{pump}</span>
+                    <span>{pump}</span>
                   </label>
                 <% end %>
               </div>
@@ -228,17 +231,11 @@ defmodule PouConWeb.Live.Environment.Control do
               class="checkbox checkbox-lg checkbox-success"
               label="Enable Environment Automation"
             />
-            <div class="alert alert-warning mt-2 p-3">
-              <span>
-                <strong>Humidity Overrides:</strong>
-                All pumps stop if humidity &gt;= Hum Max. All pumps run if humidity &lt;= Hum Min.
-              </span>
-            </div>
           </div>
 
           <.button
             type="submit"
-            class="w-full btn btn-success btn-lg text-xl py-10 shadow-2xl hover:shadow-3xl"
+            class="w-full btn btn-success text-xl py-8 shadow-2xl hover:shadow-3xl"
           >
             💾 Save Configuration
           </.button>
