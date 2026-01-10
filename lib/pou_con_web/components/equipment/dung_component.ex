@@ -114,7 +114,8 @@ defmodule PouConWeb.Components.Equipment.DungComponent do
       is_interlocked: false,
       state_text: "OFFLINE",
       color: "gray",
-      anim_class: ""
+      anim_class: "",
+      err_msg: "offline"
     }
   end
 
