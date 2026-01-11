@@ -22,6 +22,8 @@ defmodule PouConWeb.Live.Reports.Index do
       |> assign(:selected_water_meter, nil)
       |> assign(:water_meter_snapshots, [])
       |> assign(:daily_consumption, [])
+      |> assign(:selected_power_meter, nil)
+      |> assign(:power_meter_snapshots, [])
       |> assign(:date_from, Date.add(Date.utc_today(), -7))
       |> assign(:date_to, Date.utc_today())
       |> load_data()
@@ -54,6 +56,10 @@ defmodule PouConWeb.Live.Reports.Index do
     {:noreply, socket |> assign(:selected_water_meter, meter) |> load_data()}
   end
 
+  def handle_event("select_power_meter", %{"meter" => meter}, socket) do
+    {:noreply, socket |> assign(:selected_power_meter, meter) |> load_data()}
+  end
+
   def handle_event("change_date_range", params, socket) do
     socket =
       socket
@@ -69,6 +75,7 @@ defmodule PouConWeb.Live.Reports.Index do
       "events" -> load_events(socket)
       "sensors" -> load_sensors(socket)
       "water_meters" -> load_water_meters(socket)
+      "power_meters" -> load_power_meters(socket)
       "summaries" -> load_summaries(socket)
       "errors" -> load_errors(socket)
       _ -> socket
@@ -144,6 +151,22 @@ defmodule PouConWeb.Live.Reports.Index do
     |> assign(:daily_consumption, consumption)
   end
 
+  defp load_power_meters(socket) do
+    meter = socket.assigns.selected_power_meter || get_first_power_meter(socket)
+    hours = 24
+
+    snapshots =
+      if meter do
+        PeriodicLogger.get_power_meter_snapshots(meter, hours)
+      else
+        []
+      end
+
+    socket
+    |> assign(:selected_power_meter, meter)
+    |> assign(:power_meter_snapshots, snapshots)
+  end
+
   defp load_summaries(socket) do
     summaries = DailySummaryTask.get_summaries(socket.assigns.date_from, socket.assigns.date_to)
     assign(socket, :summaries, summaries)
@@ -167,6 +190,15 @@ defmodule PouConWeb.Live.Reports.Index do
   defp get_first_water_meter(socket) do
     socket.assigns.equipment_list
     |> Enum.find(&(&1.type == "water_meter"))
+    |> case do
+      nil -> nil
+      meter -> meter.name
+    end
+  end
+
+  defp get_first_power_meter(socket) do
+    socket.assigns.equipment_list
+    |> Enum.find(&(&1.type == "power_meter"))
     |> case do
       nil -> nil
       meter -> meter.name
@@ -207,6 +239,13 @@ defmodule PouConWeb.Live.Reports.Index do
             class={"px-4 py-2 rounded " <> if @view_mode == "water_meters", do: "bg-cyan-600 text-white", else: "bg-gray-700 text-gray-300"}
           >
             Water Meters
+          </button>
+          <button
+            phx-click="change_view"
+            phx-value-view="power_meters"
+            class={"px-4 py-2 rounded " <> if @view_mode == "power_meters", do: "bg-amber-600 text-white", else: "bg-gray-700 text-gray-300"}
+          >
+            Power Meters
           </button>
           <button
             phx-click="change_view"
@@ -468,7 +507,84 @@ defmodule PouConWeb.Live.Reports.Index do
             </div>
           <% end %>
         <% end %>
-        
+
+    <!-- Power Meters View -->
+        <%= if @view_mode == "power_meters" do %>
+          <div class="bg-gray-400 p-4 rounded-lg mb-4">
+            <h3 class="text-lg font-semibold mb-3">Select Power Meter</h3>
+            <div class="flex gap-2">
+              <%= for eq <- Enum.filter(@equipment_list, &(&1.type == "power_meter")) do %>
+                <button
+                  phx-click="select_power_meter"
+                  phx-value-meter={eq.name}
+                  class={"px-4 py-2 rounded " <> if @selected_power_meter == eq.name, do: "bg-amber-600 text-white", else: "bg-gray-700 text-gray-300"}
+                >
+                  {eq.title || eq.name}
+                </button>
+              <% end %>
+            </div>
+          </div>
+
+          <%= if @selected_power_meter do %>
+            <%= if !Enum.empty?(@power_meter_snapshots) do %>
+              <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <table class="w-full text-sm">
+                  <thead class="bg-amber-600">
+                    <tr>
+                      <th class="p-2 text-left">Time</th>
+                      <th class="p-2 text-right">V L1</th>
+                      <th class="p-2 text-right">V L2</th>
+                      <th class="p-2 text-right">V L3</th>
+                      <th class="p-2 text-right">Total Power (W)</th>
+                      <th class="p-2 text-right">PF</th>
+                      <th class="p-2 text-right">Freq (Hz)</th>
+                      <th class="p-2 text-right">Energy (kWh)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%= for snapshot <- Enum.reverse(@power_meter_snapshots) do %>
+                      <tr class="border-t border-gray-700 hover:bg-gray-600">
+                        <td class="p-2 text-gray-200">
+                          {Calendar.strftime(to_local(snapshot.inserted_at), "%d-%m-%Y %H:%M")}
+                        </td>
+                        <td class="p-2 text-right font-medium text-yellow-300">
+                          {format_float(snapshot.voltage_l1, 1)}
+                        </td>
+                        <td class="p-2 text-right font-medium text-yellow-300">
+                          {format_float(snapshot.voltage_l2, 1)}
+                        </td>
+                        <td class="p-2 text-right font-medium text-yellow-300">
+                          {format_float(snapshot.voltage_l3, 1)}
+                        </td>
+                        <td class="p-2 text-right font-medium text-green-300">
+                          {format_int(snapshot.power_total)}
+                        </td>
+                        <td class="p-2 text-right font-medium text-blue-300">
+                          {format_float(snapshot.pf_avg, 3)}
+                        </td>
+                        <td class="p-2 text-right font-medium text-cyan-300">
+                          {format_float(snapshot.frequency, 2)}
+                        </td>
+                        <td class="p-2 text-right font-medium text-amber-300">
+                          {format_float(snapshot.energy_import, 2)}
+                        </td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            <% else %>
+              <div class="bg-gray-800 p-8 rounded-lg text-center text-gray-400">
+                No power meter data available. Snapshots are recorded every 30 minutes.
+              </div>
+            <% end %>
+          <% else %>
+            <div class="bg-gray-800 p-8 rounded-lg text-center text-gray-400">
+              No power meters configured.
+            </div>
+          <% end %>
+        <% end %>
+
     <!-- Daily Summaries View -->
         <%= if @view_mode == "summaries" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">
@@ -609,6 +725,11 @@ defmodule PouConWeb.Live.Reports.Index do
   defp format_float(nil, _precision), do: "-"
   defp format_float(value, precision) when is_float(value), do: Float.round(value, precision)
   defp format_float(value, _precision), do: value
+
+  defp format_int(nil), do: "-"
+  defp format_int(value) when is_integer(value), do: value
+  defp format_int(value) when is_float(value), do: round(value)
+  defp format_int(value), do: value
 
   # Convert UTC datetime to local time using configured timezone from app_config
   defp to_local(nil), do: nil

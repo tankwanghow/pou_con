@@ -31,7 +31,8 @@ defmodule PouCon.Hardware.DeviceManager do
     WaveshareDigitalIO,
     CytronTempHumSensor,
     XintaiWaterMeter,
-    Virtual
+    Virtual,
+    GenericDeviceInterpreter
   }
 
   alias PouCon.Repo
@@ -47,6 +48,7 @@ defmodule PouCon.Hardware.DeviceManager do
   end
 
   defmodule RuntimeDevice do
+    @moduledoc false
     defstruct [
       :id,
       :name,
@@ -57,7 +59,9 @@ defmodule PouCon.Hardware.DeviceManager do
       :read_fn,
       :write_fn,
       :description,
-      :port_device_path
+      :port_device_path,
+      # For hybrid dispatch: when set, use GenericDeviceInterpreter
+      :device_type
     ]
   end
 
@@ -338,9 +342,56 @@ defmodule PouCon.Hardware.DeviceManager do
   @impl GenServer
   def handle_call({:command, device_name, action, params}, _from, state) do
     case get_device_and_modbus(state, device_name) do
-      {:ok, %RuntimeDevice{write_fn: nil}, _} ->
+      # Generic device type with no write_fn - use GenericDeviceInterpreter
+      {:ok, %RuntimeDevice{write_fn: nil, device_type: device_type} = dev, modbus}
+      when device_type != nil ->
+        if MapSet.member?(state.skipped_slaves, {dev.port_device_path, dev.slave_id}) do
+          {:reply, {:error, :device_offline_skipped}, state}
+        else
+          result =
+            try do
+              field_name = to_string(action)
+              value = params[:value] || params["value"]
+
+              if modbus do
+                Task.async(fn ->
+                  GenericDeviceInterpreter.write(
+                    modbus,
+                    dev.slave_id,
+                    device_type,
+                    field_name,
+                    value
+                  )
+                end)
+                |> Task.await(@modbus_timeout)
+              else
+                GenericDeviceInterpreter.write(
+                  modbus,
+                  dev.slave_id,
+                  device_type,
+                  field_name,
+                  value
+                )
+              end
+            catch
+              :exit, reason ->
+                if reason == :timeout do
+                  Logger.error("[#{device_name}] Generic command timeout")
+                  {:error, :command_timeout}
+                else
+                  Logger.error("[#{device_name}] Generic command exception: #{inspect(reason)}")
+                  {:error, :command_exception}
+                end
+            end
+
+          {:reply, result, state}
+        end
+
+      # No write function and no device_type - can't write
+      {:ok, %RuntimeDevice{write_fn: nil, device_type: nil}, _} ->
         {:reply, {:error, :no_write_function}, state}
 
+      # Custom module write function
       {:ok, dev = %{write_fn: write_fn, slave_id: sid, register: reg, channel: ch}, modbus} ->
         # Check if we are currently skipping this slave due to timeout
         if MapSet.member?(state.skipped_slaves, {dev.port_device_path, sid}) do
@@ -478,6 +529,7 @@ defmodule PouCon.Hardware.DeviceManager do
   def init(:ok) do
     :ets.new(:device_cache, [:named_table, :public, :set])
     state = load_state_from_db()
+    Logger.info("[DeviceManager] Initialized with #{map_size(state.devices)} devices, #{map_size(state.ports)} ports")
     Process.send_after(self(), :poll_devices, @poll_interval)
     {:ok, state}
   end
@@ -508,7 +560,9 @@ defmodule PouCon.Hardware.DeviceManager do
       end)
 
     runtime_devices =
-      Repo.all(Device)
+      Device
+      |> Repo.all()
+      |> Repo.preload(:device_type)
       |> Enum.map(fn d ->
         %RuntimeDevice{
           id: d.id,
@@ -520,7 +574,9 @@ defmodule PouCon.Hardware.DeviceManager do
           read_fn: if(d.read_fn, do: String.to_existing_atom(d.read_fn)),
           write_fn: if(d.write_fn, do: String.to_existing_atom(d.write_fn)),
           description: d.description,
-          port_device_path: d.port_device_path
+          port_device_path: d.port_device_path,
+          # Store the full DeviceType struct for generic interpreter
+          device_type: d.device_type
         }
       end)
       |> Map.new(&{&1.name, &1})
@@ -540,26 +596,35 @@ defmodule PouCon.Hardware.DeviceManager do
   defp poll_devices(state) do
     device_list = Map.values(state.devices)
 
+    # Separate devices: those using custom modules (read_fn) vs generic templates (device_type)
+    {generic_devices, custom_devices} =
+      Enum.split_with(device_list, fn d -> d.device_type != nil end)
+
+    # Poll custom module devices (existing logic)
+    state = poll_custom_devices(state, custom_devices)
+
+    # Poll generic template devices
+    poll_generic_devices(state, generic_devices)
+  end
+
+  # Poll devices using custom module dispatch (read_fn -> module)
+  defp poll_custom_devices(state, devices) do
     groups =
-      device_list
+      devices
       |> Enum.filter(& &1.read_fn)
       |> Enum.group_by(&{&1.port_device_path, &1.slave_id, &1.read_fn, &1.register})
 
-    # We use Enum.reduce to carry the state (failure counts/skips) forward synchronously
     Enum.reduce(groups, state, fn {{port_path, slave_id, read_fn, register} = key, group},
                                   acc_state ->
-      # 1. Check if Slave is already skipped
       if MapSet.member?(acc_state.skipped_slaves, {port_path, slave_id}) do
         acc_state
       else
-        # 2. Get Modbus PID
         modbus =
           case Map.get(acc_state.ports, port_path) do
             nil -> nil
             port -> port.modbus_pid
           end
 
-        # 3. Execute Poll (dispatch to device module)
         poll_result =
           try do
             module = get_device_module(read_fn)
@@ -574,12 +639,54 @@ defmodule PouCon.Hardware.DeviceManager do
             end
           catch
             :exit, reason ->
-              # Convert exit to result tuple
               if reason == :timeout, do: {:error, :timeout}, else: {:error, :polling_exception}
           end
 
-        # 4. Handle Result & Update State
         handle_poll_result(acc_state, poll_result, key, group)
+      end
+    end)
+  end
+
+  # Poll devices using generic device type templates
+  defp poll_generic_devices(state, devices) do
+    # Group by {port_path, slave_id, device_type_id} since each device_type may have
+    # different register maps, but devices with same type on same slave can share reads
+    groups = Enum.group_by(devices, &{&1.port_device_path, &1.slave_id, &1.device_type.id})
+
+    Enum.reduce(groups, state, fn {{port_path, slave_id, _type_id} = key, group}, acc_state ->
+      if MapSet.member?(acc_state.skipped_slaves, {port_path, slave_id}) do
+        acc_state
+      else
+        modbus =
+          case Map.get(acc_state.ports, port_path) do
+            nil -> nil
+            port -> port.modbus_pid
+          end
+
+        # All devices in group share same device_type, use first one
+        device = hd(group)
+
+        poll_result =
+          try do
+            if modbus do
+              Task.async(fn ->
+                GenericDeviceInterpreter.read(
+                  modbus,
+                  slave_id,
+                  device.device_type,
+                  device.register
+                )
+              end)
+              |> Task.await(@modbus_timeout)
+            else
+              GenericDeviceInterpreter.read(modbus, slave_id, device.device_type, device.register)
+            end
+          catch
+            :exit, reason ->
+              if reason == :timeout, do: {:error, :timeout}, else: {:error, :polling_exception}
+          end
+
+        handle_generic_poll_result(acc_state, poll_result, key, group)
       end
     end)
   end
@@ -617,16 +724,8 @@ defmodule PouCon.Hardware.DeviceManager do
         "Poll timeout #{current_count}/#{@max_consecutive_timeouts} for #{port_path} slave #{slave_id}"
       )
 
-      IO.inspect(
-        "Poll timeout #{current_count}/#{@max_consecutive_timeouts} for #{port_path} slave #{slave_id}"
-      )
-
       if current_count >= @max_consecutive_timeouts do
         Logger.error(
-          "Slave #{slave_id} on #{port_path} reached max timeouts. Skipping until reload."
-        )
-
-        IO.inspect(
           "Slave #{slave_id} on #{port_path} reached max timeouts. Skipping until reload."
         )
 
@@ -641,6 +740,53 @@ defmodule PouCon.Hardware.DeviceManager do
       # Non-timeout errors (e.g. CRC) do not increment the *timeout* counter,
       # but you could add separate logic here if desired.
       Logger.error("Polling exception for group #{inspect(key)}: #{inspect(reason)}")
+      state
+    end
+  end
+
+  # Handle poll results for generic device type devices
+  defp handle_generic_poll_result(state, {:ok, data}, {port_path, slave_id, _type_id}, group) do
+    # Cache success - all devices in group get the same data
+    Enum.each(group, fn device ->
+      :ets.insert(:device_cache, {device.name, data})
+    end)
+
+    # Reset failure count on success
+    new_counts = Map.delete(state.failure_counts, {port_path, slave_id})
+    %{state | failure_counts: new_counts}
+  end
+
+  defp handle_generic_poll_result(state, {:error, reason}, {port_path, slave_id, _type_id}, group) do
+    # Cache error for all devices in group
+    Enum.each(group, fn device ->
+      :ets.insert(:device_cache, {device.name, {:error, reason}})
+    end)
+
+    # Handle timeout threshold (same logic as custom devices)
+    if reason == :timeout do
+      current_count = Map.get(state.failure_counts, {port_path, slave_id}, 0) + 1
+
+      Logger.warning(
+        "Poll timeout #{current_count}/#{@max_consecutive_timeouts} for generic device on #{port_path} slave #{slave_id}"
+      )
+
+      if current_count >= @max_consecutive_timeouts do
+        Logger.error(
+          "Slave #{slave_id} on #{port_path} reached max timeouts. Skipping until reload."
+        )
+
+        new_skipped = MapSet.put(state.skipped_slaves, {port_path, slave_id})
+        new_counts = Map.put(state.failure_counts, {port_path, slave_id}, current_count)
+        %{state | skipped_slaves: new_skipped, failure_counts: new_counts}
+      else
+        new_counts = Map.put(state.failure_counts, {port_path, slave_id}, current_count)
+        %{state | failure_counts: new_counts}
+      end
+    else
+      Logger.error(
+        "Generic device polling error for #{port_path} slave #{slave_id}: #{inspect(reason)}"
+      )
+
       state
     end
   end

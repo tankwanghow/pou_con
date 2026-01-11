@@ -54,6 +54,9 @@ defmodule PouCon.Equipment.EquipmentLoader do
             "feed_in" ->
               PouCon.Equipment.Controllers.FeedIn
 
+            "power_meter" ->
+              PouCon.Equipment.Controllers.PowerMeter
+
             _ ->
               Logger.warning(
                 "Unsupported equipment type: #{equipment.type} for #{equipment.name}"
