@@ -116,68 +116,77 @@ defmodule PouConWeb.Live.Dashboard.Index do
       <div class="flex flex-wrap gap-2 items-center mb-2">
         <.link
           phx-click="reload_ports"
-          class="px-3 py-1 rounded bg-green-200 border border-green-600"
+          class="p-2 rounded-lg bg-green-200 border border-green-600 active:scale-95 transition-transform"
         >
-          <.icon name="hero-arrow-path" />
+          <.icon name="hero-arrow-path" class="w-6 h-6" />
         </.link>
         <%!-- Admin-only controls --%>
         <%= if @current_role == :admin do %>
           <.link
             href="/admin/settings"
-            class="px-3 py-1 rounded bg-purple-200 border border-purple-600"
+            class="p-2 rounded-lg bg-purple-200 border border-purple-600 active:scale-95 transition-transform"
           >
-            <.icon name="hero-cog-6-tooth-solid" />
+            <.icon name="hero-cog-6-tooth-solid" class="w-6 h-6" />
           </.link>
           <.link
             :if={System.get_env("SIMULATE_DEVICES") == "1"}
             href="/admin/simulation"
-            class="px-3 py-1 rounded bg-cyan-200 border border-cyan-600"
+            class="p-2 rounded-lg bg-cyan-200 border border-cyan-600 active:scale-95 transition-transform"
           >
-            <.icon name="hero-beaker-solid" />
+            <.icon name="hero-beaker-solid" class="w-6 h-6" />
           </.link>
           <.link
             href="/admin/interlock"
-            class="px-3 py-1 rounded bg-indigo-200 border border-indigo-600"
+            class="p-2 rounded-lg bg-indigo-200 border border-indigo-600 active:scale-95 transition-transform"
           >
-            <.icon name="hero-link-micro" />
+            <.icon name="hero-shield-check-solid" class="w-6 h-6" />
           </.link>
           <.link
             href="/admin/ports"
-            class="px-3 py-1 rounded bg-orange-200 border border-orange-600"
+            class="p-2 rounded-lg bg-orange-200 border border-orange-600 active:scale-95 transition-transform"
           >
-            <.icon name="hero-cpu-chip" />
+            <.icon name="hero-signal-solid" class="w-6 h-6" />
           </.link>
           <.link
             href="/admin/devices"
-            class="px-3 py-1 rounded bg-lime-200 border border-lime-600"
+            class="p-2 rounded-lg bg-lime-200 border border-lime-600 active:scale-95 transition-transform"
           >
-            <.icon name="hero-cpu-chip-solid" />
+            <.icon name="hero-cube-solid" class="w-6 h-6" />
+          </.link>
+          <.link
+            href="/admin/device_types"
+            class="p-2 rounded-lg bg-teal-200 border border-teal-600 active:scale-95 transition-transform"
+          >
+            <.icon name="hero-squares-2x2-solid" class="w-6 h-6" />
           </.link>
           <.link
             href="/admin/equipment"
-            class="px-3 py-1 rounded bg-sky-200 border border-sky-600"
+            class="p-2 rounded-lg bg-sky-200 border border-sky-600 active:scale-95 transition-transform"
           >
-            <.icon name="hero-wrench-screwdriver-solid" />
+            <.icon name="hero-wrench-screwdriver-solid" class="w-6 h-6" />
           </.link>
         <% end %>
-        <.link href="/reports" class="px-3 py-1 rounded bg-yellow-200 border border-yellow-600">
-          <.icon name="hero-presentation-chart-bar" />
+        <.link
+          href="/reports"
+          class="p-2 rounded-lg bg-yellow-200 border border-yellow-600 active:scale-95 transition-transform"
+        >
+          <.icon name="hero-chart-bar-solid" class="w-6 h-6" />
         </.link>
         <%!-- Show login or logout based on auth state --%>
         <%= if @current_role == :admin do %>
           <.link
             href={~p"/logout"}
             method="post"
-            class="ml-auto px-3 py-1 rounded bg-rose-200 border border-rose-600 font-medium"
+            class="ml-auto p-2 rounded-lg bg-rose-200 border border-rose-600 active:scale-95 transition-transform"
           >
-            <.icon name="hero-arrow-right-start-on-rectangle" />
+            <.icon name="hero-power-solid" class="w-6 h-6" />
           </.link>
         <% else %>
           <.link
             href="/login"
-            class="ml-auto px-3 py-1 rounded bg-blue-200 border border-blue-600 font-medium"
+            class="ml-auto p-2 rounded-lg bg-blue-200 border border-blue-600 active:scale-95 transition-transform"
           >
-            <.icon name="hero-key" />
+            <.icon name="hero-key-solid" class="w-6 h-6" />
           </.link>
         <% end %>
       </div>
