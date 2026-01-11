@@ -202,24 +202,25 @@ defmodule PouConWeb.Live.Dashboard.Index do
         <% fans = Enum.filter(@equipment, &(&1.type == "fan")) %>
         <% pumps = Enum.filter(@equipment, &(&1.type == "pump")) %>
         <% water_meters = Enum.filter(@equipment, &(&1.type == "water_meter")) %>
+        <% power_meters = Enum.filter(@equipment, &(&1.type == "power_meter")) %>
 
         <.live_component
-          module={PouConWeb.Components.Summaries.TempHumWaterSummaryComponent}
-          id="temphumwater"
+          module={PouConWeb.Components.Summaries.TempHumSummaryComponent}
+          id="temphum"
           temphums={temphums}
+        />
+
+        <.live_component
+          module={PouConWeb.Components.Summaries.WaterMeterSummaryComponent}
+          id="watermeters"
           water_meters={water_meters}
         />
 
         <.live_component
-          module={PouConWeb.Components.Summaries.FansSummaryComponent}
-          id="fans"
-          fans={fans}
-        />
-
-        <.live_component
-          module={PouConWeb.Components.Summaries.PumpsSummaryComponent}
-          id="pumps"
-          pumps={pumps}
+          :if={length(power_meters) > 0}
+          module={PouConWeb.Components.Summaries.PowerMeterSummaryComponent}
+          id="power_meter_summ"
+          power_meters={power_meters}
         />
 
         <%!-- Egg Collection --%>
@@ -228,6 +229,18 @@ defmodule PouConWeb.Live.Dashboard.Index do
           module={PouConWeb.Components.Summaries.EggSummaryComponent}
           id="egg_summ"
           equipments={eggs}
+        />
+
+        <.live_component
+          module={PouConWeb.Components.Summaries.PumpsSummaryComponent}
+          id="pumps"
+          pumps={pumps}
+        />
+
+        <.live_component
+          module={PouConWeb.Components.Summaries.FansSummaryComponent}
+          id="fans"
+          fans={fans}
         />
 
         <%!-- Feeding --%>

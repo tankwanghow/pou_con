@@ -54,7 +54,9 @@ defmodule PouConWeb.Plugs.ApiAuth do
       _ ->
         # Try X-API-Key header
         case get_req_header(conn, "x-api-key") do
-          [key] -> key
+          [key] ->
+            key
+
           _ ->
             # Try query parameter
             conn.query_params["api_key"]

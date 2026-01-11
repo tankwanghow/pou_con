@@ -67,6 +67,7 @@ defmodule PouConWeb.Router do
     get("/sync/equipment_events", SyncController, :equipment_events)
     get("/sync/sensor_snapshots", SyncController, :sensor_snapshots)
     get("/sync/water_meter_snapshots", SyncController, :water_meter_snapshots)
+    get("/sync/power_meter_snapshots", SyncController, :power_meter_snapshots)
     get("/sync/daily_summaries", SyncController, :daily_summaries)
     get("/sync/flocks", SyncController, :flocks)
     get("/sync/flock_logs", SyncController, :flock_logs)
@@ -97,13 +98,15 @@ defmodule PouConWeb.Router do
     live("/reports", Live.Reports.Index, :index)
 
     # Equipment monitoring pages (public - users can view status)
-    live("/temp_hum_water", Live.TempHumWater.Index, :index)
+    live("/temp_hum", Live.TempHum.Index, :index)
     live("/fans", Live.Fans.Index, :index)
     live("/pumps", Live.Pumps.Index, :index)
     live("/lighting", Live.Lighting.Index, :index)
     live("/egg_collection", Live.EggCollection.Index, :index)
     live("/feed", Live.Feeding.Index, :index)
     live("/dung", Live.Dung.Index, :index)
+    live("/power_meters", Live.PowerMeters.Index, :index)
+    live("/water_meters", Live.WaterMeters.Index, :index)
   end
 
   # --------------------------------------------------------------------
@@ -123,6 +126,10 @@ defmodule PouConWeb.Router do
       live("/system_time", Live.Admin.SystemTime.Index, :index)
 
       # Hardware configuration
+      live("/device_types", Live.Admin.DeviceTypes.Index, :index)
+      live("/device_types/new", Live.Admin.DeviceTypes.Form, :new)
+      live("/device_types/:id", Live.Admin.DeviceTypes.Show, :show)
+      live("/device_types/:id/edit", Live.Admin.DeviceTypes.Form, :edit)
       live("/devices", Live.Admin.Devices.Index, :index)
       live("/devices/new", Live.Admin.Devices.Form, :new)
       live("/devices/:id/edit", Live.Admin.Devices.Form, :edit)

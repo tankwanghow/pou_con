@@ -99,7 +99,8 @@ defmodule PouConWeb.Live.Environment.Control do
       <div class="max-w-6xl mx-auto">
         <div class="flex justify-between items-center bg-blue-200 p-4 rounded-2xl">
           <p class="text-gray-700">
-            <span class="font-medium">Temp 0°C to skip a step.</span> Steps are evaluated in ascending temp order.
+            <span class="font-medium">Temp 0°C to skip a step.</span>
+            Steps are evaluated in ascending temp order.
           </p>
           <.dashboard_link />
         </div>

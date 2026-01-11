@@ -65,6 +65,7 @@ defmodule Seeds do
     end
 
     # Order matters - seed tables in dependency order
+    seed_device_types()
     seed_ports()
     seed_devices()
     seed_equipment()
@@ -79,6 +80,28 @@ defmodule Seeds do
 
     IO.puts("Database seed completed!")
   end
+
+  defp seed_device_types do
+    seed_from_json("device_types.json", "device_types", "device_types", fn row ->
+      %{
+        id: row["id"],
+        name: row["name"],
+        manufacturer: row["manufacturer"],
+        model: row["model"],
+        category: row["category"],
+        description: row["description"],
+        register_map: Jason.encode!(row["register_map"]),
+        read_strategy: row["read_strategy"],
+        is_builtin: to_sqlite_bool(row["is_builtin"])
+      }
+      |> with_timestamps()
+    end)
+  end
+
+  # Convert boolean to SQLite integer (1/0) for insert_all which bypasses Ecto type casting
+  defp to_sqlite_bool(true), do: 1
+  defp to_sqlite_bool(false), do: 0
+  defp to_sqlite_bool(nil), do: 0
 
   defp seed_ports do
     seed_from_json("ports.json", "ports", "ports", fn row ->
@@ -109,7 +132,8 @@ defmodule Seeds do
         channel: row["channel"],
         description: row["description"],
         # Apply port path replacement (ttyUSB0 -> configured port)
-        port_device_path: replace_port_path(row["port_device_path"])
+        port_device_path: replace_port_path(row["port_device_path"]),
+        device_type_id: row["device_type_id"]
       }
       |> with_timestamps()
     end)

@@ -296,10 +296,48 @@ No indoor APs required - outdoor APs provide full coverage through curtains and 
 | **UniFi 6 Mesh Pro** | 17 | $200 | $3,400 |
 | **6m steel pole** (relay only) | 1 | $80 | $80 |
 | **Roof mounting brackets** | 15 | $15 | $225 |
-| **PoE injectors** | 17 | $15 | $255 |
+| **PoE injectors (802.3af)** | 17+2 spare | $15 | $285 |
 | **Weatherproof accessories** | 15 | $10 | $150 |
 | **Electrical runs to APs** | - | - | ~$500 |
-| **Total** | | | **~$4,610** |
+| **Total** | | | **~$4,640** |
+
+### PoE Injectors (Important!)
+
+Each UniFi 6 Mesh Pro requires **Power over Ethernet (PoE)** - the AP has no power plug, it receives power through the Ethernet cable from a PoE injector.
+
+```
+Wall Outlet → [PoE Injector] → Ethernet Cable → [UniFi AP]
+                    ↑
+              Injects 48V DC power into the Ethernet cable
+```
+
+#### Required Specification
+
+- **Standard**: 802.3af (PoE) - 15.4W minimum
+- **Quantity**: 17 (one per AP) + 2 spares recommended
+
+#### Recommended Models
+
+| Model | Price | Notes |
+|-------|-------|-------|
+| **Ubiquiti U-POE-af** | ~$12 | Official Ubiquiti, guaranteed compatible |
+| **TP-Link TL-PoE150S** | ~$15 | Reliable, widely available |
+| **Generic 802.3af** | ~$8-10 | Budget option, check reviews |
+
+**Note**: 802.3at (PoE+) and 802.3bt (PoE++) injectors also work - they are backward compatible with 802.3af devices.
+
+#### Installation
+
+1. Place PoE injector near a power outlet (indoors or in weatherproof enclosure)
+2. Connect **LAN IN** port to your network (only needed for AP-0 at office)
+3. Connect **PoE OUT** port to the UniFi AP via Ethernet cable
+4. For mesh APs: Leave **LAN IN** empty - they get network wirelessly
+
+```
+AP-0 (Office):     Router ──► LAN IN [PoE Injector] PoE OUT ──► AP-0
+AP-R (Relay):      (empty)    LAN IN [PoE Injector] PoE OUT ──► AP-R (mesh wireless)
+Farm APs:          (empty)    LAN IN [PoE Injector] PoE OUT ──► AP (mesh wireless)
+```
 
 ### IP Address Scheme
 

@@ -61,11 +61,12 @@ if config_env() == :prod do
 
   # API key for central monitoring system authentication
   # Generate with: mix phx.gen.secret 32
-  api_key = System.get_env("API_KEY") ||
-    case File.read("/etc/pou_con/api_key") do
-      {:ok, content} -> String.trim(content)
-      {:error, _} -> nil
-    end
+  api_key =
+    System.get_env("API_KEY") ||
+      case File.read("/etc/pou_con/api_key") do
+        {:ok, content} -> String.trim(content)
+        {:error, _} -> nil
+      end
 
   # Store house identity and API config for use throughout the app
   config :pou_con, :house,

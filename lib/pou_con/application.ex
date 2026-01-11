@@ -1,5 +1,74 @@
 defmodule PouCon.Application do
-  @moduledoc false
+  @moduledoc """
+  PouCon Application - Industrial Automation for Poultry Farms
+
+  ## Startup Order (CRITICAL - Do Not Reorder!)
+
+  The supervision tree has strict startup dependencies. Changing the order
+  can cause race conditions, crashes, or missing functionality.
+
+  ```
+  ┌─────────────────────────────────────────────────────────────────┐
+  │  1. Telemetry + Repo         (Infrastructure)                   │
+  │  2. SystemTimeValidator      (RTC battery failure detection)    │
+  │  3. PortSupervisor           (Serial port connections)          │
+  │  4. DeviceManager            (Modbus polling engine + ETS)      │
+  │  5. Registry                 (Controller name registration)     │
+  │  6. DynamicSupervisor        (Controller process supervisor)    │
+  │  7. Ecto.Migrator            (Database migrations)              │
+  │  8. Phoenix.PubSub           (Real-time event broadcast)        │
+  │  9. TaskSupervisor           (Async logging writes)             │
+  │ 10. InterlockController      (Safety chain rules)               │
+  │ 11. EquipmentLoader          (Spawns all controllers)           │
+  │ 12. Logging Services         (PeriodicLogger, DailySummary, Cleanup)  │
+  │ 13. Automation Services      (Environment, Light, Egg, Feeding) │
+  │ 14. Phoenix.Endpoint         (Web UI - always last)             │
+  └─────────────────────────────────────────────────────────────────┘
+  ```
+
+  ## DynamicSupervisor Restart Policy
+
+  The equipment controller supervisor uses aggressive restart settings:
+
+      max_restarts: 1_000_000
+      max_seconds: 1
+
+  This is **intentional** for 24/7 industrial operation:
+
+  1. **Immediate Recovery**: A crashed controller restarts within milliseconds,
+     minimizing equipment downtime.
+
+  2. **Transient Failures**: Modbus timeouts and CRC errors are temporary.
+     Restarting quickly often resolves the issue.
+
+  3. **Hardware Reality**: In industrial environments, brief communication
+     glitches are common (electrical noise, loose connections).
+
+  4. **Safety Priority**: Equipment going offline is worse than excessive
+     restarts. Fans must run for ventilation, pumps for cooling.
+
+  ### Monitoring for Restart Loops
+
+  If a controller crashes repeatedly, check logs for patterns:
+  - `[fan_1] Started controller` appearing every second = restart loop
+  - Usually indicates misconfigured device_tree or hardware failure
+
+  ## Key Dependencies
+
+  - **Registry before DynamicSupervisor**: Controllers register names on start
+  - **InterlockController before EquipmentLoader**: Controllers check interlocks
+    during initialization (sync_and_update calls can_start?)
+  - **DeviceManager before Controllers**: Controllers query cached device data
+  - **PubSub before Controllers**: Controllers subscribe to "device_data" topic
+
+  ## Test vs Production
+
+  In test environment (`@env == :test`), these services are disabled:
+  - SystemTimeValidator (no RTC to validate)
+  - Automation services (tests mock behavior)
+  - Logging services (tests use Mox)
+  """
+
   use Application
 
   # Capture Mix.env at compile time since Mix is not available in releases
