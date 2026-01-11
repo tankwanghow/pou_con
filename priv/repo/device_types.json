@@ -1,0 +1,813 @@
+{
+  "device_types": [
+    {
+      "id": 1,
+      "name": "generic_temp_sensor",
+      "manufacturer": "Various",
+      "model": "RS485 Temperature Sensor",
+      "category": "sensor",
+      "description": "Generic Modbus RTU temperature sensor. Reads holding register 0 as signed int16 with 0.1 multiplier.",
+      "register_map": {
+        "registers": [
+          {
+            "name": "temperature",
+            "address": 0,
+            "count": 1,
+            "type": "int16",
+            "multiplier": 0.1,
+            "unit": "°C",
+            "access": "r"
+          }
+        ],
+        "batch_start": 0,
+        "batch_count": 1,
+        "function_code": "holding"
+      },
+      "read_strategy": "batch",
+      "is_builtin": true
+    },
+    {
+      "id": 2,
+      "name": "generic_temp_hum_sensor",
+      "manufacturer": "Various",
+      "model": "RS485 Temperature & Humidity Sensor",
+      "category": "sensor",
+      "description": "Generic Modbus RTU temperature/humidity sensor. Reads 2 holding registers starting at 0.",
+      "register_map": {
+        "registers": [
+          {
+            "name": "temperature",
+            "address": 0,
+            "count": 1,
+            "type": "int16",
+            "multiplier": 0.1,
+            "unit": "°C",
+            "access": "r"
+          },
+          {
+            "name": "humidity",
+            "address": 1,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 0.1,
+            "unit": "%",
+            "access": "r"
+          }
+        ],
+        "batch_start": 0,
+        "batch_count": 2,
+        "function_code": "holding"
+      },
+      "read_strategy": "batch",
+      "is_builtin": true
+    },
+    {
+      "id": 3,
+      "name": "generic_pressure_sensor",
+      "manufacturer": "Various",
+      "model": "RS485 Pressure Transmitter",
+      "category": "sensor",
+      "description": "Generic 4-20mA pressure transmitter with Modbus interface. Reads pressure as float32.",
+      "register_map": {
+        "registers": [
+          {
+            "name": "pressure",
+            "address": 0,
+            "count": 2,
+            "type": "float32",
+            "multiplier": 1,
+            "unit": "bar",
+            "access": "r"
+          }
+        ],
+        "batch_start": 0,
+        "batch_count": 2,
+        "function_code": "holding"
+      },
+      "read_strategy": "batch",
+      "is_builtin": true
+    },
+    {
+      "id": 4,
+      "name": "generic_level_sensor",
+      "manufacturer": "Various",
+      "model": "RS485 Level Sensor",
+      "category": "sensor",
+      "description": "Generic ultrasonic or radar level sensor. Reads level as uint16 in mm.",
+      "register_map": {
+        "registers": [
+          {
+            "name": "level",
+            "address": 0,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 1,
+            "unit": "mm",
+            "access": "r"
+          },
+          {
+            "name": "distance",
+            "address": 1,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 1,
+            "unit": "mm",
+            "access": "r"
+          }
+        ],
+        "batch_start": 0,
+        "batch_count": 2,
+        "function_code": "holding"
+      },
+      "read_strategy": "batch",
+      "is_builtin": true
+    },
+    {
+      "id": 5,
+      "name": "simple_energy_meter",
+      "manufacturer": "Various",
+      "model": "Single Phase Energy Meter",
+      "category": "meter",
+      "description": "Simple single-phase energy meter with basic readings.",
+      "register_map": {
+        "registers": [
+          {
+            "name": "voltage",
+            "address": 0,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 0.1,
+            "unit": "V",
+            "access": "r"
+          },
+          {
+            "name": "current",
+            "address": 1,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 0.01,
+            "unit": "A",
+            "access": "r"
+          },
+          {
+            "name": "power",
+            "address": 2,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 1,
+            "unit": "W",
+            "access": "r"
+          },
+          {
+            "name": "energy",
+            "address": 4,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 0.01,
+            "unit": "kWh",
+            "access": "r"
+          },
+          {
+            "name": "frequency",
+            "address": 6,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 0.01,
+            "unit": "Hz",
+            "access": "r"
+          },
+          {
+            "name": "power_factor",
+            "address": 7,
+            "count": 1,
+            "type": "int16",
+            "multiplier": 0.001,
+            "unit": "",
+            "access": "r"
+          }
+        ],
+        "batch_start": 0,
+        "batch_count": 8,
+        "function_code": "holding"
+      },
+      "read_strategy": "batch",
+      "is_builtin": true
+    },
+    {
+      "id": 6,
+      "name": "simple_flow_meter",
+      "manufacturer": "Various",
+      "model": "Electromagnetic Flow Meter",
+      "category": "meter",
+      "description": "Simple electromagnetic flow meter with flow rate and totalizer.",
+      "register_map": {
+        "registers": [
+          {
+            "name": "flow_rate",
+            "address": 0,
+            "count": 2,
+            "type": "float32",
+            "multiplier": 1,
+            "unit": "m³/h",
+            "access": "r"
+          },
+          {
+            "name": "total_flow",
+            "address": 2,
+            "count": 2,
+            "type": "float32",
+            "multiplier": 1,
+            "unit": "m³",
+            "access": "rw"
+          }
+        ],
+        "batch_start": 0,
+        "batch_count": 4,
+        "function_code": "holding"
+      },
+      "read_strategy": "batch",
+      "is_builtin": true
+    },
+    {
+      "id": 7,
+      "name": "generic_4ch_relay",
+      "manufacturer": "Various",
+      "model": "4-Channel Relay Module",
+      "category": "actuator",
+      "description": "Generic 4-channel relay module. Read/write coil status.",
+      "register_map": {
+        "registers": [
+          {
+            "name": "relay_1",
+            "address": 0,
+            "count": 1,
+            "type": "bool",
+            "access": "rw"
+          },
+          {
+            "name": "relay_2",
+            "address": 1,
+            "count": 1,
+            "type": "bool",
+            "access": "rw"
+          },
+          {
+            "name": "relay_3",
+            "address": 2,
+            "count": 1,
+            "type": "bool",
+            "access": "rw"
+          },
+          {
+            "name": "relay_4",
+            "address": 3,
+            "count": 1,
+            "type": "bool",
+            "access": "rw"
+          }
+        ],
+        "batch_start": 0,
+        "batch_count": 4,
+        "function_code": "coil"
+      },
+      "read_strategy": "batch",
+      "is_builtin": true
+    },
+    {
+      "id": 8,
+      "name": "generic_4_20ma_input",
+      "manufacturer": "Various",
+      "model": "4-20mA Analog Input Module",
+      "category": "io",
+      "description": "4-channel 4-20mA analog input module. Returns raw ADC values (0-4095 = 4-20mA).",
+      "register_map": {
+        "registers": [
+          {
+            "name": "channel_1",
+            "address": 0,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 1,
+            "unit": "",
+            "access": "r"
+          },
+          {
+            "name": "channel_2",
+            "address": 1,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 1,
+            "unit": "",
+            "access": "r"
+          },
+          {
+            "name": "channel_3",
+            "address": 2,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 1,
+            "unit": "",
+            "access": "r"
+          },
+          {
+            "name": "channel_4",
+            "address": 3,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 1,
+            "unit": "",
+            "access": "r"
+          }
+        ],
+        "batch_start": 0,
+        "batch_count": 4,
+        "function_code": "input"
+      },
+      "read_strategy": "batch",
+      "is_builtin": true
+    },
+    {
+      "id": 9,
+      "name": "xintai_water_meter",
+      "manufacturer": "Kaifeng Xintai Valve Co., Ltd",
+      "model": "MODBUS 485 Water Meter",
+      "category": "meter",
+      "description": "Xintai ultrasonic water meter with valve control. Supports flow measurement, battery monitoring, and remote valve control. Default: 9600 N 8 1.",
+      "register_map": {
+        "registers": [
+          {
+            "name": "positive_flow",
+            "address": 1,
+            "count": 2,
+            "type": "float32_le",
+            "multiplier": 1,
+            "unit": "m³",
+            "access": "rw",
+            "description": "Positive cumulative flow"
+          },
+          {
+            "name": "negative_flow",
+            "address": 3,
+            "count": 2,
+            "type": "float32_le",
+            "multiplier": 1,
+            "unit": "m³",
+            "access": "rw",
+            "description": "Negative cumulative flow"
+          },
+          {
+            "name": "flow_rate",
+            "address": 5,
+            "count": 2,
+            "type": "float32_le",
+            "multiplier": 1,
+            "unit": "m³/h",
+            "access": "r",
+            "description": "Instantaneous flow rate"
+          },
+          {
+            "name": "pipe_status",
+            "address": 7,
+            "count": 1,
+            "type": "enum",
+            "access": "r",
+            "description": "Pipe segment status",
+            "values": {
+              "85": "empty",
+              "170": "full"
+            }
+          },
+          {
+            "name": "remaining_flow",
+            "address": 8,
+            "count": 2,
+            "type": "float32_le",
+            "multiplier": 1,
+            "unit": "m³",
+            "access": "rw",
+            "description": "Remaining prepaid flow"
+          },
+          {
+            "name": "pressure",
+            "address": 10,
+            "count": 2,
+            "type": "float32_le",
+            "multiplier": 1,
+            "unit": "MPa",
+            "access": "r",
+            "description": "Water pressure (customized equipment only)"
+          },
+          {
+            "name": "temperature",
+            "address": 12,
+            "count": 2,
+            "type": "float32_le",
+            "multiplier": 1,
+            "unit": "°C",
+            "access": "r",
+            "description": "Water temperature (customized equipment only)"
+          },
+          {
+            "name": "battery_voltage",
+            "address": 26,
+            "count": 2,
+            "type": "float32_le",
+            "multiplier": 1,
+            "unit": "V",
+            "access": "r",
+            "description": "Battery voltage"
+          },
+          {
+            "name": "valve_status",
+            "address": 28,
+            "count": 1,
+            "type": "bitmask",
+            "access": "rw",
+            "description": "Valve status (read) / control (write: 1=open, 2=close)",
+            "bits": {
+              "0": "open",
+              "1": "closed",
+              "2": "abnormal",
+              "3": "low_battery"
+            }
+          }
+        ],
+        "batch_start": 1,
+        "batch_count": 28,
+        "function_code": "holding"
+      },
+      "read_strategy": "batch",
+      "is_builtin": true
+    },
+    {
+      "id": 10,
+      "name": "delab_pqm1000s",
+      "manufacturer": "DELAB",
+      "model": "PQM-1000s",
+      "category": "meter",
+      "description": "DELAB 3-phase digital power quality network analyzer. Monitors voltage, current, power, energy, power factor, frequency and THD for generator sizing and energy tracking. Default: 9600 N 8 1.",
+      "register_map": {
+        "registers": [
+          {
+            "name": "voltage_l1",
+            "address": 0,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 0.001,
+            "unit": "V",
+            "access": "r",
+            "description": "L1-N voltage"
+          },
+          {
+            "name": "voltage_l2",
+            "address": 2,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 0.001,
+            "unit": "V",
+            "access": "r",
+            "description": "L2-N voltage"
+          },
+          {
+            "name": "voltage_l3",
+            "address": 4,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 0.001,
+            "unit": "V",
+            "access": "r",
+            "description": "L3-N voltage"
+          },
+          {
+            "name": "current_l1",
+            "address": 6,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 0.01,
+            "unit": "A",
+            "access": "r",
+            "description": "L1 current"
+          },
+          {
+            "name": "current_l2",
+            "address": 8,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 0.01,
+            "unit": "A",
+            "access": "r",
+            "description": "L2 current"
+          },
+          {
+            "name": "current_l3",
+            "address": 10,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 0.01,
+            "unit": "A",
+            "access": "r",
+            "description": "L3 current"
+          },
+          {
+            "name": "voltage_l12",
+            "address": 12,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 0.001,
+            "unit": "V",
+            "access": "r",
+            "description": "L1-L2 voltage"
+          },
+          {
+            "name": "voltage_l23",
+            "address": 14,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 0.001,
+            "unit": "V",
+            "access": "r",
+            "description": "L2-L3 voltage"
+          },
+          {
+            "name": "voltage_l31",
+            "address": 16,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 0.001,
+            "unit": "V",
+            "access": "r",
+            "description": "L3-L1 voltage"
+          },
+          {
+            "name": "power_l1",
+            "address": 18,
+            "count": 2,
+            "type": "int32",
+            "multiplier": 1,
+            "unit": "W",
+            "access": "r",
+            "description": "L1 active power"
+          },
+          {
+            "name": "power_l2",
+            "address": 20,
+            "count": 2,
+            "type": "int32",
+            "multiplier": 1,
+            "unit": "W",
+            "access": "r",
+            "description": "L2 active power"
+          },
+          {
+            "name": "power_l3",
+            "address": 22,
+            "count": 2,
+            "type": "int32",
+            "multiplier": 1,
+            "unit": "W",
+            "access": "r",
+            "description": "L3 active power"
+          },
+          {
+            "name": "power_total",
+            "address": 24,
+            "count": 2,
+            "type": "int32",
+            "multiplier": 1,
+            "unit": "W",
+            "access": "r",
+            "description": "Total active power"
+          },
+          {
+            "name": "reactive_l1",
+            "address": 26,
+            "count": 2,
+            "type": "int32",
+            "multiplier": 1,
+            "unit": "VAr",
+            "access": "r",
+            "description": "L1 reactive power"
+          },
+          {
+            "name": "reactive_l2",
+            "address": 28,
+            "count": 2,
+            "type": "int32",
+            "multiplier": 1,
+            "unit": "VAr",
+            "access": "r",
+            "description": "L2 reactive power"
+          },
+          {
+            "name": "reactive_l3",
+            "address": 30,
+            "count": 2,
+            "type": "int32",
+            "multiplier": 1,
+            "unit": "VAr",
+            "access": "r",
+            "description": "L3 reactive power"
+          },
+          {
+            "name": "reactive_total",
+            "address": 32,
+            "count": 2,
+            "type": "int32",
+            "multiplier": 1,
+            "unit": "VAr",
+            "access": "r",
+            "description": "Total reactive power"
+          },
+          {
+            "name": "apparent_l1",
+            "address": 34,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 1,
+            "unit": "VA",
+            "access": "r",
+            "description": "L1 apparent power"
+          },
+          {
+            "name": "apparent_l2",
+            "address": 36,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 1,
+            "unit": "VA",
+            "access": "r",
+            "description": "L2 apparent power"
+          },
+          {
+            "name": "apparent_l3",
+            "address": 38,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 1,
+            "unit": "VA",
+            "access": "r",
+            "description": "L3 apparent power"
+          },
+          {
+            "name": "apparent_total",
+            "address": 40,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 1,
+            "unit": "VA",
+            "access": "r",
+            "description": "Total apparent power"
+          },
+          {
+            "name": "pf_l1",
+            "address": 42,
+            "count": 1,
+            "type": "int16",
+            "multiplier": 0.001,
+            "unit": "",
+            "access": "r",
+            "description": "L1 power factor"
+          },
+          {
+            "name": "pf_l2",
+            "address": 43,
+            "count": 1,
+            "type": "int16",
+            "multiplier": 0.001,
+            "unit": "",
+            "access": "r",
+            "description": "L2 power factor"
+          },
+          {
+            "name": "pf_l3",
+            "address": 44,
+            "count": 1,
+            "type": "int16",
+            "multiplier": 0.001,
+            "unit": "",
+            "access": "r",
+            "description": "L3 power factor"
+          },
+          {
+            "name": "pf_avg",
+            "address": 45,
+            "count": 1,
+            "type": "int16",
+            "multiplier": 0.001,
+            "unit": "",
+            "access": "r",
+            "description": "Average power factor"
+          },
+          {
+            "name": "current_neutral",
+            "address": 46,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 0.01,
+            "unit": "A",
+            "access": "r",
+            "description": "Neutral current"
+          },
+          {
+            "name": "frequency",
+            "address": 54,
+            "count": 2,
+            "type": "uint32",
+            "multiplier": 0.001,
+            "unit": "Hz",
+            "access": "r",
+            "description": "Line frequency"
+          },
+          {
+            "name": "thd_v1",
+            "address": 92,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 0.01,
+            "unit": "%",
+            "access": "r",
+            "description": "L1 voltage THD"
+          },
+          {
+            "name": "thd_v2",
+            "address": 93,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 0.01,
+            "unit": "%",
+            "access": "r",
+            "description": "L2 voltage THD"
+          },
+          {
+            "name": "thd_v3",
+            "address": 94,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 0.01,
+            "unit": "%",
+            "access": "r",
+            "description": "L3 voltage THD"
+          },
+          {
+            "name": "thd_i1",
+            "address": 98,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 0.01,
+            "unit": "%",
+            "access": "r",
+            "description": "L1 current THD"
+          },
+          {
+            "name": "thd_i2",
+            "address": 99,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 0.01,
+            "unit": "%",
+            "access": "r",
+            "description": "L2 current THD"
+          },
+          {
+            "name": "thd_i3",
+            "address": 100,
+            "count": 1,
+            "type": "uint16",
+            "multiplier": 0.01,
+            "unit": "%",
+            "access": "r",
+            "description": "L3 current THD"
+          },
+          {
+            "name": "energy_import",
+            "address": 256,
+            "count": 4,
+            "type": "uint64",
+            "multiplier": 0.01,
+            "unit": "kWh",
+            "access": "r",
+            "description": "Total imported energy"
+          },
+          {
+            "name": "energy_export",
+            "address": 260,
+            "count": 4,
+            "type": "uint64",
+            "multiplier": 0.01,
+            "unit": "kWh",
+            "access": "r",
+            "description": "Total exported energy"
+          }
+        ],
+        "batches": [
+          {"start": 0, "count": 56, "function_code": "holding"},
+          {"start": 92, "count": 12, "function_code": "holding"},
+          {"start": 256, "count": 8, "function_code": "holding"}
+        ],
+        "function_code": "holding"
+      },
+      "read_strategy": "multi_batch",
+      "is_builtin": true
+    }
+  ]
+}
