@@ -10,8 +10,14 @@ defmodule PouConWeb.Live.Auth.Login do
         {:ok, push_navigate(socket, to: "/setup")}
 
       true ->
-        {:ok, assign(socket, form: to_form(%{"password" => ""}), error: nil)}
+        {:ok, assign(socket, form: to_form(%{"password" => ""}), error: nil, return_to: "/")}
     end
+  end
+
+  @impl true
+  def handle_params(params, _uri, socket) do
+    return_to = params["return_to"] || "/"
+    {:noreply, assign(socket, :return_to, return_to)}
   end
 
   @impl true
@@ -62,11 +68,12 @@ defmodule PouConWeb.Live.Auth.Login do
   def handle_event("login", %{"password" => password}, socket) do
     case authenticate_password(password) do
       {:ok, role} ->
-        return_to = URI.encode("/dashboard")
+        return_to = socket.assigns.return_to || "/"
+        encoded_return_to = URI.encode_www_form(return_to)
 
         {:noreply,
          redirect(socket,
-           to: "/auth/session?role=#{role}&return_to=#{return_to}"
+           to: "/auth/session?role=#{role}&return_to=#{encoded_return_to}"
          )}
 
       {:error, :invalid_password} ->

@@ -39,13 +39,32 @@ defmodule PouConWeb.Router do
   defp authenticate_role(conn, required_role) do
     current_role = get_session(conn, :current_role)
 
-    if current_role == required_role do
-      conn
-    else
-      conn
-      |> put_flash(:error, "Access denied. Please log in with the correct credentials.")
-      |> redirect(to: "/login")
-      |> halt()
+    cond do
+      current_role == required_role ->
+        conn
+
+      current_role in [:admin, :user] ->
+        # Logged in but wrong role - redirect to dashboard
+        conn
+        |> put_flash(:error, "Admin access required. Please log in with admin credentials.")
+        |> redirect(to: "/")
+        |> halt()
+
+      true ->
+        # Not logged in - redirect to login with return_to
+        return_to = request_path_with_query(conn)
+
+        conn
+        |> put_flash(:error, "Please log in with admin credentials.")
+        |> redirect(to: "/login?return_to=#{URI.encode_www_form(return_to)}")
+        |> halt()
+    end
+  end
+
+  defp request_path_with_query(conn) do
+    case conn.query_string do
+      "" -> conn.request_path
+      qs -> "#{conn.request_path}?#{qs}"
     end
   end
 

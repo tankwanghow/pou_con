@@ -92,7 +92,7 @@ defmodule PouConWeb.Live.TempHum.Index do
     ~H"""
     <Layouts.app flash={@flash}>
       <.header>
-        Temperature, Humidity & Water
+        Temperature & Humidity
         <:actions>
           <.dashboard_link />
         </:actions>
