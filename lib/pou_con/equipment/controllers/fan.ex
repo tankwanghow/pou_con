@@ -1,4 +1,48 @@
 defmodule PouCon.Equipment.Controllers.Fan do
+  @moduledoc """
+  Controller for ventilation fan equipment.
+
+  Manages on/off state, monitors running feedback, and handles auto/manual mode
+  switching for poultry house ventilation fans.
+
+  ## Device Tree Configuration
+
+  ```yaml
+  on_off_coil: WS-11-O-01      # Digital output to control fan relay
+  running_feedback: WS-11-I-01  # Digital input for motor running status
+  auto_manual: VT-200-01        # Virtual device for mode selection
+  inverted: true                # Optional: true if relay wiring is inverted (NC)
+  ```
+
+  ## Inverted Wiring (Fail-Safe Design)
+
+  When `inverted: true`, the relay uses normally-closed (NC) wiring:
+  - Coil OFF (0) = relay contacts closed = fan RUNS
+  - Coil ON (1) = relay contacts open = fan STOPS
+
+  This is a safety feature: power failure de-energizes relay, keeping fans running
+  to maintain ventilation. Most fans in this system use inverted wiring.
+
+  ## State Machine
+
+  - `commanded_on` - What the system wants (user command or automation)
+  - `actual_on` - What the hardware reports (coil state, adjusted for inversion)
+  - `is_running` - Motor running feedback from contactor auxiliary contact
+  - `mode` - `:auto` (automation allowed) or `:manual` (user control only)
+
+  ## Error Detection
+
+  - `:timeout` - No response from Modbus device
+  - `:on_but_not_running` - Commanded ON but motor not running (check contactor/motor)
+  - `:off_but_running` - Commanded OFF but motor still running (stuck contactor)
+  - `:command_failed` - Modbus write command failed
+
+  ## Interlock Integration
+
+  Before turning on, checks `InterlockHelper.check_can_start/1` to enforce
+  safety chains (e.g., pump cannot start if upstream fan is off).
+  """
+
   use GenServer
   require Logger
 

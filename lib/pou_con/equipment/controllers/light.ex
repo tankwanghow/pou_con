@@ -1,4 +1,39 @@
 defmodule PouCon.Equipment.Controllers.Light do
+  @moduledoc """
+  Controller for poultry house lighting equipment.
+
+  Manages on/off state for lighting zones with schedule-based automation
+  through the LightScheduler.
+
+  ## Device Tree Configuration
+
+  ```yaml
+  on_off_coil: WS-13-O-01      # Digital output to control light relay
+  running_feedback: WS-13-I-01  # Digital input for light status (optional)
+  auto_manual: VT-200-20        # Virtual device for mode selection
+  ```
+
+  ## State Machine
+
+  - `commanded_on` - What the system wants (user command or scheduler)
+  - `actual_on` - What the hardware reports (coil state)
+  - `is_running` - Feedback confirming lights are on (if wired)
+  - `mode` - `:auto` (scheduler allowed) or `:manual` (user control only)
+
+  ## Error Detection
+
+  - `:timeout` - No response from Modbus device
+  - `:on_but_not_running` - Light commanded ON but feedback shows OFF
+  - `:off_but_running` - Light commanded OFF but feedback shows ON
+  - `:command_failed` - Modbus write command failed
+
+  ## Schedule Integration
+
+  The LightScheduler automatically turns lights on/off based on configured
+  schedules (on_time, off_time). Only affects equipment in `:auto` mode.
+  Schedules are configured per-equipment in the light_schedules table.
+  """
+
   use GenServer
   require Logger
 

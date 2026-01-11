@@ -1,6 +1,52 @@
 defmodule PouCon.Equipment.Controllers.TempHumSen do
+  @moduledoc """
+  Controller for temperature and humidity sensors.
+
+  This is a read-only sensor controller that monitors environmental conditions
+  in the poultry house. Data is used by the EnvironmentController for
+  automatic fan and pump control.
+
+  ## Device Tree Configuration
+
+  ```yaml
+  sensor: TH-01  # The Modbus sensor device name
+  ```
+
+  ## Monitored Data
+
+  - `temperature` - Ambient temperature in °C
+  - `humidity` - Relative humidity in %
+  - `dew_point` - Calculated dew point temperature in °C
+
+  ## Dew Point Calculation
+
+  Dew point is calculated using the Magnus formula:
+  ```
+  γ = ln(RH/100) + (b × T) / (c + T)
+  dew_point = (c × γ) / (b - γ)
+  ```
+  Where b = 17.62, c = 243.12 (constants for water vapor)
+
+  ## Error Handling
+
+  - `:timeout` - No response from sensor (Modbus communication failure)
+  - `:invalid_data` - Temperature/humidity readings out of valid range
+
+  When errors occur, temperature/humidity values are cleared (set to nil)
+  to prevent the EnvironmentController from acting on stale data.
+
+  ## Integration
+
+  The EnvironmentController reads sensor values to determine:
+  - Which step in the cooling sequence to activate
+  - When to start/stop fans and pumps
+  - Whether humidity is within acceptable range
+  """
+
   use GenServer
   require Logger
+
+  alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
 
   @device_manager Application.compile_env(:pou_con, :device_manager)
 
@@ -17,7 +63,7 @@ defmodule PouCon.Equipment.Controllers.TempHumSen do
   end
 
   def start_link(opts),
-    do: GenServer.start_link(__MODULE__, opts, name: via(Keyword.fetch!(opts, :name)))
+    do: GenServer.start_link(__MODULE__, opts, name: Helpers.via(Keyword.fetch!(opts, :name)))
 
   def start(opts) when is_list(opts) do
     name = Keyword.fetch!(opts, :name)
@@ -34,7 +80,7 @@ defmodule PouCon.Equipment.Controllers.TempHumSen do
     end
   end
 
-  def status(name), do: GenServer.call(via(name), :status)
+  def status(name), do: GenServer.call(Helpers.via(name), :status)
 
   @impl GenServer
   def init(opts) do
@@ -138,8 +184,6 @@ defmodule PouCon.Equipment.Controllers.TempHumSen do
   # ——————————————————————————————————————————————————————————————
   # Helpers
   # ——————————————————————————————————————————————————————————————
-  defp via(name), do: {:via, Registry, {PouCon.DeviceControllerRegistry, name}}
-
   defp error_message(nil), do: "OK"
   defp error_message(:timeout), do: "SENSOR TIMEOUT"
   defp error_message(:invalid_data), do: "INVALID SENSOR DATA"

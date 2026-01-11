@@ -1,8 +1,57 @@
 defmodule PouCon.Equipment.Controllers.FeedIn do
+  @moduledoc """
+  Controller for feed-in (hopper filling) equipment.
+
+  Manages the auger or conveyor that fills the main feed hopper from bulk
+  storage (silo). Automatically stops when the hopper is full, detected
+  by a level switch.
+
+  ## Device Tree Configuration
+
+  ```yaml
+  filling_coil: WS-15-O-05      # Digital output to control auger motor
+  running_feedback: WS-15-I-05   # Digital input for motor running status
+  full_switch: WS-15-I-06        # Level switch indicating hopper is full
+  auto_manual: VT-200-35         # Virtual device for mode selection
+  ```
+
+  ## State Machine
+
+  - `commanded_on` - What the system wants (fill request)
+  - `actual_on` - What the hardware reports (motor running)
+  - `is_running` - Motor running feedback
+  - `bucket_full` - Level switch indicates hopper is full
+  - `mode` - `:auto` (FeedInController allowed) or `:manual` (user control only)
+
+  ## Automatic Operation
+
+  The FeedInController monitors feeders and triggers filling when:
+  1. A feeder reaches its front limit (hopper may need refill)
+  2. The hopper level switch shows not full
+  3. The feed-in is in `:auto` mode
+
+  Filling stops automatically when `full_switch` triggers.
+
+  ## Error Detection
+
+  - `:timeout` - No response from Modbus device
+  - `:sensor_timeout` - Full switch not responding
+  - `:on_but_not_running` - Motor commanded ON but not running
+  - `:off_but_running` - Motor commanded OFF but still running
+  - `:command_failed` - Modbus write command failed
+
+  ## Safety Features
+
+  - Automatic stop when hopper is full (prevents overflow)
+  - Interlock can require other equipment running before fill allowed
+  - Manual mode for maintenance and testing
+  """
+
   use GenServer
   require Logger
 
   alias PouCon.Automation.Interlock.InterlockController
+  alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
   alias PouCon.Logging.EquipmentLogger
 
   @device_manager Application.compile_env(:pou_con, :device_manager)
@@ -31,7 +80,7 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   # Public API
   # ——————————————————————————————————————————————————————————————
   def start_link(opts),
-    do: GenServer.start_link(__MODULE__, opts, name: via(Keyword.fetch!(opts, :name)))
+    do: GenServer.start_link(__MODULE__, opts, name: Helpers.via(Keyword.fetch!(opts, :name)))
 
   def start(opts) when is_list(opts) do
     name = Keyword.fetch!(opts, :name)
@@ -48,11 +97,11 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
     end
   end
 
-  def turn_on(name), do: GenServer.cast(via(name), :turn_on)
-  def turn_off(name), do: GenServer.cast(via(name), :turn_off)
-  def set_auto(name), do: GenServer.cast(via(name), :set_auto)
-  def set_manual(name), do: GenServer.cast(via(name), :set_manual)
-  def status(name), do: GenServer.call(via(name), :status)
+  def turn_on(name), do: GenServer.cast(Helpers.via(name), :turn_on)
+  def turn_off(name), do: GenServer.cast(Helpers.via(name), :turn_off)
+  def set_auto(name), do: GenServer.cast(Helpers.via(name), :set_auto)
+  def set_manual(name), do: GenServer.cast(Helpers.via(name), :set_manual)
+  def status(name), do: GenServer.call(Helpers.via(name), :status)
 
   # ——————————————————————————————————————————————————————————————
   # GenServer Callbacks
@@ -342,6 +391,4 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   defp error_message(:off_but_running), do: "OFF BUT RUNNING"
   defp error_message(:crashed_previously), do: "RECOVERED FROM CRASH"
   defp error_message(_), do: "UNKNOWN ERROR"
-
-  defp via(name), do: {:via, Registry, {PouCon.DeviceControllerRegistry, name}}
 end

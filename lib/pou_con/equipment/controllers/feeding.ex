@@ -1,7 +1,58 @@
 defmodule PouCon.Equipment.Controllers.Feeding do
+  @moduledoc """
+  Controller for chain/belt feeding systems.
+
+  Manages feed distribution equipment that moves along cage rows, dispensing
+  feed from a central hopper. The feeder travels between front and back
+  limit switches, controlled by the FeedingScheduler.
+
+  ## Device Tree Configuration
+
+  ```yaml
+  device_to_back_limit: WS-15-O-01   # Motor direction: move toward back
+  device_to_front_limit: WS-15-O-02  # Motor direction: move toward front
+  front_limit: WS-15-I-01            # Limit switch at front position
+  back_limit: WS-15-I-02             # Limit switch at back position
+  pulse_sensor: WS-15-I-03           # Optional: rotation/distance sensor
+  auto_manual: VT-200-30             # Virtual device for mode selection
+  ```
+
+  ## Movement State Machine
+
+  Unlike simple on/off equipment, the feeder has directional movement:
+  - `commanded_target` - `:to_front_limit` or `:to_back_limit` or `nil`
+  - `is_moving` - Currently in motion
+  - `at_front_limit` - Front limit switch triggered
+  - `at_back_limit` - Back limit switch triggered
+  - `mode` - `:auto` (scheduler allowed) or `:manual` (user control only)
+
+  ## Automatic Operation
+
+  The FeedingScheduler controls feeders based on configured schedules:
+  1. At `move_to_back_limit_time`: Command move to back limit
+  2. At `move_to_front_limit_time`: Command move to front limit
+
+  This creates a feeding cycle where the feeder distributes feed while
+  traveling in one direction, then returns.
+
+  ## Error Detection
+
+  - `:timeout` - No response from Modbus device
+  - `:sensor_timeout` - Limit switches not responding
+  - `:movement_timeout` - Feeder didn't reach limit in expected time
+  - `:command_failed` - Modbus write command failed
+
+  ## Safety Features
+
+  - Movement stops automatically when limit switch is triggered
+  - Timeout protection if feeder gets stuck mid-travel
+  - Manual mode allows operator override during maintenance
+  """
+
   use GenServer
   require Logger
 
+  alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
   alias PouCon.Logging.EquipmentLogger
 
   @device_manager Application.compile_env(:pou_con, :device_manager)
@@ -31,7 +82,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   # Public API
   # ——————————————————————————————————————————————————————————————
   def start_link(opts),
-    do: GenServer.start_link(__MODULE__, opts, name: via(Keyword.fetch!(opts, :name)))
+    do: GenServer.start_link(__MODULE__, opts, name: Helpers.via(Keyword.fetch!(opts, :name)))
 
   def start(opts) do
     name = Keyword.fetch!(opts, :name)
@@ -48,12 +99,16 @@ defmodule PouCon.Equipment.Controllers.Feeding do
     end
   end
 
-  def move_to_back_limit(name), do: GenServer.cast(via(name), {:command_move, :to_back_limit})
-  def move_to_front_limit(name), do: GenServer.cast(via(name), {:command_move, :to_front_limit})
-  def stop_movement(name), do: GenServer.cast(via(name), :stop_movement)
-  def set_auto(name), do: GenServer.cast(via(name), :set_auto)
-  def set_manual(name), do: GenServer.cast(via(name), :set_manual)
-  def status(name), do: GenServer.call(via(name), :status)
+  def move_to_back_limit(name),
+    do: GenServer.cast(Helpers.via(name), {:command_move, :to_back_limit})
+
+  def move_to_front_limit(name),
+    do: GenServer.cast(Helpers.via(name), {:command_move, :to_front_limit})
+
+  def stop_movement(name), do: GenServer.cast(Helpers.via(name), :stop_movement)
+  def set_auto(name), do: GenServer.cast(Helpers.via(name), :set_auto)
+  def set_manual(name), do: GenServer.cast(Helpers.via(name), :set_manual)
+  def status(name), do: GenServer.call(Helpers.via(name), :status)
 
   # ——————————————————————————————————————————————————————————————
   # Init
@@ -356,6 +411,4 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   defp error_message(:moving_without_target), do: "MOVING WITHOUT TARGET"
   defp error_message(:crashed_previously), do: "RECOVERED FROM CRASH"
   defp error_message(_), do: "UNKNOWN ERROR"
-
-  defp via(name), do: {:via, Registry, {PouCon.DeviceControllerRegistry, name}}
 end

@@ -1,4 +1,54 @@
 defmodule PouCon.Equipment.Controllers.Egg do
+  @moduledoc """
+  Controller for egg collection conveyor belts.
+
+  Manages the conveyor belts that collect eggs from laying cages and transport
+  them to a central collection point. Supports both scheduled automation and
+  optional physical manual switch control.
+
+  ## Device Tree Configuration
+
+  ```yaml
+  on_off_coil: WS-16-O-01       # Digital output to control conveyor motor
+  running_feedback: WS-16-I-01   # Digital input for motor running status
+  auto_manual: VT-200-40         # Virtual device for mode selection
+  manual_switch: WS-16-I-02      # Optional: physical toggle switch on panel
+  ```
+
+  ## Manual Switch Behavior
+
+  When `manual_switch` is configured:
+  - In `:manual` mode: Physical switch directly controls the conveyor
+  - In `:auto` mode: Physical switch is ignored, scheduler controls conveyor
+
+  The controller uses **edge detection** on the switch input to prevent
+  continuous writes when the switch position is held. Only switch position
+  *changes* trigger coil commands.
+
+  ## State Machine
+
+  - `commanded_on` - What the system wants (scheduler or switch)
+  - `actual_on` - What the hardware reports (coil state)
+  - `is_running` - Motor running feedback from contactor
+  - `mode` - `:auto` (scheduler allowed) or `:manual` (switch control only)
+  - `last_switch_on` - Previous switch position for edge detection
+
+  ## Error Detection
+
+  - `:timeout` - No response from Modbus device
+  - `:on_but_not_running` - Motor commanded ON but not running
+  - `:off_but_running` - Motor commanded OFF but still running
+  - `:command_failed` - Modbus write command failed
+
+  ## Schedule Integration
+
+  The EggCollectionScheduler controls conveyors based on configured schedules:
+  - `start_time`: Turn conveyor ON
+  - `stop_time`: Turn conveyor OFF
+
+  Multiple collection periods per day are typical (morning, afternoon, evening).
+  """
+
   use GenServer
   require Logger
 
