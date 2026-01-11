@@ -389,11 +389,38 @@
 	},
 	{
 		"id" : 48,
-		"name" : "water_meter_1",
-		"title" : "Water Meter 1",
+		"name" : "water_meter_drinking",
+		"title" : "Water Meter Drinking",
 		"type" : "water_meter",
 		"device_tree" : "meter: WM-01",
 		"inserted_at" : "2026-01-01T00:00:00",
 		"updated_at" : "2026-01-01T00:00:00"
+	},
+	{
+		"id" : 51,
+		"name" : "water_meter_cooling",
+		"title" : "Water Meter Cooling",
+		"type" : "water_meter",
+		"device_tree" : "meter: WM-02",
+		"inserted_at" : "2026-01-11T00:00:00",
+		"updated_at" : "2026-01-11T00:00:00"
+	},
+	{
+		"id" : 49,
+		"name" : "power_meter_front",
+		"title" : "Power Meter Front",
+		"type" : "power_meter",
+		"device_tree" : "meter: PM-01",
+		"inserted_at" : "2026-01-11T00:00:00",
+		"updated_at" : "2026-01-11T00:00:00"
+	},
+	{
+		"id" : 50,
+		"name" : "power_meter_back",
+		"title" : "Power Meter Back",
+		"type" : "power_meter",
+		"device_tree" : "meter: PM-02",
+		"inserted_at" : "2026-01-11T00:00:00",
+		"updated_at" : "2026-01-11T00:00:00"
 	}
 ]}

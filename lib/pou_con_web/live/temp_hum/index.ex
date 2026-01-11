@@ -1,4 +1,4 @@
-defmodule PouConWeb.Live.TempHumWater.Index do
+defmodule PouConWeb.Live.TempHum.Index do
   use PouConWeb, :live_view
 
   alias PouCon.Equipment.EquipmentCommands
@@ -129,16 +129,6 @@ defmodule PouConWeb.Live.TempHumWater.Index do
               </span>
             </div>
           </div>
-        </div>
-
-        <div class="flex flex-wrap gap-1">
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "water_meter")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.WaterMeterComponent}
-              id={eq.name}
-              equipment={eq}
-            />
-          <% end %>
         </div>
       </div>
     </Layouts.app>

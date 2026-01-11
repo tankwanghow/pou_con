@@ -27,6 +27,8 @@ defmodule PouCon.Equipment.Controllers.WaterMeter do
   use GenServer
   require Logger
 
+  alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
+
   @device_manager Application.compile_env(:pou_con, :device_manager)
 
   defmodule State do
@@ -57,7 +59,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeter do
   # ------------------------------------------------------------------ #
 
   def start_link(opts),
-    do: GenServer.start_link(__MODULE__, opts, name: via(Keyword.fetch!(opts, :name)))
+    do: GenServer.start_link(__MODULE__, opts, name: Helpers.via(Keyword.fetch!(opts, :name)))
 
   def start(opts) when is_list(opts) do
     name = Keyword.fetch!(opts, :name)
@@ -74,7 +76,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeter do
     end
   end
 
-  def status(name), do: GenServer.call(via(name), :status)
+  def status(name), do: GenServer.call(Helpers.via(name), :status)
 
   # ------------------------------------------------------------------ #
   # GenServer Callbacks
@@ -170,8 +172,8 @@ defmodule PouCon.Equipment.Controllers.WaterMeter do
     flow_rate = get_number(data, :flow_rate)
     remaining_flow = get_number(data, :remaining_flow)
 
-    # Extract status
-    pipe_status = Map.get(data, :pipe_status)
+    # Extract status (normalize string to atom for GenericDeviceInterpreter compatibility)
+    pipe_status = normalize_pipe_status(Map.get(data, :pipe_status))
     valve_status = Map.get(data, :valve_status)
 
     # Extract optional sensor data
@@ -204,6 +206,10 @@ defmodule PouCon.Equipment.Controllers.WaterMeter do
     end
   end
 
+  defp normalize_pipe_status("empty"), do: :empty
+  defp normalize_pipe_status("full"), do: :full
+  defp normalize_pipe_status(_), do: :unknown
+
   defp get_number(data, key) do
     value = Map.get(data, key)
     if is_number(value), do: value, else: nil
@@ -227,8 +233,6 @@ defmodule PouCon.Equipment.Controllers.WaterMeter do
   # ------------------------------------------------------------------ #
   # Private: Helpers
   # ------------------------------------------------------------------ #
-
-  defp via(name), do: {:via, Registry, {PouCon.DeviceControllerRegistry, name}}
 
   defp error_message(nil), do: "OK"
   defp error_message(:timeout), do: "METER TIMEOUT"

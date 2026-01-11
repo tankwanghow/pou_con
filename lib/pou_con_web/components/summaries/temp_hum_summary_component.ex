@@ -1,30 +1,26 @@
-defmodule PouConWeb.Components.Summaries.TempHumWaterSummaryComponent do
+defmodule PouConWeb.Components.Summaries.TempHumSummaryComponent do
   @moduledoc """
-  Summary component for temperature/humidity sensors and water meters.
-  Displays sensor readings, averages, and water meter data.
+  Summary component for temperature/humidity sensors.
+  Displays sensor readings and averages.
   """
 
   use PouConWeb, :live_component
 
-  alias PouConWeb.Components.Equipment.WaterMeterComponent
-
   @impl true
   def update(assigns, socket) do
     temphums = prepare_temphum(assigns[:temphums] || [])
-    water_meters = prepare_water_meters(assigns[:water_meters] || [])
     stats = calculate_averages(assigns[:temphums] || [])
 
     {:ok,
      socket
      |> assign(assigns)
      |> assign(:temphums, temphums)
-     |> assign(:water_meters, water_meters)
      |> assign(:stats, stats)}
   end
 
   @impl true
   def handle_event("navigate", _, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/temp_hum_water")}
+    {:noreply, push_navigate(socket, to: ~p"/temp_hum")}
   end
 
   @impl true
@@ -38,7 +34,6 @@ defmodule PouConWeb.Components.Summaries.TempHumWaterSummaryComponent do
       <div class="flex flex-wrap">
         <.temphum_item :for={eq <- @temphums} eq={eq} />
         <.stats_panel stats={@stats} />
-        <.water_meter_item :for={eq <- @water_meters} eq={eq} />
       </div>
     </div>
     """
@@ -98,25 +93,6 @@ defmodule PouConWeb.Components.Summaries.TempHumWaterSummaryComponent do
     """
   end
 
-  defp water_meter_item(assigns) do
-    ~H"""
-    <div class="p-2 flex flex-col items-center justify-center">
-      <div class={"text-#{@eq.flow_color}-500 text-sm"}>{@eq.title}</div>
-      <div class="flex items-center gap-1">
-        <WaterMeterComponent.water_meter_icon class={"w-9 h-15 text-#{@eq.flow_color}-500"} />
-        <div class="flex flex-col space-y-0.5">
-          <span class={"text-xs font-mono font-bold text-#{@eq.flow_color}-500"}>
-            {@eq.cumulative}
-          </span>
-          <span class={"text-xs font-mono font-bold text-#{@eq.flow_color}-500 "}>
-            {@eq.flow_rate}
-          </span>
-        </div>
-      </div>
-    </div>
-    """
-  end
-
   defp thermometer_icon(assigns) do
     ~H"""
     <svg viewBox="0 0 27 27" fill="currentColor" class={"w-9 h-15 text-#{@color}-500"}>
@@ -133,12 +109,6 @@ defmodule PouConWeb.Components.Summaries.TempHumWaterSummaryComponent do
   defp prepare_temphum(items) do
     items
     |> Enum.map(fn x -> Map.merge(x.status, calculate_temphum_display(x.status)) end)
-    |> Enum.sort_by(& &1.title)
-  end
-
-  defp prepare_water_meters(items) do
-    items
-    |> Enum.map(fn x -> Map.merge(x.status, calculate_water_meter_display(x.status)) end)
     |> Enum.sort_by(& &1.title)
   end
 
@@ -163,19 +133,6 @@ defmodule PouConWeb.Components.Summaries.TempHumWaterSummaryComponent do
       temp_color: temp_color(status.temperature),
       hum_color: hum_color(status.humidity),
       dew_color: dew_color(status.dew_point, status.temperature)
-    }
-  end
-
-  defp calculate_water_meter_display(status) do
-    display = WaterMeterComponent.calculate_display_data(status)
-    flow = status[:flow_rate] || 0.0
-    cumulative = status[:positive_flow] || 0.0
-
-    %{
-      color: display.main_color,
-      flow_rate: format_flow(flow),
-      cumulative: format_cumulative(cumulative),
-      flow_color: if(display.is_error, do: "gray", else: display.flow_color)
     }
   end
 
@@ -230,16 +187,4 @@ defmodule PouConWeb.Components.Summaries.TempHumWaterSummaryComponent do
   defp dew_color(nil, _), do: "rose"
   defp dew_color(dew, temp) when temp - dew < 2.0, do: "rose"
   defp dew_color(_, _), do: "green"
-
-  # ============================================================================
-  # Formatting Helpers
-  # ============================================================================
-
-  defp format_flow(nil), do: "--.-"
-  defp format_flow(flow) when is_float(flow), do: "#{Float.round(flow, 2)} m³/h"
-  defp format_flow(flow), do: "#{flow} m³/h"
-
-  defp format_cumulative(nil), do: "--.-"
-  defp format_cumulative(val) when is_float(val), do: "#{Float.round(val, 1)} m³"
-  defp format_cumulative(val), do: "#{val} m³"
 end
