@@ -6,15 +6,16 @@ defmodule PouCon.Equipment.Schemas.Equipment do
     field :name, :string
     field :title, :string
     field :type, :string
-    field :device_tree, :string
+    field :data_point_tree, :string
+    field :active, :boolean, default: true
 
     timestamps()
   end
 
   def changeset(equipment, attrs) do
     equipment
-    |> cast(attrs, [:name, :title, :type, :device_tree])
-    |> validate_required([:name, :type, :device_tree])
+    |> cast(attrs, [:name, :title, :type, :data_point_tree, :active])
+    |> validate_required([:name, :type, :data_point_tree])
     |> unique_constraint(:name)
     |> validate_inclusion(
       :type,
@@ -22,38 +23,40 @@ defmodule PouCon.Equipment.Schemas.Equipment do
         "fan",
         "pump",
         "temp_sensor",
-        "hum_sensor",
-        "temp_hum_sensor",
+        "humidity_sensor",
+        "co2_sensor",
+        "nh3_sensor",
         "water_meter",
+        "power_meter",
+        "flowmeter",
         "feeding",
         "egg",
         "dung",
         "dung_horz",
         "dung_exit",
         "feed_in",
-        "light",
-        "water_meter"
+        "light"
       ],
       message: "unsupported type"
     )
-    |> validate_device_tree()
+    |> validate_data_point_tree()
   end
 
-  defp validate_device_tree(changeset) do
+  defp validate_data_point_tree(changeset) do
     type = get_field(changeset, :type)
-    device_tree_str = get_field(changeset, :device_tree)
+    data_point_tree_str = get_field(changeset, :data_point_tree)
 
-    if is_nil(device_tree_str) || String.trim(device_tree_str) == "" do
+    if is_nil(data_point_tree_str) || String.trim(data_point_tree_str) == "" do
       # Skip validation if nil or empty; required check handles it
       changeset
     else
       try do
-        opts = PouCon.Hardware.DeviceTreeParser.parse(device_tree_str)
+        opts = PouCon.Hardware.DataPointTreeParser.parse(data_point_tree_str)
         required = required_keys_for_type(type)
         missing = required -- Keyword.keys(opts)
 
         if missing != [] do
-          add_error(changeset, :device_tree, "missing required keys: #{inspect(missing)}")
+          add_error(changeset, :data_point_tree, "missing required keys: #{inspect(missing)}")
         else
           invalid =
             Enum.filter(required, fn k ->
@@ -64,7 +67,7 @@ defmodule PouCon.Equipment.Schemas.Equipment do
           if invalid != [] do
             add_error(
               changeset,
-              :device_tree,
+              :data_point_tree,
               "invalid (non-string or empty) values for keys: #{inspect(invalid)}"
             )
           else
@@ -72,7 +75,7 @@ defmodule PouCon.Equipment.Schemas.Equipment do
           end
         end
       rescue
-        e -> add_error(changeset, :device_tree, "parse error: #{inspect(e)}")
+        e -> add_error(changeset, :data_point_tree, "parse error: #{inspect(e)}")
       end
     end
   end
@@ -103,11 +106,20 @@ defmodule PouCon.Equipment.Schemas.Equipment do
       :filling_coil,
       :running_feedback,
       :auto_manual,
-      :full_switch
+      :full_switch,
+      :trip
     ]
 
-  # Sensor types
-  defp required_keys_for_type("temp_hum_sensor"), do: [:sensor]
+  # Sensor types - all use :sensor key
+  defp required_keys_for_type("temp_sensor"), do: [:sensor]
+  defp required_keys_for_type("humidity_sensor"), do: [:sensor]
+  defp required_keys_for_type("co2_sensor"), do: [:sensor]
+  defp required_keys_for_type("nh3_sensor"), do: [:sensor]
+
+  # Meter types
   defp required_keys_for_type("water_meter"), do: [:meter]
+  defp required_keys_for_type("power_meter"), do: [:meter]
+  defp required_keys_for_type("flowmeter"), do: [:meter]
+
   defp required_keys_for_type(_), do: []
 end
