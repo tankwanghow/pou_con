@@ -19,6 +19,19 @@ defmodule PouCon.Hardware.Devices.Virtual do
   alias PouCon.Repo
 
   @doc """
+  Reads ALL virtual digital states from the database in a single query.
+
+  Used by DeviceManager to batch-fetch all virtual states efficiently.
+  Returns a list of `{slave_id, channel, state}` tuples.
+  """
+  def read_all_virtual_states do
+    Repo.all(
+      from vs in VirtualDigitalState,
+        select: {vs.slave_id, vs.channel, vs.state}
+    )
+  end
+
+  @doc """
   Reads virtual digital input states from the database.
 
   Returns a list of channel states for the specified slave_id.
@@ -26,7 +39,7 @@ defmodule PouCon.Hardware.Devices.Virtual do
 
   Returns: `{:ok, %{channels: [0, 1, 0, ...]}}` or `{:ok, %{channels: []}}`
   """
-  def read_virtual_digital_input(_modbus, slave_id, _register, _channel \\ nil) do
+  def read_virtual_digital_output(_modbus, slave_id, _register, _channel \\ nil) do
     states =
       Repo.all(
         from vs in VirtualDigitalState,
@@ -57,7 +70,7 @@ defmodule PouCon.Hardware.Devices.Virtual do
 
   Returns: `{:ok, :success}` or `{:error, changeset}`
   """
-  def write_virtual_digital_input(
+  def write_virtual_digital_output(
         _modbus,
         slave_id,
         _register,

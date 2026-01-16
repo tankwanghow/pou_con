@@ -7,7 +7,7 @@ defmodule PouCon.Hardware.Ports.Ports do
   alias PouCon.Repo
 
   alias PouCon.Hardware.Ports.Port
-  alias PouCon.Equipment.Schemas.Device
+  alias PouCon.Equipment.Schemas.DataPoint
 
   @doc """
   Returns the list of ports.
@@ -84,8 +84,8 @@ defmodule PouCon.Hardware.Ports.Ports do
         result =
           Repo.transaction(fn ->
             with {:ok, updated_port} <- Repo.update(changeset) do
-              from(d in Device, where: d.port_device_path == ^old_device_path)
-              |> Repo.update_all(set: [port_device_path: new_device_path])
+              from(d in DataPoint, where: d.port_path == ^old_device_path)
+              |> Repo.update_all(set: [port_path: new_device_path])
 
               updated_port
             else

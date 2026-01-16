@@ -1,6 +1,6 @@
-defmodule PouCon.Hardware.DeviceTreeParser do
-  def parse(device_tree_string) do
-    lines = String.split(device_tree_string, "\n")
+defmodule PouCon.Hardware.DataPointTreeParser do
+  def parse(data_point_tree_string) do
+    lines = String.split(data_point_tree_string, "\n")
 
     Enum.reduce_while(lines, [], fn line, acc ->
       trimmed = String.trim(line)

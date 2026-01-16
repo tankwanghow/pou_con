@@ -59,8 +59,10 @@ defmodule PouCon.Hardware.Modbus.SimulatedAdapter do
     #   offline: MapSet.new(),  # Set of offline slave_ids
     #   water_meters: %{slave_id => %{cumulative_flow: float, flow_rate: float, temperature: float, last_update: timestamp}}
     #   power_meters: %{slave_id => %{energy_import: float, last_update: timestamp}}
+    #   flowmeters: %{slave_id => %{total_volume: float, flow_rate: float, temperature: float, last_update: timestamp}}
     # }
-    {:ok, %{slaves: %{}, offline: MapSet.new(), water_meters: %{}, power_meters: %{}}}
+    {:ok,
+     %{slaves: %{}, offline: MapSet.new(), water_meters: %{}, power_meters: %{}, flowmeters: %{}}}
   end
 
   @impl true
@@ -147,36 +149,72 @@ defmodule PouCon.Hardware.Modbus.SimulatedAdapter do
     {:ok, new_state}
   end
 
-  # Read Input Registers (rir) - Temperature/Humidity sensors
+  # Read Input Registers (rir) - Temperature/Humidity/CO2/NH3 sensors
   defp handle_command({:rir, slave_id, start_addr, count}, state) do
-    # Simulate temp/humidity
-    # Temp ~ 25.0 (250), Hum ~ 60.0 (600)
-    # Add some jitter
-    # Return stored registers if present (to allow override), else simulate
-    values =
-      for i <- 0..(count - 1) do
-        addr = start_addr + i
+    cond do
+      # CO2 sensor (SenseCAP S-CO2-03): reads registers 0x0000-0x0002 (CO2, temp*100, humidity*100)
+      start_addr == 0x0000 and count == 3 ->
+        values = simulate_co2_sensor()
+        {{:ok, values}, state}
 
-        case get_register(state, slave_id, addr, nil) do
-          nil ->
-            # Fallback to simulation
-            base = if rem(addr, 2) == 0, do: 250, else: 600
-            base + :rand.uniform(20) - 10
+      # NH3 sensor (SenseCAP S-NH3-01): reads registers 0x2000-0x2006
+      # NH3 (Float32 at 0x2000-0x2001), temp at 0x2004, humidity at 0x2006
+      start_addr == 0x2000 and count >= 7 ->
+        values = simulate_nh3_sensor(count)
+        {{:ok, values}, state}
 
-          val ->
-            val
-        end
-      end
+      # Temperature/Humidity sensor (SenseCAP S-TH-01): standard 2-3 registers
+      start_addr == 0 and count in [2, 3] ->
+        values = simulate_temp_hum_sensor(count)
+        {{:ok, values}, state}
 
-    {{:ok, values}, state}
+      # Single register temp/hum reads (Cytron format: values × 10)
+      # Used when polling one data point at a time
+      start_addr in [0, 1] and count == 1 ->
+        value =
+          if start_addr == 0 do
+            # Temperature: 22-28°C (stored as °C × 10)
+            220 + :rand.uniform(60)
+          else
+            # Humidity: 50-70% (stored as % × 10)
+            500 + :rand.uniform(200)
+          end
+
+        {{:ok, [value]}, state}
+
+      true ->
+        # Fallback: return stored registers or simulated values
+        values =
+          for i <- 0..(count - 1) do
+            addr = start_addr + i
+
+            case get_register(state, slave_id, addr, nil) do
+              nil ->
+                # Fallback to simulation
+                base = if rem(addr, 2) == 0, do: 250, else: 600
+                base + :rand.uniform(20) - 10
+
+              val ->
+                val
+            end
+          end
+
+        {{:ok, values}, state}
+    end
   end
 
-  # Read Holding Registers (rhr) - Water meters, power meters and general purpose
+  # Read Holding Registers (rhr) - Water meters, power meters, flowmeters and general purpose
   defp handle_command({:rhr, slave_id, start_addr, count}, state) do
     cond do
       # Water meter read (reading from register 0x0001, 28 registers)
       start_addr == 0x0001 and count == 28 ->
         {values, new_state} = simulate_water_meter_dynamic(slave_id, state)
+        {{:ok, values}, new_state}
+
+      # Turbine Flowmeter (SUS): reads registers 0x0018-0x0023
+      # 0x0018: temp, 0x0020-0x0021: flow rate (32-bit), 0x0022-0x0023: total volume (32-bit)
+      start_addr == 0x0018 and count >= 12 ->
+        {values, new_state} = simulate_flowmeter_dynamic(slave_id, state)
         {{:ok, values}, new_state}
 
       # Power meter reads (DELAB PQM-1000s at slave IDs 20 and 21)
@@ -682,5 +720,205 @@ defmodule PouCon.Hardware.Modbus.SimulatedAdapter do
     val = round(value)
     unsigned = if val < 0, do: val + 0x100000000, else: val
     unsigned &&& 0xFFFF
+  end
+
+  # ------------------------------------------------------------------ #
+  # CO2 Sensor Simulation (SenseCAP S-CO2-03)
+  # ------------------------------------------------------------------ #
+
+  # Simulates CO2 sensor with CO2, temperature, and humidity
+  # Returns list of 3 registers: [CO2, temp*100, hum*100]
+  defp simulate_co2_sensor do
+    # CO2: 400-2000 ppm (typical indoor range, poultry houses can be higher)
+    co2 = 600 + :rand.uniform(800)
+
+    # Temperature: 20-35°C (stored as °C * 100)
+    temp = 2500 + :rand.uniform(500) - 250
+
+    # Humidity: 50-80% (stored as %RH * 100)
+    hum = 6000 + :rand.uniform(2000) - 1000
+
+    [co2, temp, hum]
+  end
+
+  # ------------------------------------------------------------------ #
+  # NH3 Sensor Simulation (SenseCAP S-NH3-01)
+  # ------------------------------------------------------------------ #
+
+  # Simulates NH3 sensor with NH3 (Float32), temperature, and humidity
+  # Returns list of 7 registers:
+  # [NH3_hi, NH3_lo, 0, 0, temp*100, 0, hum*100]
+  # Note: registers 0x2002-0x2003 and 0x2005 are unused/reserved
+  defp simulate_nh3_sensor(count) do
+    # NH3: 0-50 ppm (typical poultry house range, safe < 25 ppm)
+    nh3 = 5.0 + :rand.uniform() * 20.0
+
+    # Encode NH3 as Float32 (big-endian)
+    {nh3_hi, nh3_lo} = encode_float32_be(nh3)
+
+    # Temperature: 20-35°C (stored as °C * 100)
+    temp = 2500 + :rand.uniform(500) - 250
+
+    # Humidity: 50-80% (stored as %RH * 100)
+    hum = 6000 + :rand.uniform(2000) - 1000
+
+    # Build register array:
+    # 0x2000-0x2001: NH3 Float32
+    # 0x2002-0x2003: reserved (0)
+    # 0x2004: temperature
+    # 0x2005: reserved (0)
+    # 0x2006: humidity
+    base_values = [nh3_hi, nh3_lo, 0, 0, temp, 0, hum]
+
+    # Pad with zeros if more registers requested
+    if count > 7 do
+      base_values ++ List.duplicate(0, count - 7)
+    else
+      base_values
+    end
+  end
+
+  # Encode a float value to two 16-bit Modbus registers (big-endian format)
+  defp encode_float32_be(value) when is_float(value) do
+    <<hi::16, lo::16>> = <<value::float-big-32>>
+    {hi, lo}
+  end
+
+  defp encode_float32_be(value) when is_integer(value) do
+    encode_float32_be(value * 1.0)
+  end
+
+  # ------------------------------------------------------------------ #
+  # Temperature/Humidity Sensor Simulation
+  # ------------------------------------------------------------------ #
+
+  # Simulates temp/humidity sensor
+  # 2 registers: Cytron sensor format (values × 10)
+  # 3 registers: SenseCAP format (values × 100, includes dew point)
+  defp simulate_temp_hum_sensor(count) do
+    if count == 2 do
+      # Cytron Industrial RS485 Temp/Hum Sensor format:
+      # - Register 0: Temperature (°C × 10, signed 16-bit)
+      # - Register 1: Humidity (% × 10, unsigned 16-bit)
+      # Reference: Cytron datasheet
+      # 22.5-27.5°C
+      temp = 250 + :rand.uniform(50) - 25
+      # 50-70%
+      hum = 600 + :rand.uniform(200) - 100
+      [temp, hum]
+    else
+      # SenseCAP S-TH-01 format (values × 100, includes dew point)
+      temp = 2500 + :rand.uniform(500) - 250
+      hum = 6000 + :rand.uniform(2000) - 1000
+      dew = temp - 500 - :rand.uniform(500)
+      [temp, hum, dew]
+    end
+  end
+
+  # ------------------------------------------------------------------ #
+  # Turbine Flowmeter Simulation (SUS/ZJSUS)
+  # ------------------------------------------------------------------ #
+
+  # Simulates turbine flowmeter with flow rate, total volume, and temperature
+  # Returns {list_of_12_registers, updated_state}
+  # Register layout (starting at 0x0018):
+  # 0x0018: temperature (1 decimal)
+  # 0x0019-0x001F: reserved
+  # 0x0020-0x0021: flow rate (32-bit Lo/Hi, 1 decimal, L/min)
+  # 0x0022-0x0023: total volume (32-bit Lo/Hi, 0 decimal, Liters)
+  defp simulate_flowmeter_dynamic(slave_id, state) do
+    now = System.monotonic_time(:millisecond)
+
+    # Get or initialize flowmeter state
+    meter_state = Map.get(state.flowmeters, slave_id, nil)
+
+    {meter_state, total_volume} =
+      case meter_state do
+        nil ->
+          # Initialize new flowmeter
+          initial = %{
+            total_volume: 0.0,
+            flow_rate: random_flowmeter_rate(),
+            temperature: 20.0 + :rand.uniform() * 10.0,
+            last_update: now
+          }
+
+          {initial, 0.0}
+
+        %{last_update: last_update, total_volume: volume, flow_rate: flow_rate} = ms ->
+          # Calculate elapsed time and accumulate volume
+          elapsed_minutes = (now - last_update) / 1000.0 / 60.0
+          volume_added = flow_rate * elapsed_minutes
+          new_volume = volume + volume_added
+
+          # Update flow rate with small random changes (jitter)
+          updated = %{
+            ms
+            | total_volume: new_volume,
+              flow_rate: jitter_flowmeter_rate(flow_rate),
+              temperature: jitter_flowmeter_temp(ms.temperature),
+              last_update: now
+          }
+
+          {updated, new_volume}
+      end
+
+    # Build the 12 register values (0x0018-0x0023)
+    # Temperature with 1 decimal (value * 10)
+    temp_reg = round(meter_state.temperature * 10)
+
+    # Flow rate as 32-bit Lo/Hi (value * 10 for 1 decimal)
+    flow_scaled = round(meter_state.flow_rate * 10)
+    flow_lo = flow_scaled &&& 0xFFFF
+    flow_hi = flow_scaled >>> 16 &&& 0xFFFF
+
+    # Total volume as 32-bit Lo/Hi (no decimals)
+    volume_scaled = round(total_volume)
+    volume_lo = volume_scaled &&& 0xFFFF
+    volume_hi = volume_scaled >>> 16 &&& 0xFFFF
+
+    registers = [
+      # 0x0018: temperature
+      temp_reg,
+      # 0x0019-0x001F: reserved (7 registers)
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      # 0x0020-0x0021: flow rate (Lo, Hi)
+      flow_lo,
+      flow_hi,
+      # 0x0022-0x0023: total volume (Lo, Hi)
+      volume_lo,
+      volume_hi
+    ]
+
+    # Update state with new flowmeter values
+    new_flowmeters = Map.put(state.flowmeters, slave_id, meter_state)
+    new_state = %{state | flowmeters: new_flowmeters}
+
+    {registers, new_state}
+  end
+
+  # Random flow rate between 0.5 and 20.0 L/min (typical turbine flowmeter range)
+  defp random_flowmeter_rate do
+    0.5 + :rand.uniform() * 19.5
+  end
+
+  # Add small random jitter to flowmeter rate (±15%)
+  defp jitter_flowmeter_rate(current_rate) do
+    jitter = current_rate * 0.15 * (:rand.uniform() * 2 - 1)
+    new_rate = current_rate + jitter
+    max(0.1, min(30.0, new_rate))
+  end
+
+  # Add small random jitter to flowmeter temperature (±1°C)
+  defp jitter_flowmeter_temp(current_temp) do
+    jitter = (:rand.uniform() * 2 - 1) * 1.0
+    new_temp = current_temp + jitter
+    max(5.0, min(50.0, new_temp))
   end
 end
