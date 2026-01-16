@@ -65,9 +65,8 @@ defmodule Seeds do
     end
 
     # Order matters - seed tables in dependency order
-    seed_device_types()
     seed_ports()
-    seed_devices()
+    seed_data_points()
     seed_equipment()
     seed_virtual_digital_states()
     seed_interlock_rules()
@@ -81,23 +80,6 @@ defmodule Seeds do
     IO.puts("Database seed completed!")
   end
 
-  defp seed_device_types do
-    seed_from_json("device_types.json", "device_types", "device_types", fn row ->
-      %{
-        id: row["id"],
-        name: row["name"],
-        manufacturer: row["manufacturer"],
-        model: row["model"],
-        category: row["category"],
-        description: row["description"],
-        register_map: Jason.encode!(row["register_map"]),
-        read_strategy: row["read_strategy"],
-        is_builtin: to_sqlite_bool(row["is_builtin"])
-      }
-      |> with_timestamps()
-    end)
-  end
-
   # Convert boolean to SQLite integer (1/0) for insert_all which bypasses Ecto type casting
   defp to_sqlite_bool(true), do: 1
   defp to_sqlite_bool(false), do: 0
@@ -107,20 +89,26 @@ defmodule Seeds do
     seed_from_json("ports.json", "ports", "ports", fn row ->
       %{
         id: row["id"],
-        # Apply port path replacement (ttyUSB0 -> configured port)
+        # Protocol type: modbus_rtu, s7, or virtual
+        protocol: row["protocol"] || "modbus_rtu",
+        # Apply port path replacement (ttyUSB0 -> configured port) for Modbus RTU
         device_path: replace_port_path(row["device_path"]),
         speed: row["speed"],
         parity: row["parity"],
         data_bits: row["data_bits"],
         stop_bits: row["stop_bits"],
+        # S7 protocol fields
+        ip_address: row["ip_address"],
+        s7_rack: row["s7_rack"],
+        s7_slot: row["s7_slot"],
         description: row["description"]
       }
       |> with_timestamps()
     end)
   end
 
-  defp seed_devices do
-    seed_from_json("devices.json", "devices", "devices", fn row ->
+  defp seed_data_points do
+    seed_from_json("data_points.json", "data_points", "data_points", fn row ->
       %{
         id: row["id"],
         name: row["name"],
@@ -132,8 +120,14 @@ defmodule Seeds do
         channel: row["channel"],
         description: row["description"],
         # Apply port path replacement (ttyUSB0 -> configured port)
-        port_device_path: replace_port_path(row["port_device_path"]),
-        device_type_id: row["device_type_id"]
+        port_path: replace_port_path(row["port_path"]),
+        # Conversion fields
+        scale_factor: row["scale_factor"],
+        offset: row["offset"],
+        unit: row["unit"],
+        value_type: row["value_type"],
+        min_valid: row["min_valid"],
+        max_valid: row["max_valid"]
       }
       |> with_timestamps()
     end)
@@ -146,7 +140,9 @@ defmodule Seeds do
         name: row["name"],
         title: row["title"],
         type: row["type"],
-        device_tree: row["device_tree"]
+        data_point_tree: row["data_point_tree"],
+        # Active field - defaults to true if not specified
+        active: to_sqlite_bool(Map.get(row, "active", true))
       }
       |> with_timestamps()
     end)

@@ -66,6 +66,7 @@ defmodule PouCon.MixProject do
       {:bcrypt_elixir, "~> 3.0"},
       {:modbux, "~> 0.3"},
       {:circuits_uart, "~> 1.5"},
+      {:snapex7, "~> 0.1.4"},
       {:tzdata, "~> 1.1"},
       {:mox, "~> 1.0", only: :test},
       {:number, "~> 1.0"}

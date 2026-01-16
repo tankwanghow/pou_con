@@ -1,426 +1,53 @@
 {
 "equipment": [
-	{
-		"id" : 1,
-		"name" : "fan_1",
-		"title" : "Fan 01",
-		"type" : "fan",
-		"device_tree" : "on_off_coil: WS-11-O-01\nrunning_feedback: WS-11-I-01\nauto_manual: VT-200-01\ninverted: true",
-		"inserted_at" : "2025-11-08T03:51:24",
-		"updated_at" : "2025-11-19T08:25:02"
-	},
-	{
-		"id" : 2,
-		"name" : "fan_2",
-		"title" : "Fan 02",
-		"type" : "fan",
-		"device_tree" : "on_off_coil: WS-11-O-02\nrunning_feedback: WS-11-I-02\nauto_manual: VT-200-02\ninverted: true",
-		"inserted_at" : "2025-11-08T03:57:35",
-		"updated_at" : "2025-11-19T08:26:40"
-	},
-	{
-		"id" : 3,
-		"name" : "fan_3",
-		"title" : "Fan 03",
-		"type" : "fan",
-		"device_tree" : "on_off_coil: WS-11-O-03\nrunning_feedback: WS-11-I-03\nauto_manual: VT-200-03\ninverted: true",
-		"inserted_at" : "2025-11-09T06:31:28",
-		"updated_at" : "2025-11-19T08:26:50"
-	},
-	{
-		"id" : 4,
-		"name" : "fan_4",
-		"title" : "Fan 04",
-		"type" : "fan",
-		"device_tree" : "on_off_coil: WS-11-O-04\nrunning_feedback: WS-11-I-04\nauto_manual: VT-200-04\ninverted: true",
-		"inserted_at" : "2025-11-09T06:38:38",
-		"updated_at" : "2025-11-19T08:27:01"
-	},
-	{
-		"id" : 5,
-		"name" : "fan_5",
-		"title" : "Fan 05",
-		"type" : "fan",
-		"device_tree" : "on_off_coil: WS-11-O-05\nrunning_feedback: WS-11-I-05\nauto_manual: VT-200-05\ninverted: true",
-		"inserted_at" : "2025-11-09T06:45:14",
-		"updated_at" : "2025-11-19T08:27:13"
-	},
-	{
-		"id" : 6,
-		"name" : "fan_6",
-		"title" : "Fan 06",
-		"type" : "fan",
-		"device_tree" : "on_off_coil: WS-11-O-06\nrunning_feedback: WS-11-I-06\nauto_manual: VT-200-06\ninverted: true",
-		"inserted_at" : "2025-11-09T06:50:45",
-		"updated_at" : "2025-11-19T08:27:38"
-	},
-	{
-		"id" : 7,
-		"name" : "fan_7",
-		"title" : "Fan 07",
-		"type" : "fan",
-		"device_tree" : "on_off_coil: WS-11-O-07\nrunning_feedback: WS-11-I-07\nauto_manual: VT-200-07\ninverted: true",
-		"inserted_at" : "2025-11-09T06:51:10",
-		"updated_at" : "2025-11-19T08:27:47"
-	},
-	{
-		"id" : 8,
-		"name" : "pump_1",
-		"title" : "Pump 1",
-		"type" : "pump",
-		"device_tree" : "on_off_coil: WS-14-O-05\nrunning_feedback: WS-14-I-05\nauto_manual: VT-200-19",
-		"inserted_at" : "2025-11-09T06:51:32",
-		"updated_at" : "2025-12-02T06:36:11"
-	},
-	{
-		"id" : 12,
-		"name" : "temp_hum_5",
-		"title" : "Temp Hum 5",
-		"type" : "temp_hum_sensor",
-		"device_tree" : "sensor: TH-05",
-		"inserted_at" : "2025-11-09T07:18:10",
-		"updated_at" : "2025-11-19T08:28:52"
-	},
-	{
-		"id" : 14,
-		"name" : "feed_1",
-		"title" : "Feed 1",
-		"type" : "feeding",
-		"device_tree" : "device_to_back_limit: WS-15-O-01\ndevice_to_front_limit: WS-15-O-02\nfront_limit: WS-15-I-02\nback_limit: WS-15-I-03 \npulse_sensor: WS-15-I-04\nauto_manual: VT-200-23",
-		"inserted_at" : "2025-11-11T08:19:56",
-		"updated_at" : "2025-12-02T06:33:18"
-	},
-	{
-		"id" : 15,
-		"name" : "egg_1",
-		"title" : "Egg 1",
-		"type" : "egg",
-		"device_tree" : "on_off_coil: WS-14-O-01\nrunning_feedback: WS-14-I-01\nauto_manual: VT-200-15\nmanual_switch: WS-16-I-06",
-		"inserted_at" : "2025-11-17T04:45:34",
-		"updated_at" : "2025-12-02T06:32:15"
-	},
-	{
-		"id" : 16,
-		"name" : "dung_1",
-		"title" : "Dung 1",
-		"type" : "dung",
-		"device_tree" : "on_off_coil: WS-13-O-01\nrunning_feedback: WS-13-I-01",
-		"inserted_at" : "2025-11-17T04:45:52",
-		"updated_at" : "2025-12-02T06:31:35"
-	},
-	{
-		"id" : 17,
-		"name" : "dung_hor",
-		"title" : "Dung Hor",
-		"type" : "dung_horz",
-		"device_tree" : "on_off_coil: WS-13-O-05\nrunning_feedback: WS-13-I-05",
-		"inserted_at" : "2025-11-17T04:46:19",
-		"updated_at" : "2025-12-02T06:31:43"
-	},
-	{
-		"id" : 18,
-		"name" : "dung_exit",
-		"title" : "Dung Exit",
-		"type" : "dung_exit",
-		"device_tree" : "on_off_coil: WS-13-O-06\nrunning_feedback: WS-13-I-06",
-		"inserted_at" : "2025-11-17T04:46:35",
-		"updated_at" : "2025-12-02T06:31:16"
-	},
-	{
-		"id" : 19,
-		"name" : "fan_8",
-		"title" : "Fan 08",
-		"type" : "fan",
-		"device_tree" : "on_off_coil: WS-11-O-08\nrunning_feedback: WS-11-I-08\nauto_manual: VT-200-08\ninverted: false",
-		"inserted_at" : "2025-11-19T09:08:29",
-		"updated_at" : "2025-11-19T09:08:29"
-	},
-	{
-		"id" : 20,
-		"name" : "fan_9",
-		"title" : "Fan 09",
-		"type" : "fan",
-		"device_tree" : "on_off_coil: WS-12-O-01\nrunning_feedback: WS-12-I-01\nauto_manual: VT-200-09\ninverted: false",
-		"inserted_at" : "2025-11-19T09:08:57",
-		"updated_at" : "2025-11-19T09:08:57"
-	},
-	{
-		"id" : 21,
-		"name" : "fan_10",
-		"title" : "Fan 10",
-		"type" : "fan",
-		"device_tree" : "on_off_coil: WS-12-O-02\nrunning_feedback: WS-12-I-02\nauto_manual: VT-200-10\ninverted: false",
-		"inserted_at" : "2025-11-19T09:09:13",
-		"updated_at" : "2025-11-19T09:09:13"
-	},
-	{
-		"id" : 22,
-		"name" : "fan_11",
-		"title" : "Fan 11",
-		"type" : "fan",
-		"device_tree" : "on_off_coil: WS-12-O-03\nrunning_feedback: WS-12-I-03\nauto_manual: VT-200-11\ninverted: false",
-		"inserted_at" : "2025-11-19T09:09:32",
-		"updated_at" : "2025-11-19T09:09:32"
-	},
-	{
-		"id" : 23,
-		"name" : "fan_12",
-		"title" : "Fan 12",
-		"type" : "fan",
-		"device_tree" : "on_off_coil: WS-12-O-04\nrunning_feedback: WS-12-I-04\nauto_manual: VT-200-12\ninverted: false",
-		"inserted_at" : "2025-11-19T09:09:50",
-		"updated_at" : "2025-11-19T09:09:50"
-	},
-	{
-		"id" : 24,
-		"name" : "fan_13",
-		"title" : "Fan 13",
-		"type" : "fan",
-		"device_tree" : "on_off_coil: WS-12-O-05\nrunning_feedback: WS-12-I-05\nauto_manual: VT-200-13\ninverted: false",
-		"inserted_at" : "2025-11-19T09:10:13",
-		"updated_at" : "2025-11-19T09:10:41"
-	},
-	{
-		"id" : 25,
-		"name" : "fan_14",
-		"title" : "Fan 14",
-		"type" : "fan",
-		"device_tree" : "on_off_coil: WS-12-O-06\nrunning_feedback: WS-12-I-06\nauto_manual: VT-200-14\ninverted: false",
-		"inserted_at" : "2025-11-19T09:10:31",
-		"updated_at" : "2025-11-19T09:10:31"
-	},
-	{
-		"id" : 26,
-		"name" : "temp_hum_1",
-		"title" : "Temp Hum 1",
-		"type" : "temp_hum_sensor",
-		"device_tree" : "sensor: TH-01",
-		"inserted_at" : "2025-11-19T09:12:01",
-		"updated_at" : "2025-11-19T09:12:01"
-	},
-	{
-		"id" : 27,
-		"name" : "temp_hum_2",
-		"title" : "Temp Hum 2",
-		"type" : "temp_hum_sensor",
-		"device_tree" : "sensor: TH-02",
-		"inserted_at" : "2025-11-19T09:12:12",
-		"updated_at" : "2025-11-19T09:12:12"
-	},
-	{
-		"id" : 28,
-		"name" : "temp_hum_3",
-		"title" : "Temp Hum 3",
-		"type" : "temp_hum_sensor",
-		"device_tree" : "sensor: TH-03",
-		"inserted_at" : "2025-11-19T09:12:22",
-		"updated_at" : "2025-11-19T09:12:22"
-	},
-	{
-		"id" : 29,
-		"name" : "temp_hum_4",
-		"title" : "Temp Hum 4",
-		"type" : "temp_hum_sensor",
-		"device_tree" : "sensor: TH-04",
-		"inserted_at" : "2025-11-19T09:12:33",
-		"updated_at" : "2025-11-19T09:12:33"
-	},
-	{
-		"id" : 30,
-		"name" : "temp_hum_6",
-		"title" : "Temp Hum 6",
-		"type" : "temp_hum_sensor",
-		"device_tree" : "sensor: TH-06",
-		"inserted_at" : "2025-11-19T09:12:45",
-		"updated_at" : "2025-11-19T09:12:45"
-	},
-	{
-		"id" : 31,
-		"name" : "pump_2",
-		"title" : "Pump 2",
-		"type" : "pump",
-		"device_tree" : "on_off_coil: WS-14-O-06\nrunning_feedback: WS-14-I-06\nauto_manual: VT-200-20",
-		"inserted_at" : "2025-11-19T09:23:15",
-		"updated_at" : "2025-11-19T09:23:15"
-	},
-	{
-		"id" : 32,
-		"name" : "pump_3",
-		"title" : "Pump 3",
-		"type" : "pump",
-		"device_tree" : "on_off_coil: WS-14-O-07\nrunning_feedback: WS-14-I-07\nauto_manual: VT-200-21",
-		"inserted_at" : "2025-11-19T09:23:47",
-		"updated_at" : "2025-11-19T09:23:47"
-	},
-	{
-		"id" : 33,
-		"name" : "egg_2",
-		"title" : "Egg 2",
-		"type" : "egg",
-		"device_tree" : "on_off_coil: WS-14-O-02\nrunning_feedback: WS-14-I-02\nauto_manual: VT-200-16\nmanual_switch: WS-16-I-07",
-		"inserted_at" : "2025-11-20T03:21:08",
-		"updated_at" : "2025-11-20T03:21:08"
-	},
-	{
-		"id" : 34,
-		"name" : "egg_3",
-		"title" : "Egg 3",
-		"type" : "egg",
-		"device_tree" : "on_off_coil: WS-14-O-03\nrunning_feedback: WS-14-I-03\nauto_manual: VT-200-17\nmanual_switch: WS-16-I-08",
-		"inserted_at" : "2025-11-20T03:21:34",
-		"updated_at" : "2025-11-20T03:21:34"
-	},
-	{
-		"id" : 35,
-		"name" : "egg_4",
-		"title" : "Egg 4",
-		"type" : "egg",
-		"device_tree" : "on_off_coil: WS-14-O-04\nrunning_feedback: WS-14-I-04\nauto_manual: VT-200-18\nmanual_switch: WS-17-I-06",
-		"inserted_at" : "2025-11-20T03:21:55",
-		"updated_at" : "2025-11-20T03:23:31"
-	},
-	{
-		"id" : 36,
-		"name" : "dung_2",
-		"title" : "Dung 2",
-		"type" : "dung",
-		"device_tree" : "on_off_coil: WS-13-O-02\nrunning_feedback: WS-13-I-02",
-		"inserted_at" : "2025-11-20T03:24:31",
-		"updated_at" : "2025-11-20T03:24:31"
-	},
-	{
-		"id" : 37,
-		"name" : "dung_3",
-		"title" : "Dung 3",
-		"type" : "dung",
-		"device_tree" : "on_off_coil: WS-13-O-03\nrunning_feedback: WS-13-I-03",
-		"inserted_at" : "2025-11-20T03:24:45",
-		"updated_at" : "2025-11-20T03:24:45"
-	},
-	{
-		"id" : 38,
-		"name" : "dung_4",
-		"title" : "Dung 4",
-		"type" : "dung",
-		"device_tree" : "on_off_coil: WS-13-O-04\nrunning_feedback: WS-13-I-04",
-		"inserted_at" : "2025-11-20T03:25:02",
-		"updated_at" : "2025-11-20T03:25:02"
-	},
-	{
-		"id" : 39,
-		"name" : "feed_2",
-		"title" : "Feed 2",
-		"type" : "feeding",
-		"device_tree" : "device_to_back_limit: WS-15-O-03\ndevice_to_front_limit: WS-15-O-04\nfront_limit: WS-15-I-05\nback_limit: WS-15-I-06\npulse_sensor: WS-15-I-07\nauto_manual: VT-200-24",
-		"inserted_at" : "2025-11-20T03:28:29",
-		"updated_at" : "2025-11-20T03:28:43"
-	},
-	{
-		"id" : 40,
-		"name" : "feed_3",
-		"title" : "Feed 3",
-		"type" : "feeding",
-		"device_tree" : "device_to_back_limit: WS-15-O-05\ndevice_to_front_limit: WS-15-O-06\nfront_limit: WS-15-I-08\nback_limit: WS-16-I-01\npulse_sensor: WS-16-I-02\nauto_manual: VT-200-25",
-		"inserted_at" : "2025-11-20T03:29:39",
-		"updated_at" : "2025-11-20T03:29:39"
-	},
-	{
-		"id" : 41,
-		"name" : "feed_4",
-		"title" : "Feed 4",
-		"type" : "feeding",
-		"device_tree" : "device_to_back_limit: WS-15-O-07\ndevice_to_front_limit: WS-15-O-08\nfront_limit: WS-16-I-03\nback_limit: WS-16-I-04\npulse_sensor: WS-16-I-05\nauto_manual: VT-200-26",
-		"inserted_at" : "2025-11-20T03:30:14",
-		"updated_at" : "2025-11-20T03:30:14"
-	},
-	{
-		"id" : 42,
-		"name" : "feed_in",
-		"title" : "Feed In",
-		"type" : "feed_in",
-		"device_tree" : "filling_coil: WS-14-O-08\nrunning_feedback: WS-14-I-08\nfull_switch: WS-15-I-01\nauto_manual: VT-200-22",
-		"inserted_at" : "2025-11-20T03:32:59",
-		"updated_at" : "2025-12-07T08:27:35"
-	},
-	{
-		"id" : 43,
-		"name" : "light_1",
-		"title" : "Light 1",
-		"type" : "light",
-		"device_tree" : "on_off_coil: WS-17-O-01\nrunning_feedback: WS-17-I-01\nauto_manual: VT-200-27",
-		"inserted_at" : "2025-11-20T16:39:26",
-		"updated_at" : "2025-12-02T06:49:28"
-	},
-	{
-		"id" : 44,
-		"name" : "light_2",
-		"title" : "Light 2",
-		"type" : "light",
-		"device_tree" : "on_off_coil: WS-17-O-02\nrunning_feedback: WS-17-I-02\nauto_manual: VT-200-28",
-		"inserted_at" : "2025-11-20T16:39:37",
-		"updated_at" : "2025-12-05T08:07:58"
-	},
-	{
-		"id" : 45,
-		"name" : "light_3",
-		"title" : "Light 3",
-		"type" : "light",
-		"device_tree" : "on_off_coil: WS-17-O-03\nrunning_feedback: WS-17-I-03\nauto_manual: VT-200-29",
-		"inserted_at" : "2025-11-20T16:39:47",
-		"updated_at" : "2025-12-05T08:08:16"
-	},
-	{
-		"id" : 46,
-		"name" : "light_4",
-		"title" : "Light 4",
-		"type" : "light",
-		"device_tree" : "on_off_coil: WS-17-O-04\nrunning_feedback: WS-17-I-04\nauto_manual: VT-200-30",
-		"inserted_at" : "2025-11-20T16:39:58",
-		"updated_at" : "2025-12-02T06:55:59"
-	},
-	{
-		"id" : 47,
-		"name" : "light_5",
-		"title" : "Light 5",
-		"type" : "light",
-		"device_tree" : "on_off_coil: WS-17-O-05\nrunning_feedback: WS-17-I-05\nauto_manual: VT-200-31",
-		"inserted_at" : "2025-11-20T16:40:18",
-		"updated_at" : "2025-12-02T06:56:20"
-	},
-	{
-		"id" : 48,
-		"name" : "water_meter_drinking",
-		"title" : "Water Meter Drinking",
-		"type" : "water_meter",
-		"device_tree" : "meter: WM-01",
-		"inserted_at" : "2026-01-01T00:00:00",
-		"updated_at" : "2026-01-01T00:00:00"
-	},
-	{
-		"id" : 51,
-		"name" : "water_meter_cooling",
-		"title" : "Water Meter Cooling",
-		"type" : "water_meter",
-		"device_tree" : "meter: WM-02",
-		"inserted_at" : "2026-01-11T00:00:00",
-		"updated_at" : "2026-01-11T00:00:00"
-	},
-	{
-		"id" : 49,
-		"name" : "power_meter_front",
-		"title" : "Power Meter Front",
-		"type" : "power_meter",
-		"device_tree" : "meter: PM-01",
-		"inserted_at" : "2026-01-11T00:00:00",
-		"updated_at" : "2026-01-11T00:00:00"
-	},
-	{
-		"id" : 50,
-		"name" : "power_meter_back",
-		"title" : "Power Meter Back",
-		"type" : "power_meter",
-		"device_tree" : "meter: PM-02",
-		"inserted_at" : "2026-01-11T00:00:00",
-		"updated_at" : "2026-01-11T00:00:00"
-	}
+	{"id": 1, "name": "fan_1", "title": "Fan 01", "type": "fan", "active": true, "data_point_tree": "on_off_coil: FAN01-STOP-CMD\nrunning_feedback: FAN01-RUN\nauto_manual: FAN01-AUTO\ntrip: FAN01-TRIP\ncurrent: FAN01-CURRENT"},
+	{"id": 2, "name": "fan_2", "title": "Fan 02", "type": "fan", "active": true, "data_point_tree": "on_off_coil: FAN02-STOP-CMD\nrunning_feedback: FAN02-RUN\nauto_manual: FAN02-AUTO\ntrip: FAN02-TRIP\ncurrent: FAN02-CURRENT"},
+	{"id": 3, "name": "fan_3", "title": "Fan 03", "type": "fan", "active": true, "data_point_tree": "on_off_coil: FAN03-STOP-CMD\nrunning_feedback: FAN03-RUN\nauto_manual: FAN03-AUTO\ntrip: FAN03-TRIP\ncurrent: FAN03-CURRENT"},
+	{"id": 4, "name": "fan_4", "title": "Fan 04", "type": "fan", "active": true, "data_point_tree": "on_off_coil: FAN04-STOP-CMD\nrunning_feedback: FAN04-RUN\nauto_manual: FAN04-AUTO\ntrip: FAN04-TRIP\ncurrent: FAN04-CURRENT"},
+	{"id": 5, "name": "fan_5", "title": "Fan 05", "type": "fan", "active": true, "data_point_tree": "on_off_coil: FAN05-STOP-CMD\nrunning_feedback: FAN05-RUN\nauto_manual: FAN05-AUTO\ntrip: FAN05-TRIP\ncurrent: FAN05-CURRENT"},
+	{"id": 6, "name": "fan_6", "title": "Fan 06", "type": "fan", "active": true, "data_point_tree": "on_off_coil: FAN06-STOP-CMD\nrunning_feedback: FAN06-RUN\nauto_manual: FAN06-AUTO\ntrip: FAN06-TRIP\ncurrent: FAN06-CURRENT"},
+	{"id": 7, "name": "fan_7", "title": "Fan 07", "type": "fan", "active": true, "data_point_tree": "on_off_coil: FAN07-STOP-CMD\nrunning_feedback: FAN07-RUN\nauto_manual: FAN07-AUTO\ntrip: FAN07-TRIP\ncurrent: FAN07-CURRENT"},
+	{"id": 8, "name": "fan_8", "title": "Fan 08", "type": "fan", "active": true, "data_point_tree": "on_off_coil: FAN08-STOP-CMD\nrunning_feedback: FAN08-RUN\nauto_manual: FAN08-AUTO\ntrip: FAN08-TRIP\ncurrent: FAN08-CURRENT"},
+	{"id": 9, "name": "fan_9", "title": "Fan 09", "type": "fan", "active": true, "data_point_tree": "on_off_coil: FAN09-STOP-CMD\nrunning_feedback: FAN09-RUN\nauto_manual: FAN09-AUTO\ntrip: FAN09-TRIP\ncurrent: FAN09-CURRENT"},
+	{"id": 10, "name": "fan_10", "title": "Fan 10", "type": "fan", "active": true, "data_point_tree": "on_off_coil: FAN10-STOP-CMD\nrunning_feedback: FAN10-RUN\nauto_manual: FAN10-AUTO\ntrip: FAN10-TRIP\ncurrent: FAN10-CURRENT"},
+	{"id": 11, "name": "fan_11", "title": "Fan 11", "type": "fan", "active": true, "data_point_tree": "on_off_coil: FAN11-STOP-CMD\nrunning_feedback: FAN11-RUN\nauto_manual: FAN11-AUTO\ntrip: FAN11-TRIP\ncurrent: FAN11-CURRENT"},
+	{"id": 12, "name": "fan_12", "title": "Fan 12", "type": "fan", "active": true, "data_point_tree": "on_off_coil: FAN12-STOP-CMD\nrunning_feedback: FAN12-RUN\nauto_manual: FAN12-AUTO\ntrip: FAN12-TRIP\ncurrent: FAN12-CURRENT"},
+	{"id": 13, "name": "fan_13", "title": "Fan 13", "type": "fan", "active": true, "data_point_tree": "on_off_coil: FAN13-STOP-CMD\nrunning_feedback: FAN13-RUN\nauto_manual: FAN13-AUTO\ntrip: FAN13-TRIP\ncurrent: FAN13-CURRENT"},
+	{"id": 14, "name": "fan_14", "title": "Fan 14", "type": "fan", "active": true, "data_point_tree": "on_off_coil: FAN14-STOP-CMD\nrunning_feedback: FAN14-RUN\nauto_manual: FAN14-AUTO\ntrip: FAN14-TRIP\ncurrent: FAN14-CURRENT"},
+
+	{"id": 21, "name": "dung_1", "title": "Dung 01", "type": "dung", "active": true, "data_point_tree": "on_off_coil: MDBC01-START-CMD\nrunning_feedback: MDBC01-RUN\ntrip: MDBC01-TRIP"},
+	{"id": 22, "name": "dung_2", "title": "Dung 02", "type": "dung", "active": true, "data_point_tree": "on_off_coil: MDBC02-START-CMD\nrunning_feedback: MDBC02-RUN\ntrip: MDBC02-TRIP"},
+	{"id": 23, "name": "dung_3", "title": "Dung 03", "type": "dung", "active": true, "data_point_tree": "on_off_coil: MDBC03-START-CMD\nrunning_feedback: MDBC03-RUN\ntrip: MDBC03-TRIP"},
+	{"id": 24, "name": "dung_4", "title": "Dung 04", "type": "dung", "active": true, "data_point_tree": "on_off_coil: MDBC04-START-CMD\nrunning_feedback: MDBC04-RUN\ntrip: MDBC04-TRIP"},
+	{"id": 25, "name": "dung_horz", "title": "Dung Hori", "type": "dung_horz", "active": true, "data_point_tree": "on_off_coil: HBC-START-CMD\nrunning_feedback: HBC-RUN\ntrip: HBC-TRIP"},
+	{"id": 26, "name": "dung_exit", "title": "Dung Exit", "type": "dung_exit", "active": true, "data_point_tree": "on_off_coil: ICBC-START-CMD\nrunning_feedback: ICBC-RUN\ntrip: ICBC-TRIP"},
+
+	{"id": 31, "name": "pump_1", "title": "Pump 01", "type": "pump", "active": true, "data_point_tree": "on_off_coil: CWP01-START-CMD\nrunning_feedback: CWP01-RUN\ntrip: CWP01-TRIP\nauto_manual: CWP01-AUTO"},
+	{"id": 32, "name": "pump_2", "title": "Pump 02", "type": "pump", "active": true, "data_point_tree": "on_off_coil: CWP02-START-CMD\nrunning_feedback: CWP02-RUN\ntrip: CWP02-TRIP\nauto_manual: CWP02-AUTO"},
+	{"id": 33, "name": "pump_3", "title": "Pump 03", "type": "pump", "active": true, "data_point_tree": "on_off_coil: CWP03-START-CMD\nrunning_feedback: CWP03-RUN\ntrip: CWP03-TRIP\nauto_manual: CWP03-AUTO"},
+
+	{"id": 35, "name": "auger_1", "title": "Auger", "type": "feed_in", "active": true, "data_point_tree": "filling_coil: AUG01-START-CMD\nrunning_feedback: AUG01-RUN\ntrip: AUG01-TRIP\nauto_manual: AUG01-AUTO\nfull_switch: AUG01-FULL"},
+
+	{"id": 41, "name": "feed_1", "title": "Feed 01", "type": "feeding", "active": true, "data_point_tree": "device_to_back_limit: FC01-START-REV-CMD\ndevice_to_front_limit: FC01-START-FWD-CMD\nrunning_fwd: FC01-RUN-FWD\nrunning_rev: FC01-RUN-REV\nfront_limit: FC01-LS1\nback_limit: FC01-LS2\ntrip: FC01-TRIP\npulse_sensor: FC01-TIMER\nauto_manual: FC01-AUTO"},
+	{"id": 42, "name": "feed_2", "title": "Feed 02", "type": "feeding", "active": true, "data_point_tree": "device_to_back_limit: FC02-START-REV-CMD\ndevice_to_front_limit: FC02-START-FWD-CMD\nrunning_fwd: FC02-RUN-FWD\nrunning_rev: FC02-RUN-REV\nfront_limit: FC02-LS1\nback_limit: FC02-LS2\ntrip: FC02-TRIP\npulse_sensor: FC02-TIMER\nauto_manual: FC02-AUTO"},
+	{"id": 43, "name": "feed_3", "title": "Feed 03", "type": "feeding", "active": true, "data_point_tree": "device_to_back_limit: FC03-START-REV-CMD\ndevice_to_front_limit: FC03-START-FWD-CMD\nrunning_fwd: FC03-RUN-FWD\nrunning_rev: FC03-RUN-REV\nfront_limit: FC03-LS1\nback_limit: FC03-LS2\ntrip: FC03-TRIP\npulse_sensor: FC03-TIMER\nauto_manual: FC03-AUTO"},
+	{"id": 44, "name": "feed_4", "title": "Feed 04", "type": "feeding", "active": true, "data_point_tree": "device_to_back_limit: FC04-START-REV-CMD\ndevice_to_front_limit: FC04-START-FWD-CMD\nrunning_fwd: FC04-RUN-FWD\nrunning_rev: FC04-RUN-REV\nfront_limit: FC04-LS1\nback_limit: FC04-LS2\ntrip: FC04-TRIP\npulse_sensor: FC04-TIMER\nauto_manual: FC04-AUTO"},
+
+	{"id": 51, "name": "temp_back_1", "title": "Temp 01", "type": "temp_sensor", "active": true, "data_point_tree": "sensor: TT01"},
+	{"id": 52, "name": "temp_back_2", "title": "Temp 02", "type": "temp_sensor", "active": true, "data_point_tree": "sensor: TT02-BACK"},
+	{"id": 53, "name": "temp_front_1", "title": "Temp 03", "type": "temp_sensor", "active": true, "data_point_tree": "sensor: TT01-FRONT"},
+	{"id": 54, "name": "temp_front_2", "title": "Temp 04", "type": "temp_sensor", "active": true, "data_point_tree": "sensor: TT02-FRONT"},
+	{"id": 55, "name": "humidity_1", "title": "Humidity 01", "type": "humidity_sensor", "active": true, "data_point_tree": "sensor: RH01-FRONT"},
+	{"id": 56, "name": "flowmeter_1", "title": "Water 01", "type": "flowmeter", "active": true, "data_point_tree": "sensor: FT01-FRONT"},
+
+	{"id": 61, "name": "siren_back", "title": "Alarm Back", "type": "light", "active": true, "data_point_tree": "on_off_coil: SIREN-BACK\nauto_manual: LGT01-AUTO"},
+	{"id": 62, "name": "siren_front", "title": "Alarm Front", "type": "light", "active": true, "data_point_tree": "on_off_coil: SIREN-FRONT\nauto_manual: LGT02-AUTO"},
+	{"id": 63, "name": "warning_light_back", "title": "Alarm Light Back", "type": "light", "active": true, "data_point_tree": "on_off_coil: REVOLVING-LIGHT-BACK\nauto_manual: LGT03-AUTO"},
+	{"id": 64, "name": "warning_light_front", "title": "Alarm Light Front", "type": "light", "active": true, "data_point_tree": "on_off_coil: REVOLVING-LIGHT-FRONT\nauto_manual: LGT04-AUTO"},
+
+	{"id": 71, "name": "psu1_back", "title": "PSU 1 Back", "type": "status_indicator", "active": true, "data_point_tree": "status: PSU1-HEALTHY-BACK"},
+	{"id": 72, "name": "psu2_back", "title": "PSU 2 Back", "type": "status_indicator", "active": true, "data_point_tree": "status: PSU2-HEALTHY-BACK"},
+	{"id": 73, "name": "psu1_front", "title": "PSU 1 Front", "type": "status_indicator", "active": true, "data_point_tree": "status: PSU1-HEALTHY-FRONT"},
+	{"id": 74, "name": "psu2_front", "title": "PSU 2 Front", "type": "status_indicator", "active": true, "data_point_tree": "status: PSU2-HEALTHY-FRONT"},
+	{"id": 75, "name": "mccb_front", "title": "MCCB Front", "type": "status_indicator", "active": true, "data_point_tree": "status: MCCB-FRONT"}
 ]}

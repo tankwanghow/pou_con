@@ -10,7 +10,7 @@ config :pou_con, PouCon.Repo,
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: 10
 
-config :pou_con, :device_manager, PouCon.DeviceManagerMock
+config :pou_con, :data_point_manager, PouCon.DataPointManagerMock
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
 config :pou_con, PouConWeb.Endpoint,
