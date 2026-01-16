@@ -1,46 +1,43 @@
-defmodule PouCon.Equipment.Controllers.TempHumSen do
+defmodule PouCon.Equipment.Controllers.Co2Sen do
   @moduledoc """
-  Controller for temperature and humidity sensors.
+  Controller for SenseCAP S-CO2-03 CO2 sensors with temperature and humidity.
 
-  This is a read-only sensor controller that monitors environmental conditions
-  in the poultry house. Data is used by the EnvironmentController for
-  automatic fan and pump control.
+  This is a read-only sensor controller that monitors CO2 levels along with
+  environmental conditions in the poultry house. High CO2 levels indicate
+  poor ventilation and can affect bird health and productivity.
 
   ## Device Tree Configuration
 
   ```yaml
-  sensor: TH-01  # The Modbus sensor device name
+  sensor: CO2-01  # The Modbus sensor device name
   ```
 
   ## Monitored Data
 
-  - `temperature` - Ambient temperature in °C
-  - `humidity` - Relative humidity in %
+  - `co2` - Carbon dioxide concentration in ppm (0-10000)
+  - `temperature` - Ambient temperature in °C (-40 to 80)
+  - `humidity` - Relative humidity in % (0-99)
   - `dew_point` - Calculated dew point temperature in °C
 
-  ## Dew Point Calculation
+  ## Modbus Register Map (Function Code 03/04)
 
-  Dew point is calculated using the Magnus formula:
-  ```
-  γ = ln(RH/100) + (b × T) / (c + T)
-  dew_point = (c × γ) / (b - γ)
-  ```
-  Where b = 17.62, c = 243.12 (constants for water vapor)
+  | Address | Description | Data Type | Unit | Range |
+  |---------|-------------|-----------|------|-------|
+  | 0x0000  | CO2         | uint16    | ppm  | 0-10000 |
+  | 0x0001  | Temperature | int16     | °C×100 | -4000 to 8000 |
+  | 0x0002  | Humidity    | uint16    | %RH×100 | 0-9900 |
+
+  ## CO2 Level Guidelines for Poultry
+
+  - < 1000 ppm: Excellent ventilation
+  - 1000-2500 ppm: Acceptable
+  - 2500-3000 ppm: Poor ventilation, action needed
+  - > 3000 ppm: Critical, immediate ventilation required
 
   ## Error Handling
 
   - `:timeout` - No response from sensor (Modbus communication failure)
-  - `:invalid_data` - Temperature/humidity readings out of valid range
-
-  When errors occur, temperature/humidity values are cleared (set to nil)
-  to prevent the EnvironmentController from acting on stale data.
-
-  ## Integration
-
-  The EnvironmentController reads sensor values to determine:
-  - Which step in the cooling sequence to activate
-  - When to start/stop fans and pumps
-  - Whether humidity is within acceptable range
+  - `:invalid_data` - CO2/temperature/humidity readings out of valid range
   """
 
   use GenServer
@@ -48,13 +45,18 @@ defmodule PouCon.Equipment.Controllers.TempHumSen do
 
   alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
 
-  @device_manager Application.compile_env(:pou_con, :device_manager)
+  @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
+
+  # CO2 valid range in ppm
+  @co2_min 0
+  @co2_max 10_000
 
   defmodule State do
     defstruct [
       :name,
       :title,
       :sensor,
+      co2: nil,
       temperature: nil,
       humidity: nil,
       dew_point: nil,
@@ -68,10 +70,10 @@ defmodule PouCon.Equipment.Controllers.TempHumSen do
   def start(opts) when is_list(opts) do
     name = Keyword.fetch!(opts, :name)
 
-    case Registry.lookup(PouCon.DeviceControllerRegistry, name) do
+    case Registry.lookup(PouCon.EquipmentControllerRegistry, name) do
       [] ->
         DynamicSupervisor.start_child(
-          PouCon.Equipment.DeviceControllerSupervisor,
+          PouCon.Equipment.EquipmentControllerSupervisor,
           {__MODULE__, opts}
         )
 
@@ -92,66 +94,42 @@ defmodule PouCon.Equipment.Controllers.TempHumSen do
       sensor: opts[:sensor] || raise("Missing :sensor")
     }
 
-    Phoenix.PubSub.subscribe(PouCon.PubSub, "device_data")
+    Phoenix.PubSub.subscribe(PouCon.PubSub, "data_point_data")
     {:ok, state, {:continue, :initial_poll}}
   end
 
   @impl GenServer
   def handle_continue(:initial_poll, state), do: {:noreply, sync_and_update(state)}
+
   @impl GenServer
   def handle_info(:data_refreshed, state), do: {:noreply, sync_and_update(state)}
 
   # ——————————————————————————————————————————————————————————————
-  # CRASH-PROOF + MALFORMED-DATA-PROOF sync_and_update
+  # Data Synchronization
   # ——————————————————————————————————————————————————————————————
   defp sync_and_update(%State{} = state) do
-    result = @device_manager.get_cached_data(state.sensor)
+    result = @data_point_manager.get_cached_data(state.sensor)
 
     {new_state, temp_error} =
       case result do
         {:error, _} ->
-          Logger.warning("[#{state.name}] Sensor communication timeout")
-
-          {%State{state | temperature: nil, humidity: nil, dew_point: nil, error: :timeout},
-           :timeout}
+          Logger.warning("[#{state.name}] CO2 sensor communication timeout")
+          {clear_readings(state), :timeout}
 
         {:ok, data} when is_map(data) ->
-          # Accept several possible key names used over time
-          temp =
-            Map.get(data, :temperature) || Map.get(data, "temperature") || Map.get(data, :temp)
-
-          hum = Map.get(data, :humidity) || Map.get(data, "humidity") || Map.get(data, :hum)
-
-          if is_number(temp) and is_number(hum) and hum >= 0 and hum <= 100 do
-            dew = dew_point(temp, hum)
-            {%State{state | temperature: temp, humidity: hum, dew_point: dew, error: nil}, nil}
-          else
-            Logger.warning(
-              "[#{state.name}] Invalid/missing sensor values: temp=#{inspect(temp)}, hum=#{inspect(hum)}"
-            )
-
-            {%State{
-               state
-               | temperature: nil,
-                 humidity: nil,
-                 dew_point: nil,
-                 error: :invalid_data
-             }, :invalid_data}
-          end
+          parse_sensor_data(state, data)
 
         _ ->
           Logger.warning("[#{state.name}] Unexpected sensor result format: #{inspect(result)}")
-
-          {%State{state | temperature: nil, humidity: nil, dew_point: nil, error: :invalid_data},
-           :invalid_data}
+          {clear_readings(state), :invalid_data}
       end
 
     # Log only when error actually changes
-    if temp_error != new_state.error do
+    if temp_error != state.error do
       case temp_error do
-        nil -> Logger.info("[#{state.name}] Sensor error CLEARED")
-        :timeout -> Logger.error("[#{state.name}] SENSOR TIMEOUT")
-        :invalid_data -> Logger.error("[#{state.name}] INVALID SENSOR DATA")
+        nil -> Logger.info("[#{state.name}] CO2 sensor error CLEARED")
+        :timeout -> Logger.error("[#{state.name}] CO2 SENSOR TIMEOUT")
+        :invalid_data -> Logger.error("[#{state.name}] INVALID CO2 SENSOR DATA")
       end
     end
 
@@ -159,8 +137,55 @@ defmodule PouCon.Equipment.Controllers.TempHumSen do
   end
 
   defp sync_and_update(nil) do
-    Logger.error("TempHumSen: sync_and_update called with nil state!")
+    Logger.error("Co2Sen: sync_and_update called with nil state!")
     %State{name: "recovered", error: :crashed_previously}
+  end
+
+  defp parse_sensor_data(state, data) do
+    # Extract CO2, temperature, and humidity
+    co2 = get_number(data, :co2)
+    temp = get_number(data, :temperature)
+    hum = get_number(data, :humidity)
+
+    # Validate CO2 is within expected range and temp/hum are valid
+    cond do
+      is_nil(co2) or co2 < @co2_min or co2 > @co2_max ->
+        Logger.warning("[#{state.name}] Invalid CO2 value: #{inspect(co2)}")
+        {clear_readings(state), :invalid_data}
+
+      is_nil(temp) or is_nil(hum) ->
+        Logger.warning(
+          "[#{state.name}] Missing temp/hum values: temp=#{inspect(temp)}, hum=#{inspect(hum)}"
+        )
+
+        {clear_readings(state), :invalid_data}
+
+      hum < 0 or hum > 100 ->
+        Logger.warning("[#{state.name}] Invalid humidity value: #{inspect(hum)}")
+        {clear_readings(state), :invalid_data}
+
+      true ->
+        dew = dew_point(temp, hum)
+
+        new_state = %State{
+          state
+          | co2: co2,
+            temperature: temp,
+            humidity: hum,
+            dew_point: dew
+        }
+
+        {new_state, nil}
+    end
+  end
+
+  defp get_number(data, key) do
+    value = Map.get(data, key) || Map.get(data, to_string(key))
+    if is_number(value), do: value, else: nil
+  end
+
+  defp clear_readings(state) do
+    %State{state | co2: nil, temperature: nil, humidity: nil, dew_point: nil}
   end
 
   # ——————————————————————————————————————————————————————————————
@@ -171,6 +196,7 @@ defmodule PouCon.Equipment.Controllers.TempHumSen do
     reply = %{
       name: state.name,
       title: state.title || state.name,
+      co2: state.co2,
       temperature: state.temperature,
       humidity: state.humidity,
       dew_point: state.dew_point,
@@ -190,7 +216,7 @@ defmodule PouCon.Equipment.Controllers.TempHumSen do
   defp error_message(:crashed_previously), do: "RECOVERED FROM CRASH"
   defp error_message(_), do: "UNKNOWN ERROR"
 
-  # Safe dew point calculation
+  # Safe dew point calculation using Magnus formula
   defp dew_point(t, rh) when is_number(t) and is_number(rh) and rh > 0 and rh <= 100 do
     a = 17.27
     b = 237.7
