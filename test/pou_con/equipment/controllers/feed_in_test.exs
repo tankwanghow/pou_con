@@ -3,12 +3,12 @@ defmodule PouCon.Equipment.Controllers.FeedInTest do
   import Mox
 
   alias PouCon.Equipment.Controllers.FeedIn
-  alias PouCon.DeviceManagerMock
+  alias PouCon.DataPointManagerMock
 
   setup :verify_on_exit!
 
   setup do
-    Mox.set_mox_global(PouCon.DeviceManagerMock)
+    Mox.set_mox_global(PouCon.DataPointManagerMock)
 
     id = System.unique_integer([:positive])
 
@@ -20,7 +20,7 @@ defmodule PouCon.Equipment.Controllers.FeedInTest do
     }
 
     # Default: bucket is full (state: 1) so AUTO mode doesn't try to auto-fill
-    stub(DeviceManagerMock, :get_cached_data, fn
+    stub(DataPointManagerMock, :get_cached_data, fn
       name ->
         if String.starts_with?(name, "full_") do
           {:ok, %{state: 1}}
@@ -29,7 +29,7 @@ defmodule PouCon.Equipment.Controllers.FeedInTest do
         end
     end)
 
-    stub(DeviceManagerMock, :command, fn _name, _cmd, _params -> {:ok, :success} end)
+    stub(DataPointManagerMock, :command, fn _name, _cmd, _params -> {:ok, :success} end)
 
     %{devices: device_names}
   end
@@ -78,7 +78,7 @@ defmodule PouCon.Equipment.Controllers.FeedInTest do
     test "reflects state", %{devices: devices} do
       name = "test_feedin_state_#{System.unique_integer([:positive])}"
 
-      stub(DeviceManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :get_cached_data, fn
         n when n == devices.full_switch -> {:ok, %{state: 1}}
         n when n == devices.filling_coil -> {:ok, %{state: 1}}
         n when n == devices.running_feedback -> {:ok, %{state: 1}}
@@ -123,7 +123,7 @@ defmodule PouCon.Equipment.Controllers.FeedInTest do
     end
 
     test "turn_on sends command", %{name: name, devices: devices} do
-      expect(DeviceManagerMock, :command, fn n, :set_state, %{state: 1} ->
+      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 1} ->
         assert n == devices.filling_coil
         {:ok, :success}
       end)

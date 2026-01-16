@@ -3,12 +3,12 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
   import Mox
 
   alias PouCon.Equipment.Controllers.Feeding
-  alias PouCon.DeviceManagerMock
+  alias PouCon.DataPointManagerMock
 
   setup :verify_on_exit!
 
   setup do
-    Mox.set_mox_global(PouCon.DeviceManagerMock)
+    Mox.set_mox_global(PouCon.DataPointManagerMock)
 
     id = System.unique_integer([:positive])
 
@@ -21,8 +21,8 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
       auto_manual: "am_#{id}"
     }
 
-    stub(DeviceManagerMock, :get_cached_data, fn _name -> {:ok, %{state: 0}} end)
-    stub(DeviceManagerMock, :command, fn _name, _cmd, _params -> {:ok, :success} end)
+    stub(DataPointManagerMock, :get_cached_data, fn _name -> {:ok, %{state: 0}} end)
+    stub(DataPointManagerMock, :command, fn _name, _cmd, _params -> {:ok, :success} end)
 
     %{devices: device_names}
   end
@@ -76,7 +76,7 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
     test "reflects state", %{devices: devices} do
       name = "test_feeding_state_#{System.unique_integer([:positive])}"
 
-      stub(DeviceManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :get_cached_data, fn
         n when n == devices.front_limit -> {:ok, %{state: 1}}
         n when n == devices.back_limit -> {:ok, %{state: 0}}
         # Moving
@@ -127,7 +127,7 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
 
     test "move_to_back_limit sends commands", %{name: name, devices: devices} do
       # Expect coils activation
-      expect(DeviceManagerMock, :command, 2, fn
+      expect(DataPointManagerMock, :command, 2, fn
         n, :set_state, %{state: 0} when n == devices.device_to_front_limit -> {:ok, :success}
         n, :set_state, %{state: 1} when n == devices.device_to_back_limit -> {:ok, :success}
         _, _, _ -> {:error, :unexpected}
@@ -141,7 +141,7 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
     end
 
     test "stop_movement sends commands", %{name: name, devices: devices} do
-      expect(DeviceManagerMock, :command, 2, fn
+      expect(DataPointManagerMock, :command, 2, fn
         n, :set_state, %{state: 0} when n == devices.device_to_front_limit -> {:ok, :success}
         n, :set_state, %{state: 0} when n == devices.device_to_back_limit -> {:ok, :success}
         _, _, _ -> {:error, :unexpected}

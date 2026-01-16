@@ -11,14 +11,14 @@ defmodule PouCon.Automation.Lighting.LightSchedulerTest do
     Ecto.Adapters.SQL.Sandbox.mode(PouCon.Repo, {:shared, self()})
 
     # Set mock to global mode for GenServer
-    Mox.set_mox_global(PouCon.DeviceManagerMock)
+    Mox.set_mox_global(PouCon.DataPointManagerMock)
 
-    # Default stub for DeviceManager
-    stub(PouCon.DeviceManagerMock, :get_cached_data, fn _name ->
+    # Default stub for DataPointManager
+    stub(PouCon.DataPointManagerMock, :get_cached_data, fn _name ->
       {:ok, %{state: 0}}
     end)
 
-    stub(PouCon.DeviceManagerMock, :command, fn _name, _cmd, _params ->
+    stub(PouCon.DataPointManagerMock, :command, fn _name, _cmd, _params ->
       {:ok, :success}
     end)
 

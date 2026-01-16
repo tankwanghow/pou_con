@@ -3,23 +3,22 @@ defmodule PouCon.Equipment.Controllers.LightTest do
   import Mox
 
   alias PouCon.Equipment.Controllers.Light
-  alias PouCon.DeviceManagerMock
+  alias PouCon.DataPointManagerMock
 
   setup :verify_on_exit!
 
   setup do
-    Mox.set_mox_global(PouCon.DeviceManagerMock)
+    Mox.set_mox_global(PouCon.DataPointManagerMock)
 
     id = System.unique_integer([:positive])
 
     device_names = %{
       on_off_coil: "test_light_coil_#{id}",
-      running_feedback: "test_light_fb_#{id}",
       auto_manual: "test_light_am_#{id}"
     }
 
-    stub(DeviceManagerMock, :get_cached_data, fn _name -> {:ok, %{state: 0}} end)
-    stub(DeviceManagerMock, :command, fn _name, _cmd, _params -> {:ok, :success} end)
+    stub(DataPointManagerMock, :get_cached_data, fn _name -> {:ok, %{state: 0}} end)
+    stub(DataPointManagerMock, :command, fn _name, _cmd, _params -> {:ok, :success} end)
 
     %{devices: device_names}
   end
@@ -30,7 +29,6 @@ defmodule PouCon.Equipment.Controllers.LightTest do
         name: "test_light_1_#{System.unique_integer([:positive])}",
         title: "Test Light 1",
         on_off_coil: devices.on_off_coil,
-        running_feedback: devices.running_feedback,
         auto_manual: devices.auto_manual
       ]
 
@@ -47,7 +45,6 @@ defmodule PouCon.Equipment.Controllers.LightTest do
         name: name,
         title: "Test Status Light",
         on_off_coil: devices.on_off_coil,
-        running_feedback: devices.running_feedback,
         auto_manual: devices.auto_manual
       ]
 
@@ -63,12 +60,11 @@ defmodule PouCon.Equipment.Controllers.LightTest do
       assert status.error == nil
     end
 
-    test "reflects state from DeviceManager", %{devices: devices} do
+    test "reflects state from DataPointManager", %{devices: devices} do
       name = "test_light_state_#{System.unique_integer([:positive])}"
 
-      stub(DeviceManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :get_cached_data, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
-        n when n == devices.running_feedback -> {:ok, %{state: 1}}
         n when n == devices.auto_manual -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
@@ -76,7 +72,6 @@ defmodule PouCon.Equipment.Controllers.LightTest do
       opts = [
         name: name,
         on_off_coil: devices.on_off_coil,
-        running_feedback: devices.running_feedback,
         auto_manual: devices.auto_manual
       ]
 
@@ -85,18 +80,18 @@ defmodule PouCon.Equipment.Controllers.LightTest do
 
       status = Light.status(name)
       assert status.actual_on == true
+      # For lights, is_running mirrors actual_on (no separate feedback)
       assert status.is_running == true
       assert status.mode == :manual
     end
 
-    test "returns error message when DeviceManager returns error", %{devices: devices} do
+    test "returns error message when DataPointManager returns error", %{devices: devices} do
       name = "test_light_error_#{System.unique_integer([:positive])}"
-      stub(DeviceManagerMock, :get_cached_data, fn _ -> {:error, :timeout} end)
+      stub(DataPointManagerMock, :get_cached_data, fn _ -> {:error, :timeout} end)
 
       opts = [
         name: name,
         on_off_coil: devices.on_off_coil,
-        running_feedback: devices.running_feedback,
         auto_manual: devices.auto_manual
       ]
 
@@ -116,7 +111,6 @@ defmodule PouCon.Equipment.Controllers.LightTest do
       opts = [
         name: name,
         on_off_coil: devices.on_off_coil,
-        running_feedback: devices.running_feedback,
         auto_manual: devices.auto_manual
       ]
 
@@ -124,8 +118,8 @@ defmodule PouCon.Equipment.Controllers.LightTest do
       %{name: name, pid: pid}
     end
 
-    test "turn_on sends command to DeviceManager", %{name: name, devices: devices} do
-      expect(DeviceManagerMock, :command, fn n, :set_state, %{state: 1} ->
+    test "turn_on sends command to DataPointManager", %{name: name, devices: devices} do
+      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 1} ->
         assert n == devices.on_off_coil
         {:ok, :success}
       end)
@@ -137,8 +131,8 @@ defmodule PouCon.Equipment.Controllers.LightTest do
       assert status.commanded_on == true
     end
 
-    test "turn_off sends command to DeviceManager", %{name: name, pid: pid, devices: devices} do
-      stub(DeviceManagerMock, :get_cached_data, fn
+    test "turn_off sends command to DataPointManager", %{name: name, pid: pid, devices: devices} do
+      stub(DataPointManagerMock, :get_cached_data, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
@@ -146,7 +140,7 @@ defmodule PouCon.Equipment.Controllers.LightTest do
       send(pid, :data_refreshed)
       Process.sleep(50)
 
-      expect(DeviceManagerMock, :command, fn n, :set_state, %{state: 0} ->
+      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 0} ->
         assert n == devices.on_off_coil
         {:ok, :success}
       end)
@@ -158,8 +152,8 @@ defmodule PouCon.Equipment.Controllers.LightTest do
       assert status.commanded_on == false
     end
 
-    test "set_manual sends command to DeviceManager", %{name: name, devices: devices} do
-      expect(DeviceManagerMock, :command, fn n, :set_state, %{state: 1} ->
+    test "set_manual sends command to DataPointManager", %{name: name, devices: devices} do
+      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 1} ->
         assert n == devices.auto_manual
         {:ok, :success}
       end)

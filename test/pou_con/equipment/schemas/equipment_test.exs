@@ -11,7 +11,7 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
           name: "fan1",
           title: "Exhaust Fan 1",
           type: "fan",
-          device_tree: "on_off_coil: coil1\nrunning_feedback: fb1\nauto_manual: am1"
+          data_point_tree: "on_off_coil: coil1\nrunning_feedback: fb1\nauto_manual: am1"
         })
 
       assert changeset.valid?
@@ -23,19 +23,31 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
         |> Equipment.changeset(%{
           name: "pump1",
           type: "pump",
-          device_tree: "on_off_coil: p_coil\nrunning_feedback: p_fb\nauto_manual: p_am"
+          data_point_tree: "on_off_coil: p_coil\nrunning_feedback: p_fb\nauto_manual: p_am"
         })
 
       assert changeset.valid?
     end
 
-    test "valid changeset for temp_hum_sensor type" do
+    test "valid changeset for temp_sensor type" do
       changeset =
         %Equipment{}
         |> Equipment.changeset(%{
           name: "temp_sensor1",
-          type: "temp_hum_sensor",
-          device_tree: "sensor: temp1"
+          type: "temp_sensor",
+          data_point_tree: "sensor: temp1"
+        })
+
+      assert changeset.valid?
+    end
+
+    test "valid changeset for humidity_sensor type" do
+      changeset =
+        %Equipment{}
+        |> Equipment.changeset(%{
+          name: "hum_sensor1",
+          type: "humidity_sensor",
+          data_point_tree: "sensor: hum1"
         })
 
       assert changeset.valid?
@@ -46,7 +58,7 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
         %Equipment{}
         |> Equipment.changeset(%{
           type: "fan",
-          device_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
+          data_point_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
         })
 
       refute changeset.valid?
@@ -56,19 +68,19 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
     test "requires type field" do
       changeset =
         %Equipment{}
-        |> Equipment.changeset(%{name: "test", device_tree: "key: value"})
+        |> Equipment.changeset(%{name: "test", data_point_tree: "key: value"})
 
       refute changeset.valid?
       assert %{type: ["can't be blank"]} = errors_on(changeset)
     end
 
-    test "requires device_tree field" do
+    test "requires data_point_tree field" do
       changeset =
         %Equipment{}
         |> Equipment.changeset(%{name: "test", type: "fan"})
 
       refute changeset.valid?
-      assert %{device_tree: ["can't be blank"]} = errors_on(changeset)
+      assert %{data_point_tree: ["can't be blank"]} = errors_on(changeset)
     end
 
     test "validates type is in allowed list" do
@@ -77,7 +89,7 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
         |> Equipment.changeset(%{
           name: "bad_type",
           type: "invalid_type",
-          device_tree: "key: value"
+          data_point_tree: "key: value"
         })
 
       refute changeset.valid?
@@ -89,8 +101,12 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
         "fan",
         "pump",
         "temp_sensor",
-        "hum_sensor",
-        "temp_hum_sensor",
+        "humidity_sensor",
+        "co2_sensor",
+        "nh3_sensor",
+        "water_meter",
+        "power_meter",
+        "flowmeter",
         "feeding",
         "egg",
         "dung",
@@ -101,10 +117,13 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
       ]
 
       for type <- allowed_types do
-        device_tree =
+        data_point_tree =
           case type do
-            t when t in ["fan", "pump", "egg", "light"] ->
+            t when t in ["fan", "pump", "light"] ->
               "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
+
+            "egg" ->
+              "on_off_coil: c\nrunning_feedback: f\nauto_manual: a\nmanual_switch: m"
 
             t when t in ["dung", "dung_horz", "dung_exit"] ->
               "on_off_coil: c\nrunning_feedback: f"
@@ -113,15 +132,22 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
               "device_to_back_limit: d1\ndevice_to_front_limit: d2\nfront_limit: f\nback_limit: b\npulse_sensor: p\nauto_manual: a"
 
             "feed_in" ->
-              "filling_coil: fc\nrunning_feedback: rf\nposition_1: p1\nposition_2: p2\nposition_3: p3\nposition_4: p4\nauto_manual: am\nfull_switch: fs"
+              "filling_coil: fc\nrunning_feedback: rf\nauto_manual: am\nfull_switch: fs"
 
-            _ ->
+            t when t in ["temp_sensor", "humidity_sensor", "co2_sensor", "nh3_sensor"] ->
               "sensor: s1"
+
+            t when t in ["water_meter", "power_meter", "flowmeter"] ->
+              "meter: m1"
           end
 
         changeset =
           %Equipment{}
-          |> Equipment.changeset(%{name: "test_#{type}", type: type, device_tree: device_tree})
+          |> Equipment.changeset(%{
+            name: "test_#{type}",
+            type: type,
+            data_point_tree: data_point_tree
+          })
 
         assert changeset.valid?, "Type #{type} should be valid"
       end
@@ -134,11 +160,11 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
         |> Equipment.changeset(%{
           name: "bad_fan",
           type: "fan",
-          device_tree: "on_off_coil: coil1\nrunning_feedback: fb1"
+          data_point_tree: "on_off_coil: coil1\nrunning_feedback: fb1"
         })
 
       refute changeset.valid?
-      assert changeset.errors[:device_tree] != nil
+      assert changeset.errors[:data_point_tree] != nil
     end
 
     test "validates required keys for feeding type" do
@@ -148,12 +174,12 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
         |> Equipment.changeset(%{
           name: "bad_feeding",
           type: "feeding",
-          device_tree:
+          data_point_tree:
             "device_to_back_limit: d1\ndevice_to_front_limit: d2\nfront_limit: f\nback_limit: b\nauto_manual: a"
         })
 
       refute changeset.valid?
-      assert changeset.errors[:device_tree] != nil
+      assert changeset.errors[:data_point_tree] != nil
     end
 
     test "validates empty values are not allowed" do
@@ -162,24 +188,24 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
         |> Equipment.changeset(%{
           name: "empty_value",
           type: "fan",
-          device_tree: "on_off_coil: \nrunning_feedback: fb\nauto_manual: am"
+          data_point_tree: "on_off_coil: \nrunning_feedback: fb\nauto_manual: am"
         })
 
       refute changeset.valid?
-      assert changeset.errors[:device_tree] != nil
+      assert changeset.errors[:data_point_tree] != nil
     end
 
-    test "validates device_tree parsing errors" do
+    test "validates data_point_tree parsing errors" do
       changeset =
         %Equipment{}
         |> Equipment.changeset(%{
           name: "bad_parse",
           type: "fan",
-          device_tree: "invalid format without colon"
+          data_point_tree: "invalid format without colon"
         })
 
       refute changeset.valid?
-      assert changeset.errors[:device_tree] != nil
+      assert changeset.errors[:data_point_tree] != nil
     end
 
     test "validates unique name constraint" do
@@ -188,7 +214,7 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
       |> Equipment.changeset(%{
         name: "unique_equip",
         type: "fan",
-        device_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
+        data_point_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
       })
       |> Repo.insert!()
 
@@ -198,7 +224,7 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
         |> Equipment.changeset(%{
           name: "unique_equip",
           type: "pump",
-          device_tree: "on_off_coil: c2\nrunning_feedback: f2\nauto_manual: a2"
+          data_point_tree: "on_off_coil: c2\nrunning_feedback: f2\nauto_manual: a2"
         })
 
       assert {:error, changeset} = Repo.insert(changeset)
@@ -211,7 +237,7 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
         |> Equipment.changeset(%{
           name: "no_title",
           type: "fan",
-          device_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
+          data_point_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
         })
 
       assert changeset.valid?

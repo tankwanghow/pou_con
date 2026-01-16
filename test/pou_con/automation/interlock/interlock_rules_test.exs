@@ -100,7 +100,7 @@ defmodule PouCon.Automation.Interlock.InterlockRulesTest do
         name: "test_upstream_#{System.unique_integer([:positive])}",
         title: "Test Upstream",
         type: "dung_exit",
-        device_tree: "on_off_coil: test_coil1\nrunning_feedback: test_fb1"
+        data_point_tree: "on_off_coil: test_coil1\nrunning_feedback: test_fb1"
       })
 
     downstream =
@@ -108,7 +108,7 @@ defmodule PouCon.Automation.Interlock.InterlockRulesTest do
         name: "test_downstream_#{System.unique_integer([:positive])}",
         title: "Test Downstream",
         type: "dung_hor",
-        device_tree: "on_off_coil: test_coil2\nrunning_feedback: test_fb2"
+        data_point_tree: "on_off_coil: test_coil2\nrunning_feedback: test_fb2"
       })
 
     {upstream, downstream}

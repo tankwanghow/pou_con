@@ -6,7 +6,7 @@ defmodule PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpersTest do
   describe "via/1" do
     test "returns correct registry tuple" do
       assert Helpers.via("test_equipment") ==
-               {:via, Registry, {PouCon.DeviceControllerRegistry, "test_equipment"}}
+               {:via, Registry, {PouCon.EquipmentControllerRegistry, "test_equipment"}}
     end
   end
 

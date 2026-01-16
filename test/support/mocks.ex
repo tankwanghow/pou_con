@@ -1,3 +1,3 @@
 defmodule PouCon.TestMocks do
-  Mox.defmock(PouCon.DeviceManagerMock, for: PouCon.Hardware.DeviceManagerBehaviour)
+  Mox.defmock(PouCon.DataPointManagerMock, for: PouCon.Hardware.DataPointManagerBehaviour)
 end

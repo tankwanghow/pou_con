@@ -14,7 +14,7 @@ defmodule PouCon.EquipmentLoaderTest do
         Devices.create_equipment(%{
           name: "test_fan",
           type: "fan",
-          device_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
+          data_point_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
         })
 
       # We can't easily test the actual loading without starting supervisors,
@@ -27,21 +27,32 @@ defmodule PouCon.EquipmentLoaderTest do
         Devices.create_equipment(%{
           name: "test_pump",
           type: "pump",
-          device_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
+          data_point_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
         })
 
       assert equipment.type == "pump"
     end
 
-    test "selects TempHumSen for temp_hum_sensor type" do
+    test "selects TempSen for temp_sensor type" do
       {:ok, equipment} =
         Devices.create_equipment(%{
-          name: "test_sensor",
-          type: "temp_hum_sensor",
-          device_tree: "sensor: s1"
+          name: "test_temp_sensor",
+          type: "temp_sensor",
+          data_point_tree: "sensor: s1"
         })
 
-      assert equipment.type == "temp_hum_sensor"
+      assert equipment.type == "temp_sensor"
+    end
+
+    test "selects HumSen for humidity_sensor type" do
+      {:ok, equipment} =
+        Devices.create_equipment(%{
+          name: "test_hum_sensor",
+          type: "humidity_sensor",
+          data_point_tree: "sensor: s2"
+        })
+
+      assert equipment.type == "humidity_sensor"
     end
 
     test "selects Egg for egg type" do
@@ -49,7 +60,7 @@ defmodule PouCon.EquipmentLoaderTest do
         Devices.create_equipment(%{
           name: "test_egg",
           type: "egg",
-          device_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
+          data_point_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a\nmanual_switch: m"
         })
 
       assert equipment.type == "egg"
@@ -60,7 +71,7 @@ defmodule PouCon.EquipmentLoaderTest do
         Devices.create_equipment(%{
           name: "test_light",
           type: "light",
-          device_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
+          data_point_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
         })
 
       assert equipment.type == "light"
@@ -71,7 +82,7 @@ defmodule PouCon.EquipmentLoaderTest do
         Devices.create_equipment(%{
           name: "test_dung",
           type: "dung",
-          device_tree: "on_off_coil: c\nrunning_feedback: f"
+          data_point_tree: "on_off_coil: c\nrunning_feedback: f"
         })
 
       assert equipment.type == "dung"
@@ -82,7 +93,7 @@ defmodule PouCon.EquipmentLoaderTest do
         Devices.create_equipment(%{
           name: "test_dung_horz",
           type: "dung_horz",
-          device_tree: "on_off_coil: c\nrunning_feedback: f"
+          data_point_tree: "on_off_coil: c\nrunning_feedback: f"
         })
 
       assert equipment.type == "dung_horz"
@@ -93,7 +104,7 @@ defmodule PouCon.EquipmentLoaderTest do
         Devices.create_equipment(%{
           name: "test_dung_exit",
           type: "dung_exit",
-          device_tree: "on_off_coil: c\nrunning_feedback: f"
+          data_point_tree: "on_off_coil: c\nrunning_feedback: f"
         })
 
       assert equipment.type == "dung_exit"
@@ -104,7 +115,7 @@ defmodule PouCon.EquipmentLoaderTest do
         Devices.create_equipment(%{
           name: "test_feeding",
           type: "feeding",
-          device_tree:
+          data_point_tree:
             "device_to_back_limit: d1\ndevice_to_front_limit: d2\nfront_limit: f\nback_limit: b\npulse_sensor: p\nauto_manual: a"
         })
 
@@ -116,7 +127,7 @@ defmodule PouCon.EquipmentLoaderTest do
         Devices.create_equipment(%{
           name: "test_feed_in",
           type: "feed_in",
-          device_tree:
+          data_point_tree:
             "filling_coil: fc\nrunning_feedback: rf\nposition_1: p1\nposition_2: p2\nposition_3: p3\nposition_4: p4\nauto_manual: am\nfull_switch: fs"
         })
 
@@ -131,11 +142,11 @@ defmodule PouCon.EquipmentLoaderTest do
       assert EquipmentLoader.load_and_start_controllers() == []
     end
 
-    test "handles equipment with valid device_tree" do
+    test "handles equipment with valid data_point_tree" do
       Devices.create_equipment(%{
         name: "test_equipment",
         type: "fan",
-        device_tree: "on_off_coil: coil1\nrunning_feedback: fb1\nauto_manual: am1"
+        data_point_tree: "on_off_coil: coil1\nrunning_feedback: fb1\nauto_manual: am1"
       })
 
       # Should return list with :ok (one per equipment) and not raise an error
@@ -155,11 +166,11 @@ defmodule PouCon.EquipmentLoaderTest do
   end
 
   describe "error handling" do
-    test "handles invalid device_tree gracefully" do
+    test "handles invalid data_point_tree gracefully" do
       Devices.create_equipment(%{
         name: "test_invalid",
         type: "fan",
-        device_tree: "invalid yaml format {{{"
+        data_point_tree: "invalid yaml format {{{"
       })
 
       # Should log error and continue without crashing
@@ -171,7 +182,7 @@ defmodule PouCon.EquipmentLoaderTest do
       Devices.create_equipment(%{
         name: "test_unsupported",
         type: "unknown_type",
-        device_tree: "some: data"
+        data_point_tree: "some: data"
       })
 
       # Should log warning and continue
@@ -184,7 +195,7 @@ defmodule PouCon.EquipmentLoaderTest do
         Devices.create_equipment(%{
           name: "test_no_title",
           type: "fan",
-          device_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
+          data_point_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
         })
 
       # Should use name as title
@@ -198,13 +209,13 @@ defmodule PouCon.EquipmentLoaderTest do
       Devices.create_equipment(%{
         name: "fan1",
         type: "fan",
-        device_tree: "on_off_coil: c1\nrunning_feedback: f1\nauto_manual: a1"
+        data_point_tree: "on_off_coil: c1\nrunning_feedback: f1\nauto_manual: a1"
       })
 
       Devices.create_equipment(%{
         name: "pump1",
         type: "pump",
-        device_tree: "on_off_coil: c2\nrunning_feedback: f2\nauto_manual: a2"
+        data_point_tree: "on_off_coil: c2\nrunning_feedback: f2\nauto_manual: a2"
       })
 
       result = EquipmentLoader.load_and_start_controllers()

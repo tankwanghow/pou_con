@@ -12,7 +12,7 @@ defmodule PouCon.Automation.Lighting.Schemas.ScheduleTest do
         |> Equipment.changeset(%{
           name: "light1",
           type: "light",
-          device_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
+          data_point_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
         })
         |> Repo.insert()
 

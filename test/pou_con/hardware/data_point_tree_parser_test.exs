@@ -1,6 +1,6 @@
-defmodule PouCon.DeviceTreeParserTest do
+defmodule PouCon.DataPointTreeParserTest do
   use ExUnit.Case, async: false
-  alias PouCon.Hardware.DeviceTreeParser
+  alias PouCon.Hardware.DataPointTreeParser
 
   describe "parse/1" do
     test "parses simple key-value pairs" do
@@ -10,7 +10,7 @@ defmodule PouCon.DeviceTreeParserTest do
       """
 
       # The parser accumulates by prepending, so order is reversed
-      assert DeviceTreeParser.parse(input) == [key2: "value2", key1: "value1"]
+      assert DataPointTreeParser.parse(input) == [key2: "value2", key1: "value1"]
     end
 
     test "parses quoted values" do
@@ -19,7 +19,7 @@ defmodule PouCon.DeviceTreeParserTest do
       type: "sensor"
       """
 
-      assert DeviceTreeParser.parse(input) == [type: "sensor", name: "My Device"]
+      assert DataPointTreeParser.parse(input) == [type: "sensor", name: "My Device"]
     end
 
     test "handles whitespace gracefully" do
@@ -28,7 +28,7 @@ defmodule PouCon.DeviceTreeParserTest do
       key2:value2
       """
 
-      assert DeviceTreeParser.parse(input) == [key2: "value2", key1: "value1"]
+      assert DataPointTreeParser.parse(input) == [key2: "value2", key1: "value1"]
     end
 
     test "ignores empty lines" do
@@ -38,28 +38,28 @@ defmodule PouCon.DeviceTreeParserTest do
       key2: value2
       """
 
-      assert DeviceTreeParser.parse(input) == [key2: "value2", key1: "value1"]
+      assert DataPointTreeParser.parse(input) == [key2: "value2", key1: "value1"]
     end
 
     test "raises error on missing colon" do
       input = "invalid_line"
 
       assert_raise ArgumentError, ~r/Invalid format/, fn ->
-        DeviceTreeParser.parse(input)
+        DataPointTreeParser.parse(input)
       end
     end
 
     test "raises error on empty key or value" do
       assert_raise ArgumentError, ~r/Invalid key or value/, fn ->
-        DeviceTreeParser.parse(":")
+        DataPointTreeParser.parse(":")
       end
 
       assert_raise ArgumentError, ~r/Invalid key or value/, fn ->
-        DeviceTreeParser.parse("key:")
+        DataPointTreeParser.parse("key:")
       end
 
       assert_raise ArgumentError, ~r/Invalid key or value/, fn ->
-        DeviceTreeParser.parse(":value")
+        DataPointTreeParser.parse(":value")
       end
     end
   end

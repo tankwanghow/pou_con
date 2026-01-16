@@ -3,13 +3,13 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
   import Mox
 
   alias PouCon.Equipment.Controllers.Pump
-  alias PouCon.DeviceManagerMock
+  alias PouCon.DataPointManagerMock
 
   setup :verify_on_exit!
 
   setup do
     # Allow any process to use the mock
-    Mox.set_mox_global(PouCon.DeviceManagerMock)
+    Mox.set_mox_global(PouCon.DataPointManagerMock)
 
     # Create test device names with unique suffix
     id = System.unique_integer([:positive])
@@ -21,11 +21,11 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
     }
 
     # Default stub: return 0 (OFF/AUTO) for everything
-    stub(DeviceManagerMock, :get_cached_data, fn _name ->
+    stub(DataPointManagerMock, :get_cached_data, fn _name ->
       {:ok, %{state: 0}}
     end)
 
-    stub(DeviceManagerMock, :command, fn _name, _cmd, _params ->
+    stub(DataPointManagerMock, :command, fn _name, _cmd, _params ->
       {:ok, :success}
     end)
 
@@ -75,11 +75,11 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
       assert status.error == nil
     end
 
-    test "reflects state from DeviceManager", %{devices: devices} do
+    test "reflects state from DataPointManager", %{devices: devices} do
       name = "test_pump_state_#{System.unique_integer([:positive])}"
 
       # Stub specific values for this test
-      stub(DeviceManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :get_cached_data, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         n when n == devices.running_feedback -> {:ok, %{state: 1}}
         # Manual
@@ -103,10 +103,10 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
       assert status.mode == :manual
     end
 
-    test "returns error message when DeviceManager returns error", %{devices: devices} do
+    test "returns error message when DataPointManager returns error", %{devices: devices} do
       name = "test_pump_error_#{System.unique_integer([:positive])}"
 
-      stub(DeviceManagerMock, :get_cached_data, fn _ -> {:error, :timeout} end)
+      stub(DataPointManagerMock, :get_cached_data, fn _ -> {:error, :timeout} end)
 
       opts = [
         name: name,
@@ -139,8 +139,8 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
       %{name: name, pid: pid}
     end
 
-    test "turn_on sends command to DeviceManager", %{name: name, devices: devices} do
-      expect(DeviceManagerMock, :command, fn n, :set_state, %{state: 1} ->
+    test "turn_on sends command to DataPointManager", %{name: name, devices: devices} do
+      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 1} ->
         assert n == devices.on_off_coil
         {:ok, :success}
       end)
@@ -152,9 +152,9 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
       assert status.commanded_on == true
     end
 
-    test "turn_off sends command to DeviceManager", %{name: name, pid: pid, devices: devices} do
+    test "turn_off sends command to DataPointManager", %{name: name, pid: pid, devices: devices} do
       # Stub coil to be ON so actual_on becomes true
-      stub(DeviceManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :get_cached_data, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
@@ -163,7 +163,7 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
       send(pid, :data_refreshed)
       Process.sleep(50)
 
-      expect(DeviceManagerMock, :command, fn n, :set_state, %{state: 0} ->
+      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 0} ->
         assert n == devices.on_off_coil
         {:ok, :success}
       end)
@@ -175,8 +175,8 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
       assert status.commanded_on == false
     end
 
-    test "set_manual sends command to DeviceManager", %{name: name, devices: devices} do
-      expect(DeviceManagerMock, :command, fn n, :set_state, %{state: 1} ->
+    test "set_manual sends command to DataPointManager", %{name: name, devices: devices} do
+      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 1} ->
         assert n == devices.auto_manual
         {:ok, :success}
       end)
@@ -185,8 +185,8 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
       Process.sleep(50)
     end
 
-    test "set_auto sends command to DeviceManager", %{name: name, devices: devices} do
-      expect(DeviceManagerMock, :command, fn n, :set_state, %{state: 0} ->
+    test "set_auto sends command to DataPointManager", %{name: name, devices: devices} do
+      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 0} ->
         assert n == devices.auto_manual
         {:ok, :success}
       end)
