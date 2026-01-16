@@ -79,19 +79,27 @@ defmodule PouCon.Logging.EquipmentLogger do
       attrs = Map.put_new(attrs, :inserted_at, DateTime.utc_now())
 
       # Async write using Task to avoid blocking equipment operations
-      Task.Supervisor.start_child(PouCon.TaskSupervisor, fn ->
-        changeset = EquipmentEvent.changeset(%EquipmentEvent{}, attrs)
+      # In test environment, TaskSupervisor may not be running
+      case Process.whereis(PouCon.TaskSupervisor) do
+        nil ->
+          # TaskSupervisor not running (test environment) - skip logging
+          :ok
 
-        case Repo.insert(changeset) do
-          {:ok, _event} ->
-            :ok
+        _pid ->
+          Task.Supervisor.start_child(PouCon.TaskSupervisor, fn ->
+            changeset = EquipmentEvent.changeset(%EquipmentEvent{}, attrs)
 
-          {:error, changeset} ->
-            Logger.warning(
-              "Failed to log equipment event for #{attrs[:equipment_name]}: #{inspect(changeset.errors)}"
-            )
-        end
-      end)
+            case Repo.insert(changeset) do
+              {:ok, _event} ->
+                :ok
+
+              {:error, changeset} ->
+                Logger.warning(
+                  "Failed to log equipment event for #{attrs[:equipment_name]}: #{inspect(changeset.errors)}"
+                )
+            end
+          end)
+      end
     end
   end
 

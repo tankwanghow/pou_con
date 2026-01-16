@@ -44,7 +44,7 @@ defmodule PouCon.Hardware.DataPointManager do
   @behaviour PouCon.Hardware.DataPointManagerBehaviour
 
   # Ensure these atoms exist for String.to_existing_atom in load_state_from_db
-  @_ensure_atoms [
+  @ensure_atoms [
     :read_digital_input,
     :read_digital_output,
     :write_digital_output,
@@ -54,6 +54,8 @@ defmodule PouCon.Hardware.DataPointManager do
     :read_virtual_digital_output,
     :write_virtual_digital_output
   ]
+  # Reference to suppress "unused" warning - these atoms must exist at compile time
+  def known_io_functions, do: @ensure_atoms
 
   # ------------------------------------------------------------------ #
   # Runtime Structures
@@ -234,7 +236,12 @@ defmodule PouCon.Hardware.DataPointManager do
 
               if dev.read_fn == :read_digital_output do
                 # Digital output - write to outputs area (%QB)
-                PouCon.Hardware.S7.SimulatedAdapter.set_output_bit(conn_pid, byte_addr, bit, value)
+                PouCon.Hardware.S7.SimulatedAdapter.set_output_bit(
+                  conn_pid,
+                  byte_addr,
+                  bit,
+                  value
+                )
               else
                 # Digital input - write to inputs area (%IB)
                 PouCon.Hardware.S7.SimulatedAdapter.set_input_bit(conn_pid, byte_addr, bit, value)
@@ -289,6 +296,7 @@ defmodule PouCon.Hardware.DataPointManager do
           # For Modbus, we use a dummy slave_id since offline affects the whole port
           PouCon.Hardware.Modbus.SimulatedAdapter.set_offline(conn_pid, 0, offline?)
         end
+
         {:reply, :ok, state}
 
       _ ->
@@ -317,7 +325,13 @@ defmodule PouCon.Hardware.DataPointManager do
           # For Modbus protocols
           if values[:temperature] do
             val = round(values.temperature * 10)
-            PouCon.Hardware.Modbus.SimulatedAdapter.set_register(conn_pid, dev.slave_id, base, val)
+
+            PouCon.Hardware.Modbus.SimulatedAdapter.set_register(
+              conn_pid,
+              dev.slave_id,
+              base,
+              val
+            )
           end
 
           if values[:humidity] do
@@ -379,7 +393,16 @@ defmodule PouCon.Hardware.DataPointManager do
           result =
             try do
               dispatch_info = get_io_module(write_fn)
-              call_io_write(dispatch_info, conn_pid, protocol_str, sid, reg, {action, params}, dev)
+
+              call_io_write(
+                dispatch_info,
+                conn_pid,
+                protocol_str,
+                sid,
+                reg,
+                {action, params},
+                dev
+              )
             catch
               :exit, reason ->
                 if reason == :timeout do
@@ -711,7 +734,15 @@ defmodule PouCon.Hardware.DataPointManager do
   end
 
   # Legacy modules (Virtual): module.fn(conn, slave_id, register, command, channel)
-  defp call_io_write({module, fn_name, :legacy}, conn_pid, _protocol_str, slave_id, register, command, dev) do
+  defp call_io_write(
+         {module, fn_name, :legacy},
+         conn_pid,
+         _protocol_str,
+         slave_id,
+         register,
+         command,
+         dev
+       ) do
     channel = dev.channel
 
     if conn_pid do

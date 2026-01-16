@@ -211,7 +211,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   # CRASH-PROOF sync_and_update
   # ——————————————————————————————————————————————————————————————
   defp sync_and_update(%State{} = state) do
-    trip_res = if state.trip, do: @data_point_manager.get_cached_data(state.trip), else: {:ok, %{state: 0}}
+    trip_res =
+      if state.trip, do: @data_point_manager.get_cached_data(state.trip), else: {:ok, %{state: 0}}
 
     inputs = [
       @data_point_manager.get_cached_data(state.device_to_back_limit),

@@ -194,7 +194,9 @@ defmodule PouCon.Equipment.Controllers.Pump do
     coil_res = @data_point_manager.get_cached_data(state.on_off_coil)
     fb_res = @data_point_manager.get_cached_data(state.running_feedback)
     mode_res = @data_point_manager.get_cached_data(state.auto_manual)
-    trip_res = if state.trip, do: @data_point_manager.get_cached_data(state.trip), else: {:ok, %{state: 0}}
+
+    trip_res =
+      if state.trip, do: @data_point_manager.get_cached_data(state.trip), else: {:ok, %{state: 0}}
 
     results = [coil_res, fb_res, mode_res, trip_res]
 

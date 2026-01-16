@@ -8,7 +8,7 @@ defmodule PouCon.DataPointManagerBehaviourTest do
 
     assert {:command, 3} in callbacks
     assert {:get_cached_data, 1} in callbacks
-    assert {:list_devices, 0} in callbacks
+    assert {:list_data_points, 0} in callbacks
     assert {:list_ports, 0} in callbacks
     assert {:query, 1} in callbacks
     assert {:get_all_cached_data, 0} in callbacks

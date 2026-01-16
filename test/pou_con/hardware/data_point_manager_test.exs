@@ -48,12 +48,12 @@ defmodule PouCon.Hardware.DataPointManagerTest do
       assert function_exported?(DataPointManager, :command, 3)
     end
 
-    test "exports list_devices/0" do
-      assert function_exported?(DataPointManager, :list_devices, 0)
+    test "exports list_data_points/0" do
+      assert function_exported?(DataPointManager, :list_data_points, 0)
     end
 
-    test "exports list_devices_details/0" do
-      assert function_exported?(DataPointManager, :list_devices_details, 0)
+    test "exports list_data_points_details/0" do
+      assert function_exported?(DataPointManager, :list_data_points_details, 0)
     end
 
     test "exports list_ports/0" do
@@ -76,12 +76,16 @@ defmodule PouCon.Hardware.DataPointManagerTest do
       assert function_exported?(DataPointManager, :delete_port, 1)
     end
 
-    test "exports declare_device/1" do
-      assert function_exported?(DataPointManager, :declare_device, 1)
+    test "exports declare_data_point/1" do
+      assert function_exported?(DataPointManager, :declare_data_point, 1)
     end
 
     test "exports reload/0" do
       assert function_exported?(DataPointManager, :reload, 0)
+    end
+
+    test "exports known_io_functions/0" do
+      assert function_exported?(DataPointManager, :known_io_functions, 0)
     end
 
     test "exports skip_slave/2" do
@@ -102,10 +106,6 @@ defmodule PouCon.Hardware.DataPointManagerTest do
 
     test "exports simulate_offline/2" do
       assert function_exported?(DataPointManager, :simulate_offline, 2)
-    end
-
-    test "exports set_slave_id/4" do
-      assert function_exported?(DataPointManager, :set_slave_id, 4)
     end
   end
 
@@ -221,20 +221,20 @@ defmodule PouCon.Hardware.DataPointManagerTest do
 
   describe "get_cached_data/1 (static function)" do
     setup do
-      # Ensure :device_cache table exists
-      if :ets.whereis(:device_cache) == :undefined do
-        :ets.new(:device_cache, [:named_table, :public, :set])
+      # Ensure :data_point_cache table exists
+      if :ets.whereis(:data_point_cache) == :undefined do
+        :ets.new(:data_point_cache, [:named_table, :public, :set])
       end
 
       # Clean up any existing test data
-      if :ets.whereis(:device_cache) != :undefined do
-        :ets.delete_all_objects(:device_cache)
+      if :ets.whereis(:data_point_cache) != :undefined do
+        :ets.delete_all_objects(:data_point_cache)
       end
 
       on_exit(fn ->
         # Only cleanup if table still exists
-        if :ets.whereis(:device_cache) != :undefined do
-          :ets.delete_all_objects(:device_cache)
+        if :ets.whereis(:data_point_cache) != :undefined do
+          :ets.delete_all_objects(:data_point_cache)
         end
       end)
 
@@ -243,12 +243,12 @@ defmodule PouCon.Hardware.DataPointManagerTest do
 
     test "returns {:ok, data} when data exists in cache" do
       # Ensure table exists before test
-      if :ets.whereis(:device_cache) == :undefined do
-        :ets.new(:device_cache, [:named_table, :public, :set])
+      if :ets.whereis(:data_point_cache) == :undefined do
+        :ets.new(:data_point_cache, [:named_table, :public, :set])
       end
 
       # Insert test data
-      :ets.insert(:device_cache, {"test_device_1", %{state: 1}})
+      :ets.insert(:data_point_cache, {"test_device_1", %{state: 1}})
 
       result = DataPointManager.get_cached_data("test_device_1")
       assert {:ok, %{state: 1}} = result
@@ -256,8 +256,8 @@ defmodule PouCon.Hardware.DataPointManagerTest do
 
     test "returns {:error, :no_data} when device not in cache" do
       # Ensure table exists before test
-      if :ets.whereis(:device_cache) == :undefined do
-        :ets.new(:device_cache, [:named_table, :public, :set])
+      if :ets.whereis(:data_point_cache) == :undefined do
+        :ets.new(:data_point_cache, [:named_table, :public, :set])
       end
 
       result = DataPointManager.get_cached_data("nonexistent_device_123")
@@ -266,14 +266,14 @@ defmodule PouCon.Hardware.DataPointManagerTest do
 
     test "returns wrapped error tuple when error is cached" do
       # Ensure table exists before test
-      if :ets.whereis(:device_cache) == :undefined do
-        :ets.new(:device_cache, [:named_table, :public, :set])
+      if :ets.whereis(:data_point_cache) == :undefined do
+        :ets.new(:data_point_cache, [:named_table, :public, :set])
       end
 
       # Insert error tuple
       # Note: The implementation's pattern matching means error tuples get wrapped in {:ok, ...}
       # because the first pattern [{^device_name, data}] matches before the error pattern
-      :ets.insert(:device_cache, {"error_device_456", {:error, :timeout}})
+      :ets.insert(:data_point_cache, {"error_device_456", {:error, :timeout}})
 
       result = DataPointManager.get_cached_data("error_device_456")
       assert {:ok, {:error, :timeout}} = result

@@ -60,6 +60,7 @@ defmodule PouConWeb.Live.TempHum.Index do
                   title: eq.title
                 }
             end
+
           Map.put(eq, :status, status)
         end,
         timeout: 1000,

@@ -132,7 +132,7 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
               "device_to_back_limit: d1\ndevice_to_front_limit: d2\nfront_limit: f\nback_limit: b\npulse_sensor: p\nauto_manual: a"
 
             "feed_in" ->
-              "filling_coil: fc\nrunning_feedback: rf\nauto_manual: am\nfull_switch: fs"
+              "filling_coil: fc\nrunning_feedback: rf\nauto_manual: am\nfull_switch: fs\ntrip: tr"
 
             t when t in ["temp_sensor", "humidity_sensor", "co2_sensor", "nh3_sensor"] ->
               "sensor: s1"

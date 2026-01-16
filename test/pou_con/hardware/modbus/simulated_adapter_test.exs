@@ -108,26 +108,27 @@ defmodule PouCon.Hardware.Modbus.SimulatedAdapterTest do
     end
 
     test "returns simulated temperature/humidity values by default", %{pid: pid} do
-      # First register (even addr) should be around 250 (25.0°C)
-      # Second register (odd addr) should be around 600 (60.0% RH)
+      # Cytron format: temp = 250 ± 25 (22.5-27.5°C × 10), hum = 600 ± 100 (50-70% × 10)
       assert {:ok, [temp, hum]} = SimulatedAdapter.request(pid, {:rir, 1, 0, 2})
-      assert temp >= 240 and temp <= 260
-      assert hum >= 590 and hum <= 610
+      assert temp >= 225 and temp <= 275
+      assert hum >= 500 and hum <= 700
     end
 
     test "returns set values when registers are manually set", %{pid: pid} do
-      SimulatedAdapter.set_register(pid, 1, 0, 300)
-      SimulatedAdapter.set_register(pid, 1, 1, 700)
+      # Use addresses that don't match special sensor patterns to hit fallback path
+      SimulatedAdapter.set_register(pid, 1, 100, 300)
+      SimulatedAdapter.set_register(pid, 1, 101, 700)
 
-      assert {:ok, [300, 700]} = SimulatedAdapter.request(pid, {:rir, 1, 0, 2})
+      assert {:ok, [300, 700]} = SimulatedAdapter.request(pid, {:rir, 1, 100, 2})
     end
 
     test "returns different values for different slaves", %{pid: pid} do
-      SimulatedAdapter.set_register(pid, 1, 0, 100)
-      SimulatedAdapter.set_register(pid, 2, 0, 200)
+      # Use addresses that don't match special sensor patterns to hit fallback path
+      SimulatedAdapter.set_register(pid, 1, 100, 100)
+      SimulatedAdapter.set_register(pid, 2, 100, 200)
 
-      assert {:ok, [100]} = SimulatedAdapter.request(pid, {:rir, 1, 0, 1})
-      assert {:ok, [200]} = SimulatedAdapter.request(pid, {:rir, 2, 0, 1})
+      assert {:ok, [100]} = SimulatedAdapter.request(pid, {:rir, 1, 100, 1})
+      assert {:ok, [200]} = SimulatedAdapter.request(pid, {:rir, 2, 100, 1})
     end
   end
 

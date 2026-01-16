@@ -188,7 +188,7 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulesTest do
       name: name,
       type: "feed_in",
       data_point_tree:
-        "filling_coil: fc\nrunning_feedback: rf\nposition_1: p1\nposition_2: p2\nposition_3: p3\nposition_4: p4\nauto_manual: am\nfull_switch: fs"
+        "filling_coil: fc\nrunning_feedback: rf\nauto_manual: am\nfull_switch: fs\ntrip: tr"
     })
     |> Repo.insert()
   end

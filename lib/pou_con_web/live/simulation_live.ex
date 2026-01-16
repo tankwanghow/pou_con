@@ -126,7 +126,11 @@ defmodule PouConWeb.SimulationLive do
   end
 
   @impl true
-  def handle_event("temp_change", %{"data_point" => data_point, "type" => type, "value" => val}, socket) do
+  def handle_event(
+        "temp_change",
+        %{"data_point" => data_point, "type" => type, "value" => val},
+        socket
+      ) do
     current_dev_vals = socket.assigns.temp_values[data_point] || %{}
     new_dev_vals = Map.put(current_dev_vals, type, val)
     new_temp_vals = Map.put(socket.assigns.temp_values, data_point, new_dev_vals)
@@ -134,7 +138,11 @@ defmodule PouConWeb.SimulationLive do
   end
 
   @impl true
-  def handle_event("set_offline", %{"data_point" => data_point_name, "value" => offline_str}, socket) do
+  def handle_event(
+        "set_offline",
+        %{"data_point" => data_point_name, "value" => offline_str},
+        socket
+      ) do
     offline? = offline_str == "true"
     DataPointManager.simulate_offline(data_point_name, offline?)
     {:noreply, socket}

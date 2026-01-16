@@ -230,7 +230,7 @@ defmodule PouCon.Automation.EggCollection.EggCollectionSchedulesTest do
     |> Equipment.changeset(%{
       name: name,
       type: "egg",
-      data_point_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a"
+      data_point_tree: "on_off_coil: c\nrunning_feedback: f\nauto_manual: a\nmanual_switch: m"
     })
     |> Repo.insert()
   end

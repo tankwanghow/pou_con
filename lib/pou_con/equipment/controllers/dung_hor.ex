@@ -169,12 +169,21 @@ defmodule PouCon.Equipment.Controllers.DungHor do
   defp sync_and_update(%State{} = state) do
     coil_res = @data_point_manager.get_cached_data(state.on_off_coil)
     fb_res = @data_point_manager.get_cached_data(state.running_feedback)
-    trip_res = if state.trip, do: @data_point_manager.get_cached_data(state.trip), else: {:ok, %{state: 0}}
+
+    trip_res =
+      if state.trip, do: @data_point_manager.get_cached_data(state.trip), else: {:ok, %{state: 0}}
 
     {new_state, temp_error} =
       cond do
         Enum.any?([coil_res, fb_res, trip_res], &match?({:error, _}, &1)) ->
-          safe = %State{state | actual_on: false, is_running: false, is_tripped: false, error: :timeout}
+          safe = %State{
+            state
+            | actual_on: false,
+              is_running: false,
+              is_tripped: false,
+              error: :timeout
+          }
+
           {safe, :timeout}
 
         true ->

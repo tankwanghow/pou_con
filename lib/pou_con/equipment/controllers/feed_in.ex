@@ -215,7 +215,9 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
     coil_res = @data_point_manager.get_cached_data(state.filling_coil)
     fb_res = @data_point_manager.get_cached_data(state.running_feedback)
     am_res = @data_point_manager.get_cached_data(state.auto_manual)
-    trip_res = if state.trip, do: @data_point_manager.get_cached_data(state.trip), else: {:ok, %{state: 0}}
+
+    trip_res =
+      if state.trip, do: @data_point_manager.get_cached_data(state.trip), else: {:ok, %{state: 0}}
 
     critical_results = [full_res, coil_res, fb_res, am_res, trip_res]
 
