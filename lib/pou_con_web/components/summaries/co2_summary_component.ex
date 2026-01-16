@@ -1,20 +1,20 @@
-defmodule PouConWeb.Components.Summaries.TempHumSummaryComponent do
+defmodule PouConWeb.Components.Summaries.Co2SummaryComponent do
   @moduledoc """
-  Summary component for temperature/humidity sensors.
-  Displays sensor readings and averages.
+  Summary component for CO2 sensors.
+  Displays CO2 readings along with temperature and humidity.
   """
 
   use PouConWeb, :live_component
 
   @impl true
   def update(assigns, socket) do
-    temphums = prepare_temphum(assigns[:temphums] || [])
-    stats = calculate_averages(assigns[:temphums] || [])
+    sensors = prepare_sensors(assigns[:sensors] || [])
+    stats = calculate_averages(assigns[:sensors] || [])
 
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(:temphums, temphums)
+     |> assign(:sensors, sensors)
      |> assign(:stats, stats)}
   end
 
@@ -32,7 +32,7 @@ defmodule PouConWeb.Components.Summaries.TempHumSummaryComponent do
       class="bg-white shadow-md rounded-xl border border-gray-200 transition-all cursor-pointer hover:shadow-lg"
     >
       <div class="flex flex-wrap">
-        <.temphum_item :for={eq <- @temphums} eq={eq} />
+        <.sensor_item :for={eq <- @sensors} eq={eq} />
         <.stats_panel stats={@stats} />
       </div>
     </div>
@@ -43,21 +43,21 @@ defmodule PouConWeb.Components.Summaries.TempHumSummaryComponent do
   # Sub-Components
   # ============================================================================
 
-  defp temphum_item(assigns) do
+  defp sensor_item(assigns) do
     ~H"""
     <div class="p-2 flex flex-col items-center justify-center">
       <div class={"text-#{@eq.main_color}-500 text-sm"}>{@eq.title}</div>
       <div class="flex items-center gap-1">
-        <.thermometer_icon color={@eq.main_color} />
+        <.co2_icon color={@eq.main_color} />
         <div class="flex flex-col space-y-0.5">
-          <span class={"text-xs font-mono font-bold text-#{@eq.temp_color}-500"}>
+          <span class={"text-xs font-mono font-bold text-#{@eq.co2_color}-500"}>
+            {@eq.co2}
+          </span>
+          <span class={"text-xs font-mono text-#{@eq.temp_color}-500"}>
             {@eq.temp}
           </span>
-          <span class={"text-xs font-mono font-bold text-#{@eq.hum_color}-500"}>
+          <span class={"text-xs font-mono text-#{@eq.hum_color}-500"}>
             {@eq.hum}
-          </span>
-          <span class={"text-xs font-mono text-#{@eq.dew_color}-500"}>
-            {@eq.dew}
           </span>
         </div>
       </div>
@@ -69,14 +69,20 @@ defmodule PouConWeb.Components.Summaries.TempHumSummaryComponent do
     ~H"""
     <div class="px-2 flex flex-col gap-1 justify-center">
       <.stat_row
+        label="CO2"
+        value={@stats.avg_co2}
+        unit="ppm"
+        color={@stats.co2_color}
+        bold={true}
+      />
+      <.stat_row
         label="Temp"
         value={@stats.avg_temp}
         unit="°C"
         color={@stats.temp_color}
-        bold={true}
+        bold={false}
       />
-      <.stat_row label="Hum" value={@stats.avg_hum} unit="%" color={@stats.hum_color} bold={true} />
-      <.stat_row label="Dew" value={@stats.avg_dew} unit="°C" color={@stats.dew_color} bold={false} />
+      <.stat_row label="Hum" value={@stats.avg_hum} unit="%" color={@stats.hum_color} bold={false} />
     </div>
     """
   end
@@ -93,11 +99,12 @@ defmodule PouConWeb.Components.Summaries.TempHumSummaryComponent do
     """
   end
 
-  defp thermometer_icon(assigns) do
+  defp co2_icon(assigns) do
     ~H"""
-    <svg viewBox="0 0 27 27" fill="currentColor" class={"w-9 h-15 text-#{@color}-500"}>
-      <path d="M14,6a1,1,0,0,0-1,1V20.18a3,3,0,1,0,2,0V7A1,1,0,0,0,14,6Zm0,18a1,1,0,1,1,1-1A1,1,0,0,1,14,24Z" />
-      <path d="M21.8,5.4a1,1,0,0,0-1.6,0C19.67,6.11,17,9.78,17,12a4,4,0,0,0,8,0C25,9.78,22.33,6.11,21.8,5.4ZM21,14a2,2,0,0,1-2-2c0-.9,1-2.75,2-4.26,1,1.51,2,3.36,2,4.26A2,2,0,0,1,21,14Z" />
+    <svg fill="currentColor" class={"w-9 h-9 text-#{@color}-500"} viewBox="0 0 24 24">
+      <path d="M17 7h-4V5h4c1.65 0 3 1.35 3 3v2c0 1.65-1.35 3-3 3h-4v-2h4c.55 0 1-.45 1-1V8c0-.55-.45-1-1-1z" />
+      <path d="M7 7c.55 0 1 .45 1 1v2c0 .55-.45 1-1 1H3v2h4c1.65 0 3-1.35 3-3V8c0-1.65-1.35-3-3-3H3v2h4z" />
+      <path d="M14 17c0-1.1-.9-2-2-2s-2 .9-2 2 .9 2 2 2 2-.9 2-2zm-2 4c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
     </svg>
     """
   end
@@ -106,33 +113,38 @@ defmodule PouConWeb.Components.Summaries.TempHumSummaryComponent do
   # Data Preparation
   # ============================================================================
 
-  defp prepare_temphum(items) do
+  defp prepare_sensors(items) do
     items
-    |> Enum.map(fn x -> Map.merge(x.status, calculate_temphum_display(x.status)) end)
+    |> Enum.map(fn x -> Map.merge(x.status, calculate_display(x.status)) end)
     |> Enum.sort_by(& &1.title)
   end
 
-  defp calculate_temphum_display(%{error: error}) when error in [:invalid_data, :unresponsive] do
+  defp calculate_display(%{error: error})
+       when error in [:invalid_data, :timeout, :unresponsive] do
     %{
       main_color: "gray",
+      co2: "----",
       temp: "--.-",
       hum: "--.-",
-      dew: "--.-",
+      co2_color: "gray",
       temp_color: "gray",
-      hum_color: "gray",
-      dew_color: "gray"
+      hum_color: "gray"
     }
   end
 
-  defp calculate_temphum_display(status) do
+  defp calculate_display(status) do
+    co2 = status[:co2]
+    temp = status[:temperature]
+    hum = status[:humidity]
+
     %{
-      main_color: "green",
-      temp: "#{status.temperature}°C",
-      hum: "#{status.humidity}%",
-      dew: "#{status.dew_point}°C",
-      temp_color: temp_color(status.temperature),
-      hum_color: hum_color(status.humidity),
-      dew_color: dew_color(status.dew_point, status.temperature)
+      main_color: co2_main_color(co2),
+      co2: if(co2, do: "#{round(co2)}", else: "----"),
+      temp: if(temp, do: "#{temp}°C", else: "--.-"),
+      hum: if(hum, do: "#{hum}%", else: "--.-"),
+      co2_color: co2_color(co2),
+      temp_color: temp_color(temp),
+      hum_color: hum_color(hum)
     }
   end
 
@@ -144,30 +156,30 @@ defmodule PouConWeb.Components.Summaries.TempHumSummaryComponent do
     valid =
       items
       |> Enum.map(fn %{status: s} -> s end)
-      |> Enum.filter(&(is_nil(&1.error) and is_number(&1.temperature) and is_number(&1.humidity)))
+      |> Enum.filter(&(is_nil(&1[:error]) and is_number(&1[:co2])))
 
     if Enum.empty?(valid) do
       %{
+        avg_co2: "----",
         avg_temp: "--.-",
         avg_hum: "--.-",
-        avg_dew: "--.-",
+        co2_color: "gray",
         temp_color: "gray",
-        hum_color: "gray",
-        dew_color: "gray"
+        hum_color: "gray"
       }
     else
       count = length(valid)
-      avg_temp = Float.round(Enum.sum(Enum.map(valid, & &1.temperature)) / count, 1)
-      avg_hum = Float.round(Enum.sum(Enum.map(valid, & &1.humidity)) / count, 1)
-      avg_dew = Float.round(Enum.sum(Enum.map(valid, &(&1.dew_point || 0))) / count, 1)
+      avg_co2 = round(Enum.sum(Enum.map(valid, & &1[:co2])) / count)
+      avg_temp = Float.round(Enum.sum(Enum.map(valid, &(&1[:temperature] || 0))) / count, 1)
+      avg_hum = Float.round(Enum.sum(Enum.map(valid, &(&1[:humidity] || 0))) / count, 1)
 
       %{
+        avg_co2: avg_co2,
         avg_temp: avg_temp,
         avg_hum: avg_hum,
-        avg_dew: avg_dew,
+        co2_color: co2_color(avg_co2),
         temp_color: temp_color(avg_temp),
-        hum_color: hum_color(avg_hum),
-        dew_color: dew_color(avg_dew, avg_temp)
+        hum_color: hum_color(avg_hum)
       }
     end
   end
@@ -176,15 +188,25 @@ defmodule PouConWeb.Components.Summaries.TempHumSummaryComponent do
   # Color Helpers
   # ============================================================================
 
+  defp co2_main_color(nil), do: "gray"
+  defp co2_main_color(co2) when co2 >= 3000, do: "red"
+  defp co2_main_color(co2) when co2 >= 2500, do: "amber"
+  defp co2_main_color(co2) when co2 >= 1000, do: "yellow"
+  defp co2_main_color(_), do: "green"
+
+  defp co2_color(nil), do: "gray"
+  defp co2_color(co2) when co2 >= 3000, do: "red"
+  defp co2_color(co2) when co2 >= 2500, do: "amber"
+  defp co2_color(co2) when co2 >= 1000, do: "yellow"
+  defp co2_color(_), do: "green"
+
+  defp temp_color(nil), do: "gray"
   defp temp_color(temp) when temp >= 38.0, do: "rose"
   defp temp_color(temp) when temp > 24.0, do: "green"
   defp temp_color(_), do: "blue"
 
+  defp hum_color(nil), do: "gray"
   defp hum_color(hum) when hum >= 90.0, do: "blue"
   defp hum_color(hum) when hum > 20.0, do: "green"
   defp hum_color(_), do: "rose"
-
-  defp dew_color(nil, _), do: "rose"
-  defp dew_color(dew, temp) when temp - dew < 2.0, do: "rose"
-  defp dew_color(_, _), do: "green"
 end
