@@ -8,6 +8,7 @@ defmodule PouConWeb.Live.PowerMeters.Index do
 
   alias PouCon.Equipment.EquipmentCommands
   alias PouCon.Logging.PeriodicLogger
+  alias PouConWeb.Components.Formatters
 
   @pubsub_topic "data_point_data"
 
@@ -203,15 +204,9 @@ defmodule PouConWeb.Live.PowerMeters.Index do
   end
 
   # ——————————————————————————————————————————————
-  # Formatting Helpers
+  # Formatting Helpers (using centralized Formatters)
   # ——————————————————————————————————————————————
 
-  defp format_kw(nil), do: "-- kW"
-  defp format_kw(w) when is_number(w), do: "#{Float.round(w / 1000.0, 2)} kW"
-  defp format_kw(_), do: "-- kW"
-
-  defp format_kwh(nil), do: "-- kWh"
-  defp format_kwh(0), do: "0 kWh"
-  defp format_kwh(kwh) when is_number(kwh), do: "#{Float.round(kwh * 1.0, 1)} kWh"
-  defp format_kwh(_), do: "-- kWh"
+  defp format_kw(value), do: Formatters.format_kw(value)
+  defp format_kwh(value), do: Formatters.format_kwh(value)
 end

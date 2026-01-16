@@ -5,6 +5,8 @@ defmodule PouConWeb.Components.Equipment.HumComponent do
   """
   use PouConWeb, :live_component
 
+  alias PouConWeb.Components.Formatters
+
   @impl true
   def update(assigns, socket) do
     status =
@@ -91,7 +93,7 @@ defmodule PouConWeb.Components.Equipment.HumComponent do
       %{
         is_error: false,
         main_color: "cyan",
-        hum: "#{:erlang.float_to_binary(hum / 1, decimals: 1)}%",
+        hum: Formatters.format_percentage(hum),
         hum_color: get_hum_color(hum)
       }
     end

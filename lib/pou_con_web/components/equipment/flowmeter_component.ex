@@ -6,6 +6,7 @@ defmodule PouConWeb.Components.Equipment.FlowmeterComponent do
   use PouConWeb, :live_component
 
   alias PouConWeb.Components.Equipment.Shared
+  alias PouConWeb.Components.Formatters
 
   @impl true
   def update(assigns, socket) do
@@ -127,27 +128,15 @@ defmodule PouConWeb.Components.Equipment.FlowmeterComponent do
       %{
         is_error: false,
         main_color: main_color,
-        flow_rate: format_flow_rate(flow_rate),
-        total_volume: format_volume(total_volume),
-        temperature: format_temperature(temperature),
+        flow_rate: Formatters.format_flow(flow_rate, "L/min", 1),
+        total_volume: Formatters.format_volume(total_volume, "L", 0),
+        temperature: Formatters.format_temperature(temperature),
         flow_color: get_flow_color(flow_rate),
         volume_color: "blue",
         temp_color: get_temp_color(temperature)
       }
     end
   end
-
-  defp format_flow_rate(nil), do: "--.- L/min"
-  defp format_flow_rate(rate) when is_float(rate), do: "#{Float.round(rate, 1)} L/min"
-  defp format_flow_rate(rate), do: "#{rate} L/min"
-
-  defp format_volume(nil), do: "---- L"
-  defp format_volume(vol) when is_float(vol), do: "#{round(vol)} L"
-  defp format_volume(vol), do: "#{vol} L"
-
-  defp format_temperature(nil), do: "--.-°C"
-  defp format_temperature(temp) when is_float(temp), do: "#{Float.round(temp, 1)}°C"
-  defp format_temperature(temp), do: "#{temp}°C"
 
   defp get_flow_color(nil), do: "gray"
   defp get_flow_color(rate) when rate > 0, do: "blue"

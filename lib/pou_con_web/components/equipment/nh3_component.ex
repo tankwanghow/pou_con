@@ -6,6 +6,7 @@ defmodule PouConWeb.Components.Equipment.Nh3Component do
   use PouConWeb, :live_component
 
   alias PouConWeb.Components.Equipment.Shared
+  alias PouConWeb.Components.Formatters
 
   @impl true
   def update(assigns, socket) do
@@ -124,9 +125,9 @@ defmodule PouConWeb.Components.Equipment.Nh3Component do
         is_error: false,
         main_color: get_nh3_main_color(nh3),
         nh3: format_nh3(nh3),
-        temp: "#{temp}°C",
-        hum: "#{hum}%",
-        dew: if(dew, do: "#{dew}°C", else: "--.-°C"),
+        temp: Formatters.format_temperature(temp),
+        hum: Formatters.format_percentage(hum),
+        dew: Formatters.format_temperature(dew),
         nh3_color: get_nh3_color(nh3),
         temp_color: get_temp_color(temp),
         hum_color: get_hum_color(hum),
@@ -135,8 +136,9 @@ defmodule PouConWeb.Components.Equipment.Nh3Component do
     end
   end
 
-  defp format_nh3(nh3) when is_float(nh3), do: "#{Float.round(nh3, 1)} ppm"
-  defp format_nh3(nh3), do: "#{nh3} ppm"
+  # NH3 uses 1 decimal precision, different from CO2 integer ppm
+  defp format_nh3(nh3) when is_number(nh3), do: "#{Formatters.format_decimal(nh3, 1)} ppm"
+  defp format_nh3(_), do: "-- ppm"
 
   # NH3 thresholds for poultry (more sensitive than CO2)
   # < 10 ppm: Excellent

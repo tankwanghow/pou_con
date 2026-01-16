@@ -5,6 +5,8 @@ defmodule PouConWeb.Components.Equipment.TempComponent do
   """
   use PouConWeb, :live_component
 
+  alias PouConWeb.Components.Formatters
+
   @impl true
   def update(assigns, socket) do
     status =
@@ -91,7 +93,7 @@ defmodule PouConWeb.Components.Equipment.TempComponent do
       %{
         is_error: false,
         main_color: "green",
-        temp: "#{:erlang.float_to_binary(temp / 1, decimals: 1)}°C",
+        temp: Formatters.format_temperature(temp),
         temp_color: get_temp_color(temp)
       }
     end

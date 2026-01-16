@@ -2,6 +2,7 @@ defmodule PouConWeb.Live.Flock.DailyYields do
   use PouConWeb, :live_view
 
   alias PouCon.Flock.Flocks
+  alias PouConWeb.Components.Formatters
 
   @initial_limit 30
   @load_more_count 50
@@ -93,15 +94,10 @@ defmodule PouConWeb.Live.Flock.DailyYields do
     Calendar.strftime(date, "%d-%m-%Y")
   end
 
-  defp format_number(number) when is_integer(number) do
-    number
-    |> Number.Delimit.number_to_delimited(precision: 0)
-  end
+  defp format_number(number), do: Formatters.format_integer(number)
 
-  defp format_number(number), do: to_string(number)
-
-  defp format_yield(yield) when is_float(yield) do
-    "#{:erlang.float_to_binary(yield, decimals: 1)}%"
+  defp format_yield(yield) when is_number(yield) do
+    "#{Formatters.format_decimal(yield, 1)}%"
   end
 
   defp format_yield(_), do: "0%"

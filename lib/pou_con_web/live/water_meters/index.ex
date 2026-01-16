@@ -8,6 +8,7 @@ defmodule PouConWeb.Live.WaterMeters.Index do
 
   alias PouCon.Equipment.EquipmentCommands
   alias PouCon.Logging.PeriodicLogger
+  alias PouConWeb.Components.Formatters
 
   @pubsub_topic "data_point_data"
 
@@ -167,7 +168,7 @@ defmodule PouConWeb.Live.WaterMeters.Index do
                   {Calendar.strftime(day.date, "%d %b")}
                 </div>
                 <div class="text-lg font-bold text-cyan-600">
-                  {Float.round(day.consumption * 1.0, 1)}
+                  {Formatters.format_decimal(day.consumption, 1)}
                 </div>
                 <div class="text-xs text-gray-400">m³</div>
               </div>
@@ -325,30 +326,14 @@ defmodule PouConWeb.Live.WaterMeters.Index do
   defp status_badge_text(error), do: to_string(error)
 
   # ——————————————————————————————————————————————
-  # Formatting Helpers
+  # Formatting Helpers (using centralized Formatters)
   # ——————————————————————————————————————————————
 
-  defp format_flow(nil), do: "--"
-  defp format_flow(0), do: "0 m³/h"
-  defp format_flow(rate) when is_number(rate), do: "#{Float.round(rate * 1.0, 2)} m³/h"
-  defp format_flow(_), do: "--"
-
-  defp format_volume(nil), do: "--"
-  defp format_volume(0), do: "0 m³"
-  defp format_volume(vol) when is_number(vol), do: "#{Float.round(vol * 1.0, 1)} m³"
-  defp format_volume(_), do: "--"
-
-  defp format_temp(nil), do: "--"
-  defp format_temp(temp) when is_number(temp), do: "#{Float.round(temp * 1.0, 1)}°C"
-  defp format_temp(_), do: "--"
-
-  defp format_pressure(nil), do: "--"
-  defp format_pressure(p) when is_number(p), do: "#{Float.round(p * 1.0, 2)} MPa"
-  defp format_pressure(_), do: "--"
-
-  defp format_battery(nil), do: "--"
-  defp format_battery(v) when is_number(v), do: "#{Float.round(v * 1.0, 2)}V"
-  defp format_battery(_), do: "--"
+  defp format_flow(value), do: Formatters.format_flow(value, "m³/h", 2)
+  defp format_volume(value), do: Formatters.format_volume(value, "m³", 1)
+  defp format_temp(value), do: Formatters.format_temperature(value)
+  defp format_pressure(value), do: Formatters.format_pressure(value)
+  defp format_battery(value), do: Formatters.format_voltage(value)
 
   defp count_online(equipment) do
     Enum.count(equipment, &is_nil(&1.status[:error]))

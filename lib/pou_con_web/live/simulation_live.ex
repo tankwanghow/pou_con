@@ -5,6 +5,7 @@ defmodule PouConWeb.SimulationLive do
   alias PouCon.Repo
   alias PouCon.Equipment.Schemas.Equipment
   alias PouCon.Hardware.DataPointTreeParser
+  alias PouConWeb.Components.Formatters
   alias Phoenix.PubSub
 
   @impl true
@@ -358,8 +359,8 @@ defmodule PouConWeb.SimulationLive do
   defp format_value(%{state: state}), do: if(state == 1, do: "ON", else: "OFF")
 
   defp format_value(%{temperature: t, humidity: h}) do
-    t_str = if t, do: "#{Float.round(t / 1.0, 1)}°C", else: ""
-    h_str = if h, do: "#{Float.round(h / 1.0, 1)}%", else: ""
+    t_str = if t, do: Formatters.format_temperature(t), else: ""
+    h_str = if h, do: Formatters.format_percentage(h), else: ""
     "#{t_str} #{h_str}"
   end
 

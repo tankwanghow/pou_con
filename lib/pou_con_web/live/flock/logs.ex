@@ -3,6 +3,7 @@ defmodule PouConWeb.Live.Flock.Logs do
 
   alias PouCon.Flock.Flocks
   alias PouCon.Flock.Schemas.FlockLog
+  alias PouConWeb.Components.Formatters
 
   @initial_limit 30
   @load_more_count 50
@@ -346,18 +347,13 @@ defmodule PouConWeb.Live.Flock.Logs do
     Calendar.strftime(date, "%d-%m-%Y")
   end
 
-  defp format_number(number) when is_integer(number) do
-    number
-    |> Number.Delimit.number_to_delimited(precision: 0)
-  end
-
-  defp format_number(number), do: to_string(number)
+  defp format_number(number), do: Formatters.format_integer(number)
 
   defp format_yield(_eggs, 0), do: "0%"
 
   defp format_yield(eggs, current_alive) when is_integer(eggs) and is_integer(current_alive) do
     yield = eggs / current_alive * 100
-    "#{:erlang.float_to_binary(yield, decimals: 1)}%"
+    "#{Formatters.format_decimal(yield, 1)}%"
   end
 
   defp format_yield(_, _), do: "-"

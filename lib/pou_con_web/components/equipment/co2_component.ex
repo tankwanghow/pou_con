@@ -6,6 +6,7 @@ defmodule PouConWeb.Components.Equipment.Co2Component do
   use PouConWeb, :live_component
 
   alias PouConWeb.Components.Equipment.Shared
+  alias PouConWeb.Components.Formatters
 
   @impl true
   def update(assigns, socket) do
@@ -119,10 +120,10 @@ defmodule PouConWeb.Components.Equipment.Co2Component do
       %{
         is_error: false,
         main_color: get_co2_main_color(co2),
-        co2: "#{round(co2)} ppm",
-        temp: "#{temp}°C",
-        hum: "#{hum}%",
-        dew: if(dew, do: "#{dew}°C", else: "--.-°C"),
+        co2: Formatters.format_ppm(co2),
+        temp: Formatters.format_temperature(temp),
+        hum: Formatters.format_percentage(hum),
+        dew: Formatters.format_temperature(dew),
         co2_color: get_co2_color(co2),
         temp_color: get_temp_color(temp),
         hum_color: get_hum_color(hum),
