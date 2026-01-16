@@ -255,7 +255,7 @@ hostname -I
 | BEAM VM base | 50 - 100 MB | Erlang runtime |
 | Phoenix server | 100 - 200 MB | LiveView processes |
 | Equipment controllers | 50 - 100 MB | GenServers |
-| DeviceManager + ETS | 20 - 50 MB | Device cache |
+| DataPointManager + ETS | 20 - 50 MB | Data point cache |
 | Automation services | 30 - 50 MB | Schedulers |
 | **Peak Application Total** | 250 - 500 MB | Under normal load |
 | Chromium (if kiosk) | 200 - 500 MB | Single tab |

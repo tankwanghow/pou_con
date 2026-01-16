@@ -24,7 +24,7 @@ The PouCon adapter-based architecture means **no application code changes** are 
 | Component | Change Required | Details |
 |-----------|-----------------|---------|
 | Equipment Controllers | None | Hardware-agnostic |
-| DeviceManager | None | Uses adapter pattern |
+| DataPointManager | None | Uses adapter pattern |
 | Modbus Adapter | None | Same library works |
 | Phoenix/LiveView | None | Standard Elixir |
 | Database (SQLite) | None | Works everywhere |
