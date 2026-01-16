@@ -2,11 +2,17 @@ defmodule PouConWeb.Live.Environment.Control do
   use PouConWeb, :live_view
 
   alias PouCon.Automation.Environment.Configs
+  alias PouCon.Automation.Environment.EnvironmentController
   alias PouCon.Automation.Environment.Schemas.Config
+
+  @pubsub_topic "data_point_data"
 
   @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket), do: Phoenix.PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
+
     config = Configs.get_config()
+    manual_fans = get_manual_fans()
 
     socket =
       socket
@@ -15,8 +21,26 @@ defmodule PouConWeb.Live.Environment.Control do
       |> assign(:fans, list_equipment("fan"))
       |> assign(:pumps, list_equipment("pump"))
       |> assign(:current_step, 1)
+      |> assign(:manual_fans, manual_fans)
 
     {:ok, socket}
+  end
+
+  @impl true
+  def handle_info(:data_refreshed, socket) do
+    manual_fans = get_manual_fans()
+    {:noreply, assign(socket, :manual_fans, manual_fans)}
+  end
+
+  defp get_manual_fans do
+    try do
+      status = EnvironmentController.status()
+      Map.get(status, :manual_fans, [])
+    rescue
+      _ -> []
+    catch
+      :exit, _ -> []
+    end
   end
 
   @impl true
@@ -104,6 +128,22 @@ defmodule PouConWeb.Live.Environment.Control do
           </p>
           <.dashboard_link />
         </div>
+
+        <%= if length(@manual_fans) > 0 do %>
+          <div class="bg-amber-50 border border-amber-300 rounded-xl p-4 mt-2">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-amber-700 font-bold text-lg">Panel Controlled Fans</span>
+              <span class="text-amber-600 text-sm">(switch not in AUTO position)</span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <%= for fan <- @manual_fans do %>
+                <span class="px-3 py-1 bg-amber-100 text-amber-800 rounded-lg font-mono font-bold border border-amber-400">
+                  {fan}
+                </span>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
 
         <.form for={@form} phx-submit="save" phx-change="validate">
           <div class="tabs tabs-boxed w-full rounded-xl p-2">

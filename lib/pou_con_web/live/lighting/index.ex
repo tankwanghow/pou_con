@@ -4,7 +4,7 @@ defmodule PouConWeb.Live.Lighting.Index do
   alias PouCon.Equipment.EquipmentCommands
   alias PouCon.Equipment.Devices
 
-  @pubsub_topic "device_data"
+  @pubsub_topic "data_point_data"
 
   @impl true
   def mount(_params, _session, socket) do

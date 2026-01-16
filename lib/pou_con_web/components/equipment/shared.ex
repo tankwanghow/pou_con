@@ -44,11 +44,8 @@ defmodule PouConWeb.Components.Equipment.Shared do
 
       <.equipment_header title={@status.title} color={@display.color} is_running={@display.is_running}>
         <:controls>
-          <.mode_toggle mode={@display.mode} ... />
+          <.mode_indicator mode={@display.mode} />
         </:controls>
-        <:badge>
-          <.failsafe_badge />
-        </:badge>
       </.equipment_header>
   """
   attr :title, :string, required: true
@@ -93,11 +90,39 @@ defmodule PouConWeb.Components.Equipment.Shared do
   end
 
   # ——————————————————————————————————————————————
-  # Mode Toggle (Auto/Manual)
+  # Mode Indicator (Read-Only for Physical Switch)
   # ——————————————————————————————————————————————
 
   @doc """
-  Renders the Auto/Manual mode toggle buttons.
+  Renders a read-only mode indicator for physical 3-way switch control.
+
+  - AUTO: Software controls equipment (switch in AUTO position, DI = 1)
+  - Panel: Physical switch controls equipment (switch in ON or OFF position, DI = 0)
+
+  ## Examples
+
+      <.mode_indicator mode={@display.mode} />
+  """
+  attr :mode, :atom, required: true
+
+  def mode_indicator(assigns) do
+    ~H"""
+    <div class="flex-shrink-0 ml-2">
+      <%= if @mode == :auto do %>
+        <span class="px-3 py-1 rounded text-base font-bold uppercase bg-indigo-100 text-indigo-600 border border-indigo-300">
+          Auto
+        </span>
+      <% else %>
+        <span class="px-3 py-1 rounded text-base font-bold uppercase bg-amber-100 text-amber-700 border border-amber-400">
+          Panel
+        </span>
+      <% end %>
+    </div>
+    """
+  end
+
+  @doc """
+  Renders the Auto/Manual mode toggle buttons (for equipment with software-controlled mode).
 
   ## Examples
 
@@ -154,24 +179,6 @@ defmodule PouConWeb.Components.Equipment.Shared do
         Manual Only
       </span>
     </div>
-    """
-  end
-
-  # ——————————————————————————————————————————————
-  # Failsafe Badge
-  # ——————————————————————————————————————————————
-
-  @doc """
-  Renders a failsafe indicator badge (for inverted/fail-safe equipment like fans).
-  """
-  def failsafe_badge(assigns) do
-    ~H"""
-    <span
-      class="flex-shrink-0 px-1.5 py-0.5 text-[10px] font-bold uppercase bg-sky-100 text-sky-700 rounded border border-sky-300"
-      title="Fail-safe: Fan runs if power/system fails"
-    >
-      FS
-    </span>
     """
   end
 
@@ -237,6 +244,18 @@ defmodule PouConWeb.Components.Equipment.Shared do
   end
 
   @doc """
+  Renders a "Panel" indicator for equipment controlled by physical switch.
+  Used when the 3-way switch is in ON or OFF position (not AUTO).
+  """
+  def panel_button(assigns) do
+    ~H"""
+    <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-amber-700 bg-amber-100 border border-amber-400 cursor-not-allowed uppercase">
+      Panel Control
+    </div>
+    """
+  end
+
+  @doc """
   Renders a power toggle button (START/STOP/RESET).
 
   ## Examples
@@ -284,7 +303,10 @@ defmodule PouConWeb.Components.Equipment.Shared do
 
   @doc """
   Renders the appropriate control button based on equipment state.
-  Used for simple power-based equipment with mode support.
+  Used for equipment with physical 3-way switch control.
+
+  - AUTO mode: Shows "System" (software is controlling)
+  - MANUAL/Panel mode: Shows "Panel Control" (physical switch is controlling)
 
   ## Examples
 
@@ -311,8 +333,10 @@ defmodule PouConWeb.Components.Equipment.Shared do
     <%= cond do %>
       <% @is_offline -> %>
         <.offline_button />
-      <% @mode != :manual -> %>
+      <% @mode == :auto -> %>
         <.system_button />
+      <% @mode == :manual -> %>
+        <.panel_button />
       <% @is_interlocked -> %>
         <.blocked_button />
       <% true -> %>

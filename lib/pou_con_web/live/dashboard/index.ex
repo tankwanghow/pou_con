@@ -2,10 +2,10 @@ defmodule PouConWeb.Live.Dashboard.Index do
   use PouConWeb, :live_view
 
   alias PouCon.Equipment.EquipmentCommands
-  alias PouCon.Hardware.DeviceManager
+  alias PouCon.Hardware.DataPointManager
   alias PouCon.Flock.Flocks
 
-  @pubsub_topic "device_data"
+  @pubsub_topic "data_point_data"
 
   @impl true
   def mount(_params, session, socket) do
@@ -24,9 +24,9 @@ defmodule PouConWeb.Live.Dashboard.Index do
 
   @impl true
   def handle_event("reload_ports", _, socket) do
-    DeviceManager.reload()
+    DataPointManager.reload()
     PouCon.Equipment.EquipmentLoader.reload_controllers()
-    {:noreply, assign(socket, data: DeviceManager.get_all_cached_data())}
+    {:noreply, assign(socket, data: DataPointManager.get_all_cached_data())}
   end
 
   @impl true
@@ -148,16 +148,10 @@ defmodule PouConWeb.Live.Dashboard.Index do
             <.icon name="hero-signal-solid" class="w-6 h-6" />
           </.link>
           <.link
-            href="/admin/devices"
+            href="/admin/data_points"
             class="p-2 rounded-lg bg-lime-200 border border-lime-600 active:scale-95 transition-transform"
           >
             <.icon name="hero-cube-solid" class="w-6 h-6" />
-          </.link>
-          <.link
-            href="/admin/device_types"
-            class="p-2 rounded-lg bg-teal-200 border border-teal-600 active:scale-95 transition-transform"
-          >
-            <.icon name="hero-squares-2x2-solid" class="w-6 h-6" />
           </.link>
           <.link
             href="/admin/equipment"
@@ -207,16 +201,42 @@ defmodule PouConWeb.Live.Dashboard.Index do
         />
 
         <%!-- Environment (Temperature, Humidity, Fans, Pumps, Water) --%>
-        <% temphums = Enum.filter(@equipment, &(&1.type == "temp_hum_sensor")) %>
+        <% temp_sensors = Enum.filter(@equipment, &(&1.type == "temp_sensor")) %>
+        <% hum_sensors = Enum.filter(@equipment, &(&1.type == "humidity_sensor")) %>
+        <% co2_sensors = Enum.filter(@equipment, &(&1.type == "co2_sensor")) %>
+        <% nh3_sensors = Enum.filter(@equipment, &(&1.type == "nh3_sensor")) %>
+        <% flowmeters = Enum.filter(@equipment, &(&1.type == "flowmeter")) %>
         <% fans = Enum.filter(@equipment, &(&1.type == "fan")) %>
         <% pumps = Enum.filter(@equipment, &(&1.type == "pump")) %>
         <% water_meters = Enum.filter(@equipment, &(&1.type == "water_meter")) %>
         <% power_meters = Enum.filter(@equipment, &(&1.type == "power_meter")) %>
 
         <.live_component
-          module={PouConWeb.Components.Summaries.TempHumSummaryComponent}
-          id="temphum"
-          temphums={temphums}
+          module={PouConWeb.Components.Summaries.SensorSummaryComponent}
+          id="sensors"
+          temp_sensors={temp_sensors}
+          hum_sensors={hum_sensors}
+        />
+
+        <.live_component
+          :if={length(co2_sensors) > 0}
+          module={PouConWeb.Components.Summaries.Co2SummaryComponent}
+          id="co2_sensors"
+          sensors={co2_sensors}
+        />
+
+        <.live_component
+          :if={length(nh3_sensors) > 0}
+          module={PouConWeb.Components.Summaries.Nh3SummaryComponent}
+          id="nh3_sensors"
+          sensors={nh3_sensors}
+        />
+
+        <.live_component
+          :if={length(flowmeters) > 0}
+          module={PouConWeb.Components.Summaries.FlowmeterSummaryComponent}
+          id="flowmeters"
+          meters={flowmeters}
         />
 
         <.live_component

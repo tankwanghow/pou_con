@@ -9,7 +9,7 @@ defmodule PouConWeb.Live.WaterMeters.Index do
   alias PouCon.Equipment.EquipmentCommands
   alias PouCon.Logging.PeriodicLogger
 
-  @pubsub_topic "device_data"
+  @pubsub_topic "data_point_data"
 
   @impl true
   def mount(_params, _session, socket) do
@@ -153,8 +153,13 @@ defmodule PouConWeb.Live.WaterMeters.Index do
         </div>
 
         <%!-- Daily Consumption (last 7 days) --%>
-        <div :if={length(@daily_consumption) > 0} class="bg-white shadow-sm rounded-xl border border-gray-200 p-4 mb-6">
-          <h3 class="text-lg font-semibold text-gray-700 mb-3">Daily Water Consumption (Last 7 Days)</h3>
+        <div
+          :if={length(@daily_consumption) > 0}
+          class="bg-white shadow-sm rounded-xl border border-gray-200 p-4 mb-6"
+        >
+          <h3 class="text-lg font-semibold text-gray-700 mb-3">
+            Daily Water Consumption (Last 7 Days)
+          </h3>
           <div class="grid grid-cols-7 gap-2">
             <%= for day <- Enum.take(@daily_consumption, 7) do %>
               <div class="bg-cyan-50 p-3 rounded text-center">
@@ -182,7 +187,10 @@ defmodule PouConWeb.Live.WaterMeters.Index do
         </div>
 
         <%!-- Detailed Data Table --%>
-        <div :if={length(@equipment) > 0} class="mt-6 bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
+        <div
+          :if={length(@equipment) > 0}
+          class="mt-6 bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden"
+        >
           <table class="w-full text-sm">
             <thead class="bg-cyan-600 text-white">
               <tr>

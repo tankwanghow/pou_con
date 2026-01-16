@@ -507,7 +507,7 @@ defmodule PouConWeb.Live.Reports.Index do
             </div>
           <% end %>
         <% end %>
-
+        
     <!-- Power Meters View -->
         <%= if @view_mode == "power_meters" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">
@@ -584,7 +584,7 @@ defmodule PouConWeb.Live.Reports.Index do
             </div>
           <% end %>
         <% end %>
-
+        
     <!-- Daily Summaries View -->
         <%= if @view_mode == "summaries" do %>
           <div class="bg-gray-400 p-4 rounded-lg mb-4">

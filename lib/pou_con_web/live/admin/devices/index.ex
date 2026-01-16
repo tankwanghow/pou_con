@@ -1,14 +1,14 @@
-defmodule PouConWeb.Live.Admin.Devices.Index do
+defmodule PouConWeb.Live.Admin.DataPoints.Index do
   use PouConWeb, :live_view
 
-  alias PouCon.Equipment.Devices
+  alias PouCon.Equipment.DataPoints
 
   @impl true
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
       <.header>
-        Listing Devices
+        Listing Data Points
         <:actions>
           <div class="flex items-center">
             <form phx-change="filter" phx-submit="filter">
@@ -23,7 +23,12 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
                 class="flex-1 px-3 py-1 text-sm border border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </form>
-            <.btn_link :if={!@readonly} to={~p"/admin/devices/new"} label="New Device" color="amber" />
+            <.btn_link
+              :if={!@readonly}
+              to={~p"/admin/data_points/new"}
+              label="New Data Point"
+              color="amber"
+            />
             <.dashboard_link />
           </div>
         </:actions>
@@ -45,7 +50,7 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
           width="w-[5%]"
         />
         <.sort_link
-          field={:port_device_path}
+          field={:port_path}
           label="Port"
           sort_field={@sort_field}
           sort_order={@sort_order}
@@ -76,21 +81,23 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
       </div>
 
       <div
-        :if={Enum.count(@streams.devices) > 0}
-        id="devices_list"
+        :if={Enum.count(@streams.data_points) > 0}
+        id="data_points_list"
         phx-update="stream"
       >
-        <%= for {id, device} <- @streams.devices do %>
+        <%= for {id, data_point} <- @streams.data_points do %>
           <div id={id} class="flex flex-row text-center border-b py-2 text-xs">
-            <div class="w-[15%]">{device.name}</div>
-            <div class="w-[6%]">{device.type}</div>
-            <div class="w-[9%]">{device.port_device_path}</div>
-            <div class="w-[10%]">{device.slave_id}/{device.register}/{device.channel}</div>
-            <div class="w-[22%]">{device.read_fn}</div>
-            <div class="w-[22%]">{device.write_fn}</div>
+            <div class="w-[15%]">{data_point.name}</div>
+            <div class="w-[6%]">{data_point.type}</div>
+            <div class="w-[9%]">{data_point.port_path}</div>
+            <div class="w-[10%]">
+              {data_point.slave_id}/{data_point.register}/{data_point.channel}
+            </div>
+            <div class="w-[22%]">{data_point.read_fn}</div>
+            <div class="w-[22%]">{data_point.write_fn}</div>
             <div :if={!@readonly} class="w-[16%] flex justify-center gap-2">
               <.link
-                navigate={~p"/admin/devices/#{device.id}/edit"}
+                navigate={~p"/admin/data_points/#{data_point.id}/edit"}
                 class="p-2 border-1 rounded-xl border-blue-600 bg-blue-200"
                 title="Edit"
               >
@@ -98,7 +105,7 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
               </.link>
 
               <.link
-                phx-click={JS.push("copy", value: %{id: device.id})}
+                phx-click={JS.push("copy", value: %{id: data_point.id})}
                 class="p-2 border-1 rounded-xl border-green-600 bg-green-200"
                 title="Copy"
               >
@@ -106,7 +113,9 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
               </.link>
 
               <.link
-                phx-click={JS.push("delete", value: %{id: device.id}) |> hide("##{device.id}")}
+                phx-click={
+                  JS.push("delete", value: %{id: data_point.id}) |> hide("##{data_point.id}")
+                }
                 data-confirm="Are you sure?"
                 class="p-2 border-1 rounded-xl border-rose-600 bg-rose-200"
                 title="Delete"
@@ -144,7 +153,7 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
   def mount(_params, %{"current_role" => :admin}, socket) do
     {:ok,
      socket
-     |> assign(:page_title, "Listing Devices")
+     |> assign(:page_title, "Listing Data Points")
      |> assign(readonly: false)
      |> assign_defaults_and_stream()}
   end
@@ -153,7 +162,7 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
   def mount(_params, %{"current_role" => :user}, socket) do
     {:ok,
      socket
-     |> assign(:page_title, "Listing Devices")
+     |> assign(:page_title, "Listing Data Points")
      |> assign(readonly: true)
      |> assign_defaults_and_stream()}
   end
@@ -168,7 +177,7 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
     |> assign(:sort_field, sort_field)
     |> assign(:sort_order, sort_order)
     |> assign(:filter, filter)
-    |> stream(:devices, list_devices(sort_field, sort_order, filter))
+    |> stream(:data_points, list_data_points(sort_field, sort_order, filter))
   end
 
   @impl true
@@ -186,7 +195,9 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
      socket
      |> assign(:sort_field, field)
      |> assign(:sort_order, sort_order)
-     |> stream(:devices, list_devices(field, sort_order, socket.assigns.filter), reset: true)}
+     |> stream(:data_points, list_data_points(field, sort_order, socket.assigns.filter),
+       reset: true
+     )}
   end
 
   @impl true
@@ -195,8 +206,8 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
      socket
      |> assign(:filter, filter)
      |> stream(
-       :devices,
-       list_devices(socket.assigns.sort_field, socket.assigns.sort_order, filter),
+       :data_points,
+       list_data_points(socket.assigns.sort_field, socket.assigns.sort_order, filter),
        reset: true
      )}
   end
@@ -207,25 +218,25 @@ defmodule PouConWeb.Live.Admin.Devices.Index do
      socket
      |> assign(:filter, "")
      |> stream(
-       :devices,
-       list_devices(socket.assigns.sort_field, socket.assigns.sort_order, ""),
+       :data_points,
+       list_data_points(socket.assigns.sort_field, socket.assigns.sort_order, ""),
        reset: true
      )}
   end
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    device = Devices.get_device!(id)
-    {:ok, _} = Devices.delete_device(device)
+    data_point = DataPoints.get_data_point!(id)
+    {:ok, _} = DataPoints.delete_data_point(data_point)
 
-    {:noreply, stream_delete(socket, :devices, device)}
+    {:noreply, stream_delete(socket, :data_points, data_point)}
   end
 
   def handle_event("copy", %{"id" => id}, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/admin/devices/new?id=#{id}")}
+    {:noreply, push_navigate(socket, to: ~p"/admin/data_points/new?id=#{id}")}
   end
 
-  defp list_devices(sort_field, sort_order, filter) do
-    Devices.list_devices(sort_field: sort_field, sort_order: sort_order, filter: filter)
+  defp list_data_points(sort_field, sort_order, filter) do
+    DataPoints.list_data_points(sort_field: sort_field, sort_order: sort_order, filter: filter)
   end
 end

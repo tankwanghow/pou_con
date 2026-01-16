@@ -7,7 +7,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
   @required_keys %{
     "fan" => [:on_off_coil, :running_feedback, :auto_manual],
     "pump" => [:on_off_coil, :running_feedback, :auto_manual],
-    "egg" => [:on_off_coil, :running_feedback, :auto_manual],
+    "egg" => [:on_off_coil, :running_feedback, :auto_manual, :manual_switch],
     "light" => [:on_off_coil, :running_feedback, :auto_manual],
     "dung" => [:on_off_coil, :running_feedback],
     "dung_horz" => [:on_off_coil, :running_feedback],
@@ -21,7 +21,15 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
       :auto_manual
     ],
     "feed_in" => [:filling_coil, :running_feedback, :auto_manual, :full_switch],
-    "temp_hum_sensor" => [:sensor]
+    # Single-purpose sensors
+    "temp_sensor" => [:sensor],
+    "humidity_sensor" => [:sensor],
+    "co2_sensor" => [:sensor],
+    "nh3_sensor" => [:sensor],
+    # Meters
+    "water_meter" => [:meter],
+    "power_meter" => [:meter],
+    "flowmeter" => [:meter]
   }
 
   defp required_keys_for_type(type), do: Map.get(@required_keys, type, [])
@@ -36,18 +44,21 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
 
       <.form for={@form} id="equipment-form" phx-change="validate" phx-submit="save">
         <div class="flex gap-1">
-          <div class="w-1/3">
+          <div class="w-1/4">
             <.input field={@form[:name]} type="text" label="Name" />
           </div>
-          <div class="w-1/3">
+          <div class="w-1/4">
             <.input field={@form[:title]} type="text" label="Title" />
           </div>
-          <div class="w-1/3">
+          <div class="w-1/4">
             <.input field={@form[:type]} type="text" label="Type" />
+          </div>
+          <div class="w-1/4 flex items-end pb-2">
+            <.input field={@form[:active]} type="checkbox" label="Active" />
           </div>
         </div>
         <div class="w-full font-mono">
-          <.input field={@form[:device_tree]} type="textarea" label="Device Tree" rows="7" />
+          <.input field={@form[:data_point_tree]} type="textarea" label="Data Point Tree" rows="7" />
           <% type = @form[:type].value %>
           <% keys = if type, do: required_keys_for_type(type), else: [] %>
           <%= if keys != [] do %>
@@ -119,7 +130,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
   defp save_equipment(socket, :edit, equipment_params) do
     case Devices.update_equipment(socket.assigns.equipment, equipment_params) do
       {:ok, equipment} ->
-        PouCon.Equipment.EquipmentLoader.load_and_start_controllers()
+        PouCon.Equipment.EquipmentLoader.reload_controllers()
 
         {:noreply,
          socket
@@ -134,7 +145,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
   defp save_equipment(socket, :new, equipment_params) do
     case Devices.create_equipment(equipment_params) do
       {:ok, equipment} ->
-        PouCon.Equipment.EquipmentLoader.load_and_start_controllers()
+        PouCon.Equipment.EquipmentLoader.reload_controllers()
 
         {:noreply,
          socket

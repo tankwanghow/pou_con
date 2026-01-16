@@ -16,23 +16,25 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
       </.header>
 
       <div class="font-medium flex flex-wrap text-center bg-amber-200 border-b border-t border-amber-400 py-1">
-        <div class="w-[15%]">Device Path</div>
-        <div class="w-[10%]">Speed</div>
-        <div class="w-[10%]">Parity</div>
-        <div class="w-[8%]">Data Bits</div>
-        <div class="w-[8%]">Stop Bits</div>
-        <div class="w-[29%]">Description</div>
+        <div class="w-[12%]">Protocol</div>
+        <div class="w-[20%]">Connection</div>
+        <div class="w-[15%]">Settings</div>
+        <div class="w-[33%]">Description</div>
         <div class="w-[15%]">Action</div>
       </div>
       <div :if={Enum.count(@streams.ports) > 0} id="ports_list" phx-update="stream">
         <%= for {id, port} <- @streams.ports do %>
-          <div id={id} class="flex flex-row text-center border-b py-4">
-            <div class="w-[15%]">{port.device_path}</div>
-            <div class="w-[10%]">{port.speed}</div>
-            <div class="w-[10%]">{port.parity}</div>
-            <div class="w-[8%]">{port.data_bits}</div>
-            <div class="w-[8%]">{port.stop_bits}</div>
-            <div class="w-[29%]">{port.description}</div>
+          <div id={id} class="flex flex-row text-center border-b py-4 items-center">
+            <div class="w-[12%]">
+              <.protocol_badge protocol={port.protocol} />
+            </div>
+            <div class="w-[20%] text-sm">
+              <.connection_info port={port} />
+            </div>
+            <div class="w-[15%] text-xs text-gray-500">
+              <.settings_info port={port} />
+            </div>
+            <div class="w-[33%]">{port.description}</div>
             <div :if={!@readonly} class="w-[15%]">
               <.link
                 navigate={~p"/admin/ports/#{port.id}/edit"}
@@ -53,6 +55,67 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
         <% end %>
       </div>
     </Layouts.app>
+    """
+  end
+
+  attr :protocol, :string, default: "modbus_rtu"
+
+  defp protocol_badge(assigns) do
+    ~H"""
+    <%= case @protocol do %>
+      <% "modbus_rtu" -> %>
+        <span class="px-2 py-1 text-xs font-bold rounded bg-amber-100 text-amber-700 border border-amber-300">
+          Modbus RTU
+        </span>
+      <% "s7" -> %>
+        <span class="px-2 py-1 text-xs font-bold rounded bg-blue-100 text-blue-700 border border-blue-300">
+          Siemens S7
+        </span>
+      <% "virtual" -> %>
+        <span class="px-2 py-1 text-xs font-bold rounded bg-green-100 text-green-700 border border-green-300">
+          Virtual
+        </span>
+      <% _ -> %>
+        <span class="px-2 py-1 text-xs font-bold rounded bg-gray-100 text-gray-700 border border-gray-300">
+          {@protocol}
+        </span>
+    <% end %>
+    """
+  end
+
+  attr :port, :map, required: true
+
+  defp connection_info(assigns) do
+    ~H"""
+    <%= case @port.protocol do %>
+      <% "modbus_rtu" -> %>
+        <div class="font-mono">{@port.device_path}</div>
+      <% "s7" -> %>
+        <div class="font-mono">{@port.ip_address}</div>
+      <% "virtual" -> %>
+        <div class="text-gray-400 italic">local DB</div>
+      <% _ -> %>
+        <div>{@port.device_path || @port.ip_address}</div>
+    <% end %>
+    """
+  end
+
+  attr :port, :map, required: true
+
+  defp settings_info(assigns) do
+    ~H"""
+    <%= case @port.protocol do %>
+      <% "modbus_rtu" -> %>
+        <div>{@port.speed} baud</div>
+        <div>{@port.parity}/{@port.data_bits}/{@port.stop_bits}</div>
+      <% "s7" -> %>
+        <div>Rack: {@port.s7_rack || 0}</div>
+        <div>Slot: {@port.s7_slot || 1}</div>
+      <% "virtual" -> %>
+        <div class="text-gray-400">N/A</div>
+      <% _ -> %>
+        <div>-</div>
+    <% end %>
     """
   end
 

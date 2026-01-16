@@ -1,28 +1,28 @@
 defmodule PouConWeb.SimulationLive do
   use PouConWeb, :live_view
-  alias PouCon.Hardware.DeviceManager
+  alias PouCon.Hardware.DataPointManager
 
   alias PouCon.Repo
   alias PouCon.Equipment.Schemas.Equipment
-  alias PouCon.Hardware.DeviceTreeParser
+  alias PouCon.Hardware.DataPointTreeParser
   alias Phoenix.PubSub
 
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      PubSub.subscribe(PouCon.PubSub, "device_data")
+      PubSub.subscribe(PouCon.PubSub, "data_point_data")
     end
 
-    devices = list_devices()
+    data_points = list_data_points()
 
-    # Rebuild map of id needed? No, list_devices already merges.
-    # Wait, the list_devices logic merges DeviceManager's details with Equipments.
-    # DeviceManager.list_devices_details() now returns structs with :id.
+    # Rebuild map of id needed? No, list_data_points already merges.
+    # Wait, the list_data_points logic merges DataPointManager's details with Equipments.
+    # DataPointManager.list_data_points_details() now returns structs with :id.
 
     socket =
       socket
       |> assign(:page_title, "Simulation Control")
-      |> assign(:devices, devices)
+      |> assign(:data_points, data_points)
       |> assign(:search, "")
       |> assign(:sort_by, :equipment)
       |> assign(:sort_order, :asc)
@@ -32,17 +32,17 @@ defmodule PouConWeb.SimulationLive do
     {:ok, socket}
   end
 
-  defp list_devices do
-    devices = DeviceManager.list_devices_details()
+  defp list_data_points do
+    data_points = DataPointManager.list_data_points_details()
 
     # Load Equipment and build mapping
     equipments = Repo.all(Equipment)
 
-    device_map =
+    data_point_map =
       Enum.reduce(equipments, %{}, fn eq, acc ->
         try do
-          opts = DeviceTreeParser.parse(eq.device_tree)
-          # opts is list of key-value pairs where value is device name
+          opts = DataPointTreeParser.parse(eq.data_point_tree)
+          # opts is list of key-value pairs where value is data_point name
           Enum.reduce(opts, acc, fn {key, dev_name}, inner_acc ->
             info = %{
               equipment: eq.name,
@@ -59,14 +59,14 @@ defmodule PouConWeb.SimulationLive do
       end)
 
     # Merge info
-    Enum.flat_map(devices, fn d ->
+    Enum.flat_map(data_points, fn d ->
       infos =
-        Map.get(device_map, d.name, [
+        Map.get(data_point_map, d.name, [
           %{equipment: "Unknown", equipment_title: nil, key: "Unknown", equipment_id: nil}
         ])
 
       current_value =
-        case DeviceManager.get_cached_data(d.name) do
+        case DataPointManager.get_cached_data(d.name) do
           {:ok, data} -> data
           _ -> nil
         end
@@ -82,9 +82,9 @@ defmodule PouConWeb.SimulationLive do
 
   @impl true
   def handle_info(:data_refreshed, socket) do
-    # Re-fetch device list to update values
-    devices = list_devices()
-    {:noreply, assign(socket, :devices, devices)}
+    # Re-fetch data_point list to update values
+    data_points = list_data_points()
+    {:noreply, assign(socket, :data_points, data_points)}
   end
 
   @impl true
@@ -107,36 +107,36 @@ defmodule PouConWeb.SimulationLive do
   end
 
   @impl true
-  def handle_event("toggle_input", %{"device" => device_name, "value" => value}, socket) do
+  def handle_event("toggle_input", %{"data_point" => data_point_name, "value" => value}, socket) do
     new_val = String.to_integer(value)
-    DeviceManager.simulate_input(device_name, new_val)
+    DataPointManager.simulate_input(data_point_name, new_val)
     {:noreply, socket}
   end
 
   @impl true
-  def handle_event("update_temp", %{"device" => device_name}, socket) do
+  def handle_event("update_temp", %{"data_point" => data_point_name}, socket) do
     # Get values from temp_values
-    values = socket.assigns.temp_values[device_name] || %{}
+    values = socket.assigns.temp_values[data_point_name] || %{}
     {temp, _} = Float.parse(values["temp"] || "25.0")
     {hum, _} = Float.parse(values["hum"] || "60.0")
 
-    DeviceManager.simulate_register(device_name, %{temperature: temp, humidity: hum})
+    DataPointManager.simulate_register(data_point_name, %{temperature: temp, humidity: hum})
 
-    {:noreply, put_flash(socket, :info, "Updated #{device_name}")}
+    {:noreply, put_flash(socket, :info, "Updated #{data_point_name}")}
   end
 
   @impl true
-  def handle_event("temp_change", %{"device" => device, "type" => type, "value" => val}, socket) do
-    current_dev_vals = socket.assigns.temp_values[device] || %{}
+  def handle_event("temp_change", %{"data_point" => data_point, "type" => type, "value" => val}, socket) do
+    current_dev_vals = socket.assigns.temp_values[data_point] || %{}
     new_dev_vals = Map.put(current_dev_vals, type, val)
-    new_temp_vals = Map.put(socket.assigns.temp_values, device, new_dev_vals)
+    new_temp_vals = Map.put(socket.assigns.temp_values, data_point, new_dev_vals)
     {:noreply, assign(socket, :temp_values, new_temp_vals)}
   end
 
   @impl true
-  def handle_event("set_offline", %{"device" => device_name, "value" => offline_str}, socket) do
+  def handle_event("set_offline", %{"data_point" => data_point_name, "value" => offline_str}, socket) do
     offline? = offline_str == "true"
-    DeviceManager.simulate_offline(device_name, offline?)
+    DataPointManager.simulate_offline(data_point_name, offline?)
     {:noreply, socket}
   end
 
@@ -145,7 +145,7 @@ defmodule PouConWeb.SimulationLive do
     ~H"""
     <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-4/5">
       <div class="flex justify-between items-center mb-4">
-        <h1 class="text-xl font-bold">Device Simulation</h1>
+        <h1 class="text-xl font-bold">data_point Simulation</h1>
         <div class="form-control w-full max-w-xs">
           <input
             type="text"
@@ -193,71 +193,71 @@ defmodule PouConWeb.SimulationLive do
         </div>
       </div>
 
-      <%= for device <- filter_and_sort_devices(@devices, @search, @sort_by, @sort_order) do %>
+      <%= for data_point <- filter_and_sort_data_points(@data_points, @search, @sort_by, @sort_order) do %>
         <div class="flex justify-between items-center bg-gray-800 p-1 rounded border border-gray-700 hover:bg-gray-500">
           <div class="flex-1 font-bold text-blue-400 truncate">
-            <%= if Map.get(device, :equipment_id) do %>
+            <%= if Map.get(data_point, :equipment_id) do %>
               <.link
-                navigate={~p"/admin/equipment/#{device.equipment_id}/edit?return_to=simulation"}
+                navigate={~p"/admin/equipment/#{data_point.equipment_id}/edit?return_to=simulation"}
                 class="hover:underline"
               >
-                {"#{device.equipment_title} (#{device.equipment})"}
+                {"#{data_point.equipment_title} (#{data_point.equipment})"}
               </.link>
             <% else %>
-              {device.equipment_title || device.equipment}
+              {data_point.equipment_title || data_point.equipment}
             <% end %>
           </div>
-          <div class="flex-1 text-xs font-bold text-green-500 truncate">{device.key}</div>
+          <div class="flex-1 text-xs font-bold text-green-500 truncate">{data_point.key}</div>
           <div class="flex-1 text-xs font-bold text-white truncate">
-            <%= if Map.get(device, :id) do %>
+            <%= if Map.get(data_point, :id) do %>
               <.link
-                navigate={~p"/admin/devices/#{device.id}/edit?return_to=simulation"}
+                navigate={~p"/admin/data_points/#{data_point.id}/edit?return_to=simulation"}
                 class="hover:underline"
               >
-                {device.name}
+                {data_point.name}
               </.link>
             <% else %>
-              {device.name}
+              {data_point.name}
             <% end %>
           </div>
           <div class="flex-1 text-xs text-yellow-400 truncate">
-            {format_value(device.current_value)}
+            {format_value(data_point.current_value)}
           </div>
           <div class="flex flex-2">
             <%= cond do %>
-              <% device.current_value == {:error, :timeout} -> %>
+              <% data_point.current_value == {:error, :timeout} -> %>
                 <div class="flex-5 text-xs text-gray-500 italic">No controls</div>
-              <% device.type in ["digital_input", "switch", "flag", "DO", "virtual_digital_input"] or (device.read_fn == :read_digital_input) or (device.read_fn == :read_virtual_digital_input) -> %>
+              <% data_point.type in ["digital_input", "switch", "flag", "DO", "virtual_digital_output"] or (data_point.read_fn == :read_digital_input) or (data_point.read_fn == :read_virtual_digital_output) -> %>
                 <div class="flex-5">
                   <button
-                    :if={device.current_value.state == 0}
+                    :if={data_point.current_value.state == 0}
                     phx-click="toggle_input"
-                    phx-value-device={device.name}
+                    phx-value-data_point={data_point.name}
                     value="1"
                     class="px-2 text-xs bg-green-700 hover:bg-green-600 text-white rounded"
                   >
                     ON
                   </button>
                   <button
-                    :if={device.current_value.state == 1}
+                    :if={data_point.current_value.state == 1}
                     phx-click="toggle_input"
-                    phx-value-device={device.name}
+                    phx-value-data_point={data_point.name}
                     value="0"
                     class="px-2 text-xs bg-red-700 hover:bg-red-600 text-white rounded"
                   >
                     OFF
                   </button>
                 </div>
-              <% device.type == "temp_hum_sensor" or device.read_fn == :read_temperature_humidity -> %>
+              <% data_point.type == "temp_hum_sensor" or data_point.read_fn == :read_temperature_humidity -> %>
                 <div class="flex flex-5 space-y-1 justify-between gap-1 items-center">
                   <div class="flex items-center">
                     <span class="text-xs text-gray-400">Temp :</span>
                     <input
                       type="number"
                       step="0.1"
-                      value={get_in(@temp_values, [device.name, "temp"]) || "25.0"}
+                      value={get_in(@temp_values, [data_point.name, "temp"]) || "25.0"}
                       phx-keyup="temp_change"
-                      phx-value-device={device.name}
+                      phx-value-data_point={data_point.name}
                       phx-value-type="temp"
                       class="input input-xs input-bordered flex-1 bg-gray-900 border-gray-600 text-white px-1"
                     />
@@ -267,16 +267,16 @@ defmodule PouConWeb.SimulationLive do
                     <input
                       type="number"
                       step="0.1"
-                      value={get_in(@temp_values, [device.name, "hum"]) || "60.0"}
+                      value={get_in(@temp_values, [data_point.name, "hum"]) || "60.0"}
                       phx-keyup="temp_change"
-                      phx-value-device={device.name}
+                      phx-value-data_point={data_point.name}
                       phx-value-type="hum"
                       class="input input-xs input-bordered flex-1 bg-gray-900 border-gray-600 text-white px-1"
                     />
                   </div>
                   <button
                     phx-click="update_temp"
-                    phx-value-device={device.name}
+                    phx-value-data_point={data_point.name}
                     class="px-4 text-xs bg-blue-700 hover:bg-blue-600 text-white rounded"
                   >
                     Set
@@ -287,10 +287,10 @@ defmodule PouConWeb.SimulationLive do
             <% end %>
 
             <div class="flex-1">
-              <% is_offline = device.current_value == {:error, :timeout} %>
+              <% is_offline = data_point.current_value == {:error, :timeout} %>
               <button
                 phx-click="set_offline"
-                phx-value-device={device.name}
+                phx-value-data_point={data_point.name}
                 value={to_string(!is_offline)}
                 class={"px-2 py-1 text-xs rounded text-white #{if is_offline, do: "bg-red-600 hover:bg-red-500 animate-pulse", else: "bg-gray-600 hover:bg-gray-500"}"}
               >
@@ -304,14 +304,14 @@ defmodule PouConWeb.SimulationLive do
     """
   end
 
-  defp filter_and_sort_devices(devices, search, sort_by, sort_order) do
+  defp filter_and_sort_data_points(data_points, search, sort_by, sort_order) do
     filtered =
       if search == "" do
-        devices
+        data_points
       else
         terms = search |> String.downcase() |> String.split(~r/\s+/, trim: true)
 
-        Enum.filter(devices, fn d ->
+        Enum.filter(data_points, fn d ->
           combined =
             [d.equipment, d.equipment_title, d.key]
             |> Enum.map(&((&1 || "") |> to_string() |> String.downcase()))

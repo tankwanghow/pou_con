@@ -57,11 +57,18 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
           width="w-[10%]"
         />
         <.sort_link
-          field={:device_tree}
-          label="Device Tree"
+          field={:data_point_tree}
+          label="Data Point Tree"
           sort_field={@sort_field}
           sort_order={@sort_order}
-          width="w-[43%]"
+          width="w-[35%]"
+        />
+        <.sort_link
+          field={:active}
+          label="Active"
+          sort_field={@sort_field}
+          sort_order={@sort_order}
+          width="w-[8%]"
         />
         <div class="w-[17%]">Action</div>
       </div>
@@ -72,11 +79,29 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
         phx-update="stream"
       >
         <%= for {id, equipment} <- @streams.equipment do %>
-          <div id={id} class="text-xs flex flex-row text-center border-b py-2">
+          <div
+            id={id}
+            class={"text-xs flex flex-row text-center border-b py-2 #{if not equipment.active, do: "bg-gray-100 text-gray-400"}"}
+          >
             <div class="w-[15%]">{equipment.name}</div>
             <div class="w-[15%]">{equipment.title}</div>
             <div class="w-[10%]">{equipment.type}</div>
-            <div class="w-[43%] wrap">{equipment.device_tree}</div>
+            <div class="w-[35%] wrap">{equipment.data_point_tree}</div>
+            <div class="w-[8%]">
+              <button
+                :if={!@readonly}
+                phx-click={JS.push("toggle_active", value: %{id: equipment.id})}
+                class={"px-2 py-0.5 rounded text-xs font-medium #{if equipment.active, do: "bg-green-100 text-green-700 hover:bg-green-200", else: "bg-gray-200 text-gray-500 hover:bg-gray-300"}"}
+              >
+                {if equipment.active, do: "Yes", else: "No"}
+              </button>
+              <span
+                :if={@readonly}
+                class={"px-2 py-0.5 rounded text-xs #{if equipment.active, do: "bg-green-100 text-green-700", else: "bg-gray-200 text-gray-500"}"}
+              >
+                {if equipment.active, do: "Yes", else: "No"}
+              </span>
+            </div>
             <div :if={!@readonly} class="w-[17%] flex justify-center gap-2">
               <.link
                 navigate={~p"/admin/equipment/#{equipment.id}/edit"}
@@ -205,8 +230,29 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
     {:noreply, push_navigate(socket, to: ~p"/admin/equipment/new?id=#{id}")}
   end
 
-  # Helper to call context with sort and filter params
+  @impl true
+  def handle_event("toggle_active", %{"id" => id}, socket) do
+    equipment = Devices.get_equipment!(id)
+
+    case Devices.update_equipment(equipment, %{active: not equipment.active}) do
+      {:ok, updated_equipment} ->
+        # Reload controllers to reflect the change
+        PouCon.Equipment.EquipmentLoader.reload_controllers()
+
+        {:noreply, stream_insert(socket, :equipment, updated_equipment)}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to update equipment status")}
+    end
+  end
+
+  # Helper to call context with sort and filter params (include_inactive for admin view)
   defp list_equipment(sort_field, sort_order, filter) do
-    Devices.list_equipment(sort_field: sort_field, sort_order: sort_order, filter: filter)
+    Devices.list_equipment(
+      sort_field: sort_field,
+      sort_order: sort_order,
+      filter: filter,
+      include_inactive: true
+    )
   end
 end

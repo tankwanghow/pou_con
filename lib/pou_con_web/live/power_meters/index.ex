@@ -9,7 +9,7 @@ defmodule PouConWeb.Live.PowerMeters.Index do
   alias PouCon.Equipment.EquipmentCommands
   alias PouCon.Logging.PeriodicLogger
 
-  @pubsub_topic "device_data"
+  @pubsub_topic "data_point_data"
 
   @impl true
   def mount(_params, _session, socket) do

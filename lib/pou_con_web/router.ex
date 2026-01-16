@@ -145,13 +145,9 @@ defmodule PouConWeb.Router do
       live("/system_time", Live.Admin.SystemTime.Index, :index)
 
       # Hardware configuration
-      live("/device_types", Live.Admin.DeviceTypes.Index, :index)
-      live("/device_types/new", Live.Admin.DeviceTypes.Form, :new)
-      live("/device_types/:id", Live.Admin.DeviceTypes.Show, :show)
-      live("/device_types/:id/edit", Live.Admin.DeviceTypes.Form, :edit)
-      live("/devices", Live.Admin.Devices.Index, :index)
-      live("/devices/new", Live.Admin.Devices.Form, :new)
-      live("/devices/:id/edit", Live.Admin.Devices.Form, :edit)
+      live("/data_points", Live.Admin.DataPoints.Index, :index)
+      live("/data_points/new", Live.Admin.DataPoints.Form, :new)
+      live("/data_points/:id/edit", Live.Admin.DataPoints.Form, :edit)
       live("/ports", Live.Admin.Ports.Index, :index)
       live("/ports/new", Live.Admin.Ports.Form, :new)
       live("/ports/:id/edit", Live.Admin.Ports.Form, :edit)

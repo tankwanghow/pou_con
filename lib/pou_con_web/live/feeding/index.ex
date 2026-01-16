@@ -2,9 +2,9 @@ defmodule PouConWeb.Live.Feeding.Index do
   use PouConWeb, :live_view
 
   alias PouCon.Equipment.EquipmentCommands
-  alias PouCon.Hardware.DeviceManager
+  alias PouCon.Hardware.DataPointManager
 
-  @pubsub_topic "device_data"
+  @pubsub_topic "data_point_data"
 
   @impl true
   def mount(_params, session, socket) do
@@ -21,9 +21,9 @@ defmodule PouConWeb.Live.Feeding.Index do
 
   @impl true
   def handle_event("reload_ports", _, socket) do
-    DeviceManager.reload()
+    DataPointManager.reload()
     PouCon.Equipment.EquipmentLoader.reload_controllers()
-    {:noreply, assign(socket, data: DeviceManager.get_all_cached_data())}
+    {:noreply, assign(socket, data: DataPointManager.get_all_cached_data())}
   end
 
   # ———————————————————— Toggle On/Off ————————————————————
