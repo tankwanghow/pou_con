@@ -21,7 +21,7 @@ defmodule PouCon.Automation.Feeding.FeedInController do
   alias PouCon.Equipment.Controllers.{FeedIn, Feeding}
   alias PouCon.Equipment.Devices
 
-  @pubsub_topic "device_data"
+  @pubsub_topic "data_point_data"
   # Movement takes ~15 mins, allow 30 min timeout
   @movement_timeout_ms :timer.minutes(30)
 
@@ -189,7 +189,20 @@ defmodule PouCon.Automation.Feeding.FeedInController do
     if feed_in_equipment do
       name = feed_in_equipment.name
 
-      case FeedIn.status(name) do
+      # Get status with defensive error handling
+      status =
+        try do
+          FeedIn.status(name)
+        catch
+          :exit, _ ->
+            Logger.debug("FeedInController: FeedIn controller #{name} not available yet")
+            nil
+        end
+
+      case status do
+        nil ->
+          :ok
+
         %{mode: :auto, bucket_full: false, is_running: false} ->
           # FeedIn is in auto, not full, and not running - start filling
           Logger.info(

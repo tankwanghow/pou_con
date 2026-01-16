@@ -113,8 +113,20 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
   defp check_equipment_schedules(equipment, schedules, current_minute) do
     name = equipment.name
 
-    # Get current status of this equipment
-    case Feeding.status(name) do
+    # Get current status of this equipment (with defensive error handling)
+    status =
+      try do
+        Feeding.status(name)
+      catch
+        :exit, _ ->
+          Logger.debug("FeedingScheduler: Controller #{name} not available yet")
+          nil
+      end
+
+    case status do
+      nil ->
+        :ok
+
       %{mode: :manual} ->
         Logger.debug("FeedingScheduler: Skipping #{name} - in MANUAL mode")
 
@@ -208,7 +220,20 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
       |> Enum.find(&(&1.type == "feed_in"))
 
     if feed_in_equipment do
-      case FeedIn.status(feed_in_equipment.name) do
+      # Get status with defensive error handling
+      status =
+        try do
+          FeedIn.status(feed_in_equipment.name)
+        catch
+          :exit, _ ->
+            Logger.debug("FeedingScheduler: FeedIn controller not available yet")
+            nil
+        end
+
+      case status do
+        nil ->
+          {:error, "FeedIn controller not ready"}
+
         %{bucket_full: true, is_running: false} ->
           :ok
 

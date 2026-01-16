@@ -98,8 +98,20 @@ defmodule PouCon.Automation.EggCollection.EggCollectionScheduler do
     # Determine if we're currently within the active period
     should_be_running = time_in_range?(current_minute, start_time, stop_time)
 
-    # Get current equipment status
-    case Egg.status(equipment_name) do
+    # Get current equipment status (with defensive error handling)
+    status =
+      try do
+        Egg.status(equipment_name)
+      catch
+        :exit, _ ->
+          Logger.debug("EggCollectionScheduler: Controller #{equipment_name} not available yet")
+          nil
+      end
+
+    case status do
+      nil ->
+        :ok
+
       %{mode: :auto, commanded_on: is_on} ->
         cond do
           should_be_running and not is_on ->

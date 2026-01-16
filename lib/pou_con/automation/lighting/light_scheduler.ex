@@ -98,8 +98,20 @@ defmodule PouCon.Automation.Lighting.LightScheduler do
     # Determine if we're currently within the active period
     should_be_on = time_in_range?(current_minute, on_time, off_time)
 
-    # Get current equipment status
-    case Light.status(equipment_name) do
+    # Get current equipment status (with defensive error handling)
+    status =
+      try do
+        Light.status(equipment_name)
+      catch
+        :exit, _ ->
+          Logger.debug("LightScheduler: Controller #{equipment_name} not available yet")
+          nil
+      end
+
+    case status do
+      nil ->
+        :ok
+
       %{mode: :auto, commanded_on: is_on} ->
         cond do
           should_be_on and not is_on ->

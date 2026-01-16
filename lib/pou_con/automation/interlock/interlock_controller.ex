@@ -15,7 +15,7 @@ defmodule PouCon.Automation.Interlock.InterlockController do
   alias PouCon.Automation.Interlock.InterlockRules
   alias PouCon.Equipment.{Devices, EquipmentCommands}
 
-  @pubsub_topic "device_data"
+  @pubsub_topic "data_point_data"
   @interlock_rules_topic "interlock_rules"
   @ets_table :interlock_can_start_cache
 

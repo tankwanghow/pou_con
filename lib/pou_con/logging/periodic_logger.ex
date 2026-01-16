@@ -45,30 +45,48 @@ defmodule PouCon.Logging.PeriodicLogger do
     Process.send_after(self(), :take_snapshot, @snapshot_interval_ms)
   end
 
-  # Take snapshots of all temperature/humidity sensors
+  # Take snapshots of all temperature and humidity sensors
   defp take_sensor_snapshots do
     # Skip if system time is invalid (only check in non-test env)
     if @env != :test and not time_valid?() do
       Logger.debug("Skipping sensor snapshot - system time invalid")
     else
-      sensors =
-        Devices.list_equipment()
-        |> Enum.filter(&(&1.type == "temp_hum_sensor"))
-
+      all_equipment = Devices.list_equipment()
       timestamp = DateTime.utc_now()
 
-      snapshots =
-        Enum.map(sensors, fn sensor ->
+      # Temperature sensors
+      temp_snapshots =
+        all_equipment
+        |> Enum.filter(&(&1.type == "temp_sensor"))
+        |> Enum.map(fn sensor ->
           status = EquipmentCommands.get_status(sensor.name, 500)
 
           %{
             equipment_name: sensor.name,
             temperature: status[:temperature],
-            humidity: status[:humidity],
-            dew_point: status[:dew_point],
+            humidity: nil,
+            dew_point: nil,
             inserted_at: timestamp
           }
         end)
+
+      # Humidity sensors
+      hum_snapshots =
+        all_equipment
+        |> Enum.filter(&(&1.type == "humidity_sensor"))
+        |> Enum.map(fn sensor ->
+          status = EquipmentCommands.get_status(sensor.name, 500)
+
+          %{
+            equipment_name: sensor.name,
+            temperature: nil,
+            humidity: status[:humidity],
+            dew_point: nil,
+            inserted_at: timestamp
+          }
+        end)
+
+      snapshots = temp_snapshots ++ hum_snapshots
 
       # Batch insert all snapshots
       case insert_snapshots(snapshots) do
@@ -76,7 +94,9 @@ defmodule PouCon.Logging.PeriodicLogger do
           Logger.debug("Saved #{count} sensor snapshots")
 
         _ ->
-          Logger.warning("Failed to save sensor snapshots")
+          if length(snapshots) > 0 do
+            Logger.warning("Failed to save sensor snapshots")
+          end
       end
     end
   end
@@ -254,7 +274,7 @@ defmodule PouCon.Logging.PeriodicLogger do
   def get_latest_snapshots do
     sensors =
       Devices.list_equipment()
-      |> Enum.filter(&(&1.type == "temp_hum_sensor"))
+      |> Enum.filter(&(&1.type in ["temp_sensor", "humidity_sensor"]))
       |> Enum.map(& &1.name)
 
     Enum.map(sensors, fn sensor_name ->

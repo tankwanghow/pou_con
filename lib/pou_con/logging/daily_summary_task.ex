@@ -64,7 +64,7 @@ defmodule PouCon.Logging.DailySummaryTask do
       summaries =
         Enum.map(equipment_list, fn eq ->
           case eq.type do
-            "temp_hum_sensor" ->
+            type when type in ["temp_sensor", "humidity_sensor"] ->
               generate_sensor_summary(eq, yesterday)
 
             _ ->

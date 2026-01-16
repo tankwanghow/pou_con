@@ -20,10 +20,10 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
 
   alias PouCon.Automation.Environment.Configs
   alias PouCon.Automation.Environment.Schemas.Config, as: ConfigSchema
-  alias PouCon.Equipment.Controllers.{Fan, Pump, TempHumSen}
+  alias PouCon.Equipment.Controllers.{Fan, Pump, Sensor}
   alias PouCon.Logging.EquipmentLogger
 
-  @pubsub_topic "device_data"
+  @pubsub_topic "data_point_data"
 
   defmodule State do
     defstruct avg_temp: nil,
@@ -79,6 +79,9 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   def handle_call(:status, _from, state) do
     config = Configs.get_config()
 
+    # Get list of fans currently in MANUAL mode (physical switch not in AUTO)
+    manual_fans = get_manual_mode_fans()
+
     reply = %{
       enabled: config.enabled,
       avg_temp: state.avg_temp,
@@ -88,7 +91,8 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       target_fans: state.target_fans,
       target_pumps: state.target_pumps,
       fans_on: state.current_fans_on,
-      pumps_on: state.current_pumps_on
+      pumps_on: state.current_pumps_on,
+      manual_fans: manual_fans
     }
 
     {:reply, reply, state}
@@ -102,32 +106,65 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   # ------------------------------------------------------------------ #
   # Private
   # ------------------------------------------------------------------ #
+
+  # Get list of fans with physical switch not in AUTO position
+  defp get_manual_mode_fans do
+    PouCon.Equipment.Devices.list_equipment()
+    |> Enum.filter(&(&1.type == "fan"))
+    |> Enum.map(fn eq ->
+      try do
+        status = Fan.status(eq.name)
+        if status[:mode] == :manual, do: eq.name, else: nil
+      rescue
+        _ -> nil
+      catch
+        :exit, _ -> nil
+      end
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
+
   defp calculate_averages(state) do
-    sensors =
-      PouCon.Equipment.Devices.list_equipment()
-      |> Enum.filter(&(&1.type == "temp_hum_sensor"))
+    all_equipment = PouCon.Equipment.Devices.list_equipment()
 
-    readings =
-      sensors
-      |> Enum.map(fn eq ->
-        try do
-          TempHumSen.status(eq.name)
-        rescue
-          _ -> nil
-        catch
-          :exit, _ -> nil
-        end
-      end)
+    # Get temperature readings from temp_sensor using generic Sensor controller
+    # The Sensor controller adds :temperature field for backwards compatibility
+    temps =
+      all_equipment
+      |> Enum.filter(&(&1.type == "temp_sensor"))
+      |> Enum.map(fn %{name: name} -> get_sensor_value(name, :temperature) end)
       |> Enum.reject(&is_nil/1)
-      |> Enum.reject(&(&1[:error] != nil))
 
-    temps = Enum.map(readings, & &1[:temperature]) |> Enum.reject(&is_nil/1)
-    hums = Enum.map(readings, & &1[:humidity]) |> Enum.reject(&is_nil/1)
+    # Get humidity readings from humidity_sensor using generic Sensor controller
+    # The Sensor controller adds :humidity field for backwards compatibility
+    hums =
+      all_equipment
+      |> Enum.filter(&(&1.type == "humidity_sensor"))
+      |> Enum.map(fn %{name: name} -> get_sensor_value(name, :humidity) end)
+      |> Enum.reject(&is_nil/1)
 
     avg_temp = if length(temps) > 0, do: Enum.sum(temps) / length(temps), else: nil
     avg_hum = if length(hums) > 0, do: Enum.sum(hums) / length(hums), else: nil
 
     %State{state | avg_temp: avg_temp, avg_humidity: avg_hum}
+  end
+
+  # Generic helper to get a value from the Sensor controller
+  defp get_sensor_value(name, field) do
+    try do
+      status = Sensor.status(name)
+      # Use the backwards-compatible field (temperature, humidity, etc.)
+      # or fall back to the generic value field
+      if status[:error] == nil do
+        status[field] || status[:value]
+      else
+        nil
+      end
+    rescue
+      _ -> nil
+    catch
+      :exit, _ -> nil
+    end
   end
 
   defp apply_control_logic(state) do
