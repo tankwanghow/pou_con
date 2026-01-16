@@ -29,7 +29,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeter do
 
   alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
 
-  @device_manager Application.compile_env(:pou_con, :device_manager)
+  @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
 
   defmodule State do
     @moduledoc false
@@ -64,10 +64,10 @@ defmodule PouCon.Equipment.Controllers.WaterMeter do
   def start(opts) when is_list(opts) do
     name = Keyword.fetch!(opts, :name)
 
-    case Registry.lookup(PouCon.DeviceControllerRegistry, name) do
+    case Registry.lookup(PouCon.EquipmentControllerRegistry, name) do
       [] ->
         DynamicSupervisor.start_child(
-          PouCon.Equipment.DeviceControllerSupervisor,
+          PouCon.Equipment.EquipmentControllerSupervisor,
           {__MODULE__, opts}
         )
 
@@ -92,7 +92,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeter do
       meter: opts[:meter] || raise("Missing :meter in device tree")
     }
 
-    Phoenix.PubSub.subscribe(PouCon.PubSub, "device_data")
+    Phoenix.PubSub.subscribe(PouCon.PubSub, "data_point_data")
     {:ok, state, {:continue, :initial_poll}}
   end
 
@@ -132,7 +132,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeter do
   # ------------------------------------------------------------------ #
 
   defp sync_and_update(%State{} = state) do
-    result = @device_manager.get_cached_data(state.meter)
+    result = @data_point_manager.get_cached_data(state.meter)
 
     {new_state, new_error} =
       case result do

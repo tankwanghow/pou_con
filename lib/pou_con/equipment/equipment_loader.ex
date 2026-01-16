@@ -1,22 +1,23 @@
 defmodule PouCon.Equipment.EquipmentLoader do
   alias PouCon.Repo
   alias PouCon.Equipment.Schemas.Equipment
-  alias PouCon.Hardware.DeviceTreeParser
+  alias PouCon.Hardware.DataPointTreeParser
+  import Ecto.Query
   require Logger
 
   def load_and_start_controllers do
-    # Query all equipments
-    equipments = Repo.all(Equipment)
+    # Query only active equipment
+    equipments = Repo.all(from e in Equipment, where: e.active == true)
 
     for equipment <- equipments do
       try do
-        device_tree_opts = DeviceTreeParser.parse(equipment.device_tree)
+        data_point_tree_opts = DataPointTreeParser.parse(equipment.data_point_tree)
 
         opts =
           [
             name: equipment.name,
             title: equipment.title || equipment.name
-          ] ++ device_tree_opts
+          ] ++ data_point_tree_opts
 
         # Determine the controller module based on type
         controller_module =
@@ -24,8 +25,10 @@ defmodule PouCon.Equipment.EquipmentLoader do
             "fan" ->
               PouCon.Equipment.Controllers.Fan
 
-            "temp_hum_sensor" ->
-              PouCon.Equipment.Controllers.TempHumSen
+            # Generic Sensor controller for all sensor types
+            # The DataPoint's value_type field determines the sensor type
+            t when t in ["temp_sensor", "humidity_sensor", "co2_sensor", "nh3_sensor"] ->
+              PouCon.Equipment.Controllers.Sensor
 
             "water_meter" ->
               PouCon.Equipment.Controllers.WaterMeter
@@ -57,6 +60,9 @@ defmodule PouCon.Equipment.EquipmentLoader do
             "power_meter" ->
               PouCon.Equipment.Controllers.PowerMeter
 
+            "flowmeter" ->
+              PouCon.Equipment.Controllers.Flowmeter
+
             _ ->
               Logger.warning(
                 "Unsupported equipment type: #{equipment.type} for #{equipment.name}"
@@ -79,7 +85,7 @@ defmodule PouCon.Equipment.EquipmentLoader do
       rescue
         e ->
           Logger.error(
-            "Error parsing device_tree for #{equipment.name} (type: #{equipment.type}): #{inspect(e)}"
+            "Error parsing data_point_tree for #{equipment.name} (type: #{equipment.type}): #{inspect(e)}"
           )
       end
     end
@@ -88,12 +94,12 @@ defmodule PouCon.Equipment.EquipmentLoader do
   def reload_controllers do
     # Stop all existing controllers
     registered =
-      Registry.select(PouCon.DeviceControllerRegistry, [
+      Registry.select(PouCon.EquipmentControllerRegistry, [
         {{:"$1", :"$2", :_}, [], [{{:"$1", :"$2"}}]}
       ])
 
     for {name, pid} <- registered do
-      case DynamicSupervisor.terminate_child(PouCon.Equipment.DeviceControllerSupervisor, pid) do
+      case DynamicSupervisor.terminate_child(PouCon.Equipment.EquipmentControllerSupervisor, pid) do
         :ok -> Logger.info("Stopped controller for #{name}")
         {:error, :not_found} -> Logger.warning("Controller for #{name} not found in supervisor")
       end

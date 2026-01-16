@@ -42,7 +42,7 @@ defmodule PouCon.Equipment.Controllers.DungExit do
   alias PouCon.Logging.EquipmentLogger
   alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
 
-  @device_manager Application.compile_env(:pou_con, :device_manager)
+  @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
 
   defmodule State do
     defstruct [
@@ -50,9 +50,11 @@ defmodule PouCon.Equipment.Controllers.DungExit do
       :title,
       :on_off_coil,
       :running_feedback,
+      :trip,
       commanded_on: false,
       actual_on: false,
       is_running: false,
+      is_tripped: false,
       error: nil,
       interlocked: false
     ]
@@ -64,10 +66,10 @@ defmodule PouCon.Equipment.Controllers.DungExit do
   def start(opts) when is_list(opts) do
     name = Keyword.fetch!(opts, :name)
 
-    case Registry.lookup(PouCon.DeviceControllerRegistry, name) do
+    case Registry.lookup(PouCon.EquipmentControllerRegistry, name) do
       [] ->
         DynamicSupervisor.start_child(
-          PouCon.Equipment.DeviceControllerSupervisor,
+          PouCon.Equipment.EquipmentControllerSupervisor,
           {__MODULE__, opts}
         )
 
@@ -88,10 +90,11 @@ defmodule PouCon.Equipment.Controllers.DungExit do
       name: name,
       title: opts[:title] || name,
       on_off_coil: opts[:on_off_coil] || raise("Missing :on_off_coil"),
-      running_feedback: opts[:running_feedback] || raise("Missing :running_feedback")
+      running_feedback: opts[:running_feedback] || raise("Missing :running_feedback"),
+      trip: opts[:trip]
     }
 
-    Phoenix.PubSub.subscribe(PouCon.PubSub, "device_data")
+    Phoenix.PubSub.subscribe(PouCon.PubSub, "data_point_data")
     {:ok, state, {:continue, :initial_poll}}
   end
 
@@ -130,7 +133,7 @@ defmodule PouCon.Equipment.Controllers.DungExit do
       EquipmentLogger.log_stop(state.name, "manual", "user", "on")
     end
 
-    case @device_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)}) do
+    case @data_point_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)}) do
       {:ok, :success} ->
         sync_and_update(state)
 
@@ -155,25 +158,28 @@ defmodule PouCon.Equipment.Controllers.DungExit do
   # CRASH-PROOF sync_and_update
   # ——————————————————————————————————————————————————————————————
   defp sync_and_update(%State{} = state) do
-    coil_res = @device_manager.get_cached_data(state.on_off_coil)
-    fb_res = @device_manager.get_cached_data(state.running_feedback)
+    coil_res = @data_point_manager.get_cached_data(state.on_off_coil)
+    fb_res = @data_point_manager.get_cached_data(state.running_feedback)
+    trip_res = if state.trip, do: @data_point_manager.get_cached_data(state.trip), else: {:ok, %{state: 0}}
 
     {new_state, temp_error} =
       cond do
-        Enum.any?([coil_res, fb_res], &match?({:error, _}, &1)) ->
-          safe = %State{state | actual_on: false, is_running: false, error: :timeout}
+        Enum.any?([coil_res, fb_res, trip_res], &match?({:error, _}, &1)) ->
+          safe = %State{state | actual_on: false, is_running: false, is_tripped: false, error: :timeout}
           {safe, :timeout}
 
         true ->
           try do
             {:ok, %{:state => c}} = coil_res
             {:ok, %{:state => f}} = fb_res
+            {:ok, %{:state => t}} = trip_res
             actual_on = c == 1
 
             {%State{
                state
                | actual_on: actual_on,
                  is_running: f == 1,
+                 is_tripped: t == 1,
                  error: nil
              }, nil}
           rescue
@@ -208,6 +214,7 @@ defmodule PouCon.Equipment.Controllers.DungExit do
       commanded_on: state.commanded_on,
       actual_on: state.actual_on,
       is_running: state.is_running,
+      is_tripped: state.is_tripped,
       error: state.error,
       error_message: Helpers.error_message(state.error),
       interlocked: state.interlocked

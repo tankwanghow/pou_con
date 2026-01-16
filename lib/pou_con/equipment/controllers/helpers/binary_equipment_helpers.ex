@@ -38,7 +38,7 @@ defmodule PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers do
   Returns the Registry via tuple for the given equipment name.
   """
   @spec via(String.t()) :: {:via, Registry, {atom(), String.t()}}
-  def via(name), do: {:via, Registry, {PouCon.DeviceControllerRegistry, name}}
+  def via(name), do: {:via, Registry, {PouCon.EquipmentControllerRegistry, name}}
 
   # ——————————————————————————————————————————————————————————————
   # Error Message Mapping
@@ -52,6 +52,7 @@ defmodule PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers do
   def error_message(:timeout), do: "SENSOR TIMEOUT"
   def error_message(:invalid_data), do: "INVALID DATA"
   def error_message(:command_failed), do: "COMMAND FAILED"
+  def error_message(:tripped), do: "MOTOR TRIPPED"
   def error_message(:on_but_not_running), do: "ON BUT NOT RUNNING"
   def error_message(:off_but_running), do: "OFF BUT RUNNING"
   def error_message(:crashed_previously), do: "RECOVERED FROM CRASH"
@@ -64,16 +65,30 @@ defmodule PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers do
   @doc """
   Detects runtime errors based on commanded vs actual state.
 
-  If `temp_error` is not nil, returns it directly (device-level errors like timeout).
-  Otherwise checks for state mismatches (on_but_not_running, off_but_running).
+  If `temp_error` is not nil, returns it directly (data point-level errors like timeout).
+  Otherwise checks for state mismatches in priority order:
+  1. `:tripped` - Motor protection relay triggered (if `is_tripped` field present)
+  2. `:on_but_not_running` - Commanded ON but motor not running
+  3. `:off_but_running` - Commanded OFF but motor still running
 
   ## Parameters
-    - `state` - Must have `:actual_on` and `:is_running` fields
-    - `temp_error` - Error from device reading (nil if no error)
+    - `state` - Must have `:actual_on` and `:is_running` fields, optionally `:is_tripped`
+    - `temp_error` - Error from data point reading (nil if no error)
   """
   @spec detect_error(map(), atom() | nil) :: atom() | nil
   def detect_error(_state, temp_error) when temp_error != nil, do: temp_error
 
+  # With trip signal support
+  def detect_error(%{actual_on: actual_on, is_running: is_running, is_tripped: is_tripped}, _nil) do
+    cond do
+      is_tripped -> :tripped
+      actual_on && !is_running -> :on_but_not_running
+      !actual_on && is_running -> :off_but_running
+      true -> nil
+    end
+  end
+
+  # Without trip signal (backward compatibility)
   def detect_error(%{actual_on: actual_on, is_running: is_running}, _nil) do
     cond do
       actual_on && !is_running -> :on_but_not_running
@@ -213,6 +228,7 @@ defmodule PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers do
   defp error_to_type(:timeout), do: "sensor_timeout"
   defp error_to_type(:invalid_data), do: "invalid_data"
   defp error_to_type(:command_failed), do: "command_failed"
+  defp error_to_type(:tripped), do: "motor_tripped"
   defp error_to_type(:on_but_not_running), do: "on_but_not_running"
   defp error_to_type(:off_but_running), do: "off_but_running"
   defp error_to_type(:crashed_previously), do: "crashed_previously"

@@ -9,7 +9,6 @@ defmodule PouCon.Equipment.Controllers.Light do
 
   ```yaml
   on_off_coil: WS-13-O-01      # Digital output to control light relay
-  running_feedback: WS-13-I-01  # Digital input for light status (optional)
   auto_manual: VT-200-20        # Virtual device for mode selection
   ```
 
@@ -17,14 +16,11 @@ defmodule PouCon.Equipment.Controllers.Light do
 
   - `commanded_on` - What the system wants (user command or scheduler)
   - `actual_on` - What the hardware reports (coil state)
-  - `is_running` - Feedback confirming lights are on (if wired)
   - `mode` - `:auto` (scheduler allowed) or `:manual` (user control only)
 
   ## Error Detection
 
   - `:timeout` - No response from Modbus device
-  - `:on_but_not_running` - Light commanded ON but feedback shows OFF
-  - `:off_but_running` - Light commanded OFF but feedback shows ON
   - `:command_failed` - Modbus write command failed
 
   ## Schedule Integration
@@ -40,20 +36,18 @@ defmodule PouCon.Equipment.Controllers.Light do
   alias PouCon.Logging.EquipmentLogger
   alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
 
-  @device_manager Application.compile_env(:pou_con, :device_manager)
+  @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
 
   defmodule State do
     defstruct [
       :name,
       :title,
       :on_off_coil,
-      :running_feedback,
       :auto_manual,
       # Operator intent
       :commanded_on,
       # Current coil state
       :actual_on,
-      :is_running,
       # :auto | :manual
       :mode,
       :error,
@@ -72,10 +66,10 @@ defmodule PouCon.Equipment.Controllers.Light do
   def start(opts) when is_list(opts) do
     name = Keyword.fetch!(opts, :name)
 
-    case Registry.lookup(PouCon.DeviceControllerRegistry, name) do
+    case Registry.lookup(PouCon.EquipmentControllerRegistry, name) do
       [] ->
         DynamicSupervisor.start_child(
-          PouCon.Equipment.DeviceControllerSupervisor,
+          PouCon.Equipment.EquipmentControllerSupervisor,
           {__MODULE__, opts}
         )
 
@@ -101,16 +95,14 @@ defmodule PouCon.Equipment.Controllers.Light do
       name: name,
       title: opts[:title] || name,
       on_off_coil: opts[:on_off_coil] || raise("Missing :on_off_coil"),
-      running_feedback: opts[:running_feedback] || raise("Missing :running_feedback"),
       auto_manual: opts[:auto_manual] || raise("Missing :auto_manual"),
       commanded_on: false,
       actual_on: false,
-      is_running: false,
       mode: :auto,
       error: nil
     }
 
-    Phoenix.PubSub.subscribe(PouCon.PubSub, "device_data")
+    Phoenix.PubSub.subscribe(PouCon.PubSub, "data_point_data")
     {:ok, state, {:continue, :initial_poll}}
   end
 
@@ -146,7 +138,7 @@ defmodule PouCon.Equipment.Controllers.Light do
   def handle_cast(:set_auto, state) do
     Logger.info("[#{state.name}] → AUTO mode")
 
-    case @device_manager.command(state.auto_manual, :set_state, %{state: 0}) do
+    case @data_point_manager.command(state.auto_manual, :set_state, %{state: 0}) do
       {:ok, :success} ->
         :ok
 
@@ -165,7 +157,7 @@ defmodule PouCon.Equipment.Controllers.Light do
   def handle_cast(:set_manual, state) do
     Logger.info("[#{state.name}] → MANUAL mode")
 
-    case @device_manager.command(state.auto_manual, :set_state, %{state: 1}) do
+    case @data_point_manager.command(state.auto_manual, :set_state, %{state: 1}) do
       {:ok, :success} ->
         :ok
 
@@ -192,7 +184,7 @@ defmodule PouCon.Equipment.Controllers.Light do
       end
     end
 
-    case @device_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)}) do
+    case @data_point_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)}) do
       {:ok, :success} ->
         sync_and_update(state)
 
@@ -222,11 +214,10 @@ defmodule PouCon.Equipment.Controllers.Light do
   def handle_info(:data_refreshed, state), do: {:noreply, sync_and_update(state)}
 
   defp sync_and_update(%State{} = state) do
-    coil_res = @device_manager.get_cached_data(state.on_off_coil)
-    fb_res = @device_manager.get_cached_data(state.running_feedback)
-    mode_res = @device_manager.get_cached_data(state.auto_manual)
+    coil_res = @data_point_manager.get_cached_data(state.on_off_coil)
+    mode_res = @data_point_manager.get_cached_data(state.auto_manual)
 
-    results = [coil_res, fb_res, mode_res]
+    results = [coil_res, mode_res]
 
     {new_state, temp_error} =
       cond do
@@ -236,7 +227,6 @@ defmodule PouCon.Equipment.Controllers.Light do
           safe = %State{
             state
             | actual_on: false,
-              is_running: false,
               mode: :auto,
               error: :timeout
           }
@@ -246,17 +236,14 @@ defmodule PouCon.Equipment.Controllers.Light do
         true ->
           try do
             {:ok, %{:state => coil_state}} = coil_res
-            {:ok, %{:state => fb_state}} = fb_res
             {:ok, %{:state => mode_state}} = mode_res
 
             actual_on = coil_state == 1
-            is_running = fb_state == 1
             mode = if mode_state == 1, do: :manual, else: :auto
 
             updated = %State{
               state
               | actual_on: actual_on,
-                is_running: is_running,
                 mode: mode,
                 error: nil
             }
@@ -269,16 +256,18 @@ defmodule PouCon.Equipment.Controllers.Light do
           end
       end
 
-    error = Helpers.detect_error(new_state, temp_error)
+    # For lights without feedback, use actual_on as is_running equivalent
+    state_for_error_check = Map.put(new_state, :is_running, new_state.actual_on)
+    error = Helpers.detect_error(state_for_error_check, temp_error)
 
     # Compare with the PREVIOUS state's error, not new_state.error (which is nil)
     if error != state.error do
       mode_fn = fn s -> if s.mode == :auto, do: "auto", else: "manual" end
-      Helpers.log_error_transition(state.name, state.error, error, new_state, mode_fn)
+      Helpers.log_error_transition(state.name, state.error, error, state_for_error_check, mode_fn)
     end
 
-    # Check interlock status when stopped and no error
-    interlocked = Helpers.check_interlock_status(state.name, new_state.is_running, error)
+    # Check interlock status when stopped and no error (use actual_on as running status)
+    interlocked = Helpers.check_interlock_status(state.name, new_state.actual_on, error)
 
     %State{new_state | error: error, interlocked: interlocked}
   end
@@ -299,7 +288,8 @@ defmodule PouCon.Equipment.Controllers.Light do
       title: state.title || state.name,
       commanded_on: state.commanded_on,
       actual_on: state.actual_on,
-      is_running: state.is_running,
+      # For lights, is_running mirrors actual_on (no separate feedback)
+      is_running: state.actual_on,
       mode: state.mode,
       error: state.error,
       error_message: Helpers.error_message(state.error),

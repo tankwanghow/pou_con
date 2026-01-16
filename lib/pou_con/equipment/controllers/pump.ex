@@ -45,7 +45,7 @@ defmodule PouCon.Equipment.Controllers.Pump do
   alias PouCon.Logging.EquipmentLogger
   alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
 
-  @device_manager Application.compile_env(:pou_con, :device_manager)
+  @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
 
   defmodule State do
     defstruct [
@@ -54,9 +54,11 @@ defmodule PouCon.Equipment.Controllers.Pump do
       :on_off_coil,
       :running_feedback,
       :auto_manual,
+      :trip,
       commanded_on: false,
       actual_on: false,
       is_running: false,
+      is_tripped: false,
       mode: :auto,
       error: nil,
       interlocked: false
@@ -72,10 +74,10 @@ defmodule PouCon.Equipment.Controllers.Pump do
   def start(opts) when is_list(opts) do
     name = Keyword.fetch!(opts, :name)
 
-    case Registry.lookup(PouCon.DeviceControllerRegistry, name) do
+    case Registry.lookup(PouCon.EquipmentControllerRegistry, name) do
       [] ->
         DynamicSupervisor.start_child(
-          PouCon.Equipment.DeviceControllerSupervisor,
+          PouCon.Equipment.EquipmentControllerSupervisor,
           {__MODULE__, opts}
         )
 
@@ -102,10 +104,11 @@ defmodule PouCon.Equipment.Controllers.Pump do
       title: opts[:title] || name,
       on_off_coil: opts[:on_off_coil] || raise("Missing :on_off_coil"),
       running_feedback: opts[:running_feedback] || raise("Missing :running_feedback"),
-      auto_manual: opts[:auto_manual] || raise("Missing :auto_manual")
+      auto_manual: opts[:auto_manual] || raise("Missing :auto_manual"),
+      trip: opts[:trip]
     }
 
-    Phoenix.PubSub.subscribe(PouCon.PubSub, "device_data")
+    Phoenix.PubSub.subscribe(PouCon.PubSub, "data_point_data")
     {:ok, state, {:continue, :initial_poll}}
   end
 
@@ -133,7 +136,7 @@ defmodule PouCon.Equipment.Controllers.Pump do
   @impl GenServer
   def handle_cast(:set_auto, state) do
     Logger.info("[#{state.name}] → AUTO mode")
-    @device_manager.command(state.auto_manual, :set_state, %{state: 0})
+    @data_point_manager.command(state.auto_manual, :set_state, %{state: 0})
     # Turn off the coil when switching to AUTO mode (start with clean state)
     {:noreply, sync_coil(%{state | mode: :auto, commanded_on: false})}
   end
@@ -141,7 +144,7 @@ defmodule PouCon.Equipment.Controllers.Pump do
   @impl GenServer
   def handle_cast(:set_manual, state) do
     Logger.info("[#{state.name}] → MANUAL mode")
-    @device_manager.command(state.auto_manual, :set_state, %{state: 1})
+    @data_point_manager.command(state.auto_manual, :set_state, %{state: 1})
     {:noreply, sync_coil(%{state | mode: :manual})}
   end
 
@@ -161,7 +164,7 @@ defmodule PouCon.Equipment.Controllers.Pump do
       end
     end
 
-    case @device_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)}) do
+    case @data_point_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)}) do
       {:ok, :success} ->
         sync_and_update(state)
 
@@ -188,11 +191,12 @@ defmodule PouCon.Equipment.Controllers.Pump do
   # CRASH-PROOF sync_and_update
   # ——————————————————————————————————————————————————————————————
   defp sync_and_update(%State{} = state) do
-    coil_res = @device_manager.get_cached_data(state.on_off_coil)
-    fb_res = @device_manager.get_cached_data(state.running_feedback)
-    mode_res = @device_manager.get_cached_data(state.auto_manual)
+    coil_res = @data_point_manager.get_cached_data(state.on_off_coil)
+    fb_res = @data_point_manager.get_cached_data(state.running_feedback)
+    mode_res = @data_point_manager.get_cached_data(state.auto_manual)
+    trip_res = if state.trip, do: @data_point_manager.get_cached_data(state.trip), else: {:ok, %{state: 0}}
 
-    results = [coil_res, fb_res, mode_res]
+    results = [coil_res, fb_res, mode_res, trip_res]
 
     {new_state, temp_error} =
       cond do
@@ -203,6 +207,7 @@ defmodule PouCon.Equipment.Controllers.Pump do
             state
             | actual_on: false,
               is_running: false,
+              is_tripped: false,
               mode: :auto,
               error: :timeout
           }
@@ -214,15 +219,18 @@ defmodule PouCon.Equipment.Controllers.Pump do
             {:ok, %{:state => coil_state}} = coil_res
             {:ok, %{:state => fb_state}} = fb_res
             {:ok, %{:state => mode_state}} = mode_res
+            {:ok, %{:state => trip_state}} = trip_res
 
             actual_on = coil_state == 1
             is_running = fb_state == 1
+            is_tripped = trip_state == 1
             mode = if mode_state == 1, do: :manual, else: :auto
 
             updated = %State{
               state
               | actual_on: actual_on,
                 is_running: is_running,
+                is_tripped: is_tripped,
                 mode: mode,
                 error: nil
             }
@@ -266,6 +274,7 @@ defmodule PouCon.Equipment.Controllers.Pump do
       commanded_on: state.commanded_on,
       actual_on: state.actual_on,
       is_running: state.is_running,
+      is_tripped: state.is_tripped,
       mode: state.mode,
       error: state.error,
       error_message: Helpers.error_message(state.error),

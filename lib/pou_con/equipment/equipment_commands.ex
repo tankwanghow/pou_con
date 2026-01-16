@@ -3,7 +3,7 @@ defmodule PouCon.Equipment.EquipmentCommands do
   Generic equipment command interface that works with any equipment type.
   Uses the Registry to send commands without knowing equipment type.
 
-  All equipment controllers must be registered in PouCon.DeviceControllerRegistry
+  All equipment controllers must be registered in PouCon.EquipmentControllerRegistry
   and respond to standard GenServer messages: :turn_on, :turn_off, :status, :set_auto, :set_manual
   """
 
@@ -46,7 +46,7 @@ defmodule PouCon.Equipment.EquipmentCommands do
   Returns status map if successful, {:error, reason} otherwise.
   """
   def get_status(equipment_name, timeout \\ 1000) do
-    case Registry.lookup(PouCon.DeviceControllerRegistry, equipment_name) do
+    case Registry.lookup(PouCon.EquipmentControllerRegistry, equipment_name) do
       [{pid, _}] ->
         try do
           GenServer.call(pid, :status, timeout)
@@ -74,7 +74,7 @@ defmodule PouCon.Equipment.EquipmentCommands do
   # Private Helpers
   # ------------------------------------------------------------------ #
   defp send_cast(equipment_name, message) do
-    case Registry.lookup(PouCon.DeviceControllerRegistry, equipment_name) do
+    case Registry.lookup(PouCon.EquipmentControllerRegistry, equipment_name) do
       [{pid, _}] ->
         GenServer.cast(pid, message)
         :ok

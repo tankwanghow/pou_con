@@ -12,7 +12,7 @@ defmodule PouCon.Application do
   │  1. Telemetry + Repo         (Infrastructure)                   │
   │  2. SystemTimeValidator      (RTC battery failure detection)    │
   │  3. PortSupervisor           (Serial port connections)          │
-  │  4. DeviceManager            (Modbus polling engine + ETS)      │
+  │  4. DataPointManager         (Modbus polling engine + ETS)      │
   │  5. Registry                 (Controller name registration)     │
   │  6. DynamicSupervisor        (Controller process supervisor)    │
   │  7. Ecto.Migrator            (Database migrations)              │
@@ -51,15 +51,15 @@ defmodule PouCon.Application do
 
   If a controller crashes repeatedly, check logs for patterns:
   - `[fan_1] Started controller` appearing every second = restart loop
-  - Usually indicates misconfigured device_tree or hardware failure
+  - Usually indicates misconfigured data_point_tree or hardware failure
 
   ## Key Dependencies
 
   - **Registry before DynamicSupervisor**: Controllers register names on start
   - **InterlockController before EquipmentLoader**: Controllers check interlocks
     during initialization (sync_and_update calls can_start?)
-  - **DeviceManager before Controllers**: Controllers query cached device data
-  - **PubSub before Controllers**: Controllers subscribe to "device_data" topic
+  - **DataPointManager before Controllers**: Controllers query cached data point data
+  - **PubSub before Controllers**: Controllers subscribe to "data_point_data" topic
 
   ## Test vs Production
 
@@ -92,12 +92,12 @@ defmodule PouCon.Application do
         end ++
         [
           PouCon.Hardware.PortSupervisor,
-          PouCon.Hardware.DeviceManager,
+          PouCon.Hardware.DataPointManager,
 
           # ——————————————————————————————————————————
           # CRITICAL: Registry must start BEFORE the DynamicSupervisor
           # ——————————————————————————————————————————
-          {Registry, keys: :unique, name: PouCon.DeviceControllerRegistry},
+          {Registry, keys: :unique, name: PouCon.EquipmentControllerRegistry},
 
           # ——————————————————————————————————————————
           # THIS IS THE FIX THAT MAKES DEAD CONTROLLERS COME BACK
@@ -107,7 +107,7 @@ defmodule PouCon.Application do
             # ← practically infinite
             # ← restart as fast as possible
             strategy: :one_for_one,
-            name: PouCon.Equipment.DeviceControllerSupervisor,
+            name: PouCon.Equipment.EquipmentControllerSupervisor,
             max_restarts: 1_000_000,
             max_seconds: 1
           },

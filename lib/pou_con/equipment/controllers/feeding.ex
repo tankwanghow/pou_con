@@ -55,7 +55,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
   alias PouCon.Logging.EquipmentLogger
 
-  @device_manager Application.compile_env(:pou_con, :device_manager)
+  @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
 
   defmodule State do
     defstruct [
@@ -67,10 +67,12 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       :back_limit,
       :pulse_sensor,
       :auto_manual,
+      :trip,
       # Runtime
       commanded_target: nil,
       command_timestamp: nil,
       is_moving: false,
+      is_tripped: false,
       mode: :auto,
       error: nil,
       at_front_limit: false,
@@ -87,10 +89,10 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   def start(opts) do
     name = Keyword.fetch!(opts, :name)
 
-    case Registry.lookup(PouCon.DeviceControllerRegistry, name) do
+    case Registry.lookup(PouCon.EquipmentControllerRegistry, name) do
       [] ->
         DynamicSupervisor.start_child(
-          PouCon.Equipment.DeviceControllerSupervisor,
+          PouCon.Equipment.EquipmentControllerSupervisor,
           {__MODULE__, opts}
         )
 
@@ -126,10 +128,11 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       front_limit: opts[:front_limit] || raise("Missing :front_limit"),
       back_limit: opts[:back_limit] || raise("Missing :back_limit"),
       pulse_sensor: opts[:pulse_sensor] || raise("Missing :pulse_sensor"),
-      auto_manual: opts[:auto_manual] || raise("Missing :auto_manual")
+      auto_manual: opts[:auto_manual] || raise("Missing :auto_manual"),
+      trip: opts[:trip]
     }
 
-    Phoenix.PubSub.subscribe(PouCon.PubSub, "device_data")
+    Phoenix.PubSub.subscribe(PouCon.PubSub, "data_point_data")
     {:ok, state, {:continue, :initial_sync}}
   end
 
@@ -193,14 +196,14 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   @impl GenServer
   def handle_cast(:set_auto, state) do
     Logger.info("[#{state.name}] → AUTO mode")
-    @device_manager.command(state.auto_manual, :set_state, %{state: 0})
+    @data_point_manager.command(state.auto_manual, :set_state, %{state: 0})
     {:noreply, sync_and_update(stop_and_reset(%{state | mode: :auto}))}
   end
 
   @impl GenServer
   def handle_cast(:set_manual, state) do
     Logger.info("[#{state.name}] → MANUAL mode")
-    @device_manager.command(state.auto_manual, :set_state, %{state: 1})
+    @data_point_manager.command(state.auto_manual, :set_state, %{state: 1})
     {:noreply, sync_and_update(stop_and_reset(%{state | mode: :manual}))}
   end
 
@@ -208,13 +211,16 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   # CRASH-PROOF sync_and_update
   # ——————————————————————————————————————————————————————————————
   defp sync_and_update(%State{} = state) do
+    trip_res = if state.trip, do: @data_point_manager.get_cached_data(state.trip), else: {:ok, %{state: 0}}
+
     inputs = [
-      @device_manager.get_cached_data(state.device_to_back_limit),
-      @device_manager.get_cached_data(state.device_to_front_limit),
-      @device_manager.get_cached_data(state.front_limit),
-      @device_manager.get_cached_data(state.back_limit),
-      @device_manager.get_cached_data(state.pulse_sensor),
-      @device_manager.get_cached_data(state.auto_manual)
+      @data_point_manager.get_cached_data(state.device_to_back_limit),
+      @data_point_manager.get_cached_data(state.device_to_front_limit),
+      @data_point_manager.get_cached_data(state.front_limit),
+      @data_point_manager.get_cached_data(state.back_limit),
+      @data_point_manager.get_cached_data(state.pulse_sensor),
+      @data_point_manager.get_cached_data(state.auto_manual),
+      trip_res
     ]
 
     {base_state, temp_error} =
@@ -225,6 +231,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
           safe = %State{
             state
             | is_moving: false,
+              is_tripped: false,
               at_front_limit: false,
               at_back_limit: false,
               mode: :auto,
@@ -241,10 +248,12 @@ defmodule PouCon.Equipment.Controllers.Feeding do
               {:ok, %{:state => f_lim}},
               {:ok, %{:state => b_lim}},
               {:ok, %{:state => pulse}},
-              {:ok, %{:state => mode_val}}
+              {:ok, %{:state => mode_val}},
+              {:ok, %{:state => trip_state}}
             ] = inputs
 
             is_moving = pulse == 1
+            is_tripped = trip_state == 1
             mode = if mode_val == 1, do: :manual, else: :auto
             at_front = f_lim == 1
             at_back = b_lim == 1
@@ -268,6 +277,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
             updated = %State{
               state
               | is_moving: is_moving,
+                is_tripped: is_tripped,
                 mode: mode,
                 at_front_limit: at_front,
                 at_back_limit: at_back,
@@ -316,6 +326,9 @@ defmodule PouCon.Equipment.Controllers.Feeding do
         temp_error ->
           temp_error
 
+        state_after_limits.is_tripped ->
+          :tripped
+
         state_after_limits.is_moving && state_after_limits.commanded_target == nil ->
           :moving_without_target
 
@@ -349,18 +362,18 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   end
 
   defp activate_coil(state, :to_back_limit) do
-    @device_manager.command(state.device_to_front_limit, :set_state, %{state: 0})
-    @device_manager.command(state.device_to_back_limit, :set_state, %{state: 1})
+    @data_point_manager.command(state.device_to_front_limit, :set_state, %{state: 0})
+    @data_point_manager.command(state.device_to_back_limit, :set_state, %{state: 1})
   end
 
   defp activate_coil(state, :to_front_limit) do
-    @device_manager.command(state.device_to_back_limit, :set_state, %{state: 0})
-    @device_manager.command(state.device_to_front_limit, :set_state, %{state: 1})
+    @data_point_manager.command(state.device_to_back_limit, :set_state, %{state: 0})
+    @data_point_manager.command(state.device_to_front_limit, :set_state, %{state: 1})
   end
 
   defp stop_and_reset(state) do
-    @device_manager.command(state.device_to_back_limit, :set_state, %{state: 0})
-    @device_manager.command(state.device_to_front_limit, :set_state, %{state: 0})
+    @data_point_manager.command(state.device_to_back_limit, :set_state, %{state: 0})
+    @data_point_manager.command(state.device_to_front_limit, :set_state, %{state: 0})
     %State{state | commanded_target: nil, command_timestamp: nil}
   end
 
@@ -371,6 +384,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
         case new do
           :timeout -> "sensor_timeout"
           :invalid_data -> "invalid_data"
+          :tripped -> "motor_tripped"
           :hardware_stall -> "hardware_stall"
           :moving_without_target -> "moving_without_target"
           :crashed_previously -> "crashed_previously"
@@ -393,6 +407,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       name: state.name,
       title: state.title || state.name,
       moving: state.is_moving,
+      is_tripped: state.is_tripped,
       target_limit: state.commanded_target,
       at_front: state.at_front_limit,
       at_back: state.at_back_limit,
@@ -407,6 +422,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   defp error_message(nil), do: "OK"
   defp error_message(:timeout), do: "SENSOR TIMEOUT"
   defp error_message(:invalid_data), do: "INVALID DATA"
+  defp error_message(:tripped), do: "MOTOR TRIPPED"
   defp error_message(:hardware_stall), do: "STALL (No Pulse Detected)"
   defp error_message(:moving_without_target), do: "MOVING WITHOUT TARGET"
   defp error_message(:crashed_previously), do: "RECOVERED FROM CRASH"

@@ -56,7 +56,7 @@ defmodule PouCon.Equipment.Controllers.Egg do
   alias PouCon.Logging.EquipmentLogger
   alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
 
-  @device_manager Application.compile_env(:pou_con, :device_manager)
+  @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
 
   defmodule State do
     defstruct [
@@ -93,10 +93,10 @@ defmodule PouCon.Equipment.Controllers.Egg do
   def start(opts) when is_list(opts) do
     name = Keyword.fetch!(opts, :name)
 
-    case Registry.lookup(PouCon.DeviceControllerRegistry, name) do
+    case Registry.lookup(PouCon.EquipmentControllerRegistry, name) do
       [] ->
         DynamicSupervisor.start_child(
-          PouCon.Equipment.DeviceControllerSupervisor,
+          PouCon.Equipment.EquipmentControllerSupervisor,
           {__MODULE__, opts}
         )
 
@@ -132,7 +132,7 @@ defmodule PouCon.Equipment.Controllers.Egg do
       error: nil
     }
 
-    Phoenix.PubSub.subscribe(PouCon.PubSub, "device_data")
+    Phoenix.PubSub.subscribe(PouCon.PubSub, "data_point_data")
     {:ok, state, {:continue, :initial_poll}}
   end
 
@@ -168,7 +168,7 @@ defmodule PouCon.Equipment.Controllers.Egg do
   def handle_cast(:set_auto, state) do
     Logger.info("[#{state.name}] → AUTO mode")
 
-    case @device_manager.command(state.auto_manual, :set_state, %{state: 0}) do
+    case @data_point_manager.command(state.auto_manual, :set_state, %{state: 0}) do
       {:ok, :success} ->
         :ok
 
@@ -187,7 +187,7 @@ defmodule PouCon.Equipment.Controllers.Egg do
   def handle_cast(:set_manual, state) do
     Logger.info("[#{state.name}] → MANUAL mode")
 
-    case @device_manager.command(state.auto_manual, :set_state, %{state: 1}) do
+    case @data_point_manager.command(state.auto_manual, :set_state, %{state: 1}) do
       {:ok, :success} ->
         :ok
 
@@ -218,7 +218,7 @@ defmodule PouCon.Equipment.Controllers.Egg do
         end
       end
 
-      case @device_manager.command(state.on_off_coil, :set_state, %{
+      case @data_point_manager.command(state.on_off_coil, :set_state, %{
              state: if(target, do: 1, else: 0)
            }) do
         {:ok, :success} ->
@@ -251,14 +251,14 @@ defmodule PouCon.Equipment.Controllers.Egg do
   def handle_info(:data_refreshed, state), do: {:noreply, sync_and_update(state)}
 
   defp sync_and_update(%State{} = state) do
-    coil_res = @device_manager.get_cached_data(state.on_off_coil)
-    fb_res = @device_manager.get_cached_data(state.running_feedback)
-    mode_res = @device_manager.get_cached_data(state.auto_manual)
+    coil_res = @data_point_manager.get_cached_data(state.on_off_coil)
+    fb_res = @data_point_manager.get_cached_data(state.running_feedback)
+    mode_res = @data_point_manager.get_cached_data(state.auto_manual)
 
     # Read manual switch if configured
     switch_res =
       if state.manual_switch do
-        @device_manager.get_cached_data(state.manual_switch)
+        @data_point_manager.get_cached_data(state.manual_switch)
       else
         nil
       end
