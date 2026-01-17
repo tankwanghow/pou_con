@@ -193,7 +193,7 @@ defmodule PouCon.Equipment.Controllers.Fan do
   # Turn On/Off Commands
   # ——————————————————————————————————————————————————————————————
   @impl GenServer
-  def handle_cast(:turn_on, %{mode: :manual} = state) do
+  def handle_cast(:turn_on, %{mode: :manual, is_auto_manual_virtual_di: false} = state) do
     # Physical switch not in AUTO position - ignore software commands
     Logger.debug("[#{state.name}] Turn ON ignored - panel switch not in AUTO")
     {:noreply, state}
@@ -210,7 +210,7 @@ defmodule PouCon.Equipment.Controllers.Fan do
   end
 
   @impl GenServer
-  def handle_cast(:turn_off, %{mode: :manual} = state) do
+  def handle_cast(:turn_off, %{mode: :manual, is_auto_manual_virtual_di: false} = state) do
     # Physical switch not in AUTO position - ignore software commands
     Logger.debug("[#{state.name}] Turn OFF ignored - panel switch not in AUTO")
     {:noreply, state}
@@ -224,9 +224,9 @@ defmodule PouCon.Equipment.Controllers.Fan do
   # Safe Coil Synchronization
   # ——————————————————————————————————————————————————————————————
 
-  # When in MANUAL mode (physical switch not in AUTO), don't send commands
+  # When in MANUAL mode with physical switch (not virtual DI), don't send commands
   # Physical switch controls contactor directly - just read hardware state
-  defp sync_coil(%State{mode: :manual} = state) do
+  defp sync_coil(%State{mode: :manual, is_auto_manual_virtual_di: false} = state) do
     poll_and_update(state)
   end
 
@@ -338,10 +338,14 @@ defmodule PouCon.Equipment.Controllers.Fan do
           end
       end
 
-    # Only detect hardware mismatch errors in AUTO mode
-    # In MANUAL mode, physical switch controls contactor directly, so mismatches are expected
+    # Detect errors when software is in control:
+    # - AUTO mode: software/automation controls the fan
+    # - MANUAL mode with virtual DI: user controls via UI (software still sends commands)
+    # Skip error detection only for physical DI in manual mode (panel bypasses software)
+    should_detect_errors = new_state.mode == :auto or state.is_auto_manual_virtual_di
+
     error =
-      if new_state.mode == :auto do
+      if should_detect_errors do
         Helpers.detect_error(new_state, temp_error)
       else
         temp_error
