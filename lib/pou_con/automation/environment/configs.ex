@@ -37,6 +37,10 @@ defmodule PouCon.Automation.Environment.Configs do
   Returns {fans_list, pumps_list} where each is a list of equipment names.
   Filters out equipment in MANUAL mode.
 
+  Temperature control:
+  - If temperature >= step threshold: use that step's fans
+  - If temperature < step 1 threshold: keep step 1 fans running (minimum ventilation)
+
   Humidity overrides:
   - If humidity >= hum_max: all pumps stop (returns empty pump list)
   - If humidity <= hum_min: all configured pumps run (returns all pumps from all steps)
@@ -45,10 +49,18 @@ defmodule PouCon.Automation.Environment.Configs do
   def get_equipment_for_conditions(%Config{} = config, current_temp, current_humidity)
       when is_number(current_temp) do
     # Get step-based fans (temperature controls fans)
+    # Fall back to step 1 when temp is below all thresholds (keep minimum ventilation)
     fans =
       case Config.find_step_for_temp(config, current_temp) do
-        nil -> []
-        step -> filter_auto_mode_fans(step.fans)
+        nil ->
+          # Temp below all thresholds - use step 1 if available
+          case get_step_1(config) do
+            nil -> []
+            step_1 -> filter_auto_mode_fans(step_1.fans)
+          end
+
+        step ->
+          filter_auto_mode_fans(step.fans)
       end
 
     # Determine pumps based on humidity overrides
@@ -58,6 +70,12 @@ defmodule PouCon.Automation.Environment.Configs do
   end
 
   def get_equipment_for_conditions(_config, _temp, _humidity), do: {[], []}
+
+  # Get step 1 configuration if it's active (temp > 0)
+  defp get_step_1(config) do
+    Config.get_active_steps(config)
+    |> Enum.find(fn step -> step.step == 1 end)
+  end
 
   defp determine_pumps(config, current_temp, current_humidity) when is_number(current_humidity) do
     cond do
@@ -71,19 +89,33 @@ defmodule PouCon.Automation.Environment.Configs do
         |> filter_auto_mode_pumps()
 
       # Normal - use step configuration
+      # Fall back to step 1 when temp is below all thresholds
       true ->
         case Config.find_step_for_temp(config, current_temp) do
-          nil -> []
-          step -> filter_auto_mode_pumps(step.pumps)
+          nil ->
+            case get_step_1(config) do
+              nil -> []
+              step_1 -> filter_auto_mode_pumps(step_1.pumps)
+            end
+
+          step ->
+            filter_auto_mode_pumps(step.pumps)
         end
     end
   end
 
   defp determine_pumps(config, current_temp, _humidity) do
     # No humidity reading - fall back to step configuration
+    # Fall back to step 1 when temp is below all thresholds
     case Config.find_step_for_temp(config, current_temp) do
-      nil -> []
-      step -> filter_auto_mode_pumps(step.pumps)
+      nil ->
+        case get_step_1(config) do
+          nil -> []
+          step_1 -> filter_auto_mode_pumps(step_1.pumps)
+        end
+
+      step ->
+        filter_auto_mode_pumps(step.pumps)
     end
   end
 

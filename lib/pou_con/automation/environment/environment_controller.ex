@@ -203,8 +203,21 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       now = System.monotonic_time(:millisecond)
 
       # Get the current step based on temperature
+      # When temp is below all thresholds, fall back to step 1 (minimum ventilation)
       new_step = ConfigSchema.find_step_for_temp(config, state.avg_temp)
-      new_step_num = if new_step, do: new_step.step, else: nil
+
+      new_step_num =
+        if new_step do
+          new_step.step
+        else
+          # Temp below all thresholds - check if step 1 exists for fallback
+          active_steps = ConfigSchema.get_active_steps(config)
+
+          case Enum.find(active_steps, fn s -> s.step == 1 end) do
+            nil -> nil
+            _step_1 -> 1
+          end
+        end
 
       # Check if step change is allowed (delay_between_step_seconds)
       {effective_step, last_step, last_step_change_time} =
