@@ -3,41 +3,41 @@
     {
       "id": 1,
       "protocol": "s7",
-      "device_path": "s7://192.168.0.1",
+      "description": "Siemens ET200SP PLC - House 1 Front Panel",
       "speed": null,
+      "device_path": "s7://192.168.0.1",
       "parity": null,
       "data_bits": null,
       "stop_bits": null,
       "ip_address": "192.168.0.1",
       "s7_rack": 0,
-      "s7_slot": 1,
-      "description": "Siemens ET200SP PLC - House 1 Front Panel"
+      "s7_slot": 1
     },
     {
       "id": 2,
       "protocol": "s7",
-      "device_path": "s7://192.168.0.2",
+      "description": "Siemens ET200SP PLC - House 1 Back Panel",
       "speed": null,
+      "device_path": "s7://192.168.0.2",
       "parity": null,
       "data_bits": null,
       "stop_bits": null,
       "ip_address": "192.168.0.2",
       "s7_rack": 0,
-      "s7_slot": 1,
-      "description": "Siemens ET200SP PLC - House 1 Back Panel"
+      "s7_slot": 1
     },
     {
       "id": 3,
       "protocol": "virtual",
-      "device_path": "virtual",
+      "description": "Virtual Port for Simulation",
       "speed": null,
+      "device_path": "virtual",
       "parity": null,
       "data_bits": null,
       "stop_bits": null,
       "ip_address": null,
       "s7_rack": null,
-      "s7_slot": null,
-      "description": "Virtual Port for Simulation"
+      "s7_slot": null
     }
   ]
 }

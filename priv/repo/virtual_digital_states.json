@@ -1,4 +1,49 @@
 {
-"virtual_digital_states": [
-	{"id": 1, "slave_id": 200, "channel": 1, "state": 0}
-]}
+  "virtual_digital_states": [
+    {
+      "state": 0,
+      "channel": 1,
+      "slave_id": 200
+    },
+    {
+      "state": 0,
+      "channel": 13,
+      "slave_id": 200
+    },
+    {
+      "state": 0,
+      "channel": 14,
+      "slave_id": 200
+    },
+    {
+      "state": 0,
+      "channel": 17,
+      "slave_id": 200
+    },
+    {
+      "state": 1,
+      "channel": 8,
+      "slave_id": 200
+    },
+    {
+      "state": 1,
+      "channel": 9,
+      "slave_id": 200
+    },
+    {
+      "state": 0,
+      "channel": 2,
+      "slave_id": 200
+    },
+    {
+      "state": 0,
+      "channel": 3,
+      "slave_id": 200
+    },
+    {
+      "state": 0,
+      "channel": 15,
+      "slave_id": 200
+    }
+  ]
+}
