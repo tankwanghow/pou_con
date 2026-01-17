@@ -67,9 +67,9 @@ defmodule PouConWeb.Components.Summaries.FeedingSummaryComponent do
 
                   # 2. Moving Animation
                   eq.target_limit == :to_front_limit && !eq.at_front &&
-                    "-translate-x-1 bg-green-500 animate-pulse",
+                    "-translate-x-1 bg-green-500 animate-spin",
                   eq.target_limit == :to_back_limit && !eq.at_back &&
-                    "translate-x-1 bg-green-500 animate-pulse",
+                    "translate-x-2 bg-green-500 animate-spin",
 
                   # 3. Idle
                   (!eq.at_back and !eq.at_front and !eq.is_moving and eq.state_text != "OFFLINE") &&
