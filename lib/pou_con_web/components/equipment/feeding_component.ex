@@ -74,14 +74,14 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
     ~H"""
     <div class="relative h-16 w-16 flex items-center justify-center overflow-hidden">
       <div class={[
-        "absolute left-2 h-10 w-2 rounded-full transition-colors z-0",
+        "absolute left-1 h-10 w-2 rounded-full transition-colors z-0",
         @status.at_front && "bg-blue-500",
         !@status.at_front && "bg-gray-300"
       ]}>
       </div>
 
       <div class={[
-        "absolute right-2 h-10 w-2 rounded-full transition-colors z-0",
+        "absolute right-1 h-10 w-2 rounded-full transition-colors z-0",
         @status.at_back && "bg-blue-500",
         !@status.at_back && "bg-gray-300"
       ]}>
@@ -92,9 +92,9 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
         @status.at_front && "-translate-x-3 bg-#{@display.color}-500",
         @status.at_back && "translate-x-3 bg-#{@display.color}-500",
         @status.target_limit == :to_front_limit && !@status.at_front &&
-          "-translate-x-1.5 bg-green-500 animate-pulse",
+          "-translate-x-2.5 bg-green-500 animate-spin",
         @status.target_limit == :to_back_limit && !@status.at_back &&
-          "translate-x-1.5 bg-green-500 animate-pulse",
+          "translate-x-2.5 bg-green-500 animate-spin",
         (!@status.at_back and !@status.at_front and !@display.is_moving and
            @display.state_text != "OFFLINE") && "bg-#{@display.color}-500",
         @display.state_text == "OFFLINE" && "bg-gray-500",
