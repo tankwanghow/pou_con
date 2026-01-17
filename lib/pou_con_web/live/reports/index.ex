@@ -24,6 +24,7 @@ defmodule PouConWeb.Live.Reports.Index do
       |> assign(:daily_consumption, [])
       |> assign(:selected_power_meter, nil)
       |> assign(:power_meter_snapshots, [])
+      |> assign(:daily_power_consumption, [])
       |> assign(:date_from, Date.add(Date.utc_today(), -7))
       |> assign(:date_to, Date.utc_today())
       |> load_data()
@@ -155,16 +156,20 @@ defmodule PouConWeb.Live.Reports.Index do
     meter = socket.assigns.selected_power_meter || get_first_power_meter(socket)
     hours = 24
 
-    snapshots =
+    {snapshots, consumption} =
       if meter do
-        PeriodicLogger.get_power_meter_snapshots(meter, hours)
+        {
+          PeriodicLogger.get_power_meter_snapshots(meter, hours),
+          PeriodicLogger.get_daily_power_consumption(meter, 7)
+        }
       else
-        []
+        {[], []}
       end
 
     socket
     |> assign(:selected_power_meter, meter)
     |> assign(:power_meter_snapshots, snapshots)
+    |> assign(:daily_power_consumption, consumption)
   end
 
   defp load_summaries(socket) do
@@ -526,6 +531,27 @@ defmodule PouConWeb.Live.Reports.Index do
           </div>
 
           <%= if @selected_power_meter do %>
+            <!-- Daily Consumption Summary -->
+            <%= if !Enum.empty?(@daily_power_consumption) do %>
+              <div class="bg-gray-800 rounded-lg p-4 mb-4">
+                <h4 class="text-lg font-semibold mb-3 text-amber-400">
+                  Daily Energy Consumption (Last 7 Days)
+                </h4>
+                <div class="grid grid-cols-7 gap-2">
+                  <%= for day <- @daily_power_consumption do %>
+                    <div class="bg-gray-700 p-3 rounded text-center">
+                      <div class="text-xs text-gray-400">
+                        {Calendar.strftime(day.date, "%d-%m-%Y")}
+                      </div>
+                      <div class="text-lg font-bold text-amber-300">{day.consumption}</div>
+                      <div class="text-xs text-gray-500">kWh</div>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+
+    <!-- Raw Data Table -->
             <%= if !Enum.empty?(@power_meter_snapshots) do %>
               <div class="bg-gray-800 rounded-lg overflow-hidden">
                 <table class="w-full text-sm">
@@ -575,7 +601,11 @@ defmodule PouConWeb.Live.Reports.Index do
               </div>
             <% else %>
               <div class="bg-gray-800 p-8 rounded-lg text-center text-gray-400">
-                No power meter data available. Snapshots are recorded every 30 minutes.
+                <%= if Enum.empty?(@daily_power_consumption) do %>
+                  No power meter data available. Snapshots are recorded every 30 minutes.
+                <% else %>
+                  Raw data table will appear here after first snapshot is taken.
+                <% end %>
               </div>
             <% end %>
           <% else %>

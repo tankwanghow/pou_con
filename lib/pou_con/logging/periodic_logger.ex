@@ -368,6 +368,36 @@ defmodule PouCon.Logging.PeriodicLogger do
   # ===== Power Meter Query Functions =====
 
   @doc """
+  Get daily power consumption for a specific power meter.
+  Returns energy consumed each day (kWh).
+
+  Similar to water meters, this calculates consumption by taking the difference
+  between first and last energy_import reading of each day.
+  """
+  def get_daily_power_consumption(equipment_name, days_back \\ 7) do
+    cutoff = DateTime.utc_now() |> DateTime.add(-days_back * 24 * 3600, :second)
+
+    snapshots =
+      from(p in PowerMeterSnapshot,
+        where: p.equipment_name == ^equipment_name,
+        where: p.inserted_at > ^cutoff,
+        order_by: [asc: p.inserted_at]
+      )
+      |> Repo.all()
+
+    # Group by date and calculate consumption
+    snapshots
+    |> Enum.group_by(fn s -> DateTime.to_date(s.inserted_at) end)
+    |> Enum.map(fn {date, day_snapshots} ->
+      first_energy = List.first(day_snapshots).energy_import || 0.0
+      last_energy = List.last(day_snapshots).energy_import || 0.0
+      consumption = max(0.0, last_energy - first_energy)
+      %{date: date, consumption: Float.round(consumption, 2)}
+    end)
+    |> Enum.sort_by(& &1.date, Date)
+  end
+
+  @doc """
   Get power meter snapshots for a specific meter.
   """
   def get_power_meter_snapshots(equipment_name, hours_back \\ 24) do
