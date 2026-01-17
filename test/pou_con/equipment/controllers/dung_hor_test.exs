@@ -119,7 +119,7 @@ defmodule PouCon.Equipment.Controllers.DungHorTest do
         _ -> {:ok, %{state: 0}}
       end)
 
-      send(pid, :data_refreshed)
+      send(pid, :poll)
       Process.sleep(50)
 
       expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 0} ->

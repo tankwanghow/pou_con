@@ -255,7 +255,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeterTest do
       stub(DataPointManagerMock, :read_direct, fn _ -> {:ok, @valid_meter_data} end)
 
       # Trigger refresh via PubSub
-      send(pid, :data_refreshed)
+      send(pid, :poll)
       Process.sleep(50)
 
       status = WaterMeter.status(name)

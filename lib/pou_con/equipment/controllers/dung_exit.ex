@@ -116,6 +116,10 @@ defmodule PouCon.Equipment.Controllers.DungExit do
     {:noreply, new_state}
   end
 
+  # Ignore unknown messages (e.g., :data_refreshed from StatusBroadcaster or legacy tests)
+  @impl GenServer
+  def handle_info(_msg, state), do: {:noreply, state}
+
   defp schedule_poll(interval_ms) do
     Process.send_after(self(), :poll, interval_ms)
   end
