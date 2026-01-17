@@ -27,12 +27,22 @@ defmodule PouCon.Hardware.DataPointTreeParser do
                 value_str in ["false", "False", "FALSE"] ->
                   false
 
+                # Handle comma-separated lists (e.g., "temp_1, temp_2, temp_3")
+                String.contains?(value_str, ",") ->
+                  value_str
+                  |> String.split(",")
+                  |> Enum.map(&String.trim/1)
+                  |> Enum.reject(&(&1 == ""))
+
                 # Default: keep as string
                 true ->
                   value_str
               end
 
-            if key == "" or value == "" do
+            # Check for empty key or empty value (string "" or empty list [])
+            empty_value = value == "" or value == []
+
+            if key == "" or empty_value do
               {:halt, {:error, "Invalid key or value in: #{trimmed}"}}
             else
               {:cont, [{String.to_atom(key), value} | acc]}

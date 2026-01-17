@@ -64,6 +64,9 @@ defmodule PouCon.Equipment.EquipmentLoader do
             "flowmeter" ->
               PouCon.Equipment.Controllers.Flowmeter
 
+            "average_sensor" ->
+              PouCon.Equipment.Controllers.AverageSensor
+
             _ ->
               Logger.warning(
                 "Unsupported equipment type: #{equipment.type} for #{equipment.name}"

@@ -20,7 +20,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
 
   alias PouCon.Automation.Environment.Configs
   alias PouCon.Automation.Environment.Schemas.Config, as: ConfigSchema
-  alias PouCon.Equipment.Controllers.{Fan, Pump, Sensor}
+  alias PouCon.Equipment.Controllers.{AverageSensor, Fan, Pump, Sensor}
   alias PouCon.Logging.EquipmentLogger
 
   # Poll every 5 seconds - environment control doesn't need faster response
@@ -143,10 +143,42 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   end
 
   defp calculate_averages(state) do
+    # Use AverageSensor if one exists, otherwise fall back to legacy calculation
+    {avg_temp, avg_hum} =
+      case find_average_sensor() do
+        nil -> calculate_averages_legacy()
+        sensor_name -> get_averages_from_sensor(sensor_name)
+      end
+
+    %State{state | avg_temp: avg_temp, avg_humidity: avg_hum}
+  end
+
+  # Find the first average_sensor equipment (typically only one exists)
+  defp find_average_sensor do
+    PouCon.Equipment.Devices.list_equipment()
+    |> Enum.find(&(&1.type == "average_sensor"))
+    |> case do
+      nil -> nil
+      eq -> eq.name
+    end
+  end
+
+  # Get averages from AverageSensor equipment
+  defp get_averages_from_sensor(sensor_name) do
+    try do
+      AverageSensor.get_averages(sensor_name)
+    rescue
+      _ -> calculate_averages_legacy()
+    catch
+      :exit, _ -> calculate_averages_legacy()
+    end
+  end
+
+  # Legacy calculation - scans all temp_sensor and humidity_sensor equipment
+  defp calculate_averages_legacy do
     all_equipment = PouCon.Equipment.Devices.list_equipment()
 
     # Get temperature readings from temp_sensor using generic Sensor controller
-    # The Sensor controller adds :temperature field for backwards compatibility
     temps =
       all_equipment
       |> Enum.filter(&(&1.type == "temp_sensor"))
@@ -154,7 +186,6 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       |> Enum.reject(&is_nil/1)
 
     # Get humidity readings from humidity_sensor using generic Sensor controller
-    # The Sensor controller adds :humidity field for backwards compatibility
     hums =
       all_equipment
       |> Enum.filter(&(&1.type == "humidity_sensor"))
@@ -164,7 +195,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
     avg_temp = if length(temps) > 0, do: Enum.sum(temps) / length(temps), else: nil
     avg_hum = if length(hums) > 0, do: Enum.sum(hums) / length(hums), else: nil
 
-    %State{state | avg_temp: avg_temp, avg_humidity: avg_hum}
+    {avg_temp, avg_hum}
   end
 
   # Generic helper to get a value from the Sensor controller
@@ -203,20 +234,30 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       now = System.monotonic_time(:millisecond)
 
       # Get the current step based on temperature
-      # When temp is below all thresholds, fall back to step 1 (minimum ventilation)
-      new_step = ConfigSchema.find_step_for_temp(config, state.avg_temp)
-
+      # When temp is nil or below all thresholds, fall back to step 1 (minimum ventilation)
       new_step_num =
-        if new_step do
-          new_step.step
-        else
-          # Temp below all thresholds - check if step 1 exists for fallback
-          active_steps = ConfigSchema.get_active_steps(config)
+        cond do
+          # No temperature data - fall back to step 1 if it exists
+          state.avg_temp == nil ->
+            active_steps = ConfigSchema.get_active_steps(config)
+            case Enum.find(active_steps, fn s -> s.step == 1 end) do
+              nil -> nil
+              _step_1 -> 1
+            end
 
-          case Enum.find(active_steps, fn s -> s.step == 1 end) do
-            nil -> nil
-            _step_1 -> 1
-          end
+          # Normal case - find step based on temperature
+          true ->
+            case ConfigSchema.find_step_for_temp(config, state.avg_temp) do
+              nil ->
+                # Temp below all thresholds - use step 1 if available
+                active_steps = ConfigSchema.get_active_steps(config)
+                case Enum.find(active_steps, fn s -> s.step == 1 end) do
+                  nil -> nil
+                  _step_1 -> 1
+                end
+              step ->
+                step.step
+            end
         end
 
       # Check if step change is allowed (delay_between_step_seconds)

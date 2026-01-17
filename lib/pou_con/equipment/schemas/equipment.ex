@@ -13,7 +13,7 @@ defmodule PouCon.Equipment.Schemas.Equipment do
     timestamps()
   end
 
-  @sensor_meter_types ~w(temp_sensor humidity_sensor co2_sensor nh3_sensor water_meter power_meter flowmeter)
+  @sensor_meter_types ~w(temp_sensor humidity_sensor co2_sensor nh3_sensor water_meter power_meter flowmeter average_sensor)
 
   def changeset(equipment, attrs) do
     equipment
@@ -38,7 +38,8 @@ defmodule PouCon.Equipment.Schemas.Equipment do
         "dung_horz",
         "dung_exit",
         "feed_in",
-        "light"
+        "light",
+        "average_sensor"
       ],
       message: "unsupported type"
     )
@@ -138,6 +139,9 @@ defmodule PouCon.Equipment.Schemas.Equipment do
   defp required_keys_for_type("water_meter"), do: [:meter]
   defp required_keys_for_type("power_meter"), do: [:meter]
   defp required_keys_for_type("flowmeter"), do: [:meter]
+
+  # Average sensor uses list values, validation handled separately
+  defp required_keys_for_type("average_sensor"), do: []
 
   defp required_keys_for_type(_), do: []
 end

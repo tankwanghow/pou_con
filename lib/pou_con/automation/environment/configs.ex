@@ -69,6 +69,14 @@ defmodule PouCon.Automation.Environment.Configs do
     {fans, pumps}
   end
 
+  # When temperature is nil (no data), fall back to step 1 for minimum ventilation
+  def get_equipment_for_conditions(%Config{} = config, nil = _temp, _humidity) do
+    case get_step_1(config) do
+      nil -> {[], []}
+      step_1 -> {filter_auto_mode_fans(step_1.fans), filter_auto_mode_pumps(step_1.pumps)}
+    end
+  end
+
   def get_equipment_for_conditions(_config, _temp, _humidity), do: {[], []}
 
   # Get step 1 configuration if it's active (temp > 0)

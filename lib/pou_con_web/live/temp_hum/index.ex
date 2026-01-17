@@ -2,6 +2,7 @@ defmodule PouConWeb.Live.TempHum.Index do
   use PouConWeb, :live_view
 
   alias PouCon.Equipment.EquipmentCommands
+  alias PouCon.Equipment.Controllers.AverageSensor
 
   @pubsub_topic "data_point_data"
 
@@ -73,11 +74,40 @@ defmodule PouConWeb.Live.TempHum.Index do
       end)
       |> Enum.reject(&is_nil/1)
 
-    # Calculate averages from temp_sensor equipment
+    # Get averages - use AverageSensor if configured, otherwise calculate from equipment
+    {avg_temp, avg_hum} = get_averages(equipment_with_status)
+
+    socket
+    |> assign(equipment: equipment_with_status, now: DateTime.utc_now())
+    |> assign(avg_temp: avg_temp, avg_hum: avg_hum)
+  end
+
+  # Get averages from AverageSensor if one exists, otherwise calculate locally
+  defp get_averages(equipment_with_status) do
+    # Find average_sensor equipment automatically
+    case Enum.find(equipment_with_status, &(&1.type == "average_sensor")) do
+      nil ->
+        calculate_averages_local(equipment_with_status)
+
+      avg_sensor ->
+        try do
+          case AverageSensor.get_averages(avg_sensor.name) do
+            {temp, hum} -> {temp, hum}
+            _ -> calculate_averages_local(equipment_with_status)
+          end
+        rescue
+          _ -> calculate_averages_local(equipment_with_status)
+        catch
+          :exit, _ -> calculate_averages_local(equipment_with_status)
+        end
+    end
+  end
+
+  # Calculate averages from equipment list (legacy/fallback)
+  defp calculate_averages_local(equipment_with_status) do
     temp_sensors = Enum.filter(equipment_with_status, &(&1.type == "temp_sensor"))
     temps = temp_sensors |> Enum.map(& &1.status[:value]) |> Enum.reject(&is_nil/1)
 
-    # Calculate averages from humidity_sensor equipment
     hum_sensors = Enum.filter(equipment_with_status, &(&1.type == "humidity_sensor"))
     hums = hum_sensors |> Enum.map(& &1.status[:value]) |> Enum.reject(&is_nil/1)
 
@@ -86,9 +116,7 @@ defmodule PouConWeb.Live.TempHum.Index do
 
     avg_hum = if length(hums) > 0, do: Float.round(Enum.sum(hums) / length(hums), 1), else: nil
 
-    socket
-    |> assign(equipment: equipment_with_status, now: DateTime.utc_now())
-    |> assign(avg_temp: avg_temp, avg_hum: avg_hum)
+    {avg_temp, avg_hum}
   end
 
   @impl true
