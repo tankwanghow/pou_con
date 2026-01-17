@@ -44,6 +44,9 @@ defmodule PouCon.Equipment.Controllers.DungExit do
 
   @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
 
+  # Default polling interval (500ms for responsive feedback)
+  @default_poll_interval 500
+
   defmodule State do
     defstruct [
       :name,
@@ -56,7 +59,8 @@ defmodule PouCon.Equipment.Controllers.DungExit do
       is_running: false,
       is_tripped: false,
       error: nil,
-      interlocked: false
+      interlocked: false,
+      poll_interval_ms: 500
     ]
   end
 
@@ -91,18 +95,30 @@ defmodule PouCon.Equipment.Controllers.DungExit do
       title: opts[:title] || name,
       on_off_coil: opts[:on_off_coil] || raise("Missing :on_off_coil"),
       running_feedback: opts[:running_feedback] || raise("Missing :running_feedback"),
-      trip: opts[:trip]
+      trip: opts[:trip],
+      poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
-    Phoenix.PubSub.subscribe(PouCon.PubSub, "data_point_data")
     {:ok, state, {:continue, :initial_poll}}
   end
 
   @impl GenServer
-  def handle_continue(:initial_poll, state), do: {:noreply, sync_and_update(state)}
+  def handle_continue(:initial_poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(new_state.poll_interval_ms)
+    {:noreply, new_state}
+  end
 
   @impl GenServer
-  def handle_info(:data_refreshed, state), do: {:noreply, sync_and_update(state)}
+  def handle_info(:poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(new_state.poll_interval_ms)
+    {:noreply, new_state}
+  end
+
+  defp schedule_poll(interval_ms) do
+    Process.send_after(self(), :poll, interval_ms)
+  end
 
   @impl GenServer
   def handle_cast(:turn_on, state) do
@@ -135,7 +151,7 @@ defmodule PouCon.Equipment.Controllers.DungExit do
 
     case @data_point_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)}) do
       {:ok, :success} ->
-        sync_and_update(state)
+        poll_and_update(state)
 
       {:error, reason} ->
         Logger.error("[#{state.name}] Command failed: #{inspect(reason)}")
@@ -148,21 +164,21 @@ defmodule PouCon.Equipment.Controllers.DungExit do
           if(cmd, do: "off", else: "on")
         )
 
-        sync_and_update(%State{state | error: :command_failed})
+        poll_and_update(%State{state | error: :command_failed})
     end
   end
 
-  defp sync_coil(state), do: sync_and_update(state)
+  defp sync_coil(state), do: poll_and_update(state)
 
   # ——————————————————————————————————————————————————————————————
-  # CRASH-PROOF sync_and_update
+  # Self-Polling: Read directly from hardware
   # ——————————————————————————————————————————————————————————————
-  defp sync_and_update(%State{} = state) do
-    coil_res = @data_point_manager.get_cached_data(state.on_off_coil)
-    fb_res = @data_point_manager.get_cached_data(state.running_feedback)
+  defp poll_and_update(%State{} = state) do
+    coil_res = @data_point_manager.read_direct(state.on_off_coil)
+    fb_res = @data_point_manager.read_direct(state.running_feedback)
 
     trip_res =
-      if state.trip, do: @data_point_manager.get_cached_data(state.trip), else: {:ok, %{state: 0}}
+      if state.trip, do: @data_point_manager.read_direct(state.trip), else: {:ok, %{state: 0}}
 
     {new_state, temp_error} =
       cond do
@@ -210,8 +226,8 @@ defmodule PouCon.Equipment.Controllers.DungExit do
     %State{new_state | error: error, interlocked: interlocked}
   end
 
-  defp sync_and_update(nil) do
-    Logger.error("DungExit: sync_and_update called with nil state — recovering")
+  defp poll_and_update(nil) do
+    Logger.error("DungExit: poll_and_update called with nil state — recovering")
     %State{name: "recovered", error: :crashed_previously}
   end
 

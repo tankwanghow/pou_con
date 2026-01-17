@@ -44,8 +44,12 @@ defmodule PouCon.Equipment.Controllers.Pump do
 
   alias PouCon.Logging.EquipmentLogger
   alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
+  alias PouCon.Equipment.DataPoints
 
   @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
+
+  # Default polling interval for pumps (500ms for responsive feedback)
+  @default_poll_interval 500
 
   defmodule State do
     defstruct [
@@ -61,7 +65,10 @@ defmodule PouCon.Equipment.Controllers.Pump do
       is_tripped: false,
       mode: :auto,
       error: nil,
-      interlocked: false
+      interlocked: false,
+      # True if auto_manual data point is virtual (software-controlled mode)
+      is_auto_manual_virtual_di: false,
+      poll_interval_ms: 500
     ]
   end
 
@@ -88,35 +95,55 @@ defmodule PouCon.Equipment.Controllers.Pump do
 
   def turn_on(name), do: GenServer.cast(Helpers.via(name), :turn_on)
   def turn_off(name), do: GenServer.cast(Helpers.via(name), :turn_off)
-  def set_auto(name), do: GenServer.cast(Helpers.via(name), :set_auto)
-  def set_manual(name), do: GenServer.cast(Helpers.via(name), :set_manual)
   def status(name), do: GenServer.call(Helpers.via(name), :status)
 
+  @doc """
+  Set mode to :auto or :manual. Only works if auto_manual data point is virtual.
+  """
+  def set_mode(name, mode) when mode in [:auto, :manual] do
+    GenServer.cast(Helpers.via(name), {:set_mode, mode})
+  end
+
   # ——————————————————————————————————————————————————————————————
-  # Init
+  # Init (Self-Polling Architecture)
   # ——————————————————————————————————————————————————————————————
   @impl GenServer
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
+    auto_manual = opts[:auto_manual] || raise("Missing :auto_manual")
+    is_virtual = DataPoints.is_virtual?(auto_manual)
 
     state = %State{
       name: name,
       title: opts[:title] || name,
       on_off_coil: opts[:on_off_coil] || raise("Missing :on_off_coil"),
       running_feedback: opts[:running_feedback] || raise("Missing :running_feedback"),
-      auto_manual: opts[:auto_manual] || raise("Missing :auto_manual"),
-      trip: opts[:trip]
+      auto_manual: auto_manual,
+      trip: opts[:trip],
+      is_auto_manual_virtual_di: is_virtual,
+      poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
-    Phoenix.PubSub.subscribe(PouCon.PubSub, "data_point_data")
     {:ok, state, {:continue, :initial_poll}}
   end
 
   @impl GenServer
-  def handle_continue(:initial_poll, state), do: {:noreply, sync_and_update(state)}
+  def handle_continue(:initial_poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(new_state.poll_interval_ms)
+    {:noreply, new_state}
+  end
 
   @impl GenServer
-  def handle_info(:data_refreshed, state), do: {:noreply, sync_and_update(state)}
+  def handle_info(:poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(new_state.poll_interval_ms)
+    {:noreply, new_state}
+  end
+
+  defp schedule_poll(interval_ms) do
+    Process.send_after(self(), :poll, interval_ms)
+  end
 
   @impl GenServer
   def handle_cast(:turn_on, state) do
@@ -133,19 +160,29 @@ defmodule PouCon.Equipment.Controllers.Pump do
   @impl GenServer
   def handle_cast(:turn_off, state), do: {:noreply, sync_coil(%{state | commanded_on: false})}
 
+  # Set Mode (Virtual Mode Only)
   @impl GenServer
-  def handle_cast(:set_auto, state) do
-    Logger.info("[#{state.name}] → AUTO mode")
-    @data_point_manager.command(state.auto_manual, :set_state, %{state: 0})
-    # Turn off the coil when switching to AUTO mode (start with clean state)
-    {:noreply, sync_coil(%{state | mode: :auto, commanded_on: false})}
+  def handle_cast({:set_mode, mode}, %{is_auto_manual_virtual_di: true} = state) do
+    mode_value = if mode == :auto, do: 0, else: 1
+
+    case @data_point_manager.command(state.auto_manual, :set_state, %{state: mode_value}) do
+      {:ok, :success} ->
+        Logger.info("[#{state.name}] Mode set to #{mode}")
+        new_state = %{state | mode: mode}
+        # Turn off when switching to AUTO mode (clean state)
+        new_state = if mode == :auto, do: %{new_state | commanded_on: false}, else: new_state
+        {:noreply, poll_and_update(new_state)}
+
+      {:error, reason} ->
+        Logger.error("[#{state.name}] Failed to set mode: #{inspect(reason)}")
+        {:noreply, state}
+    end
   end
 
-  @impl GenServer
-  def handle_cast(:set_manual, state) do
-    Logger.info("[#{state.name}] → MANUAL mode")
-    @data_point_manager.command(state.auto_manual, :set_state, %{state: 1})
-    {:noreply, sync_coil(%{state | mode: :manual})}
+  def handle_cast({:set_mode, _mode}, state) do
+    # Real DI - mode controlled by physical switch
+    Logger.debug("[#{state.name}] Set mode ignored - mode controlled by physical switch")
+    {:noreply, state}
   end
 
   # ——————————————————————————————————————————————————————————————
@@ -166,7 +203,7 @@ defmodule PouCon.Equipment.Controllers.Pump do
 
     case @data_point_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)}) do
       {:ok, :success} ->
-        sync_and_update(state)
+        poll_and_update(state)
 
       {:error, reason} ->
         Logger.error("[#{state.name}] Command failed: #{inspect(reason)}")
@@ -181,22 +218,22 @@ defmodule PouCon.Equipment.Controllers.Pump do
           if(cmd, do: "off", else: "on")
         )
 
-        sync_and_update(%State{state | error: :command_failed})
+        poll_and_update(%State{state | error: :command_failed})
     end
   end
 
-  defp sync_coil(state), do: sync_and_update(state)
+  defp sync_coil(state), do: poll_and_update(state)
 
   # ——————————————————————————————————————————————————————————————
-  # CRASH-PROOF sync_and_update
+  # Self-Polling: Read directly from hardware
   # ——————————————————————————————————————————————————————————————
-  defp sync_and_update(%State{} = state) do
-    coil_res = @data_point_manager.get_cached_data(state.on_off_coil)
-    fb_res = @data_point_manager.get_cached_data(state.running_feedback)
-    mode_res = @data_point_manager.get_cached_data(state.auto_manual)
+  defp poll_and_update(%State{} = state) do
+    coil_res = @data_point_manager.read_direct(state.on_off_coil)
+    fb_res = @data_point_manager.read_direct(state.running_feedback)
+    mode_res = @data_point_manager.read_direct(state.auto_manual)
 
     trip_res =
-      if state.trip, do: @data_point_manager.get_cached_data(state.trip), else: {:ok, %{state: 0}}
+      if state.trip, do: @data_point_manager.read_direct(state.trip), else: {:ok, %{state: 0}}
 
     results = [coil_res, fb_res, mode_res, trip_res]
 
@@ -260,8 +297,8 @@ defmodule PouCon.Equipment.Controllers.Pump do
   end
 
   # Defensive: never crash on nil state
-  defp sync_and_update(nil) do
-    Logger.error("Pump: sync_and_update called with nil state!")
+  defp poll_and_update(nil) do
+    Logger.error("Pump: poll_and_update called with nil state!")
     %State{name: "recovered", error: :crashed_previously}
   end
 
@@ -280,7 +317,8 @@ defmodule PouCon.Equipment.Controllers.Pump do
       mode: state.mode,
       error: state.error,
       error_message: Helpers.error_message(state.error),
-      interlocked: state.interlocked
+      interlocked: state.interlocked,
+      is_auto_manual_virtual_di: state.is_auto_manual_virtual_di
     }
 
     {:reply, reply, state}

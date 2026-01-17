@@ -20,7 +20,7 @@ defmodule PouCon.Equipment.Controllers.FeedInTest do
     }
 
     # Default: bucket is full (state: 1) so AUTO mode doesn't try to auto-fill
-    stub(DataPointManagerMock, :get_cached_data, fn
+    stub(DataPointManagerMock, :read_direct, fn
       name ->
         if String.starts_with?(name, "full_") do
           {:ok, %{state: 1}}
@@ -78,7 +78,7 @@ defmodule PouCon.Equipment.Controllers.FeedInTest do
     test "reflects state", %{devices: devices} do
       name = "test_feedin_state_#{System.unique_integer([:positive])}"
 
-      stub(DataPointManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.full_switch -> {:ok, %{state: 1}}
         n when n == devices.filling_coil -> {:ok, %{state: 1}}
         n when n == devices.running_feedback -> {:ok, %{state: 1}}

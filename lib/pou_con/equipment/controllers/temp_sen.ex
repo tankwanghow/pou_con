@@ -36,13 +36,17 @@ defmodule PouCon.Equipment.Controllers.TempSen do
   @min_temp -40.0
   @max_temp 80.0
 
+  # Default polling interval for temperature sensors (5000ms - slow changing)
+  @default_poll_interval 5000
+
   defmodule State do
     defstruct [
       :name,
       :title,
       :sensor,
       temperature: nil,
-      error: nil
+      error: nil,
+      poll_interval_ms: 5000
     ]
   end
 
@@ -66,6 +70,9 @@ defmodule PouCon.Equipment.Controllers.TempSen do
 
   def status(name), do: GenServer.call(Helpers.via(name), :status)
 
+  # ——————————————————————————————————————————————————————————————
+  # Init (Self-Polling Architecture)
+  # ——————————————————————————————————————————————————————————————
   @impl GenServer
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
@@ -73,26 +80,40 @@ defmodule PouCon.Equipment.Controllers.TempSen do
     state = %State{
       name: name,
       title: opts[:title] || name,
-      sensor: opts[:sensor] || raise("Missing :sensor")
+      sensor: opts[:sensor] || raise("Missing :sensor"),
+      poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
-    Phoenix.PubSub.subscribe(PouCon.PubSub, "data_point_data")
     {:ok, state, {:continue, :initial_poll}}
   end
 
   @impl GenServer
-  def handle_continue(:initial_poll, state), do: {:noreply, sync_and_update(state)}
+  def handle_continue(:initial_poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(new_state.poll_interval_ms)
+    {:noreply, new_state}
+  end
 
   @impl GenServer
-  def handle_info(:data_refreshed, state), do: {:noreply, sync_and_update(state)}
+  def handle_info(:poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(new_state.poll_interval_ms)
+    {:noreply, new_state}
+  end
 
-  defp sync_and_update(%State{} = state) do
-    result = @data_point_manager.get_cached_data(state.sensor)
+  defp schedule_poll(interval_ms) do
+    Process.send_after(self(), :poll, interval_ms)
+  end
+
+  # ——————————————————————————————————————————————————————————————
+  # Self-Polling: Read directly from hardware
+  # ——————————————————————————————————————————————————————————————
+  defp poll_and_update(%State{} = state) do
+    result = @data_point_manager.read_direct(state.sensor)
 
     {new_state, temp_error} =
       case result do
         {:error, _} ->
-          Logger.warning("[#{state.name}] Sensor communication timeout")
           {%State{state | temperature: nil, error: :timeout}, :timeout}
 
         {:ok, data} when is_map(data) ->
@@ -124,8 +145,8 @@ defmodule PouCon.Equipment.Controllers.TempSen do
     %State{new_state | error: temp_error}
   end
 
-  defp sync_and_update(nil) do
-    Logger.error("TempSen: sync_and_update called with nil state!")
+  defp poll_and_update(nil) do
+    Logger.error("TempSen: poll_and_update called with nil state!")
     %State{name: "recovered", error: :crashed_previously}
   end
 

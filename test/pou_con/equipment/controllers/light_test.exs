@@ -17,7 +17,7 @@ defmodule PouCon.Equipment.Controllers.LightTest do
       auto_manual: "test_light_am_#{id}"
     }
 
-    stub(DataPointManagerMock, :get_cached_data, fn _name -> {:ok, %{state: 0}} end)
+    stub(DataPointManagerMock, :read_direct, fn _name -> {:ok, %{state: 0}} end)
     stub(DataPointManagerMock, :command, fn _name, _cmd, _params -> {:ok, :success} end)
 
     %{devices: device_names}
@@ -63,7 +63,7 @@ defmodule PouCon.Equipment.Controllers.LightTest do
     test "reflects state from DataPointManager", %{devices: devices} do
       name = "test_light_state_#{System.unique_integer([:positive])}"
 
-      stub(DataPointManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         n when n == devices.auto_manual -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
@@ -87,7 +87,7 @@ defmodule PouCon.Equipment.Controllers.LightTest do
 
     test "returns error message when DataPointManager returns error", %{devices: devices} do
       name = "test_light_error_#{System.unique_integer([:positive])}"
-      stub(DataPointManagerMock, :get_cached_data, fn _ -> {:error, :timeout} end)
+      stub(DataPointManagerMock, :read_direct, fn _ -> {:error, :timeout} end)
 
       opts = [
         name: name,
@@ -107,6 +107,21 @@ defmodule PouCon.Equipment.Controllers.LightTest do
   describe "commands" do
     setup %{devices: devices} do
       name = "test_light_cmd_#{System.unique_integer([:positive])}"
+
+      # Create a virtual port and data point for auto_manual to enable set_mode
+      {:ok, _port} =
+        PouCon.Repo.insert(%PouCon.Hardware.Ports.Port{
+          device_path: "virtual",
+          protocol: "virtual"
+        })
+
+      {:ok, _data_point} =
+        PouCon.Repo.insert(%PouCon.Equipment.Schemas.DataPoint{
+          name: devices.auto_manual,
+          type: "VDI",
+          slave_id: 0,
+          port_path: "virtual"
+        })
 
       opts = [
         name: name,
@@ -131,34 +146,45 @@ defmodule PouCon.Equipment.Controllers.LightTest do
       assert status.commanded_on == true
     end
 
-    test "turn_off sends command to DataPointManager", %{name: name, pid: pid, devices: devices} do
-      stub(DataPointManagerMock, :get_cached_data, fn
+    test "turn_off sends command to DataPointManager", %{name: name, devices: devices} do
+      # First turn on the light so commanded_on becomes true
+      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 1} ->
+        assert n == devices.on_off_coil
+        {:ok, :success}
+      end)
+
+      Light.turn_on(name)
+      Process.sleep(100)
+
+      # Stub coil to be ON so actual_on becomes true (matching commanded_on)
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
 
-      send(pid, :data_refreshed)
-      Process.sleep(50)
+      # Wait for poll cycle to pick up the new state
+      Process.sleep(1100)
 
+      # Now turn off - this should trigger a command
       expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 0} ->
         assert n == devices.on_off_coil
         {:ok, :success}
       end)
 
       Light.turn_off(name)
-      Process.sleep(50)
+      Process.sleep(100)
 
       status = Light.status(name)
       assert status.commanded_on == false
     end
 
-    test "set_manual sends command to DataPointManager", %{name: name, devices: devices} do
+    test "set_mode(:manual) sends command to DataPointManager", %{name: name, devices: devices} do
       expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 1} ->
         assert n == devices.auto_manual
         {:ok, :success}
       end)
 
-      Light.set_manual(name)
+      Light.set_mode(name, :manual)
       Process.sleep(50)
     end
   end

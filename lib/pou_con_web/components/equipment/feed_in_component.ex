@@ -28,7 +28,11 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
           is_running={@display.is_running}
         >
           <:controls>
-            <Shared.mode_toggle mode={@display.mode} is_offline={false} myself={@myself} />
+            <%= if @display.is_auto_manual_virtual_di do %>
+              <Shared.mode_toggle mode={@display.mode} is_offline={false} myself={@myself} />
+            <% else %>
+              <Shared.mode_indicator mode={@display.mode} />
+            <% end %>
           </:controls>
         </Shared.equipment_header>
 
@@ -44,6 +48,7 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
             <.feed_in_control
               mode={@display.mode}
               is_interlocked={@display.is_interlocked}
+              is_auto_manual_virtual_di={@display.is_auto_manual_virtual_di}
               commanded_on={@status.commanded_on}
               myself={@myself}
             />
@@ -84,6 +89,7 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
 
   attr :mode, :atom, required: true
   attr :is_interlocked, :boolean, required: true
+  attr :is_auto_manual_virtual_di, :boolean, required: true
   attr :commanded_on, :boolean, required: true
   attr :myself, :any, required: true
 
@@ -93,6 +99,8 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
       <%= cond do %>
         <% @mode != :manual -> %>
           <Shared.system_button />
+        <% not @is_auto_manual_virtual_di -> %>
+          <Shared.panel_button />
         <% @is_interlocked -> %>
           <Shared.blocked_button />
         <% true -> %>
@@ -129,13 +137,8 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
 
   @impl true
   def handle_event("set_mode", %{"mode" => mode}, socket) do
-    name = socket.assigns.device_name
-
-    case mode do
-      "auto" -> FeedIn.set_auto(name)
-      "manual" -> FeedIn.set_manual(name)
-    end
-
+    mode_atom = String.to_existing_atom(mode)
+    FeedIn.set_mode(socket.assigns.device_name, mode_atom)
     {:noreply, socket}
   end
 
@@ -145,6 +148,7 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
   defp calculate_display_data(status) do
     mode = if status.mode == :manual, do: :manual, else: :auto
     is_interlocked = Map.get(status, :interlocked, false)
+    is_auto_manual_virtual_di = Map.get(status, :is_auto_manual_virtual_di, false)
 
     {color, text} =
       cond do
@@ -161,6 +165,7 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
       is_error: status.error != nil,
       is_running: status.is_running,
       is_interlocked: is_interlocked,
+      is_auto_manual_virtual_di: is_auto_manual_virtual_di,
       mode: mode,
       state_text: text,
       color: color

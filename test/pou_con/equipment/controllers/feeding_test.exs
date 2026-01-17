@@ -21,7 +21,7 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
       auto_manual: "am_#{id}"
     }
 
-    stub(DataPointManagerMock, :get_cached_data, fn _name -> {:ok, %{state: 0}} end)
+    stub(DataPointManagerMock, :read_direct, fn _name -> {:ok, %{state: 0}} end)
     stub(DataPointManagerMock, :command, fn _name, _cmd, _params -> {:ok, :success} end)
 
     %{devices: device_names}
@@ -76,7 +76,7 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
     test "reflects state", %{devices: devices} do
       name = "test_feeding_state_#{System.unique_integer([:positive])}"
 
-      stub(DataPointManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.front_limit -> {:ok, %{state: 1}}
         n when n == devices.back_limit -> {:ok, %{state: 0}}
         # Moving

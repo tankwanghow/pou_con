@@ -57,6 +57,9 @@ defmodule PouCon.Equipment.Controllers.Feeding do
 
   @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
 
+  # Default polling interval (500ms for responsive limit switch detection)
+  @default_poll_interval 500
+
   defmodule State do
     defstruct [
       :name,
@@ -76,7 +79,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       mode: :auto,
       error: nil,
       at_front_limit: false,
-      at_back_limit: false
+      at_back_limit: false,
+      poll_interval_ms: 500
     ]
   end
 
@@ -129,17 +133,30 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       back_limit: opts[:back_limit] || raise("Missing :back_limit"),
       pulse_sensor: opts[:pulse_sensor] || raise("Missing :pulse_sensor"),
       auto_manual: opts[:auto_manual] || raise("Missing :auto_manual"),
-      trip: opts[:trip]
+      trip: opts[:trip],
+      poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
-    Phoenix.PubSub.subscribe(PouCon.PubSub, "data_point_data")
-    {:ok, state, {:continue, :initial_sync}}
+    {:ok, state, {:continue, :initial_poll}}
   end
 
   @impl GenServer
-  def handle_continue(:initial_sync, state), do: {:noreply, sync_and_update(state)}
+  def handle_continue(:initial_poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(new_state.poll_interval_ms)
+    {:noreply, new_state}
+  end
+
   @impl GenServer
-  def handle_info(:data_refreshed, state), do: {:noreply, sync_and_update(state)}
+  def handle_info(:poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(new_state.poll_interval_ms)
+    {:noreply, new_state}
+  end
+
+  defp schedule_poll(interval_ms) do
+    Process.send_after(self(), :poll, interval_ms)
+  end
 
   # ——————————————————————————————————————————————————————————————
   # Commands
@@ -153,7 +170,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       EquipmentLogger.log_stop(state.name, "manual", "user", "moving")
     end
 
-    {:noreply, sync_and_update(stop_and_reset(state))}
+    {:noreply, poll_and_update(stop_and_reset(state))}
   end
 
   @impl GenServer
@@ -197,30 +214,30 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   def handle_cast(:set_auto, state) do
     Logger.info("[#{state.name}] → AUTO mode")
     @data_point_manager.command(state.auto_manual, :set_state, %{state: 0})
-    {:noreply, sync_and_update(stop_and_reset(%{state | mode: :auto}))}
+    {:noreply, poll_and_update(stop_and_reset(%{state | mode: :auto}))}
   end
 
   @impl GenServer
   def handle_cast(:set_manual, state) do
     Logger.info("[#{state.name}] → MANUAL mode")
     @data_point_manager.command(state.auto_manual, :set_state, %{state: 1})
-    {:noreply, sync_and_update(stop_and_reset(%{state | mode: :manual}))}
+    {:noreply, poll_and_update(stop_and_reset(%{state | mode: :manual}))}
   end
 
   # ——————————————————————————————————————————————————————————————
-  # CRASH-PROOF sync_and_update
+  # CRASH-PROOF poll_and_update
   # ——————————————————————————————————————————————————————————————
-  defp sync_and_update(%State{} = state) do
+  defp poll_and_update(%State{} = state) do
     trip_res =
-      if state.trip, do: @data_point_manager.get_cached_data(state.trip), else: {:ok, %{state: 0}}
+      if state.trip, do: @data_point_manager.read_direct(state.trip), else: {:ok, %{state: 0}}
 
     inputs = [
-      @data_point_manager.get_cached_data(state.device_to_back_limit),
-      @data_point_manager.get_cached_data(state.device_to_front_limit),
-      @data_point_manager.get_cached_data(state.front_limit),
-      @data_point_manager.get_cached_data(state.back_limit),
-      @data_point_manager.get_cached_data(state.pulse_sensor),
-      @data_point_manager.get_cached_data(state.auto_manual),
+      @data_point_manager.read_direct(state.device_to_back_limit),
+      @data_point_manager.read_direct(state.device_to_front_limit),
+      @data_point_manager.read_direct(state.front_limit),
+      @data_point_manager.read_direct(state.back_limit),
+      @data_point_manager.read_direct(state.pulse_sensor),
+      @data_point_manager.read_direct(state.auto_manual),
       trip_res
     ]
 
@@ -349,8 +366,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   end
 
   # Defensive recovery
-  defp sync_and_update(nil) do
-    Logger.error("Feeding: sync_and_update called with nil state!")
+  defp poll_and_update(nil) do
+    Logger.error("Feeding: poll_and_update called with nil state!")
     %State{name: "recovered", error: :crashed_previously}
   end
 

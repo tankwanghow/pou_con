@@ -31,6 +31,9 @@ defmodule PouCon.Equipment.Controllers.WaterMeter do
 
   @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
 
+  # Meters change slowly - 5 second polling is sufficient
+  @default_poll_interval 5000
+
   defmodule State do
     @moduledoc false
     defstruct [
@@ -50,7 +53,8 @@ defmodule PouCon.Equipment.Controllers.WaterMeter do
       temperature: nil,
       battery_voltage: nil,
       # Error state
-      error: nil
+      error: nil,
+      poll_interval_ms: 5000
     ]
   end
 
@@ -89,18 +93,30 @@ defmodule PouCon.Equipment.Controllers.WaterMeter do
     state = %State{
       name: name,
       title: opts[:title] || name,
-      meter: opts[:meter] || raise("Missing :meter in device tree")
+      meter: opts[:meter] || raise("Missing :meter in device tree"),
+      poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
-    Phoenix.PubSub.subscribe(PouCon.PubSub, "data_point_data")
     {:ok, state, {:continue, :initial_poll}}
   end
 
   @impl GenServer
-  def handle_continue(:initial_poll, state), do: {:noreply, sync_and_update(state)}
+  def handle_continue(:initial_poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(new_state.poll_interval_ms)
+    {:noreply, new_state}
+  end
 
   @impl GenServer
-  def handle_info(:data_refreshed, state), do: {:noreply, sync_and_update(state)}
+  def handle_info(:poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(new_state.poll_interval_ms)
+    {:noreply, new_state}
+  end
+
+  defp schedule_poll(interval_ms) do
+    Process.send_after(self(), :poll, interval_ms)
+  end
 
   @impl GenServer
   def handle_call(:status, _from, state) do
@@ -131,8 +147,8 @@ defmodule PouCon.Equipment.Controllers.WaterMeter do
   # Private: Data Synchronization
   # ------------------------------------------------------------------ #
 
-  defp sync_and_update(%State{} = state) do
-    result = @data_point_manager.get_cached_data(state.meter)
+  defp poll_and_update(%State{} = state) do
+    result = @data_point_manager.read_direct(state.meter)
 
     {new_state, new_error} =
       case result do
@@ -160,8 +176,8 @@ defmodule PouCon.Equipment.Controllers.WaterMeter do
     %State{new_state | error: new_error}
   end
 
-  defp sync_and_update(nil) do
-    Logger.error("WaterMeter: sync_and_update called with nil state!")
+  defp poll_and_update(nil) do
+    Logger.error("WaterMeter: poll_and_update called with nil state!")
     %State{name: "recovered", error: :crashed_previously}
   end
 

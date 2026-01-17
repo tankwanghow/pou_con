@@ -2,6 +2,7 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
   use PouConWeb, :live_component
 
   alias PouConWeb.Components.Equipment.Shared
+  alias PouConWeb.Components.Formatters
 
   @impl true
   def update(assigns, socket) do
@@ -27,7 +28,11 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
           is_running={@display.is_running}
         >
           <:controls>
-            <Shared.mode_indicator mode={@display.mode} />
+            <%= if @display.is_auto_manual_virtual_di do %>
+              <Shared.mode_toggle mode={@display.mode} is_offline={@display.is_offline} myself={@myself} />
+            <% else %>
+              <Shared.mode_indicator mode={@display.mode} />
+            <% end %>
           </:controls>
         </Shared.equipment_header>
 
@@ -42,17 +47,44 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
               is_error={@display.is_error}
               error_message={@display.err_msg}
             />
-            <Shared.power_control
-              is_offline={@display.is_offline}
-              is_interlocked={@display.is_interlocked}
-              is_running={@display.is_running}
-              is_error={@display.is_error}
-              mode={@display.mode}
-              myself={@myself}
-            />
+            <.current_display :if={@display.has_current} current={@display.current} />
+            <%= if @display.is_auto_manual_virtual_di do %>
+              <Shared.virtual_power_control
+                is_offline={@display.is_offline}
+                is_interlocked={@display.is_interlocked}
+                is_running={@display.is_running}
+                is_error={@display.is_error}
+                mode={@display.mode}
+                myself={@myself}
+              />
+            <% else %>
+              <Shared.power_control
+                is_offline={@display.is_offline}
+                is_interlocked={@display.is_interlocked}
+                is_running={@display.is_running}
+                is_error={@display.is_error}
+                mode={@display.mode}
+                myself={@myself}
+              />
+            <% end %>
           </:controls>
         </Shared.equipment_body>
       </Shared.equipment_card>
+    </div>
+    """
+  end
+
+  # ——————————————————————————————————————————————
+  # Current Display Component
+  # ——————————————————————————————————————————————
+
+  attr :current, :string, required: true
+
+  defp current_display(assigns) do
+    ~H"""
+    <div class="flex items-center justify-center gap-1 text-sm font-mono">
+      <span class="text-gray-500">I:</span>
+      <span class="text-blue-600 font-semibold">{@current}</span>
     </div>
     """
   end
@@ -87,14 +119,27 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
   # ——————————————————————————————————————————————
   # Event Handlers
   # ——————————————————————————————————————————————
-  # Note: Mode is now controlled by physical 3-way switch at the panel.
-  # Power control is also via physical switch - no app control available.
-  # These handlers are kept for potential future use or other equipment types.
+
+  @impl true
+  def handle_event("set_mode", %{"mode" => mode}, socket) do
+    mode_atom = String.to_existing_atom(mode)
+    PouCon.Equipment.Controllers.Fan.set_mode(socket.assigns.device_name, mode_atom)
+    {:noreply, socket}
+  end
 
   @impl true
   def handle_event("toggle_power", _, socket) do
-    # Physical switch controls the fan - app cannot override
-    # This handler is kept in case we want to allow control in AUTO mode in the future
+    status = socket.assigns.status
+
+    # Only allow control if virtual mode and in manual mode
+    if status.is_auto_manual_virtual_di && status.mode == :manual do
+      if status.is_running do
+        PouCon.Equipment.Controllers.Fan.turn_off(socket.assigns.device_name)
+      else
+        PouCon.Equipment.Controllers.Fan.turn_on(socket.assigns.device_name)
+      end
+    end
+
     {:noreply, socket}
   end
 
@@ -143,11 +188,14 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
       is_error: false,
       is_running: false,
       is_interlocked: false,
+      is_auto_manual_virtual_di: false,
       mode: :auto,
       state_text: "OFFLINE",
       color: "gray",
       anim_class: "",
-      err_msg: "offline"
+      err_msg: "offline",
+      has_current: false,
+      current: nil
     }
   end
 
@@ -155,6 +203,8 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
     is_running = status.is_running
     has_error = not is_nil(status.error)
     is_interlocked = Map.get(status, :interlocked, false)
+    is_auto_manual_virtual_di = Map.get(status, :is_auto_manual_virtual_di, false)
+    current_value = Map.get(status, :current)
 
     {color, anim_class} =
       cond do
@@ -169,11 +219,14 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
       is_error: has_error,
       is_running: is_running,
       is_interlocked: is_interlocked,
+      is_auto_manual_virtual_di: is_auto_manual_virtual_di,
       mode: status.mode,
       state_text: if(is_running, do: "RUNNING", else: "STOPPED"),
       color: color,
       anim_class: anim_class,
-      err_msg: status.error_message
+      err_msg: status.error_message,
+      has_current: not is_nil(current_value),
+      current: Formatters.format_current(current_value)
     }
   end
 end

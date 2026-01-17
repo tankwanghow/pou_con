@@ -53,6 +53,9 @@ defmodule PouCon.Equipment.Controllers.Nh3Sen do
   @nh3_min 0.0
   @nh3_max 100.0
 
+  # Sensors change slowly - 5 second polling is sufficient
+  @default_poll_interval 5000
+
   defmodule State do
     defstruct [
       :name,
@@ -62,7 +65,8 @@ defmodule PouCon.Equipment.Controllers.Nh3Sen do
       temperature: nil,
       humidity: nil,
       dew_point: nil,
-      error: nil
+      error: nil,
+      poll_interval_ms: 5000
     ]
   end
 
@@ -93,24 +97,36 @@ defmodule PouCon.Equipment.Controllers.Nh3Sen do
     state = %State{
       name: name,
       title: opts[:title] || name,
-      sensor: opts[:sensor] || raise("Missing :sensor")
+      sensor: opts[:sensor] || raise("Missing :sensor"),
+      poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
-    Phoenix.PubSub.subscribe(PouCon.PubSub, "data_point_data")
     {:ok, state, {:continue, :initial_poll}}
   end
 
   @impl GenServer
-  def handle_continue(:initial_poll, state), do: {:noreply, sync_and_update(state)}
+  def handle_continue(:initial_poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(new_state.poll_interval_ms)
+    {:noreply, new_state}
+  end
 
   @impl GenServer
-  def handle_info(:data_refreshed, state), do: {:noreply, sync_and_update(state)}
+  def handle_info(:poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(new_state.poll_interval_ms)
+    {:noreply, new_state}
+  end
+
+  defp schedule_poll(interval_ms) do
+    Process.send_after(self(), :poll, interval_ms)
+  end
 
   # ——————————————————————————————————————————————————————————————
-  # Data Synchronization
+  # Self-Polling: Read directly from hardware
   # ——————————————————————————————————————————————————————————————
-  defp sync_and_update(%State{} = state) do
-    result = @data_point_manager.get_cached_data(state.sensor)
+  defp poll_and_update(%State{} = state) do
+    result = @data_point_manager.read_direct(state.sensor)
 
     {new_state, temp_error} =
       case result do
@@ -138,8 +154,8 @@ defmodule PouCon.Equipment.Controllers.Nh3Sen do
     %State{new_state | error: temp_error}
   end
 
-  defp sync_and_update(nil) do
-    Logger.error("Nh3Sen: sync_and_update called with nil state!")
+  defp poll_and_update(nil) do
+    Logger.error("Nh3Sen: poll_and_update called with nil state!")
     %State{name: "recovered", error: :crashed_previously}
   end
 

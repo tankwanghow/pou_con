@@ -79,6 +79,7 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
     end
 
     test "accepts valid step configuration" do
+      # Disable default steps and only configure two valid steps
       changeset =
         %Config{}
         |> Config.changeset(%{
@@ -87,7 +88,255 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
           step_1_pumps: "",
           step_2_temp: 28.0,
           step_2_fans: "fan_1, fan_2",
-          step_2_pumps: "pump_1"
+          step_2_pumps: "pump_1",
+          step_3_temp: 0.0,
+          step_4_temp: 0.0,
+          step_5_temp: 0.0,
+          step_6_temp: 0.0,
+          step_7_temp: 0.0,
+          step_8_temp: 0.0,
+          step_9_temp: 0.0,
+          step_10_temp: 0.0
+        })
+
+      assert changeset.valid?
+    end
+
+    test "rejects active step with no fans" do
+      # Create a struct with no fans for step 1 (simulating db record with empty fans)
+      config =
+        struct(Config, %{
+          step_1_temp: 24.0,
+          step_1_fans: "",
+          step_2_temp: 0.0,
+          step_2_fans: "",
+          step_3_temp: 0.0,
+          step_3_fans: "",
+          step_4_temp: 0.0,
+          step_4_fans: "",
+          step_5_temp: 0.0,
+          step_5_fans: "",
+          step_6_temp: 0.0,
+          step_6_fans: "",
+          step_7_temp: 0.0,
+          step_7_fans: "",
+          step_8_temp: 0.0,
+          step_8_fans: "",
+          step_9_temp: 0.0,
+          step_9_fans: "",
+          step_10_temp: 0.0,
+          step_10_fans: ""
+        })
+
+      # Validate the existing config (no changes needed to trigger validation)
+      changeset = Config.changeset(config, %{})
+
+      refute changeset.valid?
+      assert %{step_1_fans: ["active step must have at least one fan"]} = errors_on(changeset)
+    end
+
+    test "rejects decreasing fan count in higher temperature steps" do
+      changeset =
+        %Config{}
+        |> Config.changeset(%{
+          step_1_temp: 24.0,
+          step_1_fans: "fan_1, fan_2, fan_3",
+          step_2_temp: 28.0,
+          step_2_fans: "fan_1, fan_2",
+          step_3_temp: 0.0,
+          step_4_temp: 0.0,
+          step_5_temp: 0.0,
+          step_6_temp: 0.0,
+          step_7_temp: 0.0,
+          step_8_temp: 0.0,
+          step_9_temp: 0.0,
+          step_10_temp: 0.0
+        })
+
+      refute changeset.valid?
+
+      assert %{step_2_fans: [msg]} = errors_on(changeset)
+      assert msg =~ "must have at least 3 fans"
+    end
+
+    test "allows increasing fan count in higher temperature steps" do
+      changeset =
+        %Config{}
+        |> Config.changeset(%{
+          step_1_temp: 24.0,
+          step_1_fans: "fan_1",
+          step_2_temp: 28.0,
+          step_2_fans: "fan_1, fan_2",
+          step_3_temp: 32.0,
+          step_3_fans: "fan_1, fan_2, fan_3",
+          step_4_temp: 0.0,
+          step_5_temp: 0.0,
+          step_6_temp: 0.0,
+          step_7_temp: 0.0,
+          step_8_temp: 0.0,
+          step_9_temp: 0.0,
+          step_10_temp: 0.0
+        })
+
+      assert changeset.valid?
+    end
+
+    test "allows same fan count in consecutive steps" do
+      changeset =
+        %Config{}
+        |> Config.changeset(%{
+          step_1_temp: 24.0,
+          step_1_fans: "fan_1, fan_2",
+          step_2_temp: 28.0,
+          step_2_fans: "fan_1, fan_2",
+          step_3_temp: 0.0,
+          step_4_temp: 0.0,
+          step_5_temp: 0.0,
+          step_6_temp: 0.0,
+          step_7_temp: 0.0,
+          step_8_temp: 0.0,
+          step_9_temp: 0.0,
+          step_10_temp: 0.0
+        })
+
+      assert changeset.valid?
+    end
+
+    test "rejects skipping steps - gap between step 1 and step 3" do
+      # Step 1 and step 3 active, but step 2 is skipped - not allowed
+      changeset =
+        %Config{}
+        |> Config.changeset(%{
+          step_1_temp: 24.0,
+          step_1_fans: "fan_1, fan_2",
+          step_2_temp: 0.0,
+          step_3_temp: 30.0,
+          step_3_fans: "fan_1, fan_2, fan_3",
+          step_4_temp: 0.0,
+          step_5_temp: 0.0,
+          step_6_temp: 0.0,
+          step_7_temp: 0.0,
+          step_8_temp: 0.0,
+          step_9_temp: 0.0,
+          step_10_temp: 0.0
+        })
+
+      refute changeset.valid?
+      assert %{step_3_temp: [msg]} = errors_on(changeset)
+      assert msg =~ "cannot skip step 2"
+    end
+
+    test "rejects starting from step 2 instead of step 1" do
+      # Step 2 active but step 1 is not - must start from step 1
+      changeset =
+        %Config{}
+        |> Config.changeset(%{
+          step_1_temp: 0.0,
+          step_2_temp: 26.0,
+          step_2_fans: "fan_1, fan_2",
+          step_3_temp: 0.0,
+          step_4_temp: 0.0,
+          step_5_temp: 0.0,
+          step_6_temp: 0.0,
+          step_7_temp: 0.0,
+          step_8_temp: 0.0,
+          step_9_temp: 0.0,
+          step_10_temp: 0.0
+        })
+
+      refute changeset.valid?
+      assert %{step_2_temp: [msg]} = errors_on(changeset)
+      assert msg =~ "step 1 must be configured first"
+    end
+
+    test "allows consecutive steps from step 1" do
+      # Steps 1, 2, 3 are active - this is valid
+      changeset =
+        %Config{}
+        |> Config.changeset(%{
+          step_1_temp: 24.0,
+          step_1_fans: "fan_1",
+          step_2_temp: 26.0,
+          step_2_fans: "fan_1, fan_2",
+          step_3_temp: 28.0,
+          step_3_fans: "fan_1, fan_2, fan_3",
+          step_4_temp: 0.0,
+          step_5_temp: 0.0,
+          step_6_temp: 0.0,
+          step_7_temp: 0.0,
+          step_8_temp: 0.0,
+          step_9_temp: 0.0,
+          step_10_temp: 0.0
+        })
+
+      assert changeset.valid?
+    end
+
+    test "rejects duplicate temperatures in active steps" do
+      changeset =
+        %Config{}
+        |> Config.changeset(%{
+          step_1_temp: 24.0,
+          step_1_fans: "fan_1",
+          step_2_temp: 24.0,
+          step_2_fans: "fan_1, fan_2",
+          step_3_temp: 0.0,
+          step_4_temp: 0.0,
+          step_5_temp: 0.0,
+          step_6_temp: 0.0,
+          step_7_temp: 0.0,
+          step_8_temp: 0.0,
+          step_9_temp: 0.0,
+          step_10_temp: 0.0
+        })
+
+      refute changeset.valid?
+      assert %{step_2_temp: [msg]} = errors_on(changeset)
+      assert msg =~ "must be greater than 24.0°C"
+    end
+
+    test "rejects decreasing temperatures in active steps" do
+      # Step 2 has lower temp than step 1 - violates ascending order by step number
+      changeset =
+        %Config{}
+        |> Config.changeset(%{
+          step_1_temp: 28.0,
+          step_1_fans: "fan_1, fan_2",
+          step_2_temp: 24.0,
+          step_2_fans: "fan_1, fan_2, fan_3",
+          step_3_temp: 0.0,
+          step_4_temp: 0.0,
+          step_5_temp: 0.0,
+          step_6_temp: 0.0,
+          step_7_temp: 0.0,
+          step_8_temp: 0.0,
+          step_9_temp: 0.0,
+          step_10_temp: 0.0
+        })
+
+      refute changeset.valid?
+      # Error is on step_2 because its temp must be > step_1's temp (28°C)
+      assert %{step_2_temp: [msg]} = errors_on(changeset)
+      assert msg =~ "must be greater than 28.0°C"
+    end
+
+    test "allows strictly ascending temperatures" do
+      changeset =
+        %Config{}
+        |> Config.changeset(%{
+          step_1_temp: 24.0,
+          step_1_fans: "fan_1",
+          step_2_temp: 26.0,
+          step_2_fans: "fan_1, fan_2",
+          step_3_temp: 28.0,
+          step_3_fans: "fan_1, fan_2, fan_3",
+          step_4_temp: 0.0,
+          step_5_temp: 0.0,
+          step_6_temp: 0.0,
+          step_7_temp: 0.0,
+          step_8_temp: 0.0,
+          step_9_temp: 0.0,
+          step_10_temp: 0.0
         })
 
       assert changeset.valid?

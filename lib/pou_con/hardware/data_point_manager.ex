@@ -39,7 +39,6 @@ defmodule PouCon.Hardware.DataPointManager do
   }
 
   alias PouCon.Repo
-  alias Phoenix.PubSub
 
   @behaviour PouCon.Hardware.DataPointManagerBehaviour
 
@@ -94,8 +93,6 @@ defmodule PouCon.Hardware.DataPointManager do
   # ------------------------------------------------------------------ #
   # Constants
   # ------------------------------------------------------------------ #
-  @poll_interval 1000
-  @pubsub_topic "data_point_data"
   @modbus_timeout 3000
   @max_consecutive_timeouts 3
 
@@ -130,6 +127,16 @@ defmodule PouCon.Hardware.DataPointManager do
 
   @impl true
   def get_all_cached_data, do: GenServer.call(__MODULE__, :get_all_cached_data)
+
+  @doc """
+  Read a data point directly from hardware (not from cache).
+  Used by equipment controllers for self-polling.
+  Also updates the cache with the result.
+  """
+  @impl true
+  def read_direct(device_name) do
+    GenServer.call(__MODULE__, {:read_direct, device_name}, @modbus_timeout + 1000)
+  end
 
   # Manual controls (optional now that logic is automatic, but kept for manual override)
   def skip_slave(port_path, slave_id),
@@ -453,15 +460,93 @@ defmodule PouCon.Hardware.DataPointManager do
     {:reply, result, state}
   end
 
-  # ------------------------------------------------------------------ #
-  # Polling Loop
-  # ------------------------------------------------------------------ #
   @impl GenServer
-  def handle_info(:poll_data_points, state) do
-    new_state = poll_data_points(state)
-    PubSub.broadcast(PouCon.PubSub, @pubsub_topic, :data_refreshed)
-    Process.send_after(self(), :poll_data_points, @poll_interval)
-    {:noreply, new_state}
+  def handle_call({:read_direct, device_name}, _from, state) do
+    case Map.get(state.data_points, device_name) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      %{read_fn: nil} ->
+        {:reply, {:error, :no_read_function}, state}
+
+      data_point ->
+        %{port_path: port_path, slave_id: slave_id} = data_point
+
+        # Check if this slave is skipped due to consecutive timeouts
+        if MapSet.member?(state.skipped_slaves, {port_path, slave_id}) do
+          :ets.insert(:data_point_cache, {device_name, {:error, :timeout}})
+          {:reply, {:error, :timeout}, state}
+        else
+          result = do_read_direct(state, data_point)
+          {reply, new_state} = handle_read_result(state, result, data_point)
+          {:reply, reply, new_state}
+        end
+    end
+  end
+
+  # Handle successful read - reset failure count, update cache
+  defp handle_read_result(state, {:ok, data}, data_point) do
+    %{port_path: port_path, slave_id: slave_id, name: name} = data_point
+    cached_data = apply_data_point_conversion(data, data_point)
+    :ets.insert(:data_point_cache, {name, cached_data})
+
+    # Reset failure count on success
+    new_counts = Map.delete(state.failure_counts, {port_path, slave_id})
+    {{:ok, cached_data}, %{state | failure_counts: new_counts}}
+  end
+
+  # Handle timeout - track consecutive failures, skip slave after threshold
+  defp handle_read_result(state, {:error, :timeout} = error, data_point) do
+    %{port_path: port_path, slave_id: slave_id, name: name} = data_point
+    :ets.insert(:data_point_cache, {name, error})
+
+    current_count = Map.get(state.failure_counts, {port_path, slave_id}, 0) + 1
+
+    if current_count >= @max_consecutive_timeouts do
+      Logger.error(
+        "[#{name}] Slave #{slave_id} on #{port_path} reached #{@max_consecutive_timeouts} timeouts. Skipping until reload."
+      )
+
+      new_state = %{
+        state
+        | skipped_slaves: MapSet.put(state.skipped_slaves, {port_path, slave_id}),
+          failure_counts: Map.put(state.failure_counts, {port_path, slave_id}, current_count)
+      }
+
+      {error, new_state}
+    else
+      Logger.warning(
+        "[#{name}] Timeout #{current_count}/#{@max_consecutive_timeouts} for slave #{slave_id} on #{port_path}"
+      )
+
+      new_state = %{state | failure_counts: Map.put(state.failure_counts, {port_path, slave_id}, current_count)}
+      {error, new_state}
+    end
+  end
+
+  # Handle other errors - just cache and return
+  defp handle_read_result(state, {:error, _} = error, data_point) do
+    :ets.insert(:data_point_cache, {data_point.name, error})
+    {error, state}
+  end
+
+  # Direct read from hardware (used by equipment self-polling)
+  defp do_read_direct(state, data_point) do
+    %{port_path: port_path, slave_id: slave_id, read_fn: read_fn, register: register} = data_point
+
+    port = Map.get(state.ports, port_path)
+    conn_pid = if port, do: port.connection_pid, else: nil
+    protocol = if port, do: protocol_atom(port.protocol), else: :modbus_rtu
+
+    fifth_param = get_fifth_param(data_point)
+
+    try do
+      dispatch_info = get_io_module(read_fn)
+      call_io_read(dispatch_info, conn_pid, protocol, slave_id, register, fifth_param)
+    catch
+      :exit, reason ->
+        if reason == :timeout, do: {:error, :timeout}, else: {:error, :read_exception}
+    end
   end
 
   # ------------------------------------------------------------------ #
@@ -532,7 +617,8 @@ defmodule PouCon.Hardware.DataPointManager do
       "[DataPointManager] Initialized with #{map_size(state.data_points)} data points, #{map_size(state.ports)} ports"
     )
 
-    Process.send_after(self(), :poll_data_points, @poll_interval)
+    # No central polling - equipment controllers self-poll via read_direct()
+    # which updates the cache. StatusBroadcaster handles UI refresh notifications.
     {:ok, state}
   end
 
@@ -591,85 +677,12 @@ defmodule PouCon.Hardware.DataPointManager do
       data_points: runtime_data_points,
       skipped_slaves: MapSet.new(),
       # Format: %{ {port_path, slave_id} => integer_count }
-      failure_counts: %{}
+      failure_counts: %{},
+      # Track last poll time per data point name
+      # Format: %{ "data_point_name" => monotonic_time_ms }
+      # Empty initially - all data points will be polled on first tick
+      last_polled: %{}
     }
-  end
-
-  # ------------------------------------------------------------------ #
-  # Polling Implementation
-  # One request per data point for Modbus/S7 (protocol overhead)
-  # Batch query for virtual data points (SQLite - no protocol overhead)
-  # ------------------------------------------------------------------ #
-  defp poll_data_points(state) do
-    data_points_with_read = state.data_points |> Map.values() |> Enum.filter(& &1.read_fn)
-
-    # Separate virtual vs hardware data points
-    {virtual_data_points, hardware_data_points} =
-      Enum.split_with(data_points_with_read, &(&1.port_path == "virtual"))
-
-    # Poll virtual data points in batch (single SQLite query)
-    state = poll_virtual_data_points_batch(state, virtual_data_points)
-
-    # Poll hardware data points one at a time
-    Enum.reduce(hardware_data_points, state, &poll_single_data_point(&2, &1))
-  end
-
-  # Batch poll all virtual data points with a single SQLite query
-  defp poll_virtual_data_points_batch(state, []), do: state
-
-  defp poll_virtual_data_points_batch(state, virtual_data_points) do
-    # Get all virtual digital states in one query
-    all_virtual_states = Virtual.read_all_virtual_states()
-
-    # Process each virtual data point using the pre-fetched data
-    Enum.reduce(virtual_data_points, state, fn data_point, acc_state ->
-      data = lookup_virtual_state(all_virtual_states, data_point)
-      handle_poll_result(acc_state, {:ok, data}, data_point)
-    end)
-  end
-
-  # Look up a single data point's state from the batch-fetched data
-  defp lookup_virtual_state(all_states, data_point) do
-    %{slave_id: slave_id, channel: channel} = data_point
-
-    state_value =
-      all_states
-      |> Enum.find(fn {sid, ch, _state} -> sid == slave_id and ch == channel end)
-      |> case do
-        {_, _, state} -> state
-        nil -> 0
-      end
-
-    %{state: state_value}
-  end
-
-  # Poll a single data point
-  defp poll_single_data_point(state, data_point) do
-    %{port_path: port_path, slave_id: slave_id, read_fn: read_fn, register: register} = data_point
-
-    if MapSet.member?(state.skipped_slaves, {port_path, slave_id}) do
-      state
-    else
-      port = Map.get(state.ports, port_path)
-      conn_pid = if port, do: port.connection_pid, else: nil
-      protocol = if port, do: protocol_atom(port.protocol), else: :modbus_rtu
-
-      # 5th parameter depends on data point type:
-      # - DigitalIO: channel (bit position, 1-8)
-      # - AnalogIO: data_type (:int16, :uint16, etc.)
-      fifth_param = get_fifth_param(data_point)
-
-      poll_result =
-        try do
-          dispatch_info = get_io_module(read_fn)
-          call_io_read(dispatch_info, conn_pid, protocol, slave_id, register, fifth_param)
-        catch
-          :exit, reason ->
-            if reason == :timeout, do: {:error, :timeout}, else: {:error, :polling_exception}
-        end
-
-      handle_poll_result(state, poll_result, data_point)
-    end
   end
 
   # Determine 5th parameter for data point read functions
@@ -752,54 +765,6 @@ defmodule PouCon.Hardware.DataPointManager do
       |> Task.await(@modbus_timeout)
     else
       apply(module, fn_name, [conn_pid, slave_id, register, command, channel])
-    end
-  end
-
-  # Handle successful poll result
-  defp handle_poll_result(state, {:ok, data}, data_point) do
-    # Apply data point-level conversion if configured
-    cached_data = apply_data_point_conversion(data, data_point)
-    :ets.insert(:data_point_cache, {data_point.name, cached_data})
-
-    # Reset failure count on success
-    new_counts = Map.delete(state.failure_counts, {data_point.port_path, data_point.slave_id})
-    %{state | failure_counts: new_counts}
-  end
-
-  # Handle poll error
-  defp handle_poll_result(state, {:error, reason}, data_point) do
-    %{port_path: port_path, slave_id: slave_id, name: name} = data_point
-
-    # Cache error
-    :ets.insert(:data_point_cache, {name, {:error, reason}})
-
-    # Handle timeout threshold
-    if reason == :timeout do
-      current_count = Map.get(state.failure_counts, {port_path, slave_id}, 0) + 1
-
-      Logger.warning(
-        "Poll timeout #{current_count}/#{@max_consecutive_timeouts} for #{name} (#{port_path} slave #{slave_id})"
-      )
-
-      if current_count >= @max_consecutive_timeouts do
-        Logger.error(
-          "Slave #{slave_id} on #{port_path} reached max timeouts. Skipping until reload."
-        )
-
-        %{
-          state
-          | skipped_slaves: MapSet.put(state.skipped_slaves, {port_path, slave_id}),
-            failure_counts: Map.put(state.failure_counts, {port_path, slave_id}, current_count)
-        }
-      else
-        %{
-          state
-          | failure_counts: Map.put(state.failure_counts, {port_path, slave_id}, current_count)
-        }
-      end
-    else
-      Logger.error("Poll error for #{name}: #{inspect(reason)}")
-      state
     end
   end
 

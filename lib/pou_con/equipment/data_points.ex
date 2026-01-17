@@ -121,4 +121,23 @@ defmodule PouCon.Equipment.DataPoints do
   def change_data_point(%DataPoint{} = data_point, attrs \\ %{}) do
     DataPoint.changeset(data_point, attrs)
   end
+
+  @doc """
+  Gets a single data_point by name.
+  Returns nil if not found.
+  """
+  def get_data_point_by_name(name) when is_binary(name) do
+    Repo.get_by(DataPoint, name: name)
+  end
+
+  @doc """
+  Checks if a data point is virtual (port_path == "virtual").
+  Returns false if data point not found.
+  """
+  def is_virtual?(name) when is_binary(name) do
+    case get_data_point_by_name(name) do
+      %DataPoint{port_path: "virtual"} -> true
+      _ -> false
+    end
+  end
 end

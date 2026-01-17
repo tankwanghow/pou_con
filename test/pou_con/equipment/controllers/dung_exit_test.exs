@@ -17,7 +17,7 @@ defmodule PouCon.Equipment.Controllers.DungExitTest do
       running_feedback: "test_dungexit_fb_#{id}"
     }
 
-    stub(DataPointManagerMock, :get_cached_data, fn _name -> {:ok, %{state: 0}} end)
+    stub(DataPointManagerMock, :read_direct, fn _name -> {:ok, %{state: 0}} end)
     stub(DataPointManagerMock, :command, fn _name, _cmd, _params -> {:ok, :success} end)
 
     %{devices: device_names}
@@ -65,7 +65,7 @@ defmodule PouCon.Equipment.Controllers.DungExitTest do
     test "reflects state from DataPointManager", %{devices: devices} do
       name = "test_dungexit_state_#{System.unique_integer([:positive])}"
 
-      stub(DataPointManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         n when n == devices.running_feedback -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
@@ -114,7 +114,7 @@ defmodule PouCon.Equipment.Controllers.DungExitTest do
     end
 
     test "turn_off sends command to DataPointManager", %{name: name, pid: pid, devices: devices} do
-      stub(DataPointManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)

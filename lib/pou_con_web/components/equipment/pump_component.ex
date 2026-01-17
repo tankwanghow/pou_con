@@ -28,11 +28,11 @@ defmodule PouConWeb.Components.Equipment.PumpComponent do
           is_running={@display.is_running}
         >
           <:controls>
-            <Shared.mode_toggle
-              mode={@display.mode}
-              is_offline={@display.is_offline}
-              myself={@myself}
-            />
+            <%= if @display.is_auto_manual_virtual_di do %>
+              <Shared.mode_toggle mode={@display.mode} is_offline={@display.is_offline} myself={@myself} />
+            <% else %>
+              <Shared.mode_indicator mode={@display.mode} />
+            <% end %>
           </:controls>
         </Shared.equipment_header>
 
@@ -47,15 +47,27 @@ defmodule PouConWeb.Components.Equipment.PumpComponent do
               is_error={@display.is_error}
               error_message={@display.err_msg}
             />
-            <Shared.power_control
-              is_offline={@display.is_offline}
-              is_interlocked={@display.is_interlocked}
-              is_running={@display.is_running}
-              is_error={@display.is_error}
-              mode={@display.mode}
-              myself={@myself}
-              start_color="emerald"
-            />
+            <%= if @display.is_auto_manual_virtual_di do %>
+              <Shared.virtual_power_control
+                is_offline={@display.is_offline}
+                is_interlocked={@display.is_interlocked}
+                is_running={@display.is_running}
+                is_error={@display.is_error}
+                mode={@display.mode}
+                myself={@myself}
+                start_color="emerald"
+              />
+            <% else %>
+              <Shared.power_control
+                is_offline={@display.is_offline}
+                is_interlocked={@display.is_interlocked}
+                is_running={@display.is_running}
+                is_error={@display.is_error}
+                mode={@display.mode}
+                myself={@myself}
+                start_color="emerald"
+              />
+            <% end %>
           </:controls>
         </Shared.equipment_body>
       </Shared.equipment_card>
@@ -98,25 +110,21 @@ defmodule PouConWeb.Components.Equipment.PumpComponent do
 
   @impl true
   def handle_event("set_mode", %{"mode" => mode}, socket) do
-    name = socket.assigns.device_name
-
-    case mode do
-      "auto" -> Pump.set_auto(name)
-      "manual" -> Pump.set_manual(name)
-    end
-
+    mode_atom = String.to_existing_atom(mode)
+    Pump.set_mode(socket.assigns.device_name, mode_atom)
     {:noreply, socket}
   end
 
   @impl true
   def handle_event("toggle_power", _, socket) do
-    if socket.assigns.display.mode == :manual do
-      name = socket.assigns.device_name
+    status = socket.assigns.status
 
-      if socket.assigns.display.is_running or socket.assigns.display.is_error do
-        Pump.turn_off(name)
+    # Only allow control if virtual mode and in manual mode
+    if status.is_auto_manual_virtual_di && status.mode == :manual do
+      if status.is_running do
+        Pump.turn_off(socket.assigns.device_name)
       else
-        Pump.turn_on(name)
+        Pump.turn_on(socket.assigns.device_name)
       end
     end
 
@@ -162,6 +170,7 @@ defmodule PouConWeb.Components.Equipment.PumpComponent do
       is_error: false,
       is_running: false,
       is_interlocked: false,
+      is_auto_manual_virtual_di: false,
       mode: :auto,
       state_text: "OFFLINE",
       color: "gray",
@@ -174,6 +183,7 @@ defmodule PouConWeb.Components.Equipment.PumpComponent do
     is_running = status.is_running
     has_error = not is_nil(status.error)
     is_interlocked = Map.get(status, :interlocked, false)
+    is_auto_manual_virtual_di = Map.get(status, :is_auto_manual_virtual_di, false)
 
     {color, anim_class} =
       cond do
@@ -188,6 +198,7 @@ defmodule PouConWeb.Components.Equipment.PumpComponent do
       is_error: has_error,
       is_running: is_running,
       is_interlocked: is_interlocked,
+      is_auto_manual_virtual_di: is_auto_manual_virtual_di,
       mode: status.mode,
       state_text: if(is_running, do: "RUNNING", else: "STOPPED"),
       color: color,

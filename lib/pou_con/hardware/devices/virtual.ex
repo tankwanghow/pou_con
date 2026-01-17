@@ -32,29 +32,26 @@ defmodule PouCon.Hardware.Devices.Virtual do
   end
 
   @doc """
-  Reads virtual digital input states from the database.
+  Reads a single virtual digital output state from the database.
 
-  Returns a list of channel states for the specified slave_id.
-  Channels are 1-indexed and gaps are filled with 0.
+  Returns the state for the specified slave_id and channel.
+  Channels are 1-indexed. Returns 0 if not found.
 
-  Returns: `{:ok, %{channels: [0, 1, 0, ...]}}` or `{:ok, %{channels: []}}`
+  Returns: `{:ok, %{state: 0|1}}`
+
+  Note: This matches the DigitalIO module's return format for consistency.
   """
-  def read_virtual_digital_output(_modbus, slave_id, _register, _channel \\ nil) do
-    states =
-      Repo.all(
-        from vs in VirtualDigitalState,
-          where: vs.slave_id == ^slave_id,
-          select: {vs.channel, vs.state}
-      )
-      |> Map.new()
+  def read_virtual_digital_output(_modbus, slave_id, _register, channel \\ 1) do
+    channel = channel || 1
 
-    if states == %{} do
-      {:ok, %{channels: []}}
-    else
-      max_ch = Enum.max(Map.keys(states))
-      channels = Enum.map(1..max_ch, &Map.get(states, &1, 0))
-      {:ok, %{channels: channels}}
-    end
+    state =
+      Repo.one(
+        from vs in VirtualDigitalState,
+          where: vs.slave_id == ^slave_id and vs.channel == ^channel,
+          select: vs.state
+      ) || 0
+
+    {:ok, %{state: state}}
   end
 
   @doc """

@@ -54,8 +54,12 @@ defmodule PouCon.Equipment.Controllers.Fan do
 
   alias PouCon.Logging.EquipmentLogger
   alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
+  alias PouCon.Equipment.DataPoints
 
   @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
+
+  # Default polling interval for fans (500ms for responsive feedback)
+  @default_poll_interval 500
 
   defmodule State do
     defstruct [
@@ -65,13 +69,20 @@ defmodule PouCon.Equipment.Controllers.Fan do
       :running_feedback,
       :auto_manual,
       :trip,
+      :current_input,
       commanded_on: false,
       actual_on: false,
       is_running: false,
       is_tripped: false,
+      current: nil,
       mode: :auto,
       error: nil,
-      interlocked: false
+      interlocked: false,
+      # True if auto_manual data point is virtual (software-controlled mode)
+      # False if auto_manual is a real DI (physical 3-way switch)
+      is_auto_manual_virtual_di: false,
+      # Self-polling interval in milliseconds
+      poll_interval_ms: 500
     ]
   end
 
@@ -100,35 +111,87 @@ defmodule PouCon.Equipment.Controllers.Fan do
   def turn_off(name), do: GenServer.cast(Helpers.via(name), :turn_off)
   def status(name), do: GenServer.call(Helpers.via(name), :status)
 
-  # Note: set_auto/set_manual removed - mode is now controlled by physical 3-way switch
-  # The auto_manual DI is read-only from the panel switch position
+  @doc """
+  Set mode to :auto or :manual. Only works if auto_manual data point is virtual.
+  For real DI (physical 3-way switch), mode is read from hardware.
+  """
+  def set_mode(name, mode) when mode in [:auto, :manual] do
+    GenServer.cast(Helpers.via(name), {:set_mode, mode})
+  end
 
   # ——————————————————————————————————————————————————————————————
-  # Init
+  # Init (Self-Polling Architecture)
   # ——————————————————————————————————————————————————————————————
   @impl GenServer
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
+    auto_manual = opts[:auto_manual] || raise("Missing :auto_manual")
+
+    # Check if auto_manual data point is virtual (software-controlled mode)
+    is_auto_manual_virtual_di = DataPoints.is_virtual?(auto_manual)
 
     state = %State{
       name: name,
       title: opts[:title] || name,
       on_off_coil: opts[:on_off_coil] || raise("Missing :on_off_coil"),
       running_feedback: opts[:running_feedback] || raise("Missing :running_feedback"),
-      auto_manual: opts[:auto_manual] || raise("Missing :auto_manual"),
-      trip: opts[:trip]
+      auto_manual: auto_manual,
+      trip: opts[:trip],
+      current_input: opts[:current_input],
+      is_auto_manual_virtual_di: is_auto_manual_virtual_di,
+      poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
-    Phoenix.PubSub.subscribe(PouCon.PubSub, "data_point_data")
+    # No PubSub subscription - we poll ourselves
     {:ok, state, {:continue, :initial_poll}}
   end
 
   @impl GenServer
-  def handle_continue(:initial_poll, state), do: {:noreply, sync_and_update(state)}
+  def handle_continue(:initial_poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(new_state.poll_interval_ms)
+    {:noreply, new_state}
+  end
 
   @impl GenServer
-  def handle_info(:data_refreshed, state), do: {:noreply, sync_and_update(state)}
+  def handle_info(:poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(new_state.poll_interval_ms)
+    {:noreply, new_state}
+  end
 
+  defp schedule_poll(interval_ms) do
+    Process.send_after(self(), :poll, interval_ms)
+  end
+
+  # ——————————————————————————————————————————————————————————————
+  # Set Mode (Virtual Mode Only)
+  # ——————————————————————————————————————————————————————————————
+  @impl GenServer
+  def handle_cast({:set_mode, mode}, %{is_auto_manual_virtual_di: true} = state) do
+    # Virtual auto_manual - write to the virtual data point
+    mode_value = if mode == :auto, do: 1, else: 0
+
+    case @data_point_manager.command(state.auto_manual, :set_state, %{state: mode_value}) do
+      {:ok, :success} ->
+        Logger.info("[#{state.name}] Mode set to #{mode}")
+        {:noreply, poll_and_update(%{state | mode: mode})}
+
+      {:error, reason} ->
+        Logger.error("[#{state.name}] Failed to set mode: #{inspect(reason)}")
+        {:noreply, state}
+    end
+  end
+
+  def handle_cast({:set_mode, _mode}, state) do
+    # Real DI - mode is controlled by physical switch, ignore
+    Logger.debug("[#{state.name}] Set mode ignored - mode controlled by physical switch")
+    {:noreply, state}
+  end
+
+  # ——————————————————————————————————————————————————————————————
+  # Turn On/Off Commands
+  # ——————————————————————————————————————————————————————————————
   @impl GenServer
   def handle_cast(:turn_on, %{mode: :manual} = state) do
     # Physical switch not in AUTO position - ignore software commands
@@ -164,7 +227,7 @@ defmodule PouCon.Equipment.Controllers.Fan do
   # When in MANUAL mode (physical switch not in AUTO), don't send commands
   # Physical switch controls contactor directly - just read hardware state
   defp sync_coil(%State{mode: :manual} = state) do
-    sync_and_update(state)
+    poll_and_update(state)
   end
 
   # AUTO mode: sync commanded state with hardware
@@ -177,7 +240,7 @@ defmodule PouCon.Equipment.Controllers.Fan do
 
     case @data_point_manager.command(coil, :set_state, %{state: coil_value}) do
       {:ok, :success} ->
-        sync_and_update(state)
+        poll_and_update(state)
 
       {:error, reason} ->
         Logger.error("[#{state.name}] Command failed: #{inspect(reason)}")
@@ -189,28 +252,37 @@ defmodule PouCon.Equipment.Controllers.Fan do
           if(cmd, do: "off", else: "on")
         )
 
-        sync_and_update(%State{state | error: :command_failed})
+        poll_and_update(%State{state | error: :command_failed})
     end
   end
 
-  defp sync_coil(state), do: sync_and_update(state)
+  defp sync_coil(state), do: poll_and_update(state)
 
   # ——————————————————————————————————————————————————————————————
-  # CRASH-PROOF sync_and_update
+  # Self-Polling: Read directly from hardware
   # ——————————————————————————————————————————————————————————————
-  defp sync_and_update(%State{} = state) do
-    coil_res = @data_point_manager.get_cached_data(state.on_off_coil)
-    fb_res = @data_point_manager.get_cached_data(state.running_feedback)
-    mode_res = @data_point_manager.get_cached_data(state.auto_manual)
+  defp poll_and_update(%State{} = state) do
+    # Read directly from hardware (not from cache)
+    coil_res = @data_point_manager.read_direct(state.on_off_coil)
+    fb_res = @data_point_manager.read_direct(state.running_feedback)
+    mode_res = @data_point_manager.read_direct(state.auto_manual)
 
     trip_res =
-      if state.trip, do: @data_point_manager.get_cached_data(state.trip), else: {:ok, %{state: 0}}
+      if state.trip, do: @data_point_manager.read_direct(state.trip), else: {:ok, %{state: 0}}
 
-    results = [coil_res, fb_res, mode_res, trip_res]
+    # Current input is optional - only read if configured
+    current_res =
+      if state.current_input,
+        do: @data_point_manager.read_direct(state.current_input),
+        else: {:ok, nil}
+
+    # Only include essential results (coil, fb, mode, trip) for error checking
+    # Current is optional and shouldn't cause timeout state
+    essential_results = [coil_res, fb_res, mode_res, trip_res]
 
     {new_state, temp_error} =
       cond do
-        Enum.any?(results, &match?({:error, _}, &1)) ->
+        Enum.any?(essential_results, &match?({:error, _}, &1)) ->
           Logger.error("[#{state.name}] Sensor timeout → entering safe state")
 
           safe = %State{
@@ -218,6 +290,7 @@ defmodule PouCon.Equipment.Controllers.Fan do
             | actual_on: false,
               is_running: false,
               is_tripped: false,
+              current: nil,
               mode: :auto,
               error: :timeout
           }
@@ -230,6 +303,13 @@ defmodule PouCon.Equipment.Controllers.Fan do
             {:ok, %{:state => fb_state}} = fb_res
             {:ok, %{:state => mode_state}} = mode_res
             {:ok, %{:state => trip_state}} = trip_res
+
+            # Extract current value if available (analog input returns :value key)
+            current =
+              case current_res do
+                {:ok, %{value: val}} when is_number(val) -> val
+                _ -> nil
+              end
 
             # NO relay: coil ON (1) = fan ON, coil OFF (0) = fan OFF
             actual_on = coil_state == 1
@@ -245,6 +325,7 @@ defmodule PouCon.Equipment.Controllers.Fan do
               | actual_on: actual_on,
                 is_running: is_running,
                 is_tripped: is_tripped,
+                current: current,
                 mode: mode,
                 error: nil
             }
@@ -284,8 +365,8 @@ defmodule PouCon.Equipment.Controllers.Fan do
   end
 
   # Defensive: never crash on nil state
-  defp sync_and_update(nil) do
-    Logger.error("Fan: sync_and_update called with nil state!")
+  defp poll_and_update(nil) do
+    Logger.error("Fan: poll_and_update called with nil state!")
     %State{name: "recovered", error: :crashed_previously}
   end
 
@@ -301,10 +382,12 @@ defmodule PouCon.Equipment.Controllers.Fan do
       actual_on: state.actual_on,
       is_running: state.is_running,
       is_tripped: state.is_tripped,
+      current: state.current,
       mode: state.mode,
       error: state.error,
       error_message: Helpers.error_message(state.error),
-      interlocked: state.interlocked
+      interlocked: state.interlocked,
+      is_auto_manual_virtual_di: state.is_auto_manual_virtual_di
     }
 
     {:reply, reply, state}

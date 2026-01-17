@@ -16,7 +16,8 @@ defmodule PouCon.Equipment.EquipmentLoader do
         opts =
           [
             name: equipment.name,
-            title: equipment.title || equipment.name
+            title: equipment.title || equipment.name,
+            poll_interval_ms: equipment.poll_interval_ms
           ] ++ data_point_tree_opts
 
         # Determine the controller module based on type

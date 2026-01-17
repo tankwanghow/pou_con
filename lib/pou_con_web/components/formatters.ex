@@ -189,6 +189,25 @@ defmodule PouConWeb.Components.Formatters do
   def format_voltage(_), do: "--V"
 
   @doc """
+  Formats current value with 1 decimal place and A suffix.
+
+  ## Examples
+
+      iex> format_current(12.5)
+      "12.5A"
+
+      iex> format_current(nil)
+      "--.-A"
+  """
+  def format_current(nil), do: "--.-A"
+
+  def format_current(value) when is_number(value) do
+    "#{Number.Delimit.number_to_delimited(value, precision: 1)}A"
+  end
+
+  def format_current(_), do: "--.-A"
+
+  @doc """
   Formats gas concentration value (ppm) with 0 decimal places.
 
   ## Examples

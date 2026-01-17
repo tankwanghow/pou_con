@@ -28,7 +28,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeterTest do
       meter: "water_meter_#{id}"
     }
 
-    stub(DataPointManagerMock, :get_cached_data, fn _name ->
+    stub(DataPointManagerMock, :read_direct, fn _name ->
       {:ok, @valid_meter_data}
     end)
 
@@ -135,7 +135,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeterTest do
     test "normalizes 'empty' string to :empty atom", %{devices: devices} do
       name = "test_wm_empty_#{System.unique_integer([:positive])}"
 
-      stub(DataPointManagerMock, :get_cached_data, fn _ ->
+      stub(DataPointManagerMock, :read_direct, fn _ ->
         {:ok, %{@valid_meter_data | pipe_status: "empty"}}
       end)
 
@@ -149,7 +149,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeterTest do
     test "normalizes 'full' string to :full atom", %{devices: devices} do
       name = "test_wm_full_#{System.unique_integer([:positive])}"
 
-      stub(DataPointManagerMock, :get_cached_data, fn _ ->
+      stub(DataPointManagerMock, :read_direct, fn _ ->
         {:ok, %{@valid_meter_data | pipe_status: "full"}}
       end)
 
@@ -163,7 +163,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeterTest do
     test "normalizes unknown value to :unknown atom", %{devices: devices} do
       name = "test_wm_unknown_#{System.unique_integer([:positive])}"
 
-      stub(DataPointManagerMock, :get_cached_data, fn _ ->
+      stub(DataPointManagerMock, :read_direct, fn _ ->
         {:ok, %{@valid_meter_data | pipe_status: 42}}
       end)
 
@@ -177,7 +177,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeterTest do
     test "handles nil pipe_status", %{devices: devices} do
       name = "test_wm_nil_pipe_#{System.unique_integer([:positive])}"
 
-      stub(DataPointManagerMock, :get_cached_data, fn _ ->
+      stub(DataPointManagerMock, :read_direct, fn _ ->
         {:ok, %{@valid_meter_data | pipe_status: nil}}
       end)
 
@@ -193,7 +193,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeterTest do
     test "handles timeout error", %{devices: devices} do
       name = "test_wm_timeout_#{System.unique_integer([:positive])}"
 
-      stub(DataPointManagerMock, :get_cached_data, fn _ -> {:error, :timeout} end)
+      stub(DataPointManagerMock, :read_direct, fn _ -> {:error, :timeout} end)
 
       opts = [name: name, meter: devices.meter]
       {:ok, _pid} = WaterMeter.start(opts)
@@ -212,7 +212,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeterTest do
     test "handles invalid data - missing flow_rate", %{devices: devices} do
       name = "test_wm_invalid_#{System.unique_integer([:positive])}"
 
-      stub(DataPointManagerMock, :get_cached_data, fn _ ->
+      stub(DataPointManagerMock, :read_direct, fn _ ->
         {:ok, %{positive_flow: 100.0, pipe_status: "full"}}
       end)
 
@@ -228,7 +228,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeterTest do
     test "handles unexpected result format", %{devices: devices} do
       name = "test_wm_unexpected_#{System.unique_integer([:positive])}"
 
-      stub(DataPointManagerMock, :get_cached_data, fn _ -> "not a valid response" end)
+      stub(DataPointManagerMock, :read_direct, fn _ -> "not a valid response" end)
 
       opts = [name: name, meter: devices.meter]
       {:ok, _pid} = WaterMeter.start(opts)
@@ -242,7 +242,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeterTest do
       name = "test_wm_recovery_#{System.unique_integer([:positive])}"
 
       # Start with error
-      stub(DataPointManagerMock, :get_cached_data, fn _ -> {:error, :timeout} end)
+      stub(DataPointManagerMock, :read_direct, fn _ -> {:error, :timeout} end)
 
       opts = [name: name, meter: devices.meter]
       {:ok, pid} = WaterMeter.start(opts)
@@ -252,7 +252,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeterTest do
       assert status.error == :timeout
 
       # Recover with valid data
-      stub(DataPointManagerMock, :get_cached_data, fn _ -> {:ok, @valid_meter_data} end)
+      stub(DataPointManagerMock, :read_direct, fn _ -> {:ok, @valid_meter_data} end)
 
       # Trigger refresh via PubSub
       send(pid, :data_refreshed)
@@ -269,7 +269,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeterTest do
       name = "test_wm_minimal_#{System.unique_integer([:positive])}"
 
       # Minimal data - only required flow_rate
-      stub(DataPointManagerMock, :get_cached_data, fn _ ->
+      stub(DataPointManagerMock, :read_direct, fn _ ->
         {:ok, %{flow_rate: 1.5, pipe_status: "full"}}
       end)
 
@@ -289,7 +289,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeterTest do
     test "handles non-numeric values in optional fields", %{devices: devices} do
       name = "test_wm_non_numeric_#{System.unique_integer([:positive])}"
 
-      stub(DataPointManagerMock, :get_cached_data, fn _ ->
+      stub(DataPointManagerMock, :read_direct, fn _ ->
         {:ok,
          %{
            flow_rate: 1.5,
@@ -325,7 +325,7 @@ defmodule PouCon.Equipment.Controllers.WaterMeterTest do
         low_battery: true
       }
 
-      stub(DataPointManagerMock, :get_cached_data, fn _ ->
+      stub(DataPointManagerMock, :read_direct, fn _ ->
         {:ok, %{@valid_meter_data | valve_status: valve_status}}
       end)
 

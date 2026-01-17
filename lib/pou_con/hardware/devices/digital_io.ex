@@ -179,8 +179,8 @@ defmodule PouCon.Hardware.Devices.DigitalIO do
       when value in [0, 1] do
     bit = if channel, do: channel - 1, else: 0
 
-    # Read current byte value
-    case s7_adapter().read_inputs(conn, byte_address, 1) do
+    # Read current byte value from outputs (not inputs - they're separate areas!)
+    case s7_adapter().read_outputs(conn, byte_address, 1) do
       {:ok, <<current_byte::8>>} ->
         # Modify the specific bit
         new_byte =

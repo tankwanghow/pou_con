@@ -134,6 +134,9 @@ defmodule PouCon.Application do
             # Load and start all equipment controllers
             {Task, fn -> PouCon.Equipment.EquipmentLoader.load_and_start_controllers() end},
 
+            # Periodic UI refresh broadcaster (1 second interval)
+            PouCon.Equipment.StatusBroadcaster,
+
             # Logging system - sensor snapshots every 30 minutes
             PouCon.Logging.PeriodicLogger,
 

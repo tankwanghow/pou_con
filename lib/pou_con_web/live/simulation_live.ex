@@ -234,12 +234,12 @@ defmodule PouConWeb.SimulationLive do
           </div>
           <div class="flex flex-2">
             <%= cond do %>
-              <% data_point.current_value == {:error, :timeout} -> %>
+              <% data_point.current_value == {:error, :timeout} or is_nil(data_point.current_value) -> %>
                 <div class="flex-5 text-xs text-gray-500 italic">No controls</div>
               <% data_point.type in ["digital_input", "switch", "flag", "DO", "virtual_digital_output"] or (data_point.read_fn == :read_digital_input) or (data_point.read_fn == :read_virtual_digital_output) -> %>
                 <div class="flex-5">
                   <button
-                    :if={data_point.current_value.state == 0}
+                    :if={Map.get(data_point.current_value, :state) == 0}
                     phx-click="toggle_input"
                     phx-value-data_point={data_point.name}
                     value="1"
@@ -248,7 +248,7 @@ defmodule PouConWeb.SimulationLive do
                     ON
                   </button>
                   <button
-                    :if={data_point.current_value.state == 1}
+                    :if={Map.get(data_point.current_value, :state) == 1}
                     phx-click="toggle_input"
                     phx-value-data_point={data_point.name}
                     value="0"

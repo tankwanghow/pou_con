@@ -23,10 +23,12 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   alias PouCon.Equipment.Controllers.{Fan, Pump, Sensor}
   alias PouCon.Logging.EquipmentLogger
 
-  @pubsub_topic "data_point_data"
+  # Poll every 5 seconds - environment control doesn't need faster response
+  @default_poll_interval 5000
 
   defmodule State do
-    defstruct avg_temp: nil,
+    defstruct poll_interval_ms: 5000,
+              avg_temp: nil,
               avg_humidity: nil,
               target_fans: [],
               target_pumps: [],
@@ -60,19 +62,35 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   # ------------------------------------------------------------------ #
   @impl GenServer
   def init(_opts) do
-    Phoenix.PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
-    {:ok, %State{}}
+    # Read poll interval from config, fall back to default
+    config = Configs.get_config()
+    poll_interval = config.environment_poll_interval_ms || @default_poll_interval
+    {:ok, %State{poll_interval_ms: poll_interval}, {:continue, :initial_poll}}
   end
 
   @impl GenServer
-  def handle_info(:data_refreshed, state) do
-    # React to sensor data changes - calculate averages and apply control logic
-    new_state =
-      state
-      |> calculate_averages()
-      |> apply_control_logic()
-
+  def handle_continue(:initial_poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(state.poll_interval_ms)
     {:noreply, new_state}
+  end
+
+  @impl GenServer
+  def handle_info(:poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(state.poll_interval_ms)
+    {:noreply, new_state}
+  end
+
+  defp schedule_poll(interval_ms) do
+    Process.send_after(self(), :poll, interval_ms)
+  end
+
+  defp poll_and_update(state) do
+    # Calculate averages and apply control logic
+    state
+    |> calculate_averages()
+    |> apply_control_logic()
   end
 
   @impl GenServer

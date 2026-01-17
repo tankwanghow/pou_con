@@ -21,7 +21,7 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
     }
 
     # Default stub: return 0 (OFF/AUTO) for everything
-    stub(DataPointManagerMock, :get_cached_data, fn _name ->
+    stub(DataPointManagerMock, :read_direct, fn _name ->
       {:ok, %{state: 0}}
     end)
 
@@ -79,7 +79,7 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
       name = "test_pump_state_#{System.unique_integer([:positive])}"
 
       # Stub specific values for this test
-      stub(DataPointManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         n when n == devices.running_feedback -> {:ok, %{state: 1}}
         # Manual
@@ -106,7 +106,7 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
     test "returns error message when DataPointManager returns error", %{devices: devices} do
       name = "test_pump_error_#{System.unique_integer([:positive])}"
 
-      stub(DataPointManagerMock, :get_cached_data, fn _ -> {:error, :timeout} end)
+      stub(DataPointManagerMock, :read_direct, fn _ -> {:error, :timeout} end)
 
       opts = [
         name: name,
@@ -127,6 +127,21 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
   describe "commands" do
     setup %{devices: devices} do
       name = "test_pump_cmd_#{System.unique_integer([:positive])}"
+
+      # Create a virtual port and data point for auto_manual to enable set_mode
+      {:ok, _port} =
+        PouCon.Repo.insert(%PouCon.Hardware.Ports.Port{
+          device_path: "virtual",
+          protocol: "virtual"
+        })
+
+      {:ok, _data_point} =
+        PouCon.Repo.insert(%PouCon.Equipment.Schemas.DataPoint{
+          name: devices.auto_manual,
+          type: "VDI",
+          slave_id: 0,
+          port_path: "virtual"
+        })
 
       opts = [
         name: name,
@@ -152,46 +167,55 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
       assert status.commanded_on == true
     end
 
-    test "turn_off sends command to DataPointManager", %{name: name, pid: pid, devices: devices} do
-      # Stub coil to be ON so actual_on becomes true
-      stub(DataPointManagerMock, :get_cached_data, fn
+    test "turn_off sends command to DataPointManager", %{name: name, devices: devices} do
+      # First turn on the pump so commanded_on becomes true
+      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 1} ->
+        assert n == devices.on_off_coil
+        {:ok, :success}
+      end)
+
+      Pump.turn_on(name)
+      Process.sleep(100)
+
+      # Stub coil to be ON so actual_on becomes true (matching commanded_on)
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
 
-      # Force update
-      send(pid, :data_refreshed)
-      Process.sleep(50)
+      # Wait for poll cycle to pick up the new state
+      Process.sleep(600)
 
+      # Now turn off - this should trigger a command since commanded_on (true) != actual_on (true) after turn_off sets commanded_on to false
       expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 0} ->
         assert n == devices.on_off_coil
         {:ok, :success}
       end)
 
       Pump.turn_off(name)
-      Process.sleep(50)
+      Process.sleep(100)
 
       status = Pump.status(name)
       assert status.commanded_on == false
     end
 
-    test "set_manual sends command to DataPointManager", %{name: name, devices: devices} do
+    test "set_mode(:manual) sends command to DataPointManager", %{name: name, devices: devices} do
       expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 1} ->
         assert n == devices.auto_manual
         {:ok, :success}
       end)
 
-      Pump.set_manual(name)
+      Pump.set_mode(name, :manual)
       Process.sleep(50)
     end
 
-    test "set_auto sends command to DataPointManager", %{name: name, devices: devices} do
+    test "set_mode(:auto) sends command to DataPointManager", %{name: name, devices: devices} do
       expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 0} ->
         assert n == devices.auto_manual
         {:ok, :success}
       end)
 
-      Pump.set_auto(name)
+      Pump.set_mode(name, :auto)
       Process.sleep(50)
     end
   end

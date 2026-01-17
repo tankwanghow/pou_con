@@ -21,7 +21,7 @@ defmodule PouCon.Equipment.Controllers.FanTest do
     }
 
     # Default stub: return values for AUTO mode (DI = 1 for auto_manual)
-    stub(DataPointManagerMock, :get_cached_data, fn
+    stub(DataPointManagerMock, :read_direct, fn
       n when n == device_names.auto_manual -> {:ok, %{state: 1}}
       _ -> {:ok, %{state: 0}}
     end)
@@ -100,7 +100,7 @@ defmodule PouCon.Equipment.Controllers.FanTest do
       name = "test_fan_state_#{System.unique_integer([:positive])}"
 
       # Stub: Coil ON, Running ON, AUTO mode (DI = 1)
-      stub(DataPointManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         n when n == devices.running_feedback -> {:ok, %{state: 1}}
         n when n == devices.auto_manual -> {:ok, %{state: 1}}
@@ -127,7 +127,7 @@ defmodule PouCon.Equipment.Controllers.FanTest do
       name = "test_fan_panel_#{System.unique_integer([:positive])}"
 
       # Stub: Panel mode (DI = 0 means physical switch not in AUTO)
-      stub(DataPointManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 0}}
         n when n == devices.running_feedback -> {:ok, %{state: 1}}
         n when n == devices.auto_manual -> {:ok, %{state: 0}}
@@ -159,7 +159,7 @@ defmodule PouCon.Equipment.Controllers.FanTest do
       name = "test_fan_error_#{System.unique_integer([:positive])}"
 
       # Stub error return
-      stub(DataPointManagerMock, :get_cached_data, fn _ -> {:error, :timeout} end)
+      stub(DataPointManagerMock, :read_direct, fn _ -> {:error, :timeout} end)
 
       opts = [
         name: name,
@@ -182,7 +182,7 @@ defmodule PouCon.Equipment.Controllers.FanTest do
       name = "test_fan_cmd_#{System.unique_integer([:positive])}"
 
       # Ensure AUTO mode (DI = 1)
-      stub(DataPointManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.auto_manual -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
@@ -215,28 +215,35 @@ defmodule PouCon.Equipment.Controllers.FanTest do
 
     test "turn_off sends command to DataPointManager in AUTO mode", %{
       name: name,
-      pid: pid,
       devices: devices
     } do
-      # Stub coil to be ON so actual_on becomes true
-      stub(DataPointManagerMock, :get_cached_data, fn
+      # First turn on the fan (sets commanded_on = true)
+      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 1} ->
+        assert n == devices.on_off_coil
+        {:ok, :success}
+      end)
+
+      Fan.turn_on(name)
+      Process.sleep(100)
+
+      # Stub coil to be ON so actual_on becomes true (matching commanded_on)
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         n when n == devices.auto_manual -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
 
-      # Force update to pick up the stubbed value
-      send(pid, :data_refreshed)
-      Process.sleep(50)
+      # Wait for poll cycle to pick up the stubbed value
+      Process.sleep(600)
 
-      # Expect command call for OFF
+      # Now turn off - expect command call for OFF
       expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 0} ->
         assert n == devices.on_off_coil
         {:ok, :success}
       end)
 
       Fan.turn_off(name)
-      Process.sleep(50)
+      Process.sleep(100)
 
       status = Fan.status(name)
       assert status.commanded_on == false
@@ -248,7 +255,7 @@ defmodule PouCon.Equipment.Controllers.FanTest do
       name = "test_fan_panel_cmd_#{System.unique_integer([:positive])}"
 
       # Panel mode (DI = 0)
-      stub(DataPointManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.auto_manual -> {:ok, %{state: 0}}
         _ -> {:ok, %{state: 0}}
       end)
@@ -296,7 +303,7 @@ defmodule PouCon.Equipment.Controllers.FanTest do
       am = "test_am_#{id}"
 
       # Stub: Coil ON (1), Feedback OFF (0), AUTO mode (DI = 1)
-      stub(DataPointManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == coil -> {:ok, %{state: 1}}
         n when n == fb -> {:ok, %{state: 0}}
         n when n == am -> {:ok, %{state: 1}}
@@ -326,7 +333,7 @@ defmodule PouCon.Equipment.Controllers.FanTest do
       am = "test_am_#{id}"
 
       # Stub: Coil OFF (0), Feedback ON (1), AUTO mode (DI = 1)
-      stub(DataPointManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == coil -> {:ok, %{state: 0}}
         n when n == fb -> {:ok, %{state: 1}}
         n when n == am -> {:ok, %{state: 1}}
@@ -360,7 +367,7 @@ defmodule PouCon.Equipment.Controllers.FanTest do
       # Stub: Coil OFF (0), Feedback ON (1), PANEL mode (DI = 0)
       # This would be an error in AUTO mode, but is normal in PANEL mode
       # (physical switch bypasses the relay)
-      stub(DataPointManagerMock, :get_cached_data, fn
+      stub(DataPointManagerMock, :read_direct, fn
         n when n == coil -> {:ok, %{state: 0}}
         n when n == fb -> {:ok, %{state: 1}}
         n when n == am -> {:ok, %{state: 0}}

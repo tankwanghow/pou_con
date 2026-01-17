@@ -8,13 +8,16 @@ defmodule PouCon.Equipment.Schemas.Equipment do
     field :type, :string
     field :data_point_tree, :string
     field :active, :boolean, default: true
+    field :poll_interval_ms, :integer
 
     timestamps()
   end
 
+  @sensor_meter_types ~w(temp_sensor humidity_sensor co2_sensor nh3_sensor water_meter power_meter flowmeter)
+
   def changeset(equipment, attrs) do
     equipment
-    |> cast(attrs, [:name, :title, :type, :data_point_tree, :active])
+    |> cast(attrs, [:name, :title, :type, :data_point_tree, :active, :poll_interval_ms])
     |> validate_required([:name, :type, :data_point_tree])
     |> unique_constraint(:name)
     |> validate_inclusion(
@@ -40,7 +43,22 @@ defmodule PouCon.Equipment.Schemas.Equipment do
       message: "unsupported type"
     )
     |> validate_data_point_tree()
+    |> set_default_poll_interval()
+    |> validate_number(:poll_interval_ms, greater_than_or_equal_to: 100, less_than_or_equal_to: 60000)
   end
+
+  defp set_default_poll_interval(changeset) do
+    if get_field(changeset, :poll_interval_ms) == nil do
+      type = get_field(changeset, :type)
+      default = default_poll_interval_for_type(type)
+      put_change(changeset, :poll_interval_ms, default)
+    else
+      changeset
+    end
+  end
+
+  defp default_poll_interval_for_type(type) when type in @sensor_meter_types, do: 5000
+  defp default_poll_interval_for_type(_), do: 500
 
   defp validate_data_point_tree(changeset) do
     type = get_field(changeset, :type)

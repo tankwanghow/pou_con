@@ -21,13 +21,15 @@ defmodule PouCon.Automation.Feeding.FeedInController do
   alias PouCon.Equipment.Controllers.{FeedIn, Feeding}
   alias PouCon.Equipment.Devices
 
-  @pubsub_topic "data_point_data"
+  # Poll every 500ms - needs to detect state transitions quickly
+  @default_poll_interval 500
   # Movement takes ~15 mins, allow 30 min timeout
   @movement_timeout_ms :timer.minutes(30)
 
   defmodule State do
     # %{bucket_name => %{prev_at_front: bool, move_to_front_time: timestamp}}
-    defstruct trigger_buckets: %{},
+    defstruct poll_interval_ms: 500,
+              trigger_buckets: %{},
               schedules: []
   end
 
@@ -52,21 +54,44 @@ defmodule PouCon.Automation.Feeding.FeedInController do
   # Server
   # ------------------------------------------------------------------ #
   @impl GenServer
-  def init(_opts) do
+  def init(opts) do
     Logger.info("FeedInController started")
-    Phoenix.PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
 
+    poll_interval = opts[:poll_interval_ms] || @default_poll_interval
     schedules = load_schedules()
     trigger_buckets = initialize_trigger_buckets(schedules)
 
-    {:ok, %State{schedules: schedules, trigger_buckets: trigger_buckets}}
+    state = %State{
+      poll_interval_ms: poll_interval,
+      schedules: schedules,
+      trigger_buckets: trigger_buckets
+    }
+
+    {:ok, state, {:continue, :initial_poll}}
   end
 
   @impl GenServer
-  def handle_info(:data_refreshed, state) do
+  def handle_continue(:initial_poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(state.poll_interval_ms)
+    {:noreply, new_state}
+  end
+
+  @impl GenServer
+  def handle_info(:poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(state.poll_interval_ms)
+    {:noreply, new_state}
+  end
+
+  defp schedule_poll(interval_ms) do
+    Process.send_after(self(), :poll, interval_ms)
+  end
+
+  defp poll_and_update(state) do
     # Check each trigger bucket for state changes
     new_trigger_buckets = check_trigger_buckets(state.trigger_buckets)
-    {:noreply, %State{state | trigger_buckets: new_trigger_buckets}}
+    %State{state | trigger_buckets: new_trigger_buckets}
   end
 
   @impl GenServer

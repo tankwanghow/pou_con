@@ -15,13 +15,15 @@ defmodule PouCon.Automation.Interlock.InterlockController do
   alias PouCon.Automation.Interlock.InterlockRules
   alias PouCon.Equipment.{Devices, EquipmentCommands}
 
-  @pubsub_topic "data_point_data"
+  # Poll every 500ms - interlock needs quick response to equipment state changes
+  @default_poll_interval 500
   @interlock_rules_topic "interlock_rules"
   @ets_table :interlock_can_start_cache
 
   defmodule State do
     # %{name => %{prev_running: bool}}
-    defstruct equipment_state: %{},
+    defstruct poll_interval_ms: 500,
+              equipment_state: %{},
               # %{upstream_name => [downstream_name1, downstream_name2, ...]}
               rules: %{}
   end
@@ -62,39 +64,61 @@ defmodule PouCon.Automation.Interlock.InterlockController do
   # Server
   # ------------------------------------------------------------------ #
   @impl GenServer
-  def init(_opts) do
+  def init(opts) do
     Logger.info("InterlockController started")
 
     # Create ETS table for lock-free can_start reads
     :ets.new(@ets_table, [:named_table, :set, :public, read_concurrency: true])
 
-    Phoenix.PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
+    # Subscribe only to rules changes (not data_point_data - we poll instead)
     Phoenix.PubSub.subscribe(PouCon.PubSub, @interlock_rules_topic)
 
-    # Load rules and initialize equipment state
+    poll_interval = opts[:poll_interval_ms] || @default_poll_interval
     rules = load_rules_map()
     equipment_state = initialize_equipment_state()
     update_ets_cache(rules, equipment_state)
 
-    {:ok, %State{equipment_state: equipment_state, rules: rules}}
+    state = %State{
+      poll_interval_ms: poll_interval,
+      equipment_state: equipment_state,
+      rules: rules
+    }
+
+    {:ok, state, {:continue, :initial_poll}}
   end
 
   @impl GenServer
-  def handle_info(:data_refreshed, state) do
-    # Check for state changes and enforce interlock
-    new_equipment_state = check_equipment(state.equipment_state, state.rules)
-    # Update ETS cache with fresh running states
-    update_ets_cache(state.rules, new_equipment_state)
-    {:noreply, %State{state | equipment_state: new_equipment_state}}
+  def handle_continue(:initial_poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(state.poll_interval_ms)
+    {:noreply, new_state}
   end
 
   @impl GenServer
+  def handle_info(:poll, state) do
+    new_state = poll_and_update(state)
+    schedule_poll(state.poll_interval_ms)
+    {:noreply, new_state}
+  end
+
   def handle_info({event, _data}, state)
       when event in [:rule_created, :rule_updated, :rule_deleted] do
     Logger.info("InterlockController: Interlock rules changed, reloading...")
     rules = load_rules_map()
     update_ets_cache(rules, state.equipment_state)
     {:noreply, %State{state | rules: rules}}
+  end
+
+  defp schedule_poll(interval_ms) do
+    Process.send_after(self(), :poll, interval_ms)
+  end
+
+  defp poll_and_update(state) do
+    # Check for state changes and enforce interlock
+    new_equipment_state = check_equipment(state.equipment_state, state.rules)
+    # Update ETS cache with fresh running states
+    update_ets_cache(state.rules, new_equipment_state)
+    %State{state | equipment_state: new_equipment_state}
   end
 
   @impl GenServer

@@ -44,16 +44,19 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
 
       <.form for={@form} id="equipment-form" phx-change="validate" phx-submit="save">
         <div class="flex gap-1">
-          <div class="w-1/4">
+          <div class="w-1/5">
             <.input field={@form[:name]} type="text" label="Name" />
           </div>
-          <div class="w-1/4">
+          <div class="w-1/5">
             <.input field={@form[:title]} type="text" label="Title" />
           </div>
-          <div class="w-1/4">
+          <div class="w-1/5">
             <.input field={@form[:type]} type="text" label="Type" />
           </div>
-          <div class="w-1/4 flex items-end pb-2">
+          <div class="w-1/5">
+            <.input field={@form[:poll_interval_ms]} type="number" label="Poll Interval (ms)" />
+          </div>
+          <div class="w-1/5 flex items-end pb-2">
             <.input field={@form[:active]} type="checkbox" label="Active" />
           </div>
         </div>

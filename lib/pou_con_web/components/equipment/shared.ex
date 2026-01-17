@@ -391,6 +391,54 @@ defmodule PouConWeb.Components.Equipment.Shared do
     """
   end
 
+  @doc """
+  Renders control button for equipment with virtual (software-controlled) mode.
+  Unlike physical switch control, virtual mode allows app to toggle power in manual mode.
+
+  - AUTO mode: Shows "System" (automation controls the equipment)
+  - MANUAL mode: Shows power button (user can control via app)
+
+  ## Examples
+
+      <.virtual_power_control
+        is_offline={@display.is_offline}
+        is_interlocked={@display.is_interlocked}
+        is_running={@display.is_running}
+        is_error={@display.is_error}
+        mode={@display.mode}
+        myself={@myself}
+      />
+  """
+  attr :is_offline, :boolean, required: true
+  attr :is_interlocked, :boolean, default: false
+  attr :is_running, :boolean, required: true
+  attr :is_error, :boolean, default: false
+  attr :mode, :atom, required: true
+  attr :myself, :any, required: true
+  attr :start_color, :string, default: "green"
+  attr :icon_size, :string, default: "w-5 h-5"
+
+  def virtual_power_control(assigns) do
+    ~H"""
+    <%= cond do %>
+      <% @is_offline -> %>
+        <.offline_button />
+      <% @mode == :auto -> %>
+        <.system_button />
+      <% @is_interlocked -> %>
+        <.blocked_button />
+      <% true -> %>
+        <.power_button
+          is_running={@is_running}
+          is_error={@is_error}
+          myself={@myself}
+          start_color={@start_color}
+          icon_size={@icon_size}
+        />
+    <% end %>
+    """
+  end
+
   # ——————————————————————————————————————————————
   # Equipment Body Section
   # ——————————————————————————————————————————————
