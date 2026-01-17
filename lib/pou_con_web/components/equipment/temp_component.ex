@@ -80,7 +80,7 @@ defmodule PouConWeb.Components.Equipment.TempComponent do
   end
 
   defp calculate_display_data(status) do
-    temp = status[:raw]
+    temp = status[:value]
 
     if is_nil(temp) do
       %{
