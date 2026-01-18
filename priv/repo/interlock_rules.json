@@ -1,34 +1,34 @@
 {
   "interlock_rules": [
     {
-      "enabled": true,
+      "enabled": 1,
       "id": 1,
-      "downstream_equipment_id": 21,
-      "upstream_equipment_id": 25
+      "upstream_equipment_id": 25,
+      "downstream_equipment_id": 21
     },
     {
-      "enabled": true,
+      "enabled": 1,
       "id": 2,
-      "downstream_equipment_id": 22,
-      "upstream_equipment_id": 25
+      "upstream_equipment_id": 25,
+      "downstream_equipment_id": 22
     },
     {
-      "enabled": true,
+      "enabled": 1,
       "id": 3,
-      "downstream_equipment_id": 23,
-      "upstream_equipment_id": 25
+      "upstream_equipment_id": 25,
+      "downstream_equipment_id": 23
     },
     {
-      "enabled": true,
+      "enabled": 1,
       "id": 4,
-      "downstream_equipment_id": 24,
-      "upstream_equipment_id": 25
+      "upstream_equipment_id": 25,
+      "downstream_equipment_id": 24
     },
     {
-      "enabled": true,
+      "enabled": 1,
       "id": 5,
-      "downstream_equipment_id": 25,
-      "upstream_equipment_id": 26
+      "upstream_equipment_id": 26,
+      "downstream_equipment_id": 25
     }
   ]
 }

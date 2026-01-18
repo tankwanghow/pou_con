@@ -6,9 +6,9 @@
       "register": 0,
       "type": "DI",
       "description": "Fan 1 Motor Trip",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 1,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -17,9 +17,9 @@
       "register": 0,
       "type": "DI",
       "description": "Fan 1 Motor Running",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 2,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -28,9 +28,9 @@
       "register": 0,
       "type": "DI",
       "description": "Fan 2 Motor Trip",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 3,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -39,9 +39,9 @@
       "register": 0,
       "type": "DI",
       "description": "Fan 2 Motor Running",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 4,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -50,9 +50,9 @@
       "register": 0,
       "type": "DI",
       "description": "Fan 3 Motor Trip",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 5,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -61,9 +61,9 @@
       "register": 0,
       "type": "DI",
       "description": "Fan 3 Motor Running",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 6,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -72,9 +72,9 @@
       "register": 0,
       "type": "DI",
       "description": "Fan 4 Motor Trip",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 7,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -83,9 +83,9 @@
       "register": 0,
       "type": "DI",
       "description": "Fan 4 Motor Running",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 8,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -94,9 +94,9 @@
       "register": 1,
       "type": "DI",
       "description": "Fan 5 Motor Trip",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 1,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -105,9 +105,9 @@
       "register": 1,
       "type": "DI",
       "description": "Fan 5 Motor Running",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 2,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -116,9 +116,9 @@
       "register": 1,
       "type": "DI",
       "description": "Fan 6 Motor Trip",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 3,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -127,9 +127,9 @@
       "register": 1,
       "type": "DI",
       "description": "Fan 6 Motor Running",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 4,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -138,9 +138,9 @@
       "register": 1,
       "type": "DI",
       "description": "Fan 7 Motor Trip",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 5,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -149,9 +149,9 @@
       "register": 1,
       "type": "DI",
       "description": "Fan 7 Motor Running",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 6,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -160,9 +160,9 @@
       "register": 1,
       "type": "DI",
       "description": "Fan 8 Motor Trip",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 7,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -171,9 +171,9 @@
       "register": 1,
       "type": "DI",
       "description": "Fan 8 Motor Running",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 8,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -182,9 +182,9 @@
       "register": 2,
       "type": "DI",
       "description": "Fan 9 Motor Trip",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 1,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -193,9 +193,9 @@
       "register": 2,
       "type": "DI",
       "description": "Fan 9 Motor Running",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 2,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -204,9 +204,9 @@
       "register": 2,
       "type": "DI",
       "description": "Fan 10 Motor Trip",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 3,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -215,9 +215,9 @@
       "register": 2,
       "type": "DI",
       "description": "Fan 10 Motor Running",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 4,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -226,9 +226,9 @@
       "register": 2,
       "type": "DI",
       "description": "Fan 11 Motor Trip",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 5,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -237,9 +237,9 @@
       "register": 2,
       "type": "DI",
       "description": "Fan 11 Motor Running",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 6,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -248,9 +248,9 @@
       "register": 2,
       "type": "DI",
       "description": "Fan 12 Motor Trip",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 7,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -259,9 +259,9 @@
       "register": 2,
       "type": "DI",
       "description": "Fan 12 Motor Running",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 8,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -270,9 +270,9 @@
       "register": 3,
       "type": "DI",
       "description": "Fan 13 Motor Trip",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 1,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -281,9 +281,9 @@
       "register": 3,
       "type": "DI",
       "description": "Fan 13 Motor Running",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 2,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -292,9 +292,9 @@
       "register": 3,
       "type": "DI",
       "description": "Fan 14 Motor Trip",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 3,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -303,9 +303,9 @@
       "register": 3,
       "type": "DI",
       "description": "Fan 14 Motor Running",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 4,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -314,9 +314,9 @@
       "register": 3,
       "type": "DI",
       "description": "Dung Belt 1 Motor Trip",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 5,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -325,9 +325,9 @@
       "register": 3,
       "type": "DI",
       "description": "Dung Belt 1 Motor Running",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 6,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -336,9 +336,9 @@
       "register": 3,
       "type": "DI",
       "description": "Dung Belt 2 Motor Trip",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 7,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -347,9 +347,9 @@
       "register": 3,
       "type": "DI",
       "description": "Dung Belt 2 Motor Running",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 8,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -358,9 +358,9 @@
       "register": 4,
       "type": "DI",
       "description": "Dung Belt 3 Motor Trip",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 1,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -369,9 +369,9 @@
       "register": 4,
       "type": "DI",
       "description": "Dung Belt 3 Motor Running",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 2,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -380,9 +380,9 @@
       "register": 4,
       "type": "DI",
       "description": "Dung Belt 4 Motor Trip",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 3,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -391,9 +391,9 @@
       "register": 4,
       "type": "DI",
       "description": "Dung Belt 4 Motor Running",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 4,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -402,9 +402,9 @@
       "register": 4,
       "type": "DI",
       "description": "Horizontal Dung Belt Motor Trip",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 5,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -413,9 +413,9 @@
       "register": 4,
       "type": "DI",
       "description": "Horizontal Dung Belt Motor Running",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 6,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -424,9 +424,9 @@
       "register": 4,
       "type": "DI",
       "description": "Incline Dung Belt Motor Trip",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 7,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -435,9 +435,9 @@
       "register": 4,
       "type": "DI",
       "description": "Incline Dung Belt Motor Running",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 8,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -446,9 +446,9 @@
       "register": 5,
       "type": "DI",
       "description": "Power Supply Unit 1 24VDC Healthy (Back Panel)",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 1,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -457,9 +457,9 @@
       "register": 5,
       "type": "DI",
       "description": "Power Supply Unit 2 24VDC Healthy (Back Panel)",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 2,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -468,9 +468,9 @@
       "register": 5,
       "type": "DI",
       "description": "Fan 1 Auto Mode Switch",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 3,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -479,9 +479,9 @@
       "register": 5,
       "type": "DI",
       "description": "Fan 2 Auto Mode Switch",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 4,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -490,9 +490,9 @@
       "register": 5,
       "type": "DI",
       "description": "Fan 3 Auto Mode Switch",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 5,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -501,9 +501,9 @@
       "register": 5,
       "type": "DI",
       "description": "Fan 4 Auto Mode Switch",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 6,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -512,9 +512,9 @@
       "register": 5,
       "type": "DI",
       "description": "Fan 5 Auto Mode Switch",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 7,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -523,9 +523,9 @@
       "register": 5,
       "type": "DI",
       "description": "Fan 6 Auto Mode Switch",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 8,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -534,9 +534,9 @@
       "register": 6,
       "type": "DI",
       "description": "Fan 7 Auto Mode Switch",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 1,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -545,9 +545,9 @@
       "register": 6,
       "type": "DI",
       "description": "Fan 8 Auto Mode Switch",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 2,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -556,9 +556,9 @@
       "register": 6,
       "type": "DI",
       "description": "Fan 9 Auto Mode Switch",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 3,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -567,9 +567,9 @@
       "register": 6,
       "type": "DI",
       "description": "Fan 10 Auto Mode Switch",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 4,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -578,9 +578,9 @@
       "register": 6,
       "type": "DI",
       "description": "Fan 11 Auto Mode Switch",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 5,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -589,9 +589,9 @@
       "register": 6,
       "type": "DI",
       "description": "Fan 12 Auto Mode Switch",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 6,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -600,9 +600,9 @@
       "register": 6,
       "type": "DI",
       "description": "Fan 13 Auto Mode Switch",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 7,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -611,9 +611,9 @@
       "register": 6,
       "type": "DI",
       "description": "Fan 14 Auto Mode Switch",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 8,
       "port_path": "s7://192.168.0.2"
     },
     {
@@ -622,9 +622,9 @@
       "register": 10,
       "type": "DI",
       "description": "Cooling Water Pump 1 Motor Trip",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 1,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -633,9 +633,9 @@
       "register": 10,
       "type": "DI",
       "description": "Cooling Water Pump 1 Motor Running",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 2,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -644,9 +644,9 @@
       "register": 10,
       "type": "DI",
       "description": "Cooling Water Pump 2 Motor Trip",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 3,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -655,9 +655,9 @@
       "register": 10,
       "type": "DI",
       "description": "Cooling Water Pump 2 Motor Running",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 4,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -666,9 +666,9 @@
       "register": 10,
       "type": "DI",
       "description": "Cooling Water Pump 3 Motor Trip",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 5,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -677,9 +677,9 @@
       "register": 10,
       "type": "DI",
       "description": "Cooling Water Pump 3 Motor Running",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 6,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -688,9 +688,9 @@
       "register": 10,
       "type": "DI",
       "description": "Feed Auger 1 Motor Trip",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 7,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -699,9 +699,9 @@
       "register": 10,
       "type": "DI",
       "description": "Feed Auger 1 Motor Running",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 8,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -710,9 +710,9 @@
       "register": 11,
       "type": "DI",
       "description": "Feed Chain 1 Motor Trip",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 1,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -721,9 +721,9 @@
       "register": 11,
       "type": "DI",
       "description": "Feed Chain 1 Motor Running Forward",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 2,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -732,9 +732,9 @@
       "register": 11,
       "type": "DI",
       "description": "Feed Chain 1 Motor Running Reverse",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 3,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -743,9 +743,9 @@
       "register": 11,
       "type": "DI",
       "description": "Feed Chain 1 Timer Active",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 4,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -754,9 +754,9 @@
       "register": 11,
       "type": "DI",
       "description": "Feed Chain 2 Motor Trip",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 5,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -765,9 +765,9 @@
       "register": 11,
       "type": "DI",
       "description": "Feed Chain 2 Motor Running Forward",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 6,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -776,9 +776,9 @@
       "register": 11,
       "type": "DI",
       "description": "Feed Chain 2 Motor Running Reverse",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 7,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -787,9 +787,9 @@
       "register": 11,
       "type": "DI",
       "description": "Feed Chain 2 Timer Active",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 8,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -798,9 +798,9 @@
       "register": 12,
       "type": "DI",
       "description": "Feed Chain 3 Motor Trip",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 1,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -809,9 +809,9 @@
       "register": 12,
       "type": "DI",
       "description": "Feed Chain 3 Motor Running Forward",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 2,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -820,9 +820,9 @@
       "register": 12,
       "type": "DI",
       "description": "Feed Chain 3 Motor Running Reverse",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 3,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -831,9 +831,9 @@
       "register": 12,
       "type": "DI",
       "description": "Feed Chain 3 Timer Active",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 4,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -842,9 +842,9 @@
       "register": 12,
       "type": "DI",
       "description": "Feed Chain 4 Motor Trip",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 5,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -853,9 +853,9 @@
       "register": 12,
       "type": "DI",
       "description": "Feed Chain 4 Motor Running Forward",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 6,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -864,9 +864,9 @@
       "register": 12,
       "type": "DI",
       "description": "Feed Chain 4 Motor Running Reverse",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 7,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -875,9 +875,9 @@
       "register": 12,
       "type": "DI",
       "description": "Feed Chain 4 Timer Active",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 8,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -886,9 +886,9 @@
       "register": 13,
       "type": "DI",
       "description": "Power Supply Unit 1 24VDC Healthy (Front Panel)",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 1,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -897,9 +897,9 @@
       "register": 13,
       "type": "DI",
       "description": "Power Supply Unit 2 24VDC Healthy (Front Panel)",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 2,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -908,9 +908,9 @@
       "register": 13,
       "type": "DI",
       "description": "Moulded Case Circuit Breaker Status (Front Panel)",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 3,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -919,9 +919,9 @@
       "register": 13,
       "type": "DI",
       "description": "Spare Digital Input I13.3",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 4,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -930,9 +930,9 @@
       "register": 13,
       "type": "DI",
       "description": "Spare Digital Input I13.4",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 5,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -941,9 +941,9 @@
       "register": 13,
       "type": "DI",
       "description": "Spare Digital Input I13.5",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 6,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -952,9 +952,9 @@
       "register": 13,
       "type": "DI",
       "description": "Spare Digital Input I13.6",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 7,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -963,9 +963,9 @@
       "register": 13,
       "type": "DI",
       "description": "Spare Digital Input I13.7",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 8,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -974,9 +974,9 @@
       "register": 14,
       "type": "DI",
       "description": "Feed Chain 1 Limit Switch 1 (Front)",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 1,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -985,9 +985,9 @@
       "register": 14,
       "type": "DI",
       "description": "Feed Chain 1 Limit Switch 2 (Back)",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 2,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -996,9 +996,9 @@
       "register": 14,
       "type": "DI",
       "description": "Feed Chain 2 Limit Switch 1 (Front)",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 3,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -1007,9 +1007,9 @@
       "register": 14,
       "type": "DI",
       "description": "Feed Chain 2 Limit Switch 2 (Back)",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 4,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -1018,9 +1018,9 @@
       "register": 14,
       "type": "DI",
       "description": "Feed Chain 3 Limit Switch 1 (Front)",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 5,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -1029,9 +1029,9 @@
       "register": 14,
       "type": "DI",
       "description": "Feed Chain 3 Limit Switch 2 (Back)",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 6,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -1040,9 +1040,9 @@
       "register": 14,
       "type": "DI",
       "description": "Feed Chain 4 Limit Switch 1 (Front)",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 7,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -1051,9 +1051,9 @@
       "register": 14,
       "type": "DI",
       "description": "Feed Chain 4 Limit Switch 2 (Back)",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 8,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -1062,9 +1062,9 @@
       "register": 15,
       "type": "DI",
       "description": "Spare Digital Input I15.0",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 1,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -1073,9 +1073,9 @@
       "register": 15,
       "type": "DI",
       "description": "Spare Digital Input I15.1",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 2,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -1084,9 +1084,9 @@
       "register": 15,
       "type": "DI",
       "description": "Spare Digital Input I15.2",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 3,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -1095,9 +1095,9 @@
       "register": 15,
       "type": "DI",
       "description": "Spare Digital Input I15.3",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 4,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -1106,9 +1106,9 @@
       "register": 15,
       "type": "DI",
       "description": "Spare Digital Input I15.4",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 5,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -1117,9 +1117,9 @@
       "register": 15,
       "type": "DI",
       "description": "Spare Digital Input I15.5",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 6,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -1128,9 +1128,9 @@
       "register": 15,
       "type": "DI",
       "description": "Spare Digital Input I15.6",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 7,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -1139,9 +1139,9 @@
       "register": 15,
       "type": "DI",
       "description": "Spare Digital Input I15.7",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_input",
+      "channel": 8,
       "port_path": "s7://192.168.0.1"
     },
     {
@@ -1150,11 +1150,11 @@
       "register": 0,
       "type": "DO",
       "description": "Fan 1 Motor Stop Command",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 1,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1002,
@@ -1162,11 +1162,11 @@
       "register": 0,
       "type": "DO",
       "description": "Fan 2 Motor Stop Command",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 2,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1003,
@@ -1174,11 +1174,11 @@
       "register": 0,
       "type": "DO",
       "description": "Fan 3 Motor Stop Command",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 3,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1004,
@@ -1186,11 +1186,11 @@
       "register": 0,
       "type": "DO",
       "description": "Fan 4 Motor Stop Command",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 4,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1005,
@@ -1198,11 +1198,11 @@
       "register": 0,
       "type": "DO",
       "description": "Fan 5 Motor Stop Command",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 5,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1006,
@@ -1210,11 +1210,11 @@
       "register": 0,
       "type": "DO",
       "description": "Fan 6 Motor Stop Command",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 6,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1007,
@@ -1222,11 +1222,11 @@
       "register": 0,
       "type": "DO",
       "description": "Fan 7 Motor Stop Command",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 7,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1008,
@@ -1234,11 +1234,11 @@
       "register": 0,
       "type": "DO",
       "description": "Fan 8 Motor Stop Command",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 8,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1009,
@@ -1246,11 +1246,11 @@
       "register": 1,
       "type": "DO",
       "description": "Fan 9 Motor Stop Command",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 1,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1010,
@@ -1258,11 +1258,11 @@
       "register": 1,
       "type": "DO",
       "description": "Fan 10 Motor Stop Command",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 2,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1011,
@@ -1270,11 +1270,11 @@
       "register": 1,
       "type": "DO",
       "description": "Fan 11 Motor Stop Command",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 3,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1012,
@@ -1282,11 +1282,11 @@
       "register": 1,
       "type": "DO",
       "description": "Fan 12 Motor Stop Command",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 4,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1013,
@@ -1294,11 +1294,11 @@
       "register": 1,
       "type": "DO",
       "description": "Fan 13 Motor Stop Command",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 5,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1014,
@@ -1306,11 +1306,11 @@
       "register": 1,
       "type": "DO",
       "description": "Fan 14 Motor Stop Command",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 6,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1015,
@@ -1318,11 +1318,11 @@
       "register": 1,
       "type": "DO",
       "description": "Dung Belt 1 Motor Start Command",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 7,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1016,
@@ -1330,11 +1330,11 @@
       "register": 1,
       "type": "DO",
       "description": "Dung Belt 2 Motor Start Command",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 8,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1017,
@@ -1342,11 +1342,11 @@
       "register": 2,
       "type": "DO",
       "description": "Dung Belt 3 Motor Start Command",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 1,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1018,
@@ -1354,11 +1354,11 @@
       "register": 2,
       "type": "DO",
       "description": "Dung Belt 4 Motor Start Command",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 2,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1019,
@@ -1366,11 +1366,11 @@
       "register": 2,
       "type": "DO",
       "description": "Horizontal Dung Belt Motor Start Command",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 3,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1020,
@@ -1378,11 +1378,11 @@
       "register": 2,
       "type": "DO",
       "description": "Incline Dung Belt Motor Start Command",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 4,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1021,
@@ -1390,11 +1390,11 @@
       "register": 2,
       "type": "DO",
       "description": "Alarm Siren (Back Panel)",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 5,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1022,
@@ -1402,11 +1402,11 @@
       "register": 2,
       "type": "DO",
       "description": "Revolving Warning Light (Back Panel)",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 6,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1023,
@@ -1414,11 +1414,11 @@
       "register": 2,
       "type": "DO",
       "description": "Spare Digital Output Q2.6",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 7,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1024,
@@ -1426,11 +1426,11 @@
       "register": 2,
       "type": "DO",
       "description": "Spare Digital Output Q2.7",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.2",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 8,
+      "port_path": "s7://192.168.0.2"
     },
     {
       "id": 1101,
@@ -1438,11 +1438,11 @@
       "register": 10,
       "type": "DO",
       "description": "Cooling Water Pump 1 Motor Start Command",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 1,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1102,
@@ -1450,11 +1450,11 @@
       "register": 10,
       "type": "DO",
       "description": "Cooling Water Pump 2 Motor Start Command",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 2,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1103,
@@ -1462,11 +1462,11 @@
       "register": 10,
       "type": "DO",
       "description": "Cooling Water Pump 3 Motor Start Command",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 3,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1104,
@@ -1474,11 +1474,11 @@
       "register": 10,
       "type": "DO",
       "description": "Feed Auger 1 Motor Start Command",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 4,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1105,
@@ -1486,11 +1486,11 @@
       "register": 10,
       "type": "DO",
       "description": "Feed Chain 1 Motor Start Forward Command",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 5,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1106,
@@ -1498,11 +1498,11 @@
       "register": 10,
       "type": "DO",
       "description": "Feed Chain 1 Motor Start Reverse Command",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 6,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1107,
@@ -1510,11 +1510,11 @@
       "register": 10,
       "type": "DO",
       "description": "Feed Chain 2 Motor Start Forward Command",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 7,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1108,
@@ -1522,11 +1522,11 @@
       "register": 10,
       "type": "DO",
       "description": "Feed Chain 2 Motor Start Reverse Command",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 8,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1109,
@@ -1534,11 +1534,11 @@
       "register": 11,
       "type": "DO",
       "description": "Feed Chain 3 Motor Start Forward Command",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 1,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1110,
@@ -1546,11 +1546,11 @@
       "register": 11,
       "type": "DO",
       "description": "Feed Chain 3 Motor Start Reverse Command",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 2,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1111,
@@ -1558,11 +1558,11 @@
       "register": 11,
       "type": "DO",
       "description": "Feed Chain 4 Motor Start Forward Command",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 3,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1112,
@@ -1570,11 +1570,11 @@
       "register": 11,
       "type": "DO",
       "description": "Feed Chain 4 Motor Start Reverse Command",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 4,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1113,
@@ -1582,11 +1582,11 @@
       "register": 11,
       "type": "DO",
       "description": "Spare Digital Output Q11.4",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 5,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1114,
@@ -1594,11 +1594,11 @@
       "register": 11,
       "type": "DO",
       "description": "Spare Digital Output Q11.5",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 6,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1115,
@@ -1606,11 +1606,11 @@
       "register": 11,
       "type": "DO",
       "description": "Spare Digital Output Q11.6",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 7,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1116,
@@ -1618,11 +1618,11 @@
       "register": 11,
       "type": "DO",
       "description": "Spare Digital Output Q11.7",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 8,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1117,
@@ -1630,11 +1630,11 @@
       "register": 12,
       "type": "DO",
       "description": "Alarm Siren (Front Panel)",
-      "channel": 1,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 1,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1118,
@@ -1642,11 +1642,11 @@
       "register": 12,
       "type": "DO",
       "description": "Revolving Warning Light (Front Panel)",
-      "channel": 2,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 2,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1119,
@@ -1654,11 +1654,11 @@
       "register": 12,
       "type": "DO",
       "description": "Spare Digital Output Q12.2",
-      "channel": 3,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 3,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1120,
@@ -1666,11 +1666,11 @@
       "register": 12,
       "type": "DO",
       "description": "Spare Digital Output Q12.3",
-      "channel": 4,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 4,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1121,
@@ -1678,11 +1678,11 @@
       "register": 12,
       "type": "DO",
       "description": "Spare Digital Output Q12.4",
-      "channel": 5,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 5,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1122,
@@ -1690,11 +1690,11 @@
       "register": 12,
       "type": "DO",
       "description": "Spare Digital Output Q12.5",
-      "channel": 6,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 6,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1123,
@@ -1702,11 +1702,11 @@
       "register": 12,
       "type": "DO",
       "description": "Spare Digital Output Q12.6",
-      "channel": 7,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 7,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 1124,
@@ -1714,331 +1714,331 @@
       "register": 12,
       "type": "DO",
       "description": "Spare Digital Output Q12.7",
-      "channel": 8,
       "slave_id": 1,
       "read_fn": "read_digital_output",
-      "port_path": "s7://192.168.0.1",
-      "write_fn": "write_digital_output"
+      "write_fn": "write_digital_output",
+      "channel": 8,
+      "port_path": "s7://192.168.0.1"
     },
     {
       "id": 2001,
       "name": "FAN01-CURRENT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 256,
       "type": "AI",
       "unit": "A",
       "description": "Fan 1 Motor Current",
-      "value_type": "uint16",
-      "scale_factor": 0.01,
-      "min_valid": 0.0,
-      "max_valid": 100.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.01,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 100
     },
     {
       "id": 2002,
       "name": "FAN02-CURRENT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 258,
       "type": "AI",
       "unit": "A",
       "description": "Fan 2 Motor Current",
-      "value_type": "uint16",
-      "scale_factor": 0.01,
-      "min_valid": 0.0,
-      "max_valid": 100.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.01,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 100
     },
     {
       "id": 2003,
       "name": "FAN03-CURRENT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 260,
       "type": "AI",
       "unit": "A",
       "description": "Fan 3 Motor Current",
-      "value_type": "uint16",
-      "scale_factor": 0.01,
-      "min_valid": 0.0,
-      "max_valid": 100.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.01,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 100
     },
     {
       "id": 2004,
       "name": "FAN04-CURRENT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 262,
       "type": "AI",
       "unit": "A",
       "description": "Fan 4 Motor Current",
-      "value_type": "uint16",
-      "scale_factor": 0.01,
-      "min_valid": 0.0,
-      "max_valid": 100.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.01,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 100
     },
     {
       "id": 2005,
       "name": "FAN05-CURRENT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 264,
       "type": "AI",
       "unit": "A",
       "description": "Fan 5 Motor Current",
-      "value_type": "uint16",
-      "scale_factor": 0.01,
-      "min_valid": 0.0,
-      "max_valid": 100.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.01,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 100
     },
     {
       "id": 2006,
       "name": "FAN06-CURRENT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 266,
       "type": "AI",
       "unit": "A",
       "description": "Fan 6 Motor Current",
-      "value_type": "uint16",
-      "scale_factor": 0.01,
-      "min_valid": 0.0,
-      "max_valid": 100.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.01,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 100
     },
     {
       "id": 2007,
       "name": "FAN07-CURRENT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 268,
       "type": "AI",
       "unit": "A",
       "description": "Fan 7 Motor Current",
-      "value_type": "uint16",
-      "scale_factor": 0.01,
-      "min_valid": 0.0,
-      "max_valid": 100.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.01,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 100
     },
     {
       "id": 2008,
       "name": "FAN08-CURRENT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 270,
       "type": "AI",
       "unit": "A",
       "description": "Fan 8 Motor Current",
-      "value_type": "uint16",
-      "scale_factor": 0.01,
-      "min_valid": 0.0,
-      "max_valid": 100.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.01,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 100
     },
     {
       "id": 2009,
       "name": "FAN09-CURRENT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 272,
       "type": "AI",
       "unit": "A",
       "description": "Fan 9 Motor Current",
-      "value_type": "uint16",
-      "scale_factor": 0.01,
-      "min_valid": 0.0,
-      "max_valid": 100.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.01,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 100
     },
     {
       "id": 2010,
       "name": "FAN10-CURRENT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 274,
       "type": "AI",
       "unit": "A",
       "description": "Fan 10 Motor Current",
-      "value_type": "uint16",
-      "scale_factor": 0.01,
-      "min_valid": 0.0,
-      "max_valid": 100.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.01,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 100
     },
     {
       "id": 2011,
       "name": "FAN11-CURRENT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 276,
       "type": "AI",
       "unit": "A",
       "description": "Fan 11 Motor Current",
-      "value_type": "uint16",
-      "scale_factor": 0.01,
-      "min_valid": 0.0,
-      "max_valid": 100.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.01,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 100
     },
     {
       "id": 2012,
       "name": "FAN12-CURRENT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 278,
       "type": "AI",
       "unit": "A",
       "description": "Fan 12 Motor Current",
-      "value_type": "uint16",
-      "scale_factor": 0.01,
-      "min_valid": 0.0,
-      "max_valid": 100.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.01,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 100
     },
     {
       "id": 2013,
       "name": "FAN13-CURRENT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 280,
       "type": "AI",
       "unit": "A",
       "description": "Fan 13 Motor Current",
-      "value_type": "uint16",
-      "scale_factor": 0.01,
-      "min_valid": 0.0,
-      "max_valid": 100.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.01,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 100
     },
     {
       "id": 2014,
       "name": "FAN14-CURRENT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 282,
       "type": "AI",
       "unit": "A",
       "description": "Fan 14 Motor Current",
-      "value_type": "uint16",
-      "scale_factor": 0.01,
-      "min_valid": 0.0,
-      "max_valid": 100.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.01,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 100
     },
     {
       "id": 2015,
       "name": "TT01-BACK",
-      "offset": 0.0,
+      "offset": 0,
       "register": 284,
       "type": "AI",
       "unit": "°C",
       "description": "Temperature Transmitter 1 (Back Panel)",
-      "value_type": "int16",
-      "scale_factor": 0.1,
-      "min_valid": -40.0,
-      "max_valid": 80.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.1,
+      "value_type": "int16",
+      "min_valid": -40,
+      "max_valid": 80
     },
     {
       "id": 2016,
       "name": "TT02-BACK",
-      "offset": 0.0,
+      "offset": 0,
       "register": 286,
       "type": "AI",
       "unit": "°C",
       "description": "Temperature Transmitter 2 (Back Panel)",
-      "value_type": "int16",
-      "scale_factor": 0.1,
-      "min_valid": -40.0,
-      "max_valid": 80.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.2"
+      "port_path": "s7://192.168.0.2",
+      "scale_factor": 0.1,
+      "value_type": "int16",
+      "min_valid": -40,
+      "max_valid": 80
     },
     {
       "id": 2017,
       "name": "TT01-FRONT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 356,
       "type": "AI",
       "unit": "°C",
       "description": "Temperature Transmitter 1 (Front Panel)",
-      "value_type": "int16",
-      "scale_factor": 0.1,
-      "min_valid": -40.0,
-      "max_valid": 80.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.1"
+      "port_path": "s7://192.168.0.1",
+      "scale_factor": 0.1,
+      "value_type": "int16",
+      "min_valid": -40,
+      "max_valid": 80
     },
     {
       "id": 2018,
       "name": "TT02-FRONT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 358,
       "type": "AI",
       "unit": "°C",
       "description": "Temperature Transmitter 2 (Front Panel)",
-      "value_type": "int16",
-      "scale_factor": 0.1,
-      "min_valid": -40.0,
-      "max_valid": 80.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.1"
+      "port_path": "s7://192.168.0.1",
+      "scale_factor": 0.1,
+      "value_type": "int16",
+      "min_valid": -40,
+      "max_valid": 80
     },
     {
       "id": 2019,
       "name": "RH01-FRONT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 360,
       "type": "AI",
       "unit": "%",
       "description": "Relative Humidity Transmitter 1 (Front Panel)",
-      "value_type": "uint16",
-      "scale_factor": 0.1,
-      "min_valid": 0.0,
-      "max_valid": 100.0,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.1"
+      "port_path": "s7://192.168.0.1",
+      "scale_factor": 0.1,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 100
     },
     {
       "id": 2020,
       "name": "FT01-FRONT",
-      "offset": 0.0,
+      "offset": 0,
       "register": 362,
       "type": "AI",
       "unit": "m³/h",
       "description": "Flow Transmitter 1 (Front Panel)",
-      "value_type": "uint16",
-      "scale_factor": 0.1,
-      "min_valid": 0.0,
-      "max_valid": 1.0e3,
       "slave_id": 1,
       "read_fn": "read_analog_input",
-      "port_path": "s7://192.168.0.1"
+      "port_path": "s7://192.168.0.1",
+      "scale_factor": 0.1,
+      "value_type": "uint16",
+      "min_valid": 0,
+      "max_valid": 1000
     },
     {
       "id": 3001,
@@ -2046,11 +2046,11 @@
       "register": 0,
       "type": "VDO",
       "description": "Pump 1 Auto/Manual Mode",
-      "channel": 1,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 1,
+      "port_path": "virtual"
     },
     {
       "id": 3002,
@@ -2058,11 +2058,11 @@
       "register": 0,
       "type": "VDO",
       "description": "Pump 2 Auto/Manual Mode",
-      "channel": 2,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 2,
+      "port_path": "virtual"
     },
     {
       "id": 3003,
@@ -2070,11 +2070,11 @@
       "register": 0,
       "type": "VDO",
       "description": "Pump 3 Auto/Manual Mode",
-      "channel": 3,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 3,
+      "port_path": "virtual"
     },
     {
       "id": 3004,
@@ -2082,11 +2082,11 @@
       "register": 0,
       "type": "VDO",
       "description": "Egg Belt 1 Auto/Manual Mode",
-      "channel": 4,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 4,
+      "port_path": "virtual"
     },
     {
       "id": 3005,
@@ -2094,11 +2094,11 @@
       "register": 0,
       "type": "VDO",
       "description": "Egg Belt 2 Auto/Manual Mode",
-      "channel": 5,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 5,
+      "port_path": "virtual"
     },
     {
       "id": 3006,
@@ -2106,11 +2106,11 @@
       "register": 0,
       "type": "VDO",
       "description": "Egg Belt 3 Auto/Manual Mode",
-      "channel": 6,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 6,
+      "port_path": "virtual"
     },
     {
       "id": 3007,
@@ -2118,23 +2118,25 @@
       "register": 0,
       "type": "VDO",
       "description": "Egg Belt 4 Auto/Manual Mode",
-      "channel": 7,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 7,
+      "port_path": "virtual"
     },
     {
       "id": 3008,
-      "name": "LGT01-AUTO",
+      "name": "SIREN-BACK-AUTO-MAN",
+      "offset": 0,
       "register": 0,
       "type": "VDO",
       "description": "Light 1 Auto/Manual Mode",
-      "channel": 8,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
+      "write_fn": "write_virtual_digital_output",
+      "channel": 8,
       "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "scale_factor": 1
     },
     {
       "id": 3009,
@@ -2142,11 +2144,11 @@
       "register": 0,
       "type": "VDO",
       "description": "Light 2 Auto/Manual Mode",
-      "channel": 9,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 9,
+      "port_path": "virtual"
     },
     {
       "id": 3010,
@@ -2154,11 +2156,11 @@
       "register": 0,
       "type": "VDO",
       "description": "Light 3 Auto/Manual Mode",
-      "channel": 10,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 10,
+      "port_path": "virtual"
     },
     {
       "id": 3011,
@@ -2166,11 +2168,11 @@
       "register": 0,
       "type": "VDO",
       "description": "Light 4 Auto/Manual Mode",
-      "channel": 11,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 11,
+      "port_path": "virtual"
     },
     {
       "id": 3012,
@@ -2178,11 +2180,11 @@
       "register": 0,
       "type": "VDO",
       "description": "Light 5 Auto/Manual Mode",
-      "channel": 12,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 12,
+      "port_path": "virtual"
     },
     {
       "id": 3013,
@@ -2190,11 +2192,11 @@
       "register": 0,
       "type": "VDO",
       "description": "Feeding Chain 1 Auto/Manual Mode",
-      "channel": 13,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 13,
+      "port_path": "virtual"
     },
     {
       "id": 3014,
@@ -2202,11 +2204,11 @@
       "register": 0,
       "type": "VDO",
       "description": "Feeding Chain 2 Auto/Manual Mode",
-      "channel": 14,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 14,
+      "port_path": "virtual"
     },
     {
       "id": 3015,
@@ -2214,11 +2216,11 @@
       "register": 0,
       "type": "VDO",
       "description": "Feeding Chain 3 Auto/Manual Mode",
-      "channel": 15,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 15,
+      "port_path": "virtual"
     },
     {
       "id": 3016,
@@ -2226,11 +2228,11 @@
       "register": 0,
       "type": "VDO",
       "description": "Feeding Chain 4 Auto/Manual Mode",
-      "channel": 16,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 16,
+      "port_path": "virtual"
     },
     {
       "id": 3017,
@@ -2238,11 +2240,11 @@
       "register": 0,
       "type": "VDO",
       "description": "Feed Auger 1  Auto/Manual Mode",
-      "channel": 17,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
-      "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "write_fn": "write_virtual_digital_output",
+      "channel": 17,
+      "port_path": "virtual"
     },
     {
       "id": 3018,
@@ -2250,11 +2252,25 @@
       "register": 0,
       "type": "VDO",
       "description": "Feed Auger 1 Hopper Full Switch",
-      "channel": 18,
       "slave_id": 200,
       "read_fn": "read_virtual_digital_output",
+      "write_fn": "write_virtual_digital_output",
+      "channel": 18,
+      "port_path": "virtual"
+    },
+    {
+      "id": 3019,
+      "name": "SIREN-FRONT-AUTO-MAN",
+      "offset": 0,
+      "register": 0,
+      "type": "VDO",
+      "description": "Light 1 Auto/Manual Mode",
+      "slave_id": 200,
+      "read_fn": "read_virtual_digital_output",
+      "write_fn": "write_virtual_digital_output",
+      "channel": 8,
       "port_path": "virtual",
-      "write_fn": "write_virtual_digital_output"
+      "scale_factor": 1
     }
   ]
 }

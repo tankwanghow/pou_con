@@ -268,65 +268,9 @@
       "active": true,
       "id": 61,
       "name": "siren_back",
-      "type": "light",
+      "type": "siren",
       "title": "Alarm Back",
-      "data_point_tree": "on_off_coil: SIREN-BACK\nauto_manual: LGT01-AUTO"
-    },
-    {
-      "active": true,
-      "id": 62,
-      "name": "siren_front",
-      "type": "light",
-      "title": "Alarm Front",
-      "data_point_tree": "on_off_coil: SIREN-FRONT\nauto_manual: LGT02-AUTO"
-    },
-    {
-      "active": true,
-      "id": 63,
-      "name": "warning_light_back",
-      "type": "light",
-      "title": "Alarm Light Back",
-      "data_point_tree": "on_off_coil: REVOLVING-LIGHT-BACK\nauto_manual: LGT03-AUTO"
-    },
-    {
-      "active": true,
-      "id": 64,
-      "name": "warning_light_front",
-      "type": "light",
-      "title": "Alarm Light Front",
-      "data_point_tree": "on_off_coil: REVOLVING-LIGHT-FRONT\nauto_manual: LGT04-AUTO"
-    },
-    {
-      "active": true,
-      "id": 71,
-      "name": "psu1_back",
-      "type": "status_indicator",
-      "title": "PSU 1 Back",
-      "data_point_tree": "status: PSU1-HEALTHY-BACK"
-    },
-    {
-      "active": true,
-      "id": 72,
-      "name": "psu2_back",
-      "type": "status_indicator",
-      "title": "PSU 2 Back",
-      "data_point_tree": "status: PSU2-HEALTHY-BACK"
-    },
-    {
-      "active": true,
-      "id": 73,
-      "name": "psu1_front",
-      "type": "status_indicator",
-      "title": "PSU 1 Front",
-      "data_point_tree": "status: PSU1-HEALTHY-FRONT"
-    },
-    {
-      "active": true,
-      "id": 74,
-      "name": "psu2_front",
-      "type": "status_indicator",
-      "title": "PSU 2 Front",
-      "data_point_tree": "status: PSU2-HEALTHY-FRONT"
+      "data_point_tree": "on_off_coil: SIREN-BACK\nauto_manual: SIREN-BACK-AUTO-MAN"
     },
     {
       "active": true,
@@ -343,6 +287,54 @@
       "type": "average_sensor",
       "title": "Temp & Hum Averages",
       "data_point_tree": "temp_sensors: TT01-BACK, TT02-BACK, TT01-FRONT, TT02-FRONT\nhumidity_sensors: RH01-FRONT"
+    },
+    {
+      "active": true,
+      "id": 77,
+      "name": "siren_front",
+      "type": "siren",
+      "title": "Alarm Front",
+      "data_point_tree": "on_off_coil: SIREN-FRONT\nauto_manual: SIREN-FRONT-AUTO-MAN"
+    },
+    {
+      "active": true,
+      "id": 78,
+      "name": "mccb_pi_01",
+      "type": "power_indicator",
+      "title": "MCCB 1",
+      "data_point_tree": "indicator: MCCB-FRONT"
+    },
+    {
+      "active": true,
+      "id": 79,
+      "name": "pus1-back",
+      "type": "power_indicator",
+      "title": "PSU 01 Back",
+      "data_point_tree": "indicator: PSU1-HEALTHY-BACK"
+    },
+    {
+      "active": true,
+      "id": 80,
+      "name": "pus2-back",
+      "type": "power_indicator",
+      "title": "PSU 02 Back",
+      "data_point_tree": "indicator: PSU2-HEALTHY-BACK"
+    },
+    {
+      "active": true,
+      "id": 81,
+      "name": "pus2-front",
+      "type": "power_indicator",
+      "title": "PSU 02 Front",
+      "data_point_tree": "indicator: PSU2-HEALTHY-FRONT"
+    },
+    {
+      "active": true,
+      "id": 82,
+      "name": "pus1-front",
+      "type": "power_indicator",
+      "title": "PSU 01 Front",
+      "data_point_tree": "indicator: PSU1-HEALTHY-FRONT"
     }
   ]
 }
