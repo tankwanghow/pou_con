@@ -43,32 +43,131 @@ defmodule PouConWeb.Live.Help.UserGuide do
         </:actions>
       </.header>
 
-      <div class="prose prose-sm max-w-none bg-white rounded-xl shadow-lg p-6 mt-4">
+      <div id="user-guide-content" class="bg-white rounded-xl shadow-lg p-6 mt-4">
         <style>
-          .prose h1 { @apply text-3xl font-bold text-gray-900 border-b-2 border-blue-500 pb-2 mb-6; }
-          .prose h2 { @apply text-2xl font-bold text-gray-800 border-b border-gray-300 pb-2 mt-8 mb-4; }
-          .prose h3 { @apply text-xl font-semibold text-gray-700 mt-6 mb-3; }
-          .prose h4 { @apply text-lg font-semibold text-gray-600 mt-4 mb-2; }
-          .prose p { @apply text-gray-700 leading-relaxed mb-4; }
-          .prose ul { @apply list-disc list-inside mb-4 space-y-1; }
-          .prose ol { @apply list-decimal list-inside mb-4 space-y-1; }
-          .prose li { @apply text-gray-700; }
-          .prose table { @apply w-full border-collapse border border-gray-300 mb-6; }
-          .prose th { @apply bg-gray-100 border border-gray-300 px-4 py-2 text-left font-semibold; }
-          .prose td { @apply border border-gray-300 px-4 py-2; }
-          .prose code { @apply bg-gray-100 text-rose-600 px-1 py-0.5 rounded text-sm font-mono; }
-          .prose pre { @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-4; }
-          .prose pre code { @apply bg-transparent text-gray-100 px-0 py-0; }
-          .prose a { @apply text-blue-600 hover:text-blue-800 underline; }
-          .prose strong { @apply font-bold text-gray-900; }
-          .prose hr { @apply border-gray-300 my-8; }
-          .prose blockquote { @apply border-l-4 border-blue-500 pl-4 italic text-gray-600 my-4; }
+          #user-guide-content h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: #111827;
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+            margin-top: 0;
+          }
+          #user-guide-content h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1f2937;
+            border-bottom: 1px solid #d1d5db;
+            padding-bottom: 0.5rem;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+          }
+          #user-guide-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #374151;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+          }
+          #user-guide-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #4b5563;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+          }
+          #user-guide-content p {
+            color: #374151;
+            line-height: 1.75;
+            margin-bottom: 1rem;
+          }
+          #user-guide-content ul {
+            list-style-type: disc;
+            padding-left: 1.5rem;
+            margin-bottom: 1rem;
+          }
+          #user-guide-content ol {
+            list-style-type: decimal;
+            padding-left: 1.5rem;
+            margin-bottom: 1rem;
+          }
+          #user-guide-content li {
+            color: #374151;
+            margin-bottom: 0.25rem;
+            line-height: 1.6;
+          }
+          #user-guide-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+          }
+          #user-guide-content th {
+            background-color: #f3f4f6;
+            border: 1px solid #d1d5db;
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-weight: 600;
+          }
+          #user-guide-content td {
+            border: 1px solid #d1d5db;
+            padding: 0.75rem 1rem;
+          }
+          #user-guide-content code {
+            background-color: #fef2f2;
+            color: #dc2626;
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            font-family: ui-monospace, monospace;
+          }
+          #user-guide-content pre {
+            background-color: #1f2937;
+            color: #f3f4f6;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin-bottom: 1rem;
+          }
+          #user-guide-content pre code {
+            background-color: transparent;
+            color: #f3f4f6;
+            padding: 0;
+          }
+          #user-guide-content a {
+            color: #2563eb;
+            text-decoration: underline;
+          }
+          #user-guide-content a:hover {
+            color: #1d4ed8;
+          }
+          #user-guide-content strong {
+            font-weight: 700;
+            color: #111827;
+          }
+          #user-guide-content hr {
+            border: none;
+            border-top: 1px solid #d1d5db;
+            margin: 2rem 0;
+          }
+          #user-guide-content blockquote {
+            border-left: 4px solid #3b82f6;
+            padding-left: 1rem;
+            font-style: italic;
+            color: #4b5563;
+            margin: 1rem 0;
+          }
         </style>
         {raw(@content)}
       </div>
 
       <div class="mt-6 text-center text-sm text-gray-500">
-        <a href="#" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;" class="text-blue-600 hover:text-blue-800">
+        <a
+          href="#"
+          onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;"
+          class="text-blue-600 hover:text-blue-800"
+        >
           Back to Top
         </a>
       </div>
