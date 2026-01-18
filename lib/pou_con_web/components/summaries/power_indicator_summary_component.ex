@@ -36,7 +36,10 @@ defmodule PouConWeb.Components.Summaries.PowerIndicatorSummaryComponent do
       <div class="flex flex-wrap">
         <%= for eq <- @equipments do %>
           <div class="px-3 py-2 flex flex-col items-center justify-center transition-colors">
-            <div class={"text-xs font-medium text-#{eq.color}-600 truncate max-w-[60px]"} title={eq.title}>
+            <div
+              class={"text-xs font-medium text-#{eq.color}-600 truncate max-w-[60px]"}
+              title={eq.title}
+            >
               {eq.title}
             </div>
             <div class={["transition-colors", "text-#{eq.color}-500"]}>

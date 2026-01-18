@@ -29,7 +29,11 @@ defmodule PouConWeb.Components.Equipment.PumpComponent do
         >
           <:controls>
             <%= if @display.is_auto_manual_virtual_di do %>
-              <Shared.mode_toggle mode={@display.mode} is_offline={@display.is_offline} myself={@myself} />
+              <Shared.mode_toggle
+                mode={@display.mode}
+                is_offline={@display.is_offline}
+                myself={@myself}
+              />
             <% else %>
               <Shared.mode_indicator mode={@display.mode} />
             <% end %>

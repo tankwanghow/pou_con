@@ -121,7 +121,9 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
       poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
-    Logger.info("[#{name}] Starting AverageSensor with #{length(state.temp_sensors)} temp sensors and #{length(state.humidity_sensors)} humidity sensors")
+    Logger.info(
+      "[#{name}] Starting AverageSensor with #{length(state.temp_sensors)} temp sensors and #{length(state.humidity_sensors)} humidity sensors"
+    )
 
     {:ok, state, {:continue, :initial_poll}}
   end

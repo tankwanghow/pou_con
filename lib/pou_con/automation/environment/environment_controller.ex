@@ -240,6 +240,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
           # No temperature data - fall back to step 1 if it exists
           state.avg_temp == nil ->
             active_steps = ConfigSchema.get_active_steps(config)
+
             case Enum.find(active_steps, fn s -> s.step == 1 end) do
               nil -> nil
               _step_1 -> 1
@@ -251,10 +252,12 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
               nil ->
                 # Temp below all thresholds - use step 1 if available
                 active_steps = ConfigSchema.get_active_steps(config)
+
                 case Enum.find(active_steps, fn s -> s.step == 1 end) do
                   nil -> nil
                   _step_1 -> 1
                 end
+
               step ->
                 step.step
             end

@@ -68,14 +68,24 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
     config
     |> cast(
       attrs,
-      [:stagger_delay_seconds, :delay_between_step_seconds, :hum_min, :hum_max, :enabled, :environment_poll_interval_ms] ++
+      [
+        :stagger_delay_seconds,
+        :delay_between_step_seconds,
+        :hum_min,
+        :hum_max,
+        :enabled,
+        :environment_poll_interval_ms
+      ] ++
         @step_fields
     )
     |> validate_number(:stagger_delay_seconds, greater_than_or_equal_to: 2)
     |> validate_number(:delay_between_step_seconds, greater_than_or_equal_to: 30)
     |> validate_number(:hum_min, greater_than_or_equal_to: 20, less_than_or_equal_to: 90)
     |> validate_number(:hum_max, greater_than_or_equal_to: 20, less_than_or_equal_to: 95)
-    |> validate_number(:environment_poll_interval_ms, greater_than_or_equal_to: 1000, less_than_or_equal_to: 60000)
+    |> validate_number(:environment_poll_interval_ms,
+      greater_than_or_equal_to: 1000,
+      less_than_or_equal_to: 60000
+    )
     |> validate_step_temps()
     |> validate_active_steps()
   end

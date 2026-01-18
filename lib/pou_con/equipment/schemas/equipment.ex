@@ -47,7 +47,10 @@ defmodule PouCon.Equipment.Schemas.Equipment do
     )
     |> validate_data_point_tree()
     |> set_default_poll_interval()
-    |> validate_number(:poll_interval_ms, greater_than_or_equal_to: 100, less_than_or_equal_to: 60000)
+    |> validate_number(:poll_interval_ms,
+      greater_than_or_equal_to: 100,
+      less_than_or_equal_to: 60000
+    )
   end
 
   defp set_default_poll_interval(changeset) do

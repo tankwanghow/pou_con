@@ -519,7 +519,11 @@ defmodule PouCon.Hardware.DataPointManager do
         "[#{name}] Timeout #{current_count}/#{@max_consecutive_timeouts} for slave #{slave_id} on #{port_path}"
       )
 
-      new_state = %{state | failure_counts: Map.put(state.failure_counts, {port_path, slave_id}, current_count)}
+      new_state = %{
+        state
+        | failure_counts: Map.put(state.failure_counts, {port_path, slave_id}, current_count)
+      }
+
       {error, new_state}
     end
   end
