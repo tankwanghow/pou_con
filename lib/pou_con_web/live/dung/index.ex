@@ -128,7 +128,7 @@ defmodule PouConWeb.Live.Dung.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_role={@current_role}>
       <.header>
         Dung Scraping
         <:actions>
@@ -136,31 +136,28 @@ defmodule PouConWeb.Live.Dung.Index do
         </:actions>
       </.header>
 
-      <div class="p-4">
-        <!-- Fans -->
-        <div class="flex flex-wrap gap-1 justify-center">
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "dung_exit")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.DungExitComponent}
-              id={eq.name}
-              equipment={eq}
-            />
-          <% end %>
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "dung_horz")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.DungHorComponent}
-              id={eq.name}
-              equipment={eq}
-            />
-          <% end %>
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "dung")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.DungComponent}
-              id={eq.name}
-              equipment={eq}
-            />
-          <% end %>
-        </div>
+      <div class="flex flex-wrap gap-1 justify-center">
+        <%= for eq <- Enum.filter(@equipment, &(&1.type == "dung_exit")) |> Enum.sort_by(& &1.title) do %>
+          <.live_component
+            module={PouConWeb.Components.Equipment.DungExitComponent}
+            id={eq.name}
+            equipment={eq}
+          />
+        <% end %>
+        <%= for eq <- Enum.filter(@equipment, &(&1.type == "dung_horz")) |> Enum.sort_by(& &1.title) do %>
+          <.live_component
+            module={PouConWeb.Components.Equipment.DungHorComponent}
+            id={eq.name}
+            equipment={eq}
+          />
+        <% end %>
+        <%= for eq <- Enum.filter(@equipment, &(&1.type == "dung")) |> Enum.sort_by(& &1.title) do %>
+          <.live_component
+            module={PouConWeb.Components.Equipment.DungComponent}
+            id={eq.name}
+            equipment={eq}
+          />
+        <% end %>
       </div>
     </Layouts.app>
     """

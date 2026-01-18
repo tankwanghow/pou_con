@@ -157,7 +157,7 @@ defmodule PouConWeb.Live.Environment.Control do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_role={@current_role}>
       <div class="max-w-6xl mx-auto">
         <div class="flex justify-between items-center bg-blue-200 p-4 rounded-2xl">
           <p class="text-gray-700">
@@ -173,7 +173,14 @@ defmodule PouConWeb.Live.Environment.Control do
               <span class="text-2xl">✅</span>
               <span class="font-bold">{@flash["info"]}</span>
             </div>
-            <button type="button" phx-click="lv:clear-flash" phx-value-key="info" class="text-green-600 hover:text-green-800 font-bold text-xl">&times;</button>
+            <button
+              type="button"
+              phx-click="lv:clear-flash"
+              phx-value-key="info"
+              class="text-green-600 hover:text-green-800 font-bold text-xl"
+            >
+              &times;
+            </button>
           </div>
         <% end %>
 
@@ -183,7 +190,14 @@ defmodule PouConWeb.Live.Environment.Control do
               <span class="text-2xl">❌</span>
               <span class="font-bold">{@flash["error"]}</span>
             </div>
-            <button type="button" phx-click="lv:clear-flash" phx-value-key="error" class="text-red-600 hover:text-red-800 font-bold text-xl">&times;</button>
+            <button
+              type="button"
+              phx-click="lv:clear-flash"
+              phx-value-key="error"
+              class="text-red-600 hover:text-red-800 font-bold text-xl"
+            >
+              &times;
+            </button>
           </div>
         <% end %>
 
@@ -197,7 +211,7 @@ defmodule PouConWeb.Live.Environment.Control do
               <%= for fan_name <- @manual_fans do %>
                 <% fan = Enum.find(@fans, fn f -> f.name == fan_name end) %>
                 <span class="px-3 py-1 bg-amber-100 text-amber-800 rounded-lg font-mono font-bold border border-amber-400">
-                  {fan && fan.title || fan_name}
+                  {(fan && fan.title) || fan_name}
                 </span>
               <% end %>
             </div>
@@ -214,7 +228,7 @@ defmodule PouConWeb.Live.Environment.Control do
               <%= for pump_name <- @manual_pumps do %>
                 <% pump = Enum.find(@pumps, fn p -> p.name == pump_name end) %>
                 <span class="px-3 py-1 bg-amber-100 text-amber-800 rounded-lg font-mono font-bold border border-amber-400">
-                  {pump && pump.title || pump_name}
+                  {(pump && pump.title) || pump_name}
                 </span>
               <% end %>
             </div>

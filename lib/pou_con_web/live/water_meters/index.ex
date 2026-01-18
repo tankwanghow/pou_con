@@ -120,7 +120,7 @@ defmodule PouConWeb.Live.WaterMeters.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_role={@current_role}>
       <.header>
         Water Meters
         <:actions>
@@ -128,124 +128,121 @@ defmodule PouConWeb.Live.WaterMeters.Index do
         </:actions>
       </.header>
 
-      <div class="p-4">
-        <%!-- Summary Stats Panel --%>
-        <div class="bg-white shadow-sm rounded-xl border border-gray-200 p-4 mb-6">
-          <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
-            <div>
-              <div class="text-sm text-gray-500 uppercase">Current Flow</div>
-              <div class="text-2xl font-bold font-mono text-cyan-600">
-                {format_flow(@total_flow_rate)}
-              </div>
+      <div class="bg-white shadow-sm rounded-xl border border-gray-200 p-4 mb-6">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
+          <div>
+            <div class="text-sm text-gray-500 uppercase">Current Flow</div>
+            <div class="text-2xl font-bold font-mono text-cyan-600">
+              {format_flow(@total_flow_rate)}
             </div>
-            <div>
-              <div class="text-sm text-gray-500 uppercase">Total Consumption</div>
-              <div class="text-2xl font-bold font-mono text-blue-600">
-                {format_volume(@total_consumption)}
-              </div>
+          </div>
+          <div>
+            <div class="text-sm text-gray-500 uppercase">Total Consumption</div>
+            <div class="text-2xl font-bold font-mono text-blue-600">
+              {format_volume(@total_consumption)}
             </div>
-            <div>
-              <div class="text-sm text-gray-500 uppercase">Meters Online</div>
-              <div class="text-2xl font-bold font-mono text-emerald-600">
-                {count_online(@equipment)} / {length(@equipment)}
-              </div>
+          </div>
+          <div>
+            <div class="text-sm text-gray-500 uppercase">Meters Online</div>
+            <div class="text-2xl font-bold font-mono text-emerald-600">
+              {count_online(@equipment)} / {length(@equipment)}
             </div>
           </div>
         </div>
+      </div>
 
-        <%!-- Daily Consumption (last 7 days) --%>
-        <div
-          :if={length(@daily_consumption) > 0}
-          class="bg-white shadow-sm rounded-xl border border-gray-200 p-4 mb-6"
-        >
-          <h3 class="text-lg font-semibold text-gray-700 mb-3">
-            Daily Water Consumption (Last 7 Days)
-          </h3>
-          <div class="grid grid-cols-7 gap-2">
-            <%= for day <- Enum.take(@daily_consumption, 7) do %>
-              <div class="bg-cyan-50 p-3 rounded text-center">
-                <div class="text-xs text-gray-500">
-                  {Calendar.strftime(day.date, "%d %b")}
-                </div>
-                <div class="text-lg font-bold text-cyan-600">
-                  {Formatters.format_decimal(day.consumption, 1)}
-                </div>
-                <div class="text-xs text-gray-400">m³</div>
+      <%!-- Daily Consumption (last 7 days) --%>
+      <div
+        :if={length(@daily_consumption) > 0}
+        class="bg-white shadow-sm rounded-xl border border-gray-200 p-4 mb-6"
+      >
+        <h3 class="text-lg font-semibold text-gray-700 mb-3">
+          Daily Water Consumption (Last 7 Days)
+        </h3>
+        <div class="grid grid-cols-7 gap-2">
+          <%= for day <- Enum.take(@daily_consumption, 7) do %>
+            <div class="bg-cyan-50 p-3 rounded text-center">
+              <div class="text-xs text-gray-500">
+                {Calendar.strftime(day.date, "%d %b")}
               </div>
-            <% end %>
-          </div>
-        </div>
-
-        <%!-- Water Meter Cards --%>
-        <div class="flex flex-wrap gap-4">
-          <%= for eq <- @equipment |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.WaterMeterComponent}
-              id={eq.name}
-              equipment={eq}
-            />
+              <div class="text-lg font-bold text-cyan-600">
+                {Formatters.format_decimal(day.consumption, 1)}
+              </div>
+              <div class="text-xs text-gray-400">m³</div>
+            </div>
           <% end %>
         </div>
+      </div>
 
-        <%!-- Detailed Data Table --%>
-        <div
-          :if={length(@equipment) > 0}
-          class="mt-6 bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden"
-        >
-          <table class="w-full text-sm">
-            <thead class="bg-cyan-600 text-white">
-              <tr>
-                <th class="p-3 text-left">Meter</th>
-                <th class="p-3 text-right">Flow Rate</th>
-                <th class="p-3 text-right">Cumulative</th>
-                <th class="p-3 text-right">Temperature</th>
-                <th class="p-3 text-right">Pressure</th>
-                <th class="p-3 text-right">Battery</th>
-                <th class="p-3 text-center">Pipe</th>
-                <th class="p-3 text-center">Valve</th>
-                <th class="p-3 text-center">Status</th>
+      <%!-- Water Meter Cards --%>
+      <div class="flex flex-wrap gap-4">
+        <%= for eq <- @equipment |> Enum.sort_by(& &1.title) do %>
+          <.live_component
+            module={PouConWeb.Components.Equipment.WaterMeterComponent}
+            id={eq.name}
+            equipment={eq}
+          />
+        <% end %>
+      </div>
+
+      <%!-- Detailed Data Table --%>
+      <div
+        :if={length(@equipment) > 0}
+        class="mt-6 bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden"
+      >
+        <table class="w-full text-sm">
+          <thead class="bg-cyan-600 text-white">
+            <tr>
+              <th class="p-3 text-left">Meter</th>
+              <th class="p-3 text-right">Flow Rate</th>
+              <th class="p-3 text-right">Cumulative</th>
+              <th class="p-3 text-right">Temperature</th>
+              <th class="p-3 text-right">Pressure</th>
+              <th class="p-3 text-right">Battery</th>
+              <th class="p-3 text-center">Pipe</th>
+              <th class="p-3 text-center">Valve</th>
+              <th class="p-3 text-center">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for eq <- @equipment |> Enum.sort_by(& &1.title) do %>
+              <tr class="border-t border-gray-100 hover:bg-gray-50">
+                <td class="p-3 font-medium text-gray-800">{eq.status[:title] || eq.title}</td>
+                <td class="p-3 text-right font-mono text-cyan-600">
+                  {format_flow(eq.status[:flow_rate])}
+                </td>
+                <td class="p-3 text-right font-mono text-blue-600">
+                  {format_volume(eq.status[:positive_flow])}
+                </td>
+                <td class="p-3 text-right font-mono text-amber-600">
+                  {format_temp(eq.status[:temperature])}
+                </td>
+                <td class="p-3 text-right font-mono text-green-600">
+                  {format_pressure(eq.status[:pressure])}
+                </td>
+                <td class="p-3 text-right font-mono text-gray-600">
+                  {format_battery(eq.status[:battery_voltage])}
+                </td>
+                <td class="p-3 text-center">
+                  <.pipe_badge status={eq.status[:pipe_status]} />
+                </td>
+                <td class="p-3 text-center">
+                  <.valve_badge status={eq.status[:valve_status]} />
+                </td>
+                <td class="p-3 text-center">
+                  <.status_badge error={eq.status[:error]} />
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              <%= for eq <- @equipment |> Enum.sort_by(& &1.title) do %>
-                <tr class="border-t border-gray-100 hover:bg-gray-50">
-                  <td class="p-3 font-medium text-gray-800">{eq.status[:title] || eq.title}</td>
-                  <td class="p-3 text-right font-mono text-cyan-600">
-                    {format_flow(eq.status[:flow_rate])}
-                  </td>
-                  <td class="p-3 text-right font-mono text-blue-600">
-                    {format_volume(eq.status[:positive_flow])}
-                  </td>
-                  <td class="p-3 text-right font-mono text-amber-600">
-                    {format_temp(eq.status[:temperature])}
-                  </td>
-                  <td class="p-3 text-right font-mono text-green-600">
-                    {format_pressure(eq.status[:pressure])}
-                  </td>
-                  <td class="p-3 text-right font-mono text-gray-600">
-                    {format_battery(eq.status[:battery_voltage])}
-                  </td>
-                  <td class="p-3 text-center">
-                    <.pipe_badge status={eq.status[:pipe_status]} />
-                  </td>
-                  <td class="p-3 text-center">
-                    <.valve_badge status={eq.status[:valve_status]} />
-                  </td>
-                  <td class="p-3 text-center">
-                    <.status_badge error={eq.status[:error]} />
-                  </td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-        </div>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
 
-        <%!-- Empty State --%>
-        <div :if={length(@equipment) == 0} class="text-center py-12 text-gray-500">
-          <div class="text-lg">No water meters configured</div>
-          <div class="text-sm mt-2">
-            Add water meter equipment in Admin → Equipment
-          </div>
+      <%!-- Empty State --%>
+      <div :if={length(@equipment) == 0} class="text-center py-12 text-gray-500">
+        <div class="text-lg">No water meters configured</div>
+        <div class="text-sm mt-2">
+          Add water meter equipment in Admin → Equipment
         </div>
       </div>
     </Layouts.app>

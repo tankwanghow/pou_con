@@ -102,7 +102,7 @@ defmodule PouConWeb.Live.PowerIndicators.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_role={@current_role}>
       <.header>
         Power Status
         <:actions>
@@ -110,7 +110,7 @@ defmodule PouConWeb.Live.PowerIndicators.Index do
         </:actions>
       </.header>
 
-      <div class="p-4">
+      <div>
         <div class="flex flex-wrap gap-4 justify-center">
           <%= for eq <- Enum.filter(@equipment, &(&1.type == "power_indicator")) |> Enum.sort_by(& &1.title) do %>
             <.indicator_card equipment={eq} />

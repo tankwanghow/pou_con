@@ -37,7 +37,7 @@ defmodule PouConWeb.Live.Flock.DailyYields do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-4/5">
+    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-4/5" current_role={@current_role}>
       <.header>
         Daily Yields: {@flock.name}
         <:actions>

@@ -68,7 +68,7 @@ defmodule PouConWeb.Live.Admin.Tasks.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_role={@current_role}>
       <.header>
         Task Templates
         <:subtitle>Configure recurring maintenance and operational tasks</:subtitle>

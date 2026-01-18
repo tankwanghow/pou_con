@@ -102,11 +102,10 @@ defmodule PouConWeb.Live.Operations.Tasks do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_role={@current_role}>
       <.header>
         Operations Tasks
         <:actions>
-          <.btn_link to={~p"/admin/tasks"} label="Manage Tasks" color="amber" />
           <.dashboard_link />
         </:actions>
       </.header>

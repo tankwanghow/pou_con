@@ -114,11 +114,11 @@ defmodule PouConWeb.Live.Lighting.Schedules do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-4/5">
+    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-4/5" current_role={@current_role}>
       <.header>
         Light Schedules
         <:actions>
-          <.btn_link to={~p"/lighting"} label="Back" />
+          <.dashboard_link />
         </:actions>
       </.header>
       

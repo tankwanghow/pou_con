@@ -133,26 +133,23 @@ defmodule PouConWeb.Live.EggCollection.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_role={@current_role}>
       <.header>
         Egg Collection
         <:actions>
-          <.btn_link to={~p"/admin/egg_collection/schedules"} label="Schedules" />
           <.dashboard_link />
         </:actions>
       </.header>
-
-      <div class="p-4">
-        <!-- Egg Collection Equipment -->
-        <div class="flex flex-wrap gap-1 justify-center">
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "egg")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.EggComponent}
-              id={eq.name}
-              equipment={eq}
-            />
-          <% end %>
-        </div>
+      
+    <!-- Egg Collection Equipment -->
+      <div class="flex flex-wrap gap-1 justify-center">
+        <%= for eq <- Enum.filter(@equipment, &(&1.type == "egg")) |> Enum.sort_by(& &1.title) do %>
+          <.live_component
+            module={PouConWeb.Components.Equipment.EggComponent}
+            id={eq.name}
+            equipment={eq}
+          />
+        <% end %>
       </div>
     </Layouts.app>
     """

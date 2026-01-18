@@ -133,26 +133,22 @@ defmodule PouConWeb.Live.Lighting.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_role={@current_role}>
       <.header>
         Lighting
         <:actions>
-          <.btn_link to={~p"/admin/lighting/schedules"} label="Schedules" />
           <.dashboard_link />
         </:actions>
       </.header>
 
-      <div class="p-4">
-        <!-- Lights -->
-        <div class="flex flex-wrap gap-1 justify-center">
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "light")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.LightComponent}
-              id={eq.name}
-              equipment={eq}
-            />
-          <% end %>
-        </div>
+      <div class="flex flex-wrap gap-1 justify-center">
+        <%= for eq <- Enum.filter(@equipment, &(&1.type == "light")) |> Enum.sort_by(& &1.title) do %>
+          <.live_component
+            module={PouConWeb.Components.Equipment.LightComponent}
+            id={eq.name}
+            equipment={eq}
+          />
+        <% end %>
       </div>
     </Layouts.app>
     """

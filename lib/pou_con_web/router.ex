@@ -103,31 +103,37 @@ defmodule PouConWeb.Router do
   scope "/", PouConWeb do
     pipe_through(:browser)
 
-    # Dashboard is now the root page - accessible without login
-    live("/", Live.Dashboard.Index, :index)
-    live("/dashboard", Live.Dashboard.Index, :index)
-
-    # Auth routes
-    live("/setup", Live.Auth.Setup, :index)
-    live("/login", Live.Auth.Login, :index)
+    # Non-LiveView auth routes (outside live_session)
     get("/auth/session", SessionController, :create)
     post("/logout", AuthController, :logout)
 
-    # Reports are public (read-only)
-    live("/reports", Live.Reports.Index, :index)
+    # Public LiveView routes with default hook for current_role assignment
+    live_session :public,
+      on_mount: [{PouConWeb.AuthHooks, :default}] do
+      # Dashboard is now the root page - accessible without login
+      live("/", Live.Dashboard.Index, :index)
+      live("/dashboard", Live.Dashboard.Index, :index)
 
-    # Equipment monitoring pages (public - users can view status)
-    live("/temp_hum", Live.TempHum.Index, :index)
-    live("/fans", Live.Fans.Index, :index)
-    live("/pumps", Live.Pumps.Index, :index)
-    live("/lighting", Live.Lighting.Index, :index)
-    live("/sirens", Live.Sirens.Index, :index)
-    live("/power_indicators", Live.PowerIndicators.Index, :index)
-    live("/egg_collection", Live.EggCollection.Index, :index)
-    live("/feed", Live.Feeding.Index, :index)
-    live("/dung", Live.Dung.Index, :index)
-    live("/power_meters", Live.PowerMeters.Index, :index)
-    live("/water_meters", Live.WaterMeters.Index, :index)
+      # Auth routes
+      live("/setup", Live.Auth.Setup, :index)
+      live("/login", Live.Auth.Login, :index)
+
+      # Reports are public (read-only)
+      live("/reports", Live.Reports.Index, :index)
+
+      # Equipment monitoring pages (public - users can view status)
+      live("/temp_hum", Live.TempHum.Index, :index)
+      live("/fans", Live.Fans.Index, :index)
+      live("/pumps", Live.Pumps.Index, :index)
+      live("/lighting", Live.Lighting.Index, :index)
+      live("/sirens", Live.Sirens.Index, :index)
+      live("/power_indicators", Live.PowerIndicators.Index, :index)
+      live("/egg_collection", Live.EggCollection.Index, :index)
+      live("/feed", Live.Feeding.Index, :index)
+      live("/dung", Live.Dung.Index, :index)
+      live("/power_meters", Live.PowerMeters.Index, :index)
+      live("/water_meters", Live.WaterMeters.Index, :index)
+    end
   end
 
   # --------------------------------------------------------------------
@@ -179,6 +185,11 @@ defmodule PouConWeb.Router do
       live("/flocks", Live.Admin.Flock.Index, :index)
       live("/flocks/new", Live.Admin.Flock.Form, :new)
       live("/flocks/:id/edit", Live.Admin.Flock.Form, :edit)
+
+      # Alarm rules configuration (admin only)
+      live("/alarm", Live.Admin.Alarm.Index, :index)
+      live("/alarm/new", Live.Admin.Alarm.Form, :new)
+      live("/alarm/:id/edit", Live.Admin.Alarm.Form, :edit)
 
       # Operations task templates (admin only)
       live("/tasks", Live.Admin.Tasks.Index, :index)

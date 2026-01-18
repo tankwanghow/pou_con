@@ -131,7 +131,7 @@ defmodule PouConWeb.Live.PowerMeters.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_role={@current_role}>
       <.header>
         Power Meters
         <:actions>
@@ -139,64 +139,61 @@ defmodule PouConWeb.Live.PowerMeters.Index do
         </:actions>
       </.header>
 
-      <div class="p-4">
-        <%!-- Summary Stats Panel --%>
-        <div class="bg-white shadow-sm rounded-xl border border-gray-200 p-4 mb-6">
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div>
-              <div class="text-sm text-gray-500 uppercase">Current Load</div>
-              <div class="text-2xl font-bold font-mono text-emerald-600">
-                {format_kw(@total_power)}
-              </div>
-            </div>
-            <div>
-              <div class="text-sm text-gray-500 uppercase">Total Energy</div>
-              <div class="text-2xl font-bold font-mono text-blue-600">
-                {format_kwh(@total_energy)}
-              </div>
-            </div>
-            <div>
-              <div class="text-sm text-gray-500 uppercase">30d Peak</div>
-              <div class="text-2xl font-bold font-mono text-rose-600">
-                {format_kw(@peak_power_30d)}
-              </div>
-            </div>
-            <div>
-              <div class="text-sm text-gray-500 uppercase">30d Base</div>
-              <div class="text-2xl font-bold font-mono text-sky-600">
-                {format_kw(@base_load_30d)}
-              </div>
+      <div class="bg-white shadow-sm rounded-xl border border-gray-200 p-4 mb-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+          <div>
+            <div class="text-sm text-gray-500 uppercase">Current Load</div>
+            <div class="text-2xl font-bold font-mono text-emerald-600">
+              {format_kw(@total_power)}
             </div>
           </div>
-
-          <%!-- Generator Sizing Recommendation --%>
-          <div :if={@peak_power_30d} class="mt-4 pt-4 border-t border-gray-100 text-center">
-            <div class="text-sm text-gray-500">
-              Recommended Generator Size (1.25x safety factor):
-              <span class="font-bold text-amber-600">
-                {format_kw((@peak_power_30d || 0) * 1.25)} minimum
-              </span>
+          <div>
+            <div class="text-sm text-gray-500 uppercase">Total Energy</div>
+            <div class="text-2xl font-bold font-mono text-blue-600">
+              {format_kwh(@total_energy)}
+            </div>
+          </div>
+          <div>
+            <div class="text-sm text-gray-500 uppercase">30d Peak</div>
+            <div class="text-2xl font-bold font-mono text-rose-600">
+              {format_kw(@peak_power_30d)}
+            </div>
+          </div>
+          <div>
+            <div class="text-sm text-gray-500 uppercase">30d Base</div>
+            <div class="text-2xl font-bold font-mono text-sky-600">
+              {format_kw(@base_load_30d)}
             </div>
           </div>
         </div>
 
-        <%!-- Power Meter Cards --%>
-        <div class="flex flex-wrap gap-4">
-          <%= for eq <- @equipment |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.PowerMeterComponent}
-              id={eq.name}
-              equipment={eq}
-            />
-          <% end %>
-        </div>
-
-        <%!-- Empty State --%>
-        <div :if={length(@equipment) == 0} class="text-center py-12 text-gray-500">
-          <div class="text-lg">No power meters configured</div>
-          <div class="text-sm mt-2">
-            Add power meter equipment in Admin → Equipment
+        <%!-- Generator Sizing Recommendation --%>
+        <div :if={@peak_power_30d} class="mt-4 pt-4 border-t border-gray-100 text-center">
+          <div class="text-sm text-gray-500">
+            Recommended Generator Size (1.25x safety factor):
+            <span class="font-bold text-amber-600">
+              {format_kw((@peak_power_30d || 0) * 1.25)} minimum
+            </span>
           </div>
+        </div>
+      </div>
+
+      <%!-- Power Meter Cards --%>
+      <div class="flex flex-wrap gap-4">
+        <%= for eq <- @equipment |> Enum.sort_by(& &1.title) do %>
+          <.live_component
+            module={PouConWeb.Components.Equipment.PowerMeterComponent}
+            id={eq.name}
+            equipment={eq}
+          />
+        <% end %>
+      </div>
+
+      <%!-- Empty State --%>
+      <div :if={length(@equipment) == 0} class="text-center py-12 text-gray-500">
+        <div class="text-lg">No power meters configured</div>
+        <div class="text-sm mt-2">
+          Add power meter equipment in Admin → Equipment
         </div>
       </div>
     </Layouts.app>

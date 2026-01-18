@@ -152,7 +152,7 @@ defmodule PouConWeb.SimulationLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-4/5">
+    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-4/5" current_role={@current_role}>
       <div class="flex justify-between items-center mb-4">
         <h1 class="text-xl font-bold">data_point Simulation</h1>
         <div class="form-control w-full max-w-xs">

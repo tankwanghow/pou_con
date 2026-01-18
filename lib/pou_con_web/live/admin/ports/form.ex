@@ -13,7 +13,7 @@ defmodule PouConWeb.Live.Admin.Ports.Form do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_role={@current_role}>
       <.header>
         {@page_title}
         <:subtitle>Use this form to manage port records in your database.</:subtitle>

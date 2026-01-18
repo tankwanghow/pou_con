@@ -6,7 +6,7 @@ defmodule PouConWeb.Live.Admin.Interlock.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_role={@current_role}>
       <.header>
         Equipment Interlock Rules
         <:subtitle>
@@ -85,7 +85,6 @@ defmodule PouConWeb.Live.Admin.Interlock.Index do
           </div>
         <% end %>
       </div>
-
     </Layouts.app>
     """
   end

@@ -77,25 +77,22 @@ defmodule PouConWeb.Live.Pumps.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_role={@current_role}>
       <.header>
         Pumps
         <:actions>
-          <.btn_link to={~p"/admin/environment/control"} label="Configure" />
           <.dashboard_link />
         </:actions>
       </.header>
 
-      <div class="p-4">
-        <div class="flex flex-wrap gap-1 justify-center">
-          <%= for eq <- @pumps |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.PumpComponent}
-              id={eq.name}
-              equipment={eq}
-            />
-          <% end %>
-        </div>
+      <div class="flex flex-wrap gap-1 justify-center">
+        <%= for eq <- @pumps |> Enum.sort_by(& &1.title) do %>
+          <.live_component
+            module={PouConWeb.Components.Equipment.PumpComponent}
+            id={eq.name}
+            equipment={eq}
+          />
+        <% end %>
       </div>
     </Layouts.app>
     """

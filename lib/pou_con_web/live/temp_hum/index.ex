@@ -122,7 +122,7 @@ defmodule PouConWeb.Live.TempHum.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_role={@current_role}>
       <.header>
         Temperature & Humidity
         <:actions>
@@ -130,41 +130,39 @@ defmodule PouConWeb.Live.TempHum.Index do
         </:actions>
       </.header>
 
-      <div class="p-4">
-        <div class="flex flex-wrap gap-2 mb-6">
-          <%!-- Temperature Sensors --%>
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "temp_sensor")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.TempComponent}
-              id={eq.name}
-              equipment={eq}
-            />
-          <% end %>
+      <div class="flex flex-wrap gap-1 justify-center">
+        <%!-- Temperature Sensors --%>
+        <%= for eq <- Enum.filter(@equipment, &(&1.type == "temp_sensor")) |> Enum.sort_by(& &1.title) do %>
+          <.live_component
+            module={PouConWeb.Components.Equipment.TempComponent}
+            id={eq.name}
+            equipment={eq}
+          />
+        <% end %>
 
-          <%!-- Humidity Sensors --%>
-          <%= for eq <- Enum.filter(@equipment, &(&1.type == "humidity_sensor")) |> Enum.sort_by(& &1.title) do %>
-            <.live_component
-              module={PouConWeb.Components.Equipment.HumComponent}
-              id={eq.name}
-              equipment={eq}
-            />
-          <% end %>
+        <%!-- Humidity Sensors --%>
+        <%= for eq <- Enum.filter(@equipment, &(&1.type == "humidity_sensor")) |> Enum.sort_by(& &1.title) do %>
+          <.live_component
+            module={PouConWeb.Components.Equipment.HumComponent}
+            id={eq.name}
+            equipment={eq}
+          />
+        <% end %>
 
-          <%!-- Averages Panel --%>
-          <div class="w-56 bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden p-4">
-            <div class="text-lg font-bold text-gray-600 mb-2 text-center">Averages</div>
-            <div class="text-center mb-2">
-              <span class="text-gray-400">Temp</span>
-              <span class="font-bold text-yellow-500 text-xl ml-2">
-                {if @avg_temp, do: "#{@avg_temp}°C", else: "-"}
-              </span>
-            </div>
-            <div class="text-center">
-              <span class="text-gray-400">Hum</span>
-              <span class="font-bold text-blue-500 text-xl ml-2">
-                {if @avg_hum, do: "#{@avg_hum}%", else: "-"}
-              </span>
-            </div>
+        <%!-- Averages Panel --%>
+        <div class="w-56 bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden p-4">
+          <div class="text-lg font-bold text-gray-600 mb-2 text-center">Averages</div>
+          <div class="text-center mb-2">
+            <span class="text-gray-400">Temp</span>
+            <span class="font-bold text-yellow-500 text-xl ml-2">
+              {if @avg_temp, do: "#{@avg_temp}°C", else: "-"}
+            </span>
+          </div>
+          <div class="text-center">
+            <span class="text-gray-400">Hum</span>
+            <span class="font-bold text-blue-500 text-xl ml-2">
+              {if @avg_hum, do: "#{@avg_hum}%", else: "-"}
+            </span>
           </div>
         </div>
       </div>

@@ -5,14 +5,17 @@ defmodule PouConWeb.AuthHooks do
   # Capture Mix.env at compile time since Mix is not available in releases
   @env Mix.env()
 
-  def on_mount(:default, _params, _session, socket) do
-    {:cont, socket}
+  def on_mount(:default, _params, session, socket) do
+    current_role = session["current_role"]
+    {:cont, assign(socket, :current_role, current_role)}
   end
 
   def on_mount(:ensure_is_admin, _params, session, socket) do
-    case session["current_role"] do
+    current_role = session["current_role"]
+
+    case current_role do
       :admin ->
-        {:cont, socket}
+        {:cont, assign(socket, :current_role, current_role)}
 
       :user ->
         # User is logged in but not admin - redirect to dashboard with message
@@ -33,8 +36,10 @@ defmodule PouConWeb.AuthHooks do
   end
 
   def on_mount(:ensure_authenticated, _params, session, socket) do
-    if session["current_role"] in [:admin, :user] do
-      {:cont, socket}
+    current_role = session["current_role"]
+
+    if current_role in [:admin, :user] do
+      {:cont, assign(socket, :current_role, current_role)}
     else
       return_to = get_return_to(socket)
 

@@ -6,7 +6,7 @@ defmodule PouConWeb.Live.Admin.SystemTime.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_role={@current_role}>
       <.header>
         System Time Configuration
         <:actions>

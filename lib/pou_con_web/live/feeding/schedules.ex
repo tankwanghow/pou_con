@@ -114,11 +114,11 @@ defmodule PouConWeb.Live.Feeding.Schedules do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_role={@current_role}>
       <.header>
         Feeding Schedules
         <:actions>
-          <.btn_link to="/feed" label="Back" />
+          <.dashboard_link />
         </:actions>
       </.header>
 
