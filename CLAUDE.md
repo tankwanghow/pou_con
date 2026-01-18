@@ -69,6 +69,13 @@ mix compile --warnings-as-errors
 mix precommit
 ```
 
+### Data Management
+
+```bash
+# Export current database to seed JSON files
+mix export_seeds
+```
+
 ### Production
 
 ```bash
@@ -109,6 +116,7 @@ PORT=4000 MIX_ENV=prod DATABASE_PATH=./pou_con_prod.db SECRET_KEY_BASE=<key> mix
 │  - EnvironmentController (temp/humidity)        │
 │  - Schedulers (Light, Egg, Feeding)             │
 │  - InterlockController (safety chains)          │
+│  - AlarmController (condition-based alerts)     │
 │  - FeedInController (filling triggers)          │
 └─────────────────────────────────────────────────┘
                     ↕ Query/Command
@@ -390,6 +398,7 @@ The codebase follows domain-driven organization:
 lib/pou_con/
 ├── auth/              # Authentication, authorization, user management
 ├── automation/        # Automated control systems
+│   ├── alarm/             # Condition-based alarm system with siren control
 │   ├── egg_collection/    # Schedule-based egg collection
 │   ├── environment/       # Temperature/humidity auto-control
 │   ├── feeding/           # Feeding schedules + FeedIn trigger
@@ -508,6 +517,19 @@ The `InterlockController` enforces safety chains defined in database:
 - Example: "pump_1 cannot start if fan_1 is not running"
 - Controllers check `InterlockHelper.check_can_start(name)` before executing
 - Blocked attempts are logged with "interlock" triggered_by
+
+### Alarm System
+
+The `AlarmController` triggers sirens based on configurable conditions:
+- **Logic modes**: "any" (OR) or "all" (AND) for condition grouping
+- **Auto-clear**: Configurable per alarm (auto-clear vs manual acknowledge)
+- **Condition types**: Sensor thresholds (above/below) and equipment states (off, not_running, error)
+- **Multiple sirens**: Each alarm rule can target a specific siren
+- Admin UI at `/admin/alarm` for rule configuration
+
+Database tables:
+- `alarm_rules` - Groups conditions that trigger a siren
+- `alarm_conditions` - Individual conditions within a rule
 
 ### Auto/Manual Mode
 

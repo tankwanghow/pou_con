@@ -38,6 +38,12 @@ PouCon controls and monitors various types of poultry farm equipment:
   - Automated light scheduling
   - Manual override capabilities
 
+- **Alarm System**
+  - Configurable alarm rules with sensor thresholds and equipment state conditions
+  - AND/OR logic for condition grouping
+  - Multiple siren support with auto-clear or manual acknowledge options
+  - Admin interface for alarm rule management
+
 ### Environmental Control
 - Automatic temperature and humidity-based climate control
 - Configurable min/max thresholds for temperature and humidity
