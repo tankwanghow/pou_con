@@ -69,7 +69,8 @@ defmodule PouCon.MixProject do
       {:snapex7, "~> 0.1.4"},
       {:tzdata, "~> 1.1"},
       {:mox, "~> 1.0", only: :test},
-      {:number, "~> 1.0"}
+      {:number, "~> 1.0"},
+      {:earmark, "~> 1.4"}
     ]
   end
 

@@ -88,6 +88,12 @@ defmodule PouConWeb.Layouts do
           <.sidebar_link icon="hero-chart-bar-solid" title="Reports" color="yellow" href="/reports" />
         </div>
 
+        <%!-- Help --%>
+        <div class="mb-4">
+          <h3 class="px-3 py-1 text-xs font-semibold text-gray-400 uppercase">Help</h3>
+          <.sidebar_link icon="hero-book-open-solid" title="User Guide" color="blue" href="/help" />
+        </div>
+
         <%!-- Control & Schedules (Admin only) --%>
         <%= if @current_role == :admin do %>
           <div class="mb-4">

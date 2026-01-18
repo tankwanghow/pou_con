@@ -121,6 +121,9 @@ defmodule PouConWeb.Router do
       # Reports are public (read-only)
       live("/reports", Live.Reports.Index, :index)
 
+      # User guide / help
+      live("/help", Live.Help.UserGuide, :index)
+
       # Equipment monitoring pages (public - users can view status)
       live("/temp_hum", Live.TempHum.Index, :index)
       live("/fans", Live.Fans.Index, :index)
