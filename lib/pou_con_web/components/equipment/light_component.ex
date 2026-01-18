@@ -151,7 +151,9 @@ defmodule PouConWeb.Components.Equipment.LightComponent do
 
     # Only allow control if virtual mode and in manual mode
     if status.is_auto_manual_virtual_di && status.mode == :manual do
-      if status.is_running do
+      # In error state, always turn off to reset
+      # Otherwise toggle based on is_running
+      if status.error || status.is_running do
         Light.turn_off(socket.assigns.device_name)
       else
         Light.turn_on(socket.assigns.device_name)

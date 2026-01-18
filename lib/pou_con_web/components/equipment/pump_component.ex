@@ -121,7 +121,9 @@ defmodule PouConWeb.Components.Equipment.PumpComponent do
 
     # Only allow control if virtual mode and in manual mode
     if status.is_auto_manual_virtual_di && status.mode == :manual do
-      if status.is_running do
+      # In error state (e.g., :on_but_not_running), always turn off to reset
+      # Otherwise toggle based on is_running
+      if status.error || status.is_running do
         Pump.turn_off(socket.assigns.device_name)
       else
         Pump.turn_on(socket.assigns.device_name)
