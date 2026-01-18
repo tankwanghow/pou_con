@@ -210,12 +210,21 @@ defmodule PouConWeb.Live.Dashboard.Index do
         <% pumps = Enum.filter(@equipment, &(&1.type == "pump")) %>
         <% water_meters = Enum.filter(@equipment, &(&1.type == "water_meter")) %>
         <% power_meters = Enum.filter(@equipment, &(&1.type == "power_meter")) %>
+        <% power_indicators = Enum.filter(@equipment, &(&1.type == "power_indicator")) %>
 
         <.live_component
           module={PouConWeb.Components.Summaries.SensorSummaryComponent}
           id="sensors"
           temp_sensors={temp_sensors}
           hum_sensors={hum_sensors}
+        />
+
+        <%!-- Power Indicators (MCCBs, PSUs) --%>
+        <.live_component
+          :if={length(power_indicators) > 0}
+          module={PouConWeb.Components.Summaries.PowerIndicatorSummaryComponent}
+          id="power_indicators"
+          equipments={power_indicators}
         />
 
         <.live_component
@@ -288,6 +297,15 @@ defmodule PouConWeb.Live.Dashboard.Index do
           module={PouConWeb.Components.Summaries.LightSummaryComponent}
           id="light_summ"
           equipments={lights}
+        />
+
+        <%!-- Sirens --%>
+        <% sirens = Enum.filter(@equipment, &(&1.type == "siren")) %>
+        <.live_component
+          :if={length(sirens) > 0}
+          module={PouConWeb.Components.Summaries.SirenSummaryComponent}
+          id="siren_summ"
+          equipments={sirens}
         />
 
         <%!-- Dung/Manure --%>

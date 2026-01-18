@@ -13,7 +13,7 @@ defmodule PouCon.Equipment.Schemas.Equipment do
     timestamps()
   end
 
-  @sensor_meter_types ~w(temp_sensor humidity_sensor co2_sensor nh3_sensor water_meter power_meter flowmeter average_sensor)
+  @sensor_meter_types ~w(temp_sensor humidity_sensor co2_sensor nh3_sensor water_meter power_meter flowmeter average_sensor power_indicator)
 
   def changeset(equipment, attrs) do
     equipment
@@ -39,7 +39,9 @@ defmodule PouCon.Equipment.Schemas.Equipment do
         "dung_exit",
         "feed_in",
         "light",
-        "average_sensor"
+        "siren",
+        "average_sensor",
+        "power_indicator"
       ],
       message: "unsupported type"
     )
@@ -105,7 +107,8 @@ defmodule PouCon.Equipment.Schemas.Equipment do
   defp required_keys_for_type("egg"),
     do: [:on_off_coil, :running_feedback, :auto_manual, :manual_switch]
 
-  defp required_keys_for_type("light"), do: [:on_off_coil, :running_feedback, :auto_manual]
+  defp required_keys_for_type("light"), do: [:on_off_coil, :auto_manual]
+  defp required_keys_for_type("siren"), do: [:on_off_coil, :auto_manual]
   defp required_keys_for_type("dung"), do: [:on_off_coil, :running_feedback]
   defp required_keys_for_type("dung_horz"), do: [:on_off_coil, :running_feedback]
   defp required_keys_for_type("dung_exit"), do: [:on_off_coil, :running_feedback]
@@ -142,6 +145,9 @@ defmodule PouCon.Equipment.Schemas.Equipment do
 
   # Average sensor uses list values, validation handled separately
   defp required_keys_for_type("average_sensor"), do: []
+
+  # Power indicator - simple digital input for status monitoring
+  defp required_keys_for_type("power_indicator"), do: [:indicator]
 
   defp required_keys_for_type(_), do: []
 end

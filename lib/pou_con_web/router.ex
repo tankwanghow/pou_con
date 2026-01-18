@@ -121,6 +121,8 @@ defmodule PouConWeb.Router do
     live("/fans", Live.Fans.Index, :index)
     live("/pumps", Live.Pumps.Index, :index)
     live("/lighting", Live.Lighting.Index, :index)
+    live("/sirens", Live.Sirens.Index, :index)
+    live("/power_indicators", Live.PowerIndicators.Index, :index)
     live("/egg_collection", Live.EggCollection.Index, :index)
     live("/feed", Live.Feeding.Index, :index)
     live("/dung", Live.Dung.Index, :index)

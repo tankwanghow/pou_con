@@ -67,6 +67,12 @@ defmodule PouCon.Equipment.EquipmentLoader do
             "average_sensor" ->
               PouCon.Equipment.Controllers.AverageSensor
 
+            "siren" ->
+              PouCon.Equipment.Controllers.Siren
+
+            "power_indicator" ->
+              PouCon.Equipment.Controllers.PowerIndicator
+
             _ ->
               Logger.warning(
                 "Unsupported equipment type: #{equipment.type} for #{equipment.name}"
