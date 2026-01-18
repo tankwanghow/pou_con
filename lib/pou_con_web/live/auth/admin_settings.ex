@@ -13,9 +13,9 @@ defmodule PouConWeb.Live.Auth.AdminSettings do
          to_form(%{
            "user_password" => "",
            "user_password_confirmation" => "",
+           "house_id" => if(house_id == "NOT SET", do: "", else: house_id),
            "timezone" => timezone || ""
          }),
-       house_id: house_id,
        error: nil,
        timezones: Tzdata.canonical_zone_list()
      )}
@@ -26,7 +26,11 @@ defmodule PouConWeb.Live.Auth.AdminSettings do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} class="xs:w-full sm:w-3/4 md:w-1/3 lg:w-1/4">
+    <Layouts.app
+      flash={@flash}
+      class="xs:w-full sm:w-3/4 md:w-1/3 lg:w-1/4"
+      current_role={@current_role}
+    >
       <h2 class="text-2xl font-bold mb-6">Administrator Settings</h2>
 
       <.form for={@form} phx-submit="save" class="space-y-6">
@@ -50,11 +54,12 @@ defmodule PouConWeb.Live.Auth.AdminSettings do
 
         <div>
           <label class="block font-medium">House ID</label>
-          <div class="px-3 py-2 bg-gray-100 border border-gray-300 rounded font-mono">
-            {@house_id}
-          </div>
+          <.input
+            field={@form[:house_id]}
+            placeholder="e.g., H1, HOUSE_A, FARM_1"
+          />
           <p class="text-sm text-gray-500 mt-1">
-            Read from /etc/pou_con/house_id (set during deployment)
+            Identifies this installation (stored uppercase)
           </p>
         </div>
 
@@ -86,6 +91,7 @@ defmodule PouConWeb.Live.Auth.AdminSettings do
   def handle_event("save", params, socket) do
     user_pwd = params["user_password"]
     confirm = params["user_password_confirmation"]
+    house_id = params["house_id"]
     timezone = params["timezone"]
 
     cond do
@@ -99,6 +105,7 @@ defmodule PouConWeb.Live.Auth.AdminSettings do
         results =
           [
             if(user_pwd != "", do: Auth.update_password(user_pwd, :user), else: {:ok, nil}),
+            if(house_id != "", do: Auth.set_house_id(house_id), else: {:ok, nil}),
             if(timezone != "", do: Auth.set_timezone(timezone), else: {:ok, nil})
           ]
 

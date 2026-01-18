@@ -46,17 +46,26 @@ defmodule PouCon.Auth do
   @default_house_id_file "/etc/pou_con/house_id"
 
   @doc """
-  Reads house_id from file (default: /etc/pou_con/house_id).
+  Gets house_id from database first, then falls back to file.
 
-  The file is created during deployment and contains a single line
-  with the house identifier (e.g., "H1", "HOUSE2", "FARM_A").
+  Database takes precedence to allow runtime updates via admin settings.
+  File fallback supports legacy deployments.
 
-  The file path can be configured via:
-    config :pou_con, :house_id_file, "/path/to/house_id"
-
-  Returns uppercase house_id or "NOT SET" if file doesn't exist.
+  Returns uppercase house_id or "NOT SET" if not configured.
   """
   def get_house_id do
+    # Try database first
+    case Repo.get_by(AppConfig, key: "house_id") do
+      %{value: value} when is_binary(value) and value != "" ->
+        String.upcase(value)
+
+      _ ->
+        # Fall back to file
+        get_house_id_from_file()
+    end
+  end
+
+  defp get_house_id_from_file do
     file_path = Application.get_env(:pou_con, :house_id_file, @default_house_id_file)
 
     case File.read(file_path) do
@@ -71,6 +80,27 @@ defmodule PouCon.Auth do
 
       {:error, _} ->
         "NOT SET"
+    end
+  end
+
+  @doc """
+  Sets house_id in the database.
+
+  House ID is stored uppercase and trimmed.
+  """
+  def set_house_id(house_id) when is_binary(house_id) do
+    value = house_id |> String.trim() |> String.upcase()
+
+    case Repo.get_by(AppConfig, key: "house_id") do
+      nil ->
+        %AppConfig{}
+        |> AppConfig.changeset(%{key: "house_id", value: value})
+        |> Repo.insert()
+
+      config ->
+        config
+        |> AppConfig.changeset(%{value: value})
+        |> Repo.update()
     end
   end
 
