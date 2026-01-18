@@ -73,11 +73,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
         <div class="w-[17%]">Action</div>
       </div>
 
-      <div
-        :if={Enum.count(@streams.equipment) > 0}
-        id="equipment_list"
-        phx-update="stream"
-      >
+      <div id="equipment_list" phx-update="stream">
         <%= for {id, equipment} <- @streams.equipment do %>
           <div
             id={id}

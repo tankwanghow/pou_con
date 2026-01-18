@@ -80,11 +80,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
         <div class="w-[16%]">Action</div>
       </div>
 
-      <div
-        :if={Enum.count(@streams.data_points) > 0}
-        id="data_points_list"
-        phx-update="stream"
-      >
+      <div id="data_points_list" phx-update="stream">
         <%= for {id, data_point} <- @streams.data_points do %>
           <div id={id} class="flex flex-row text-center border-b py-2 text-xs">
             <div class="w-[15%]">{data_point.name}</div>

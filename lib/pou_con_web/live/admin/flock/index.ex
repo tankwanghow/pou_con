@@ -75,11 +75,7 @@ defmodule PouConWeb.Live.Admin.Flock.Index do
         <div class="w-[18%]">Action</div>
       </div>
 
-      <div
-        :if={Enum.count(@streams.flocks) > 0}
-        id="flocks_list"
-        phx-update="stream"
-      >
+      <div id="flocks_list" phx-update="stream">
         <%= for {id, flock} <- @streams.flocks do %>
           <div
             id={id}
@@ -147,9 +143,6 @@ defmodule PouConWeb.Live.Admin.Flock.Index do
         <% end %>
       </div>
 
-      <div :if={Enum.count(@streams.flocks) == 0} class="text-center py-8 text-gray-500">
-        No flocks found. Click "New Flock" to create one.
-      </div>
     </Layouts.app>
     """
   end

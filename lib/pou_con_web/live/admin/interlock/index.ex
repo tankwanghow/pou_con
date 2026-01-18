@@ -31,11 +31,7 @@ defmodule PouConWeb.Live.Admin.Interlock.Index do
         <div class="w-[15%]">Action</div>
       </div>
 
-      <div
-        :if={Enum.count(@streams.rules) > 0}
-        id="rules_list"
-        phx-update="stream"
-      >
+      <div id="rules_list" phx-update="stream">
         <%= for {id, rule} <- @streams.rules do %>
           <div id={id} class="text-xs flex flex-row text-center border-b py-2 items-center">
             <div class="w-[25%]">
@@ -90,9 +86,6 @@ defmodule PouConWeb.Live.Admin.Interlock.Index do
         <% end %>
       </div>
 
-      <div :if={Enum.count(@streams.rules) == 0} class="text-center py-8 text-gray-500">
-        No interlock rules configured. Click "New Rule" to add one.
-      </div>
     </Layouts.app>
     """
   end

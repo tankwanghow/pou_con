@@ -22,7 +22,7 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
         <div class="w-[33%]">Description</div>
         <div class="w-[15%]">Action</div>
       </div>
-      <div :if={Enum.count(@streams.ports) > 0} id="ports_list" phx-update="stream">
+      <div id="ports_list" phx-update="stream">
         <%= for {id, port} <- @streams.ports do %>
           <div id={id} class="flex flex-row text-center border-b py-4 items-center">
             <div class="w-[12%]">
