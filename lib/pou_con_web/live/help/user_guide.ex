@@ -17,7 +17,7 @@ defmodule PouConWeb.Live.Help.UserGuide do
     case File.read(@user_manual_path) do
       {:ok, markdown} ->
         case Earmark.as_html(markdown, %Earmark.Options{code_class_prefix: "language-"}) do
-          {:ok, html, _} -> html
+          {:ok, html, _} -> add_heading_ids(html)
           {:error, _, _} -> "<p>Error rendering documentation.</p>"
         end
 
@@ -30,6 +30,22 @@ defmodule PouConWeb.Live.Help.UserGuide do
           {:error, _} -> "<p>User manual not found.</p>"
         end
     end
+  end
+
+  # Add id attributes to headings for anchor links
+  defp add_heading_ids(html) do
+    Regex.replace(~r/<(h[1-4])>([^<]+)<\/h[1-4]>/, html, fn _, tag, text ->
+      id = text_to_slug(text)
+      "<#{tag} id=\"#{id}\">#{text}</#{tag}>"
+    end)
+  end
+
+  defp text_to_slug(text) do
+    text
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9\s-]/, "")
+    |> String.replace(~r/\s+/, "-")
+    |> String.trim("-")
   end
 
   @impl true
