@@ -45,6 +45,24 @@ COPY mix.exs mix.lock ./
 RUN HEX_HTTP_CONCURRENCY=4 HEX_HTTP_TIMEOUT=120 mix deps.get --only prod
 RUN mkdir config
 
+# Copy snap7-iot-arm source for ARM64 support
+COPY snap7-iot-arm-1.4.2.tar.gz /tmp/
+
+# Replace snap7 source in snapex7 with ARM-compatible version
+RUN cd /tmp && \
+    tar -xzf snap7-iot-arm-1.4.2.tar.gz && \
+    rm -rf /app/deps/snapex7/src/snap7 && \
+    mkdir -p /app/deps/snapex7/src/snap7 && \
+    cp -r snap7-iot-arm-1.4.2/src /app/deps/snapex7/src/snap7/ && \
+    cp -r snap7-iot-arm-1.4.2/build /app/deps/snapex7/src/snap7/ && \
+    cp -r snap7-iot-arm-1.4.2/examples /app/deps/snapex7/src/snap7/ && \
+    rm -rf /tmp/snap7-iot-arm-1.4.2*
+
+# Patch snapex7 Makefile to support aarch64 (ARM64)
+# There are two architecture checks (Linux line 37, macOS line 47) - patch both
+RUN sed -i 's/x86_64 i386))/x86_64 i386 aarch64 arm64))/g' \
+    /app/deps/snapex7/src/Makefile
+
 # Copy compile-time config files before we compile dependencies
 COPY config/config.exs config/prod.exs config/
 RUN mix deps.compile
