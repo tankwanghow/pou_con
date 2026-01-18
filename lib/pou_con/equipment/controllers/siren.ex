@@ -198,7 +198,9 @@ defmodule PouCon.Equipment.Controllers.Siren do
       end
     end
 
-    case @data_point_manager.command(state.on_off_coil, :set_state, %{state: if(target, do: 1, else: 0)}) do
+    case @data_point_manager.command(state.on_off_coil, :set_state, %{
+           state: if(target, do: 1, else: 0)
+         }) do
       {:ok, :success} ->
         %State{state | is_on: target, error: nil}
 
@@ -243,7 +245,14 @@ defmodule PouCon.Equipment.Controllers.Siren do
     if temp_error != state.error and temp_error != nil do
       mode_fn = fn s -> if s.mode == :auto, do: "auto", else: "manual" end
       state_for_error_check = Map.put(new_state, :is_running, is_running)
-      Helpers.log_error_transition(state.name, state.error, temp_error, state_for_error_check, mode_fn)
+
+      Helpers.log_error_transition(
+        state.name,
+        state.error,
+        temp_error,
+        state_for_error_check,
+        mode_fn
+      )
     end
 
     # Check interlock status

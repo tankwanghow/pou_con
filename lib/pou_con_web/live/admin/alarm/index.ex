@@ -1,0 +1,202 @@
+defmodule PouConWeb.Live.Admin.Alarm.Index do
+  use PouConWeb, :live_view
+
+  alias PouCon.Automation.Alarm.AlarmRules
+
+  @impl true
+  def mount(_params, %{"current_role" => role}, socket) do
+    if connected?(socket), do: AlarmRules.subscribe()
+
+    socket =
+      socket
+      |> assign(:page_title, "Alarm Rules")
+      |> assign(:readonly, role == :user)
+      |> stream(:rules, list_rules())
+
+    {:ok, socket}
+  end
+
+  @impl true
+  def handle_info({:rule_created, _rule}, socket) do
+    {:noreply, stream(socket, :rules, list_rules(), reset: true)}
+  end
+
+  def handle_info({:rule_updated, _rule}, socket) do
+    {:noreply, stream(socket, :rules, list_rules(), reset: true)}
+  end
+
+  def handle_info({:rule_deleted, _rule}, socket) do
+    {:noreply, stream(socket, :rules, list_rules(), reset: true)}
+  end
+
+  def handle_info(_, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_event("toggle_enabled", %{"id" => id}, socket) do
+    rule = AlarmRules.get_rule!(id)
+
+    if rule.enabled do
+      AlarmRules.disable_rule(rule)
+    else
+      AlarmRules.enable_rule(rule)
+    end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("delete", %{"id" => id}, socket) do
+    rule = AlarmRules.get_rule!(id)
+    {:ok, _} = AlarmRules.delete_rule(rule)
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Alarm rule deleted")
+     |> stream_delete(:rules, rule)}
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <Layouts.app flash={@flash} current_role={@current_role}>
+      <.header>
+        Alarm Rules
+        <:subtitle>
+          Configure alarm conditions that trigger sirens
+        </:subtitle>
+        <:actions>
+          <.btn_link
+            :if={!@readonly}
+            to={~p"/admin/alarm/new"}
+            label="New Alarm Rule"
+            color="amber"
+          />
+          <.dashboard_link />
+        </:actions>
+      </.header>
+
+      <div class="text-xs font-medium flex flex-row text-center bg-red-200 border-b border-t border-red-400 py-1">
+        <div class="w-[8%]">Enabled</div>
+        <div class="w-[18%]">Name</div>
+        <div class="w-[18%]">Sirens</div>
+        <div class="w-[8%]">Logic</div>
+        <div class="w-[8%]">Clear</div>
+        <div class="w-[8%]">Max Mute</div>
+        <div class="w-[22%]">Conditions</div>
+        <div class="w-[10%]">Actions</div>
+      </div>
+
+      <div id="rules_list" phx-update="stream">
+        <%= for {id, rule} <- @streams.rules do %>
+          <div
+            id={id}
+            class={[
+              "text-xs flex flex-row text-center border-b py-2 items-center",
+              if(!rule.enabled, do: "opacity-50 bg-gray-100", else: "")
+            ]}
+          >
+            <div class="w-[8%]">
+              <button
+                :if={!@readonly}
+                phx-click="toggle_enabled"
+                phx-value-id={rule.id}
+                class={"px-2 py-1 rounded-lg text-xs font-medium " <>
+                  if(rule.enabled, do: "bg-green-500 text-white", else: "bg-gray-400 text-white")}
+              >
+                {if rule.enabled, do: "ON", else: "OFF"}
+              </button>
+              <span
+                :if={@readonly}
+                class={"px-2 py-1 rounded text-xs " <>
+                  if(rule.enabled, do: "bg-green-200 text-green-700", else: "bg-gray-200 text-gray-600")}
+              >
+                {if rule.enabled, do: "ON", else: "OFF"}
+              </span>
+            </div>
+
+            <div class="w-[18%] font-medium">{rule.name}</div>
+
+            <div class="w-[18%] text-left px-1">
+              <div class="flex flex-wrap gap-0.5 justify-center">
+                <%= for siren_name <- rule.siren_names || [] do %>
+                  <span class="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[10px]">
+                    {siren_name}
+                  </span>
+                <% end %>
+                <%= if Enum.empty?(rule.siren_names || []) do %>
+                  <span class="text-gray-400 italic">None</span>
+                <% end %>
+              </div>
+            </div>
+
+            <div class="w-[8%]">
+              <span class={"px-1.5 py-0.5 rounded text-[10px] font-bold " <>
+                if(rule.logic == "all", do: "bg-purple-200 text-purple-700", else: "bg-blue-200 text-blue-700")}>
+                {String.upcase(rule.logic)}
+              </span>
+            </div>
+
+            <div class="w-[8%]">
+              <span class={"px-1.5 py-0.5 rounded text-[10px] " <>
+                if(rule.auto_clear, do: "bg-green-100 text-green-700", else: "bg-amber-100 text-amber-700")}>
+                {if rule.auto_clear, do: "Auto", else: "Manual"}
+              </span>
+            </div>
+
+            <div class="w-[8%]">
+              <span class="text-[10px] text-gray-600">{rule.max_mute_minutes}m</span>
+            </div>
+
+            <div class="w-[22%] text-left px-1">
+              <%= for cond <- rule.conditions || [] do %>
+                <div class="text-[10px] text-gray-600 truncate" title={condition_description(cond)}>
+                  {condition_description(cond)}
+                </div>
+              <% end %>
+              <%= if Enum.empty?(rule.conditions || []) do %>
+                <span class="text-gray-400 italic text-[10px]">No conditions</span>
+              <% end %>
+            </div>
+
+            <div :if={!@readonly} class="w-[10%] flex justify-center gap-1">
+              <.link
+                navigate={~p"/admin/alarm/#{rule.id}/edit"}
+                class="p-1.5 border-1 rounded-lg border-blue-600 bg-blue-200"
+                title="Edit"
+              >
+                <.icon name="hero-pencil-square" class="text-blue-600 w-4 h-4" />
+              </.link>
+
+              <.link
+                phx-click={JS.push("delete", value: %{id: rule.id})}
+                data-confirm="Delete this alarm rule?"
+                class="p-1.5 border-1 rounded-lg border-rose-600 bg-rose-200"
+                title="Delete"
+              >
+                <.icon name="hero-trash" class="text-rose-600 w-4 h-4" />
+              </.link>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </Layouts.app>
+    """
+  end
+
+  defp list_rules do
+    AlarmRules.list_rules()
+  end
+
+  defp condition_description(cond) do
+    case cond.source_type do
+      "sensor" ->
+        "#{cond.source_name} #{cond.condition} #{cond.threshold}"
+
+      "equipment" ->
+        "#{cond.source_name} is #{cond.condition}"
+
+      _ ->
+        "#{cond.source_name}"
+    end
+  end
+end

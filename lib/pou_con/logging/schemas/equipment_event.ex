@@ -28,14 +28,22 @@ defmodule PouCon.Logging.Schemas.EquipmentEvent do
       :inserted_at
     ])
     |> validate_required([:equipment_name, :event_type, :to_value, :mode, :triggered_by])
-    |> validate_inclusion(:event_type, ["start", "stop", "error"])
+    |> validate_inclusion(:event_type, [
+      "start",
+      "stop",
+      "error",
+      "alarm_triggered",
+      "alarm_cleared",
+      "alarm_muted"
+    ])
     |> validate_inclusion(:mode, ["auto", "manual"])
     |> validate_inclusion(:triggered_by, [
       "user",
       "schedule",
       "auto_control",
       "interlock",
-      "system"
+      "system",
+      "alarm_controller"
     ])
   end
 end

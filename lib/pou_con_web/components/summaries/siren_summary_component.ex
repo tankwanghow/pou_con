@@ -4,10 +4,14 @@ defmodule PouConWeb.Components.Summaries.SirenSummaryComponent do
   @impl true
   def update(assigns, socket) do
     equipments = assigns[:equipments] || []
+    muted_sirens = assigns[:muted_sirens] || MapSet.new()
 
     equipments =
       equipments
-      |> Enum.map(fn x -> Map.merge(x.status, calculate_display_data(x.status)) end)
+      |> Enum.map(fn x ->
+        is_muted = x.name in muted_sirens
+        Map.merge(x.status, calculate_display_data(x.status, is_muted))
+      end)
       |> Enum.sort_by(fn x -> x.title end)
 
     {:ok,
@@ -54,11 +58,51 @@ defmodule PouConWeb.Components.Summaries.SirenSummaryComponent do
       <rect x="6" y="22" width="12" height="2" rx="0.5" />
       <path d="M12 4C8.5 4 6 7 6 10v6c0 1 0.5 2 2 2h8c1.5 0 2-1 2-2v-6c0-3-2.5-6-6-6z" />
       <%= if @is_on do %>
-        <line x1="12" y1="2" x2="12" y2="0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-        <line x1="18" y1="5" x2="20" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-        <line x1="6" y1="5" x2="4" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-        <line x1="21" y1="11" x2="23" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-        <line x1="3" y1="11" x2="1" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        <line
+          x1="12"
+          y1="2"
+          x2="12"
+          y2="0"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        />
+        <line
+          x1="18"
+          y1="5"
+          x2="20"
+          y2="3"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        />
+        <line
+          x1="6"
+          y1="5"
+          x2="4"
+          y2="3"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        />
+        <line
+          x1="21"
+          y1="11"
+          x2="23"
+          y2="11"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        />
+        <line
+          x1="3"
+          y1="11"
+          x2="1"
+          y2="11"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        />
       <% end %>
     </svg>
     """
@@ -68,11 +112,12 @@ defmodule PouConWeb.Components.Summaries.SirenSummaryComponent do
   # Logic Helpers
   # ——————————————————————————————————————————————
 
-  defp calculate_display_data(%{error: :invalid_data}) do
+  defp calculate_display_data(%{error: :invalid_data}, _is_muted) do
     %{
       is_offline: true,
       is_error: true,
       is_running: false,
+      is_muted: false,
       mode: :auto,
       state_text: "OFFLINE",
       color: "gray",
@@ -80,23 +125,25 @@ defmodule PouConWeb.Components.Summaries.SirenSummaryComponent do
     }
   end
 
-  defp calculate_display_data(status) do
+  defp calculate_display_data(status, is_muted) do
     is_running = status.is_running
     has_error = not is_nil(status.error)
 
-    {color, anim_class} =
+    {color, anim_class, state_text} =
       cond do
-        has_error -> {"orange", ""}
-        is_running -> {"red", "animate-pulse"}
-        true -> {"green", ""}
+        has_error -> {"orange", "", if(is_running, do: "ALARM", else: "STANDBY")}
+        is_muted -> {"pink", "", "MUTED"}
+        is_running -> {"red", "animate-pulse", "ALARM"}
+        true -> {"green", "", "STANDBY"}
       end
 
     %{
       is_offline: false,
       is_error: has_error,
       is_running: is_running,
+      is_muted: is_muted,
       mode: status.mode,
-      state_text: if(is_running, do: "ALARM", else: "STANDBY"),
+      state_text: state_text,
       color: color,
       anim_class: anim_class
     }

@@ -8,7 +8,8 @@ defmodule PouConWeb.Components.Equipment.SirenComponent do
   def update(assigns, socket) do
     equipment = assigns[:equipment]
     status = equipment.status || %{error: :invalid_data}
-    display_data = calculate_display_data(status)
+    is_muted = Map.get(assigns, :is_muted, false)
+    display_data = calculate_display_data(status, is_muted)
 
     {:ok,
      socket
@@ -29,7 +30,11 @@ defmodule PouConWeb.Components.Equipment.SirenComponent do
         >
           <:controls>
             <%= if @display.is_auto_manual_virtual_di do %>
-              <Shared.mode_toggle mode={@display.mode} is_offline={@display.is_offline} myself={@myself} />
+              <Shared.mode_toggle
+                mode={@display.mode}
+                is_offline={@display.is_offline}
+                myself={@myself}
+              />
             <% else %>
               <Shared.mode_indicator mode={@display.mode} />
             <% end %>
@@ -42,6 +47,7 @@ defmodule PouConWeb.Components.Equipment.SirenComponent do
               color={@display.color}
               anim_class={@display.anim_class}
               is_on={@display.is_on}
+              is_muted={@display.is_muted}
             />
           </:icon>
           <:controls>
@@ -86,22 +92,72 @@ defmodule PouConWeb.Components.Equipment.SirenComponent do
   attr :color, :string, default: "gray"
   attr :anim_class, :string, default: ""
   attr :is_on, :boolean, default: false
+  attr :is_muted, :boolean, default: false
 
   defp siren_visualization(assigns) do
+    icon_color =
+      cond do
+        assigns.is_muted -> "text-pink-400"
+        assigns.is_on -> "text-red-500"
+        true -> "text-green-500"
+      end
+
+    assigns = assign(assigns, :icon_color, icon_color)
+
     ~H"""
     <div class={[@anim_class, "text-#{@color}-500 flex flex-col items-center gap-1"]}>
       <%!-- Rotating Warning Light / Beacon --%>
-      <div class={["transition-colors", if(@is_on, do: "text-red-500", else: "text-green-500")]}>
+      <div class={["transition-colors", @icon_color]}>
         <svg class="w-14 h-12" viewBox="0 0 24 24" fill="currentColor">
           <rect x="8" y="20" width="8" height="2" rx="0.5" />
           <rect x="6" y="22" width="12" height="2" rx="0.5" />
           <path d="M12 4C8.5 4 6 7 6 10v6c0 1 0.5 2 2 2h8c1.5 0 2-1 2-2v-6c0-3-2.5-6-6-6z" />
           <%= if @is_on do %>
-            <line x1="12" y1="2" x2="12" y2="0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-            <line x1="18" y1="5" x2="20" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-            <line x1="6" y1="5" x2="4" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-            <line x1="21" y1="11" x2="23" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-            <line x1="3" y1="11" x2="1" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <line
+              x1="12"
+              y1="2"
+              x2="12"
+              y2="0"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+            <line
+              x1="18"
+              y1="5"
+              x2="20"
+              y2="3"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+            <line
+              x1="6"
+              y1="5"
+              x2="4"
+              y2="3"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+            <line
+              x1="21"
+              y1="11"
+              x2="23"
+              y2="11"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+            <line
+              x1="3"
+              y1="11"
+              x2="1"
+              y2="11"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
           <% end %>
         </svg>
       </div>
@@ -141,7 +197,7 @@ defmodule PouConWeb.Components.Equipment.SirenComponent do
   # Display Data
   # ——————————————————————————————————————————————
 
-  defp calculate_display_data(%{error: :invalid_data}) do
+  defp calculate_display_data(%{error: :invalid_data}, _is_muted) do
     %{
       is_offline: true,
       is_error: true,
@@ -150,6 +206,7 @@ defmodule PouConWeb.Components.Equipment.SirenComponent do
       is_auto_manual_virtual_di: false,
       mode: :auto,
       is_on: false,
+      is_muted: false,
       state_text: "OFFLINE",
       color: "gray",
       anim_class: "",
@@ -157,20 +214,19 @@ defmodule PouConWeb.Components.Equipment.SirenComponent do
     }
   end
 
-  defp calculate_display_data(status) do
+  defp calculate_display_data(status, is_muted) do
     is_on = Map.get(status, :is_running, false)
     has_error = not is_nil(status.error)
     is_interlocked = Map.get(status, :interlocked, false)
     is_auto_manual_virtual_di = Map.get(status, :is_auto_manual_virtual_di, false)
 
-    {color, anim_class} =
+    {color, anim_class, state_text} =
       cond do
-        has_error -> {"orange", ""}
-        is_on -> {"red", "animate-pulse"}
-        true -> {"green", ""}
+        has_error -> {"orange", "", if(is_on, do: "ALARM", else: "STANDBY")}
+        is_muted -> {"pink", "", "MUTED"}
+        is_on -> {"red", "animate-pulse", "ALARM"}
+        true -> {"green", "", "STANDBY"}
       end
-
-    state_text = if is_on, do: "ALARM", else: "STANDBY"
 
     %{
       is_offline: false,
@@ -180,6 +236,7 @@ defmodule PouConWeb.Components.Equipment.SirenComponent do
       is_auto_manual_virtual_di: is_auto_manual_virtual_di,
       mode: status.mode,
       is_on: is_on,
+      is_muted: is_muted,
       state_text: state_text,
       color: color,
       anim_class: anim_class,

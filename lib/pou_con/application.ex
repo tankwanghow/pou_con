@@ -159,7 +159,10 @@ defmodule PouCon.Application do
             PouCon.Automation.Feeding.FeedingScheduler,
 
             # FeedIn controller - automated FeedIn filling trigger monitoring
-            PouCon.Automation.Feeding.FeedInController
+            PouCon.Automation.Feeding.FeedInController,
+
+            # Alarm controller - triggers sirens based on sensor/equipment conditions
+            PouCon.Automation.Alarm.AlarmController
           ]
         else
           []
