@@ -283,9 +283,9 @@
     {
       "active": true,
       "id": 76,
-      "name": "THA_01",
+      "name": "tha_01",
       "type": "average_sensor",
-      "title": "Temp & Hum Averages",
+      "title": "Sensor Averages",
       "data_point_tree": "temp_sensors: TT01-BACK, TT02-BACK, TT01-FRONT, TT02-FRONT\nhumidity_sensors: RH01-FRONT"
     },
     {

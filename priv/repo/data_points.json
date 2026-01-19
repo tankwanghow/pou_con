@@ -1955,10 +1955,10 @@
       "slave_id": 1,
       "read_fn": "read_analog_input",
       "port_path": "s7://192.168.0.1",
-      "scale_factor": 0.1,
+      "scale_factor": 0.007234,
       "value_type": "int16",
-      "min_valid": 0,
-      "max_valid": 200
+      "min_valid": -10,
+      "max_valid": 210
     },
     {
       "id": 2016,
@@ -1971,10 +1971,10 @@
       "slave_id": 1,
       "read_fn": "read_analog_input",
       "port_path": "s7://192.168.0.1",
-      "scale_factor": 0.1,
+      "scale_factor": 0.007234,
       "value_type": "int16",
-      "min_valid": 0,
-      "max_valid": 200
+      "min_valid": -10,
+      "max_valid": 210
     },
     {
       "id": 2017,
@@ -1987,10 +1987,10 @@
       "slave_id": 1,
       "read_fn": "read_analog_input",
       "port_path": "s7://192.168.0.1",
-      "scale_factor": 0.1,
+      "scale_factor": 0.007234,
       "value_type": "int16",
-      "min_valid": 0,
-      "max_valid": 200
+      "min_valid": -10,
+      "max_valid": 210
     },
     {
       "id": 2018,
@@ -2003,10 +2003,10 @@
       "slave_id": 1,
       "read_fn": "read_analog_input",
       "port_path": "s7://192.168.0.1",
-      "scale_factor": 0.1,
+      "scale_factor": 0.007234,
       "value_type": "int16",
-      "min_valid": 0,
-      "max_valid": 200
+      "min_valid": -10,
+      "max_valid": 210
     },
     {
       "id": 2019,
