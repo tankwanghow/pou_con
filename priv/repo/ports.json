@@ -14,19 +14,6 @@
       "s7_slot": 1
     },
     {
-      "id": 2,
-      "protocol": "s7",
-      "description": "Siemens ET200SP PLC - House 1 Back Panel",
-      "speed": null,
-      "device_path": "s7://192.168.0.2",
-      "parity": null,
-      "data_bits": null,
-      "stop_bits": null,
-      "ip_address": "192.168.0.2",
-      "s7_rack": 0,
-      "s7_slot": 1
-    },
-    {
       "id": 3,
       "protocol": "virtual",
       "description": "Virtual Port for Simulation",
