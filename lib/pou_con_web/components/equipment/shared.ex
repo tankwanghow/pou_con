@@ -4,6 +4,7 @@ defmodule PouConWeb.Components.Equipment.Shared do
   Provides reusable function components for consistent equipment UI.
   """
   use Phoenix.Component
+  use PouConWeb, :verified_routes
   import PouConWeb.CoreComponents, only: [icon: 1]
 
   # ——————————————————————————————————————————————
@@ -51,6 +52,7 @@ defmodule PouConWeb.Components.Equipment.Shared do
   attr :title, :string, required: true
   attr :color, :string, default: "gray"
   attr :is_running, :boolean, default: false
+  attr :equipment_id, :integer, default: nil
   slot :controls
   slot :badge
 
@@ -59,7 +61,15 @@ defmodule PouConWeb.Components.Equipment.Shared do
     <div class="flex items-center justify-between px-4 py-4 bg-gray-50 border-b border-gray-100">
       <div class="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
         <.status_dot color={@color} is_running={@is_running} />
-        <span class="font-bold text-gray-700 text-xl truncate">{@title}</span>
+        <.link
+          :if={@equipment_id}
+          navigate={~p"/admin/equipment/#{@equipment_id}/edit"}
+          class="font-bold text-gray-700 text-xl truncate hover:text-blue-600 hover:underline"
+          title="Edit equipment settings"
+        >
+          {@title}
+        </.link>
+        <span :if={!@equipment_id} class="font-bold text-gray-700 text-xl truncate">{@title}</span>
         {render_slot(@badge)}
       </div>
       {render_slot(@controls)}

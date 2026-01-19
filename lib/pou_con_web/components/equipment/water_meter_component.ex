@@ -12,6 +12,7 @@ defmodule PouConWeb.Components.Equipment.WaterMeterComponent do
     {:ok,
      socket
      |> assign(:equipment, equipment)
+     |> assign(:equipment_id, equipment.id)
      |> assign(:status, status)
      |> assign(:display, display_data)}
   end
@@ -25,6 +26,7 @@ defmodule PouConWeb.Components.Equipment.WaterMeterComponent do
           title={@equipment.title || "Water Meter"}
           color={@display.main_color}
           is_running={!@display.is_error}
+          equipment_id={@equipment_id}
         />
 
         <div class="flex items-center gap-4 px-4">

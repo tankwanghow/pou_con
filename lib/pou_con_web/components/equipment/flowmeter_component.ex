@@ -17,6 +17,7 @@ defmodule PouConWeb.Components.Equipment.FlowmeterComponent do
     {:ok,
      socket
      |> assign(:equipment, equipment)
+     |> assign(:equipment_id, equipment.id)
      |> assign(:status, status)
      |> assign(:display, display_data)}
   end
@@ -30,6 +31,7 @@ defmodule PouConWeb.Components.Equipment.FlowmeterComponent do
           title={@equipment.title || "Flowmeter"}
           color={@display.main_color}
           is_running={!@display.is_error}
+          equipment_id={@equipment_id}
         />
 
         <div class="flex items-center gap-4 px-4 py-3">

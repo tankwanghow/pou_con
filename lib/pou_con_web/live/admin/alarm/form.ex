@@ -427,7 +427,7 @@ defmodule PouConWeb.Live.Admin.Alarm.Form do
         </div>
 
         <div class="flex gap-2 pt-4">
-          <.button type="submit" class="bg-blue-600 hover:bg-blue-700">
+          <.button type="submit" class="bg-blue-600 hover:bg-blue-700 rounded px-4 py-2">
             Save Alarm Rule
           </.button>
           <.link

@@ -2,6 +2,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
   use PouConWeb, :live_view
 
   alias PouCon.Equipment.Devices
+  alias PouCon.Equipment.DataPoints
   alias PouCon.Equipment.Schemas.Equipment
 
   @required_keys %{
@@ -33,6 +34,86 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
   }
 
   defp required_keys_for_type(type), do: Map.get(@required_keys, type, [])
+
+  # ——————————————————————————————————————————————
+  # Data Point Links Component
+  # ——————————————————————————————————————————————
+
+  attr :data_point_tree, :string, default: nil
+  attr :data_point_map, :map, required: true
+
+  defp data_point_links(assigns) do
+    parsed = parse_data_point_tree(assigns.data_point_tree)
+    assigns = assign(assigns, :parsed, parsed)
+
+    ~H"""
+    <div :if={@parsed != []} class="font-sans -mt-2 mb-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+      <div class="text-xs text-gray-500 uppercase mb-2 font-medium">Data Points</div>
+      <div class="space-y-1">
+        <%= for {key, values} <- @parsed do %>
+          <div class="flex items-center gap-2 text-sm">
+            <span class="text-gray-600 font-medium w-40 truncate" title={to_string(key)}>
+              {key}:
+            </span>
+            <div class="flex flex-wrap gap-1">
+              <%= for value <- List.wrap(values) do %>
+                <% dp_id = Map.get(@data_point_map, value) %>
+                <%= if dp_id do %>
+                  <.link
+                    navigate={~p"/admin/data_points/#{dp_id}/edit"}
+                    class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 hover:underline text-xs font-mono"
+                  >
+                    {value}
+                  </.link>
+                <% else %>
+                  <span class="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs font-mono" title="Data point not found">
+                    {value} ⚠
+                  </span>
+                <% end %>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  defp parse_data_point_tree(nil), do: []
+  defp parse_data_point_tree(""), do: []
+
+  defp parse_data_point_tree(tree_string) do
+    tree_string
+    |> String.split("\n")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(fn line ->
+      case String.split(line, ":", parts: 2) do
+        [key, value] ->
+          key = String.trim(key)
+          value_str = String.trim(value)
+
+          values =
+            if String.contains?(value_str, ",") do
+              value_str |> String.split(",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
+            else
+              [value_str]
+            end
+
+          {key, values}
+
+        _ ->
+          nil
+      end
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp load_data_point_map do
+    DataPoints.list_data_points()
+    |> Enum.map(fn dp -> {dp.name, dp.id} end)
+    |> Map.new()
+  end
 
   @impl true
   def render(assigns) do
@@ -72,10 +153,14 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
               </span>
             </div>
           <% end %>
+          <.data_point_links
+            data_point_tree={@form[:data_point_tree].value}
+            data_point_map={@data_point_map}
+          />
         </div>
         <footer>
           <.button phx-disable-with="Saving..." variant="primary">Save Equipment</.button>
-          <.button navigate={return_path(@return_to, @equipment)}>Cancel</.button>
+          <.button type="button" onclick="history.back()">Cancel</.button>
         </footer>
       </.form>
     </Layouts.app>
@@ -86,7 +171,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
   def mount(params, _session, socket) do
     {:ok,
      socket
-     |> assign(:return_to, return_to(params["return_to"]))
+     |> assign(:data_point_map, load_data_point_map())
      |> apply_action(socket.assigns.live_action, params)}
   end
 
@@ -132,13 +217,13 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
 
   defp save_equipment(socket, :edit, equipment_params) do
     case Devices.update_equipment(socket.assigns.equipment, equipment_params) do
-      {:ok, equipment} ->
+      {:ok, _equipment} ->
         PouCon.Equipment.EquipmentLoader.reload_controllers()
 
         {:noreply,
          socket
          |> put_flash(:info, "Equipment updated successfully")
-         |> push_navigate(to: return_path(socket.assigns.return_to, equipment))}
+         |> push_event("go-back", %{})}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, form: to_form(changeset))}
@@ -147,22 +232,16 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
 
   defp save_equipment(socket, :new, equipment_params) do
     case Devices.create_equipment(equipment_params) do
-      {:ok, equipment} ->
+      {:ok, _equipment} ->
         PouCon.Equipment.EquipmentLoader.reload_controllers()
 
         {:noreply,
          socket
          |> put_flash(:info, "Equipment created successfully")
-         |> push_navigate(to: return_path(socket.assigns.return_to, equipment))}
+         |> push_event("go-back", %{})}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, form: to_form(changeset))}
     end
   end
-
-  defp return_to(nil), do: "index"
-  defp return_to(val), do: val
-  defp return_path("simulation", _device), do: ~p"/admin/simulation"
-  defp return_path("index", _device), do: ~p"/admin/equipment"
-  defp return_path(_, _device), do: ~p"/admin/equipment"
 end

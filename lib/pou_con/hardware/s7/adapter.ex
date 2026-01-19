@@ -233,7 +233,7 @@ defmodule PouCon.Hardware.S7.Adapter do
   @impl GenServer
   def handle_call({:read_inputs, start_byte, size}, _from, state) do
     if state.connected do
-      result = Snapex7.Client.eb_read(state.client_pid, start: start_byte, size: size)
+      result = Snapex7.Client.eb_read(state.client_pid, start: start_byte, amount: size)
       {:reply, result, state}
     else
       {:reply, {:error, :not_connected}, state}
@@ -253,7 +253,7 @@ defmodule PouCon.Hardware.S7.Adapter do
   @impl GenServer
   def handle_call({:read_outputs, start_byte, size}, _from, state) do
     if state.connected do
-      result = Snapex7.Client.ab_read(state.client_pid, start: start_byte, size: size)
+      result = Snapex7.Client.ab_read(state.client_pid, start: start_byte, amount: size)
       {:reply, result, state}
     else
       {:reply, {:error, :not_connected}, state}
@@ -267,7 +267,7 @@ defmodule PouCon.Hardware.S7.Adapter do
         Snapex7.Client.db_read(state.client_pid,
           db_number: db_number,
           start: start,
-          size: size
+          amount: size
         )
 
       {:reply, result, state}
@@ -295,7 +295,7 @@ defmodule PouCon.Hardware.S7.Adapter do
   @impl GenServer
   def handle_call({:read_markers, start_byte, size}, _from, state) do
     if state.connected do
-      result = Snapex7.Client.mb_read(state.client_pid, start: start_byte, size: size)
+      result = Snapex7.Client.mb_read(state.client_pid, start: start_byte, amount: size)
       {:reply, result, state}
     else
       {:reply, {:error, :not_connected}, state}

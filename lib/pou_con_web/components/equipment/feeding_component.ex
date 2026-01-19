@@ -14,6 +14,7 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
      socket
      |> assign(:status, status)
      |> assign(:device_name, assigns.id)
+     |> assign(:equipment_id, equipment.id)
      |> assign(:display, display_data)}
   end
 
@@ -26,6 +27,7 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
           title={@status.title || @status.name}
           color={@display.color}
           is_running={@display.is_moving}
+          equipment_id={@equipment_id}
         >
           <:controls>
             <Shared.mode_toggle

@@ -17,6 +17,7 @@ defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
     {:ok,
      socket
      |> assign(:equipment, equipment)
+     |> assign(:equipment_id, equipment.id)
      |> assign(:status, status)
      |> assign(:display, display_data)}
   end
@@ -30,6 +31,7 @@ defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
           title={@equipment.title || "Power Meter"}
           color={@display.main_color}
           is_running={!@display.is_error}
+          equipment_id={@equipment_id}
         />
 
         <div class="p-4 space-y-3">

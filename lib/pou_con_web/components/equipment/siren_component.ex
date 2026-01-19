@@ -15,6 +15,7 @@ defmodule PouConWeb.Components.Equipment.SirenComponent do
      socket
      |> assign(:status, status)
      |> assign(:device_name, assigns.id)
+     |> assign(:equipment_id, equipment.id)
      |> assign(:display, display_data)}
   end
 
@@ -27,6 +28,7 @@ defmodule PouConWeb.Components.Equipment.SirenComponent do
           title={@status.title}
           color={@display.color}
           is_running={@display.is_running}
+          equipment_id={@equipment_id}
         >
           <:controls>
             <%= if @display.is_auto_manual_virtual_di do %>

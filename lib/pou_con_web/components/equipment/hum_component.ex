@@ -9,9 +9,10 @@ defmodule PouConWeb.Components.Equipment.HumComponent do
 
   @impl true
   def update(assigns, socket) do
+    equipment = assigns[:equipment]
     status =
-      if assigns[:equipment] do
-        assigns.equipment.status
+      if equipment do
+        equipment.status
       else
         assigns[:status]
       end || %{error: :invalid_data}
@@ -21,6 +22,7 @@ defmodule PouConWeb.Components.Equipment.HumComponent do
     {:ok,
      socket
      |> assign(assigns)
+     |> assign(:equipment_id, equipment && equipment.id)
      |> assign(:status, status)
      |> assign(:display, display_data)}
   end
@@ -33,7 +35,16 @@ defmodule PouConWeb.Components.Equipment.HumComponent do
         <div class="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0">
           <div class={"h-3 w-3 flex-shrink-0 rounded-full bg-#{@display.main_color}-500 " <> if(!@display.is_error, do: "animate-pulse", else: "")}>
           </div>
+          <.link
+            :if={@equipment_id}
+            navigate={~p"/admin/equipment/#{@equipment_id}/edit"}
+            class="font-bold text-gray-700 text-lg truncate hover:text-blue-600 hover:underline"
+            title="Edit equipment settings"
+          >
+            {@equipment.title || "Humidity Sensor"}
+          </.link>
           <span
+            :if={!@equipment_id}
             class="font-bold text-gray-700 text-lg truncate"
             title={@equipment.title || "Humidity Sensor"}
           >
