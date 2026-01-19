@@ -61,9 +61,6 @@ defmodule PouCon.Equipment.EquipmentLoader do
             "power_meter" ->
               PouCon.Equipment.Controllers.PowerMeter
 
-            "flowmeter" ->
-              PouCon.Equipment.Controllers.Flowmeter
-
             "average_sensor" ->
               PouCon.Equipment.Controllers.AverageSensor
 

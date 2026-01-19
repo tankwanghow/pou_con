@@ -216,8 +216,6 @@ defmodule PouCon.Equipment.Controllers.Sensor do
       data[:humidity] ||
       data[:co2] ||
       data[:nh3] ||
-      data[:flow] ||
-      data[:total_flow] ||
       data[:reading]
   end
 
@@ -257,9 +255,6 @@ defmodule PouCon.Equipment.Controllers.Sensor do
 
       "nh3" ->
         Map.put(reply, :nh3, state.value)
-
-      "flow" ->
-        Map.put(reply, :flow, state.value)
 
       _ ->
         reply

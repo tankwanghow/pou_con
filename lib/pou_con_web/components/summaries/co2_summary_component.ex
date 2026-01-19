@@ -20,7 +20,7 @@ defmodule PouConWeb.Components.Summaries.Co2SummaryComponent do
 
   @impl true
   def handle_event("navigate", _, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/temp_hum")}
+    {:noreply, push_navigate(socket, to: ~p"/co2")}
   end
 
   @impl true

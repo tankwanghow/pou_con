@@ -13,7 +13,7 @@ defmodule PouCon.Equipment.Schemas.Equipment do
     timestamps()
   end
 
-  @sensor_meter_types ~w(temp_sensor humidity_sensor co2_sensor nh3_sensor water_meter power_meter flowmeter average_sensor power_indicator)
+  @sensor_meter_types ~w(temp_sensor humidity_sensor co2_sensor nh3_sensor water_meter power_meter average_sensor power_indicator)
 
   def changeset(equipment, attrs) do
     equipment
@@ -31,7 +31,6 @@ defmodule PouCon.Equipment.Schemas.Equipment do
         "nh3_sensor",
         "water_meter",
         "power_meter",
-        "flowmeter",
         "feeding",
         "egg",
         "dung",
@@ -76,30 +75,64 @@ defmodule PouCon.Equipment.Schemas.Equipment do
     else
       try do
         opts = PouCon.Hardware.DataPointTreeParser.parse(data_point_tree_str)
-        required = required_keys_for_type(type)
-        missing = required -- Keyword.keys(opts)
 
-        if missing != [] do
-          add_error(changeset, :data_point_tree, "missing required keys: #{inspect(missing)}")
+        # Special validation for average_sensor (uses lists, not single data points)
+        if type == "average_sensor" do
+          validate_average_sensor_tree(changeset, opts)
         else
-          invalid =
-            Enum.filter(required, fn k ->
-              v = Keyword.fetch!(opts, k)
-              !is_binary(v) || String.trim(v) == ""
-            end)
-
-          if invalid != [] do
-            add_error(
-              changeset,
-              :data_point_tree,
-              "invalid (non-string or empty) values for keys: #{inspect(invalid)}"
-            )
-          else
-            changeset
-          end
+          validate_standard_tree(changeset, type, opts)
         end
       rescue
         e -> add_error(changeset, :data_point_tree, "parse error: #{inspect(e)}")
+      end
+    end
+  end
+
+  # Average sensor requires temp_sensors list (minimum for environment control)
+  # humidity_sensors is optional
+  defp validate_average_sensor_tree(changeset, opts) do
+    temp_sensors = Keyword.get(opts, :temp_sensors)
+
+    cond do
+      is_nil(temp_sensors) ->
+        add_error(changeset, :data_point_tree, "missing required key: temp_sensors")
+
+      not is_list(temp_sensors) ->
+        add_error(
+          changeset,
+          :data_point_tree,
+          "temp_sensors must be a comma-separated list of sensor names"
+        )
+
+      Enum.empty?(temp_sensors) ->
+        add_error(changeset, :data_point_tree, "temp_sensors list cannot be empty")
+
+      true ->
+        changeset
+    end
+  end
+
+  defp validate_standard_tree(changeset, type, opts) do
+    required = required_keys_for_type(type)
+    missing = required -- Keyword.keys(opts)
+
+    if missing != [] do
+      add_error(changeset, :data_point_tree, "missing required keys: #{inspect(missing)}")
+    else
+      invalid =
+        Enum.filter(required, fn k ->
+          v = Keyword.fetch!(opts, k)
+          !is_binary(v) || String.trim(v) == ""
+        end)
+
+      if invalid != [] do
+        add_error(
+          changeset,
+          :data_point_tree,
+          "invalid (non-string or empty) values for keys: #{inspect(invalid)}"
+        )
+      else
+        changeset
       end
     end
   end
@@ -144,7 +177,6 @@ defmodule PouCon.Equipment.Schemas.Equipment do
   # Meter types
   defp required_keys_for_type("water_meter"), do: [:meter]
   defp required_keys_for_type("power_meter"), do: [:meter]
-  defp required_keys_for_type("flowmeter"), do: [:meter]
 
   # Average sensor uses list values, validation handled separately
   defp required_keys_for_type("average_sensor"), do: []

@@ -1,50 +1,55 @@
 defmodule PouCon.Equipment.Controllers.AverageSensor do
   @moduledoc """
-  Controller for calculating average temperature and humidity from multiple sensors.
+  Controller for calculating average environmental readings from multiple sensors.
 
   This provides a centralized source of truth for environment averages that can be
   used by EnvironmentController, LiveViews, logging, and other modules.
 
   ## Device Tree Configuration
 
+  Required:
+  - `temp_sensors` - List of temperature data point names (minimum 1)
+
+  Optional:
+  - `humidity_sensors` - List of humidity data point names
+  - `co2_sensors` - List of CO2 data point names
+  - `nh3_sensors` - List of NH3/ammonia data point names
+
   ```yaml
-  temp_sensors:
-    - temp_front_1
-    - temp_front_2
-    - temp_back_1
-    - temp_back_2
-  humidity_sensors:
-    - hum_front_1
-    - hum_back_1
+  temp_sensors: TT01-BACK, TT02-BACK, TT01-FRONT, TT02-FRONT
+  humidity_sensors: RH01-FRONT, RH01-BACK
+  co2_sensors: CO2-ZONE-A, CO2-ZONE-B
+  nh3_sensors: NH3-MAIN
   ```
 
   ## Returned Status
 
   The status includes:
   - `avg_temp` - Average temperature from all configured sensors
-  - `avg_humidity` - Average humidity from all configured sensors
-  - `temp_count` - Number of valid temperature readings
-  - `humidity_count` - Number of valid humidity readings
-  - `temp_readings` - Individual temperature readings with sensor names
-  - `humidity_readings` - Individual humidity readings with sensor names
-  - `error` - Error state (nil, :no_temp_sensors, :no_humidity_sensors, :partial_data)
+  - `avg_humidity` - Average humidity from all configured sensors (if configured)
+  - `avg_co2` - Average CO2 from all configured sensors (if configured)
+  - `avg_nh3` - Average NH3 from all configured sensors (if configured)
+  - `*_count` - Number of valid readings for each sensor type
+  - `*_readings` - Individual readings with sensor names
+  - `error` - Error state (nil, :no_temp_data, :partial_data, etc.)
 
   ## Usage
 
   Other modules can get averages by calling:
 
       AverageSensor.status("env_average")
-      # => %{avg_temp: 28.5, avg_humidity: 65.2, ...}
+      # => %{avg_temp: 28.5, avg_humidity: 65.2, avg_co2: 850.0, avg_nh3: 12.5, ...}
 
       AverageSensor.get_averages("env_average")
-      # => {28.5, 65.2}
+      # => {28.5, 65.2}  # Returns {temp, humidity} for backwards compatibility
   """
 
   use GenServer
   require Logger
 
   alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
-  alias PouCon.Equipment.Controllers.Sensor
+
+  @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
 
   # Environment averages change slowly - 5 second polling is sufficient
   @default_poll_interval 5000
@@ -53,19 +58,26 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
     defstruct [
       :name,
       :title,
-      # List of temp sensor equipment names
+      # Lists of sensor equipment names
       temp_sensors: [],
-      # List of humidity sensor equipment names
       humidity_sensors: [],
+      co2_sensors: [],
+      nh3_sensors: [],
       # Calculated averages
       avg_temp: nil,
       avg_humidity: nil,
+      avg_co2: nil,
+      avg_nh3: nil,
       # Individual readings: [{sensor_name, value}, ...]
       temp_readings: [],
       humidity_readings: [],
+      co2_readings: [],
+      nh3_readings: [],
       # Counts
       temp_count: 0,
       humidity_count: 0,
+      co2_count: 0,
+      nh3_count: 0,
       # Error state
       error: nil,
       poll_interval_ms: 5000
@@ -98,11 +110,26 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
   @doc """
   Get just the averages as a tuple {avg_temp, avg_humidity}.
   Convenient for modules that only need the averages.
+  Returns {temp, humidity} for backwards compatibility with EnvironmentController.
   """
   def get_averages(name) do
     case GenServer.call(Helpers.via(name), :get_averages) do
       {temp, hum} -> {temp, hum}
       _ -> {nil, nil}
+    end
+  end
+
+  @doc """
+  Get all averages as a map. Useful for modules that need CO2/NH3 as well.
+  Returns %{temp: value, humidity: value, co2: value, nh3: value}.
+  """
+  def get_all_averages(name) do
+    try do
+      GenServer.call(Helpers.via(name), :get_all_averages)
+    rescue
+      _ -> %{temp: nil, humidity: nil, co2: nil, nh3: nil}
+    catch
+      :exit, _ -> %{temp: nil, humidity: nil, co2: nil, nh3: nil}
     end
   end
 
@@ -116,17 +143,33 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
     state = %State{
       name: name,
       title: opts[:title] || name,
-      temp_sensors: opts[:temp_sensors] || [],
-      humidity_sensors: opts[:humidity_sensors] || [],
+      temp_sensors: ensure_list(opts[:temp_sensors]),
+      humidity_sensors: ensure_list(opts[:humidity_sensors]),
+      co2_sensors: ensure_list(opts[:co2_sensors]),
+      nh3_sensors: ensure_list(opts[:nh3_sensors]),
       poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
-    Logger.info(
-      "[#{name}] Starting AverageSensor with #{length(state.temp_sensors)} temp sensors and #{length(state.humidity_sensors)} humidity sensors"
-    )
+    sensor_counts =
+      [
+        {"temp", length(state.temp_sensors)},
+        {"humidity", length(state.humidity_sensors)},
+        {"CO2", length(state.co2_sensors)},
+        {"NH3", length(state.nh3_sensors)}
+      ]
+      |> Enum.filter(fn {_, count} -> count > 0 end)
+      |> Enum.map(fn {type, count} -> "#{count} #{type}" end)
+      |> Enum.join(", ")
+
+    Logger.info("[#{name}] Starting AverageSensor with #{sensor_counts} sensors")
 
     {:ok, state, {:continue, :initial_poll}}
   end
+
+  # Handle single string values (no comma in data_point_tree) by wrapping in list
+  defp ensure_list(nil), do: []
+  defp ensure_list(value) when is_list(value), do: value
+  defp ensure_list(value) when is_binary(value), do: [value]
 
   @impl GenServer
   def handle_continue(:initial_poll, state) do
@@ -154,59 +197,41 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
   # Self-Polling: Read from sensor controllers
   # ——————————————————————————————————————————————————————————————
   defp poll_and_update(%State{} = state) do
-    # Get temperature readings from configured sensors
+    # Get readings from all configured sensor types
     temp_readings = read_sensors(state.temp_sensors, :temperature)
-    valid_temps = Enum.reject(temp_readings, fn {_name, val} -> is_nil(val) end)
-
-    # Get humidity readings from configured sensors
     humidity_readings = read_sensors(state.humidity_sensors, :humidity)
-    valid_hums = Enum.reject(humidity_readings, fn {_name, val} -> is_nil(val) end)
+    co2_readings = read_sensors(state.co2_sensors, :co2)
+    nh3_readings = read_sensors(state.nh3_sensors, :nh3)
+
+    # Filter valid readings
+    valid_temps = reject_nil_values(temp_readings)
+    valid_hums = reject_nil_values(humidity_readings)
+    valid_co2s = reject_nil_values(co2_readings)
+    valid_nh3s = reject_nil_values(nh3_readings)
 
     # Calculate averages
-    avg_temp =
-      if length(valid_temps) > 0 do
-        sum = valid_temps |> Enum.map(fn {_n, v} -> v end) |> Enum.sum()
-        Float.round(sum / length(valid_temps), 1)
-      else
-        nil
-      end
+    avg_temp = calculate_average(valid_temps, 1)
+    avg_humidity = calculate_average(valid_hums, 1)
+    avg_co2 = calculate_average(valid_co2s, 0)
+    avg_nh3 = calculate_average(valid_nh3s, 1)
 
-    avg_humidity =
-      if length(valid_hums) > 0 do
-        sum = valid_hums |> Enum.map(fn {_n, v} -> v end) |> Enum.sum()
-        Float.round(sum / length(valid_hums), 1)
-      else
-        nil
-      end
-
-    # Determine error state
-    error =
-      cond do
-        length(state.temp_sensors) == 0 and length(state.humidity_sensors) == 0 ->
-          :no_sensors_configured
-
-        length(valid_temps) == 0 and length(state.temp_sensors) > 0 ->
-          :no_temp_data
-
-        length(valid_hums) == 0 and length(state.humidity_sensors) > 0 ->
-          :no_humidity_data
-
-        length(valid_temps) < length(state.temp_sensors) or
-            length(valid_hums) < length(state.humidity_sensors) ->
-          :partial_data
-
-        true ->
-          nil
-      end
+    # Determine error state (only check configured sensor types)
+    error = determine_error_state(state, valid_temps, valid_hums, valid_co2s, valid_nh3s)
 
     %State{
       state
       | avg_temp: avg_temp,
         avg_humidity: avg_humidity,
+        avg_co2: avg_co2,
+        avg_nh3: avg_nh3,
         temp_readings: temp_readings,
         humidity_readings: humidity_readings,
+        co2_readings: co2_readings,
+        nh3_readings: nh3_readings,
         temp_count: length(valid_temps),
         humidity_count: length(valid_hums),
+        co2_count: length(valid_co2s),
+        nh3_count: length(valid_nh3s),
         error: error
     }
   end
@@ -216,27 +241,66 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
     %State{name: "recovered", error: :crashed_previously}
   end
 
-  # Read values from sensor controllers
-  # Returns list of {sensor_name, value} tuples
-  defp read_sensors(sensor_names, field) do
-    Enum.map(sensor_names, fn sensor_name ->
-      value =
-        try do
-          status = Sensor.status(sensor_name)
+  defp reject_nil_values(readings) do
+    Enum.reject(readings, fn {_name, val} -> is_nil(val) end)
+  end
 
-          if status[:error] == nil do
-            # Use the specific field (temperature/humidity) or fall back to generic value
-            status[field] || status[:value]
-          else
+  defp calculate_average([], _precision), do: nil
+
+  defp calculate_average(valid_readings, precision) do
+    sum = valid_readings |> Enum.map(fn {_n, v} -> v end) |> Enum.sum()
+    Float.round(sum / length(valid_readings), precision)
+  end
+
+  defp determine_error_state(state, valid_temps, valid_hums, valid_co2s, valid_nh3s) do
+    # Check if any sensors are configured at all
+    total_configured =
+      length(state.temp_sensors) + length(state.humidity_sensors) +
+        length(state.co2_sensors) + length(state.nh3_sensors)
+
+    # Check if we have partial data for any configured sensor type
+    has_partial =
+      (length(valid_temps) < length(state.temp_sensors) and length(state.temp_sensors) > 0) or
+        (length(valid_hums) < length(state.humidity_sensors) and
+           length(state.humidity_sensors) > 0) or
+        (length(valid_co2s) < length(state.co2_sensors) and length(state.co2_sensors) > 0) or
+        (length(valid_nh3s) < length(state.nh3_sensors) and length(state.nh3_sensors) > 0)
+
+    cond do
+      total_configured == 0 ->
+        :no_sensors_configured
+
+      # Temperature is the minimum requirement - if we have none, it's a critical error
+      length(valid_temps) == 0 and length(state.temp_sensors) > 0 ->
+        :no_temp_data
+
+      has_partial ->
+        :partial_data
+
+      true ->
+        nil
+    end
+  end
+
+  # Read values directly from data points
+  # Returns list of {data_point_name, value} tuples
+  defp read_sensors(data_point_names, _field) do
+    Enum.map(data_point_names, fn dp_name ->
+      value =
+        case @data_point_manager.read_direct(dp_name) do
+          {:ok, data} when is_map(data) ->
+            # Get the converted value from data point
+            if data[:valid] != false do
+              data[:value]
+            else
+              nil
+            end
+
+          _ ->
             nil
-          end
-        rescue
-          _ -> nil
-        catch
-          :exit, _ -> nil
         end
 
-      {sensor_name, value}
+      {dp_name, value}
     end)
   end
 
@@ -248,14 +312,27 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
     reply = %{
       name: state.name,
       title: state.title || state.name,
+      # Averages
       avg_temp: state.avg_temp,
       avg_humidity: state.avg_humidity,
+      avg_co2: state.avg_co2,
+      avg_nh3: state.avg_nh3,
+      # Counts
       temp_count: state.temp_count,
       humidity_count: state.humidity_count,
+      co2_count: state.co2_count,
+      nh3_count: state.nh3_count,
+      # Individual readings
       temp_readings: state.temp_readings,
       humidity_readings: state.humidity_readings,
+      co2_readings: state.co2_readings,
+      nh3_readings: state.nh3_readings,
+      # Configured sensors
       temp_sensors: state.temp_sensors,
       humidity_sensors: state.humidity_sensors,
+      co2_sensors: state.co2_sensors,
+      nh3_sensors: state.nh3_sensors,
+      # Error state
       error: state.error,
       error_message: error_message(state.error)
     }
@@ -265,13 +342,25 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
 
   @impl GenServer
   def handle_call(:get_averages, _from, state) do
+    # Returns {temp, humidity} for backwards compatibility with EnvironmentController
     {:reply, {state.avg_temp, state.avg_humidity}, state}
+  end
+
+  @impl GenServer
+  def handle_call(:get_all_averages, _from, state) do
+    reply = %{
+      temp: state.avg_temp,
+      humidity: state.avg_humidity,
+      co2: state.avg_co2,
+      nh3: state.avg_nh3
+    }
+
+    {:reply, reply, state}
   end
 
   defp error_message(nil), do: "OK"
   defp error_message(:no_sensors_configured), do: "No sensors configured"
   defp error_message(:no_temp_data), do: "No temperature data available"
-  defp error_message(:no_humidity_data), do: "No humidity data available"
   defp error_message(:partial_data), do: "Some sensors not responding"
   defp error_message(:crashed_previously), do: "Recovered from crash"
   defp error_message(_), do: "Unknown error"

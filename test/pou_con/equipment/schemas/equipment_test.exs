@@ -106,7 +106,6 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
         "nh3_sensor",
         "water_meter",
         "power_meter",
-        "flowmeter",
         "feeding",
         "egg",
         "dung",
@@ -137,7 +136,7 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
             t when t in ["temp_sensor", "humidity_sensor", "co2_sensor", "nh3_sensor"] ->
               "sensor: s1"
 
-            t when t in ["water_meter", "power_meter", "flowmeter"] ->
+            t when t in ["water_meter", "power_meter"] ->
               "meter: m1"
           end
 

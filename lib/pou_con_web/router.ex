@@ -125,7 +125,11 @@ defmodule PouConWeb.Router do
       live("/help", Live.Help.UserGuide, :index)
 
       # Equipment monitoring pages (public - users can view status)
-      live("/temp_hum", Live.TempHum.Index, :index)
+      live("/temp", Live.Temp.Index, :index)
+      live("/hum", Live.Hum.Index, :index)
+      live("/co2", Live.Co2.Index, :index)
+      live("/nh3", Live.Nh3.Index, :index)
+      live("/averages", Live.Averages.Index, :index)
       live("/fans", Live.Fans.Index, :index)
       live("/pumps", Live.Pumps.Index, :index)
       live("/lighting", Live.Lighting.Index, :index)

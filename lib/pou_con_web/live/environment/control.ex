@@ -13,6 +13,7 @@ defmodule PouConWeb.Live.Environment.Control do
     config = Configs.get_config()
     fans = list_equipment("fan")
     pumps = list_equipment("pump")
+    average_sensors = list_equipment("average_sensor")
 
     socket =
       socket
@@ -20,40 +21,34 @@ defmodule PouConWeb.Live.Environment.Control do
       |> assign(:form, to_form(Config.changeset(config, %{}), as: :config))
       |> assign(:fans, fans)
       |> assign(:pumps, pumps)
+      |> assign(:average_sensors, average_sensors)
       |> assign(:current_step, 1)
-      |> assign(:manual_fans, get_manual_equipment(fans, "fan"))
-      |> assign(:manual_pumps, get_manual_equipment(pumps, "pump"))
 
-    {:ok, socket}
+    {:ok, fetch_average_sensor_status(socket)}
   end
 
   @impl true
   def handle_info(:data_refreshed, socket) do
-    {:noreply,
-     socket
-     |> assign(:manual_fans, get_manual_equipment(socket.assigns.fans, "fan"))
-     |> assign(:manual_pumps, get_manual_equipment(socket.assigns.pumps, "pump"))}
+    {:noreply, fetch_average_sensor_status(socket)}
   end
 
-  defp get_manual_equipment(equipment_list, type) do
-    controller_module =
-      case type do
-        "fan" -> PouCon.Equipment.Controllers.Fan
-        "pump" -> PouCon.Equipment.Controllers.Pump
-      end
+  defp fetch_average_sensor_status(socket) do
+    equipment_with_status =
+      socket.assigns.average_sensors
+      |> Enum.map(fn eq ->
+        status =
+          try do
+            PouCon.Equipment.Controllers.AverageSensor.status(eq.name)
+          rescue
+            _ -> %{error: :not_running, title: eq.title}
+          catch
+            :exit, _ -> %{error: :not_running, title: eq.title}
+          end
 
-    equipment_list
-    |> Enum.filter(fn eq ->
-      try do
-        status = controller_module.status(eq.name)
-        status[:mode] == :manual
-      rescue
-        _ -> false
-      catch
-        :exit, _ -> false
-      end
-    end)
-    |> Enum.map(& &1.name)
+        Map.put(eq, :status, status)
+      end)
+
+    assign(socket, :average_sensors_with_status, equipment_with_status)
   end
 
   @impl true
@@ -167,6 +162,15 @@ defmodule PouConWeb.Live.Environment.Control do
           <.dashboard_link />
         </div>
 
+        <div
+          :if={length(@average_sensors_with_status) > 0}
+          class="mt-2 bg-white shadow-md rounded-xl border border-gray-200 px-4 py-2 flex flex-wrap items-center gap-4 font-mono"
+        >
+          <%= for eq <- @average_sensors_with_status do %>
+            <.avg_reading label={eq.status[:title] || eq.name} status={eq.status} />
+          <% end %>
+        </div>
+
         <%= if @flash["info"] do %>
           <div class="bg-green-100 border border-green-400 text-green-800 px-4 py-3 rounded-xl mt-2 flex items-center justify-between animate-pulse">
             <div class="flex items-center gap-2">
@@ -198,40 +202,6 @@ defmodule PouConWeb.Live.Environment.Control do
             >
               &times;
             </button>
-          </div>
-        <% end %>
-
-        <%= if length(@manual_fans) > 0 do %>
-          <div class="bg-amber-50 border border-amber-300 rounded-xl p-4 mt-2">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="text-amber-700 font-bold text-lg">Panel Controlled Fans</span>
-              <span class="text-amber-600 text-sm">(switch not in AUTO position)</span>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <%= for fan_name <- @manual_fans do %>
-                <% fan = Enum.find(@fans, fn f -> f.name == fan_name end) %>
-                <span class="px-3 py-1 bg-amber-100 text-amber-800 rounded-lg font-mono font-bold border border-amber-400">
-                  {(fan && fan.title) || fan_name}
-                </span>
-              <% end %>
-            </div>
-          </div>
-        <% end %>
-
-        <%= if length(@manual_pumps) > 0 do %>
-          <div class="bg-amber-50 border border-amber-300 rounded-xl p-4 mt-2">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="text-amber-700 font-bold text-lg">Panel Controlled Pumps</span>
-              <span class="text-amber-600 text-sm">(switch not in AUTO position)</span>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <%= for pump_name <- @manual_pumps do %>
-                <% pump = Enum.find(@pumps, fn p -> p.name == pump_name end) %>
-                <span class="px-3 py-1 bg-amber-100 text-amber-800 rounded-lg font-mono font-bold border border-amber-400">
-                  {(pump && pump.title) || pump_name}
-                </span>
-              <% end %>
-            </div>
           </div>
         <% end %>
 
@@ -281,54 +251,40 @@ defmodule PouConWeb.Live.Environment.Control do
                   |> Enum.map(&String.trim/1)
                   |> Enum.filter(&(&1 != "")) %>
                 <%= for fan <- @fans do %>
-                  <% is_manual = fan.name in @manual_fans %>
                   <% is_selected = fan.name in selected_fans %>
-                  <%= if is_manual do %>
-                    <div class="btn btn-disabled bg-amber-100 border-amber-400 text-amber-700 font-bold opacity-70 cursor-not-allowed">
-                      <span>⚠️ {fan.title}</span>
-                    </div>
-                  <% else %>
-                    <label class={
-                      if is_selected,
-                        do: "btn-active btn btn-outline btn-info font-bold",
-                        else: "btn btn-outline btn-info font-thin"
-                    }>
-                      <.input
-                        type="checkbox"
-                        name={"step_#{n}_fans_#{fan.name}"}
-                        checked={is_selected}
-                        class="hidden"
-                      />
-                      <span>{fan.title}</span>
-                    </label>
-                  <% end %>
+                  <label class={
+                    if is_selected,
+                      do: "btn-active btn btn-outline btn-info font-bold",
+                      else: "btn btn-outline btn-info font-thin"
+                  }>
+                    <.input
+                      type="checkbox"
+                      name={"step_#{n}_fans_#{fan.name}"}
+                      checked={is_selected}
+                      class="hidden"
+                    />
+                    <span>{fan.title}</span>
+                  </label>
                 <% end %>
                 <% selected_pumps =
                   String.split(Map.get(@config, String.to_atom(~s/step_#{n}_pumps/)) || "", ", ")
                   |> Enum.map(&String.trim/1)
                   |> Enum.filter(&(&1 != "")) %>
                 <%= for pump <- @pumps do %>
-                  <% is_manual = pump.name in @manual_pumps %>
                   <% is_selected = pump.name in selected_pumps %>
-                  <%= if is_manual do %>
-                    <div class="btn btn-disabled bg-amber-100 border-amber-400 text-amber-700 font-bold opacity-70 cursor-not-allowed">
-                      <span>⚠️ {pump.title}</span>
-                    </div>
-                  <% else %>
-                    <label class={
-                      if is_selected,
-                        do: "btn-active btn btn-outline btn-success font-bold",
-                        else: "btn btn-outline btn-success font-medium"
-                    }>
-                      <.input
-                        type="checkbox"
-                        name={"step_#{n}_pumps_#{pump.name}"}
-                        checked={is_selected}
-                        class="hidden"
-                      />
-                      <span>{pump.title}</span>
-                    </label>
-                  <% end %>
+                  <label class={
+                    if is_selected,
+                      do: "btn-active btn btn-outline btn-success font-bold",
+                      else: "btn btn-outline btn-success font-medium"
+                  }>
+                    <.input
+                      type="checkbox"
+                      name={"step_#{n}_pumps_#{pump.name}"}
+                      checked={is_selected}
+                      class="hidden"
+                    />
+                    <span>{pump.title}</span>
+                  </label>
                 <% end %>
               </div>
             </div>
@@ -394,4 +350,76 @@ defmodule PouConWeb.Live.Environment.Control do
     </Layouts.app>
     """
   end
+
+  # Compact one-liner display for average sensor readings
+  attr :label, :string, required: true
+  attr :status, :map, required: true
+
+  defp avg_reading(assigns) do
+    alias PouConWeb.Components.Formatters
+
+    status = assigns.status
+    temp = status[:avg_temp]
+    hum = status[:avg_humidity]
+    co2 = status[:avg_co2]
+    nh3 = status[:avg_nh3]
+
+    temp_total = length(status[:temp_sensors] || [])
+    hum_total = length(status[:humidity_sensors] || [])
+    co2_total = length(status[:co2_sensors] || [])
+    nh3_total = length(status[:nh3_sensors] || [])
+
+    temp_count = status[:temp_count] || 0
+    hum_count = status[:humidity_count] || 0
+    co2_count = status[:co2_count] || 0
+    nh3_count = status[:nh3_count] || 0
+
+    assigns =
+      assigns
+      |> assign(:temp, if(temp, do: Formatters.format_temperature(temp), else: "--.-°C"))
+      |> assign(:hum, if(hum, do: Formatters.format_percentage(hum), else: "--.-%"))
+      |> assign(:co2, if(co2, do: "#{round(co2)} ppm", else: "-- ppm"))
+      |> assign(:nh3, if(nh3, do: "#{nh3} ppm", else: "-- ppm"))
+      |> assign(:temp_count, "#{temp_count}/#{temp_total}")
+      |> assign(:hum_count, "#{hum_count}/#{hum_total}")
+      |> assign(:co2_count, "#{co2_count}/#{co2_total}")
+      |> assign(:nh3_count, "#{nh3_count}/#{nh3_total}")
+      |> assign(:has_hum, hum_total > 0)
+      |> assign(:has_co2, co2_total > 0)
+      |> assign(:has_nh3, nh3_total > 0)
+      |> assign(:temp_color, temp_reading_color(temp))
+      |> assign(:hum_color, hum_reading_color(hum))
+
+    ~H"""
+    <div class="flex items-center gap-3 text-sm">
+      <span class="text-gray-500 font-sans">{@label}:</span>
+      <span>
+        <span class={"font-bold text-#{@temp_color}-500"}>{@temp}</span>
+        <span class="text-gray-400 text-xs">({@temp_count})</span>
+      </span>
+      <span :if={@has_hum}>
+        <span class={"text-#{@hum_color}-500"}>{@hum}</span>
+        <span class="text-gray-400 text-xs">({@hum_count})</span>
+      </span>
+      <span :if={@has_co2}>
+        <span class="text-gray-600">{@co2}</span>
+        <span class="text-gray-400 text-xs">({@co2_count})</span>
+      </span>
+      <span :if={@has_nh3}>
+        <span class="text-gray-600">{@nh3}</span>
+        <span class="text-gray-400 text-xs">({@nh3_count})</span>
+      </span>
+    </div>
+    """
+  end
+
+  defp temp_reading_color(nil), do: "gray"
+  defp temp_reading_color(temp) when temp >= 38.0, do: "rose"
+  defp temp_reading_color(temp) when temp > 24.0, do: "green"
+  defp temp_reading_color(_), do: "blue"
+
+  defp hum_reading_color(nil), do: "gray"
+  defp hum_reading_color(hum) when hum >= 90.0, do: "blue"
+  defp hum_reading_color(hum) when hum > 20.0, do: "green"
+  defp hum_reading_color(_), do: "rose"
 end

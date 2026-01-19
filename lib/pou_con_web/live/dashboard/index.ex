@@ -172,7 +172,7 @@ defmodule PouConWeb.Live.Dashboard.Index do
         <% hum_sensors = Enum.filter(@equipment, &(&1.type == "humidity_sensor")) %>
         <% co2_sensors = Enum.filter(@equipment, &(&1.type == "co2_sensor")) %>
         <% nh3_sensors = Enum.filter(@equipment, &(&1.type == "nh3_sensor")) %>
-        <% flowmeters = Enum.filter(@equipment, &(&1.type == "flowmeter")) %>
+        <% average_sensors = Enum.filter(@equipment, &(&1.type == "average_sensor")) %>
         <% fans = Enum.filter(@equipment, &(&1.type == "fan")) %>
         <% pumps = Enum.filter(@equipment, &(&1.type == "pump")) %>
         <% water_meters = Enum.filter(@equipment, &(&1.type == "water_meter")) %>
@@ -187,10 +187,17 @@ defmodule PouConWeb.Live.Dashboard.Index do
         />
 
         <.live_component
-          module={PouConWeb.Components.Summaries.SensorSummaryComponent}
-          id="sensors"
-          temp_sensors={temp_sensors}
-          hum_sensors={hum_sensors}
+          :if={length(temp_sensors) > 0}
+          module={PouConWeb.Components.Summaries.TempSummaryComponent}
+          id="temp_sensors"
+          sensors={temp_sensors}
+        />
+
+        <.live_component
+          :if={length(hum_sensors) > 0}
+          module={PouConWeb.Components.Summaries.HumSummaryComponent}
+          id="hum_sensors"
+          sensors={hum_sensors}
         />
 
         <.live_component
@@ -208,10 +215,10 @@ defmodule PouConWeb.Live.Dashboard.Index do
         />
 
         <.live_component
-          :if={length(flowmeters) > 0}
-          module={PouConWeb.Components.Summaries.FlowmeterSummaryComponent}
-          id="flowmeters"
-          meters={flowmeters}
+          :if={length(average_sensors) > 0}
+          module={PouConWeb.Components.Summaries.AverageSensorSummaryComponent}
+          id="average_sensors"
+          sensors={average_sensors}
         />
 
         <.live_component

@@ -30,10 +30,17 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
     # Meters
     "water_meter" => [:meter],
     "power_meter" => [:meter],
-    "flowmeter" => [:meter]
+    # Average sensor (uses comma-separated lists of sensor equipment names)
+    "average_sensor" => [:temp_sensors]
+  }
+
+  # Optional keys shown for informational purposes
+  @optional_keys %{
+    "average_sensor" => [:humidity_sensors, :co2_sensors, :nh3_sensors]
   }
 
   defp required_keys_for_type(type), do: Map.get(@required_keys, type, [])
+  defp optional_keys_for_type(type), do: Map.get(@optional_keys, type, [])
 
   # ——————————————————————————————————————————————
   # Data Point Links Component
@@ -144,13 +151,22 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
         <div class="w-full font-mono">
           <.input field={@form[:data_point_tree]} type="textarea" label="Data Point Tree" rows="7" />
           <% type = @form[:type].value %>
-          <% keys = if type, do: required_keys_for_type(type), else: [] %>
-          <%= if keys != [] do %>
-            <div class="font-sans mb-2 -mt-2">
-              Required keys:
-              <span class="text-sm text-gray-400">
-                {Enum.join(keys, ", ")}
-              </span>
+          <% required = if type, do: required_keys_for_type(type), else: [] %>
+          <% optional = if type, do: optional_keys_for_type(type), else: [] %>
+          <%= if required != [] or optional != [] do %>
+            <div class="font-sans mb-2 -mt-2 text-sm">
+              <%= if required != [] do %>
+                <div>
+                  <span class="text-gray-600">Required:</span>
+                  <span class="text-gray-400">{Enum.join(required, ", ")}</span>
+                </div>
+              <% end %>
+              <%= if optional != [] do %>
+                <div>
+                  <span class="text-gray-600">Optional:</span>
+                  <span class="text-gray-400">{Enum.join(optional, ", ")}</span>
+                </div>
+              <% end %>
             </div>
           <% end %>
           <.data_point_links

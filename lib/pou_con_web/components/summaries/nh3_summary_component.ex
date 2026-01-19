@@ -20,7 +20,7 @@ defmodule PouConWeb.Components.Summaries.Nh3SummaryComponent do
 
   @impl true
   def handle_event("navigate", _, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/temp_hum")}
+    {:noreply, push_navigate(socket, to: ~p"/nh3")}
   end
 
   @impl true
