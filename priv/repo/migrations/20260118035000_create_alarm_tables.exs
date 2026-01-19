@@ -5,15 +5,17 @@ defmodule PouCon.Repo.Migrations.CreateAlarmTables do
     # Alarm rules - groups conditions that trigger a siren
     create table(:alarm_rules) do
       add :name, :string, null: false
-      add :siren_name, :string, null: false
+      # siren_names stored as JSON array in SQLite TEXT field
+      add :siren_names, :text, default: "[]"
       add :logic, :string, null: false, default: "any"
       add :auto_clear, :boolean, null: false, default: true
       add :enabled, :boolean, null: false, default: true
+      # Default 30 minutes max mute time
+      add :max_mute_minutes, :integer, null: false, default: 30
 
       timestamps()
     end
 
-    create index(:alarm_rules, [:siren_name])
     create index(:alarm_rules, [:enabled])
 
     # Alarm conditions - individual conditions within a rule
