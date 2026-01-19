@@ -3,7 +3,7 @@
 
 FROM hexpm/elixir:1.18.4-erlang-27.3.4.1-debian-bookworm-20251117-slim AS builder
 
-# Install build dependencies
+# Install build dependencies (nodejs/npm not needed - esbuild/tailwind use standalone binaries)
 RUN apt-get update -y && apt-get install -y \
     build-essential \
     git \
@@ -11,8 +11,6 @@ RUN apt-get update -y && apt-get install -y \
     sqlite3 \
     libsqlite3-dev \
     ca-certificates \
-    nodejs \
-    npm \
     && apt-get clean && rm -f /var/lib/apt/lists/*_*
 
 # Download runtime dependencies as .deb files for offline installation
@@ -65,7 +63,7 @@ RUN sed -i 's/x86_64 i386))/x86_64 i386 aarch64 arm64))/g' \
 
 # Copy compile-time config files before we compile dependencies
 COPY config/config.exs config/prod.exs config/
-RUN mix deps.compile
+RUN mix deps.compile --force
 
 # Copy application code
 COPY priv priv
