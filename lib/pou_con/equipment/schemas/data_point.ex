@@ -5,6 +5,14 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
   Each data point represents a single readable/writable value at a specific address.
   The data point is self-describing with its own conversion parameters.
 
+  ## Logging Configuration
+
+  The `log_interval` field controls how this data point's values are logged:
+
+  - `nil` (default): Log on value change - whenever the value differs from the last logged value
+  - `0`: No logging - this data point is not logged
+  - `> 0`: Interval logging - log every N seconds regardless of value change
+
   ## Configuration
 
   For digital and analog I/O, specify `read_fn` and `write_fn` strings that map
@@ -68,6 +76,10 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
     field :min_valid, :float
     field :max_valid, :float
 
+    # Logging configuration
+    # nil = log on change, 0 = no logging, > 0 = interval in seconds
+    field :log_interval, :integer
+
     belongs_to :port, PouCon.Hardware.Ports.Port,
       foreign_key: :port_path,
       references: :device_path,
@@ -95,8 +107,11 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
       :unit,
       :value_type,
       :min_valid,
-      :max_valid
+      :max_valid,
+      # Logging
+      :log_interval
     ])
+    |> validate_number(:log_interval, greater_than_or_equal_to: 0)
     |> validate_required([:name, :type, :slave_id, :port_path])
     |> unique_constraint(:name)
   end

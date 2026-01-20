@@ -82,6 +82,9 @@ defmodule PouCon.Repo.Migrations.CreateSchema do
       add :min_valid, :float
       add :max_valid, :float
 
+      # Logging: nil = on change, 0 = no logging, > 0 = interval in seconds
+      add :log_interval, :integer
+
       add :port_path, references(:ports, column: :device_path, type: :string), null: false
 
       timestamps()
@@ -251,17 +254,19 @@ defmodule PouCon.Repo.Migrations.CreateSchema do
     create index(:equipment_events, [:inserted_at])
     create index(:equipment_events, [:mode])
 
-    create table(:sensor_snapshots) do
-      add :equipment_name, :string, null: false
-      add :temperature, :float
-      add :humidity, :float
-      add :dew_point, :float
+    create table(:data_point_logs) do
+      add :data_point_name, :string, null: false
+      add :value, :float
+      add :raw_value, :float
+      add :unit, :string
+      add :triggered_by, :string, default: "self"
 
       add :inserted_at, :utc_datetime_usec, null: false
     end
 
-    create index(:sensor_snapshots, [:equipment_name, :inserted_at])
-    create index(:sensor_snapshots, [:inserted_at])
+    create index(:data_point_logs, [:data_point_name])
+    create index(:data_point_logs, [:inserted_at])
+    create index(:data_point_logs, [:data_point_name, :inserted_at])
 
     create table(:daily_summaries) do
       add :date, :date, null: false
@@ -288,65 +293,6 @@ defmodule PouCon.Repo.Migrations.CreateSchema do
     create unique_index(:daily_summaries, [:date, :equipment_name])
     create index(:daily_summaries, [:date])
     create index(:daily_summaries, [:equipment_type])
-
-    create table(:water_meter_snapshots) do
-      add :equipment_name, :string, null: false
-      add :positive_flow, :float
-      add :negative_flow, :float
-      add :flow_rate, :float
-      add :temperature, :float
-      add :pressure, :float
-      add :battery_voltage, :float
-
-      add :inserted_at, :utc_datetime_usec, null: false
-    end
-
-    create index(:water_meter_snapshots, [:equipment_name, :inserted_at])
-    create index(:water_meter_snapshots, [:inserted_at])
-
-    create table(:power_meter_snapshots) do
-      add :equipment_name, :string, null: false
-
-      # Voltage readings (V)
-      add :voltage_l1, :float
-      add :voltage_l2, :float
-      add :voltage_l3, :float
-
-      # Current readings (A)
-      add :current_l1, :float
-      add :current_l2, :float
-      add :current_l3, :float
-
-      # Power readings (W)
-      add :power_l1, :float
-      add :power_l2, :float
-      add :power_l3, :float
-      add :power_total, :float
-
-      # Power factor
-      add :pf_avg, :float
-
-      # Frequency (Hz)
-      add :frequency, :float
-
-      # Energy totals (kWh)
-      add :energy_import, :float
-      add :energy_export, :float
-
-      # Max/Min power since last snapshot (W)
-      add :power_max, :float
-      add :power_min, :float
-
-      # THD averages (%)
-      add :thd_v_avg, :float
-      add :thd_i_avg, :float
-
-      add :inserted_at, :utc_datetime, null: false
-    end
-
-    create index(:power_meter_snapshots, [:equipment_name])
-    create index(:power_meter_snapshots, [:inserted_at])
-    create index(:power_meter_snapshots, [:equipment_name, :inserted_at])
 
     # ============================================================
     # Flocks

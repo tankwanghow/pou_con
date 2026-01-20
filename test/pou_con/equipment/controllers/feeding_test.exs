@@ -13,8 +13,10 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
     id = System.unique_integer([:positive])
 
     device_names = %{
-      device_to_back_limit: "dev_back_#{id}",
-      device_to_front_limit: "dev_front_#{id}",
+      to_back_limit: "dev_back_#{id}",
+      to_front_limit: "dev_front_#{id}",
+      fwd_feedback: "fwd_fb_#{id}",
+      rev_feedback: "rev_fb_#{id}",
       front_limit: "lim_front_#{id}",
       back_limit: "lim_back_#{id}",
       pulse_sensor: "pulse_#{id}",
@@ -32,8 +34,10 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
       opts = [
         name: "test_feeding_1_#{System.unique_integer([:positive])}",
         title: "Test Feeding 1",
-        device_to_back_limit: devices.device_to_back_limit,
-        device_to_front_limit: devices.device_to_front_limit,
+        to_back_limit: devices.to_back_limit,
+        to_front_limit: devices.to_front_limit,
+        fwd_feedback: devices.fwd_feedback,
+        rev_feedback: devices.rev_feedback,
         front_limit: devices.front_limit,
         back_limit: devices.back_limit,
         pulse_sensor: devices.pulse_sensor,
@@ -52,8 +56,10 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
       opts = [
         name: name,
         title: "Test Status Feeding",
-        device_to_back_limit: devices.device_to_back_limit,
-        device_to_front_limit: devices.device_to_front_limit,
+        to_back_limit: devices.to_back_limit,
+        to_front_limit: devices.to_front_limit,
+        fwd_feedback: devices.fwd_feedback,
+        rev_feedback: devices.rev_feedback,
         front_limit: devices.front_limit,
         back_limit: devices.back_limit,
         pulse_sensor: devices.pulse_sensor,
@@ -88,8 +94,10 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
 
       opts = [
         name: name,
-        device_to_back_limit: devices.device_to_back_limit,
-        device_to_front_limit: devices.device_to_front_limit,
+        to_back_limit: devices.to_back_limit,
+        to_front_limit: devices.to_front_limit,
+        fwd_feedback: devices.fwd_feedback,
+        rev_feedback: devices.rev_feedback,
         front_limit: devices.front_limit,
         back_limit: devices.back_limit,
         pulse_sensor: devices.pulse_sensor,
@@ -113,8 +121,10 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
 
       opts = [
         name: name,
-        device_to_back_limit: devices.device_to_back_limit,
-        device_to_front_limit: devices.device_to_front_limit,
+        to_back_limit: devices.to_back_limit,
+        to_front_limit: devices.to_front_limit,
+        fwd_feedback: devices.fwd_feedback,
+        rev_feedback: devices.rev_feedback,
         front_limit: devices.front_limit,
         back_limit: devices.back_limit,
         pulse_sensor: devices.pulse_sensor,
@@ -128,8 +138,8 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
     test "move_to_back_limit sends commands", %{name: name, devices: devices} do
       # Expect coils activation
       expect(DataPointManagerMock, :command, 2, fn
-        n, :set_state, %{state: 0} when n == devices.device_to_front_limit -> {:ok, :success}
-        n, :set_state, %{state: 1} when n == devices.device_to_back_limit -> {:ok, :success}
+        n, :set_state, %{state: 0} when n == devices.to_front_limit -> {:ok, :success}
+        n, :set_state, %{state: 1} when n == devices.to_back_limit -> {:ok, :success}
         _, _, _ -> {:error, :unexpected}
       end)
 
@@ -142,8 +152,8 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
 
     test "stop_movement sends commands", %{name: name, devices: devices} do
       expect(DataPointManagerMock, :command, 2, fn
-        n, :set_state, %{state: 0} when n == devices.device_to_front_limit -> {:ok, :success}
-        n, :set_state, %{state: 0} when n == devices.device_to_back_limit -> {:ok, :success}
+        n, :set_state, %{state: 0} when n == devices.to_front_limit -> {:ok, :success}
+        n, :set_state, %{state: 0} when n == devices.to_back_limit -> {:ok, :success}
         _, _, _ -> {:error, :unexpected}
       end)
 

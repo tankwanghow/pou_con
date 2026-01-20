@@ -134,9 +134,13 @@ defmodule PouConWeb.Live.PowerIndicators.Index do
       "bg-white shadow-sm rounded-xl border border-gray-200 p-6 w-40 text-center transition-colors",
       @display.is_error && "border-red-300 ring-1 ring-red-100"
     ]}>
-      <div class="font-bold text-gray-700 text-lg mb-3 truncate" title={@equipment.status.title}>
+      <.link
+        navigate={~p"/admin/equipment/#{@equipment.id}/edit"}
+        class="font-bold text-gray-700 hover:text-blue-600 text-lg mb-3 truncate block"
+        title={@equipment.status.title}
+      >
         {@equipment.status.title}
-      </div>
+      </.link>
       <div class="flex justify-center mb-3">
         <div class={"w-8 h-8 rounded-full bg-#{@display.color}-500 transition-colors"} />
       </div>

@@ -128,7 +128,7 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
               "on_off_coil: c\nrunning_feedback: f"
 
             "feeding" ->
-              "device_to_back_limit: d1\ndevice_to_front_limit: d2\nfront_limit: f\nback_limit: b\npulse_sensor: p\nauto_manual: a"
+              "to_back_limit: d1\nto_front_limit: d2\nfwd_feedback: ff\nrev_feedback: rf\nfront_limit: f\nback_limit: b\npulse_sensor: p\nauto_manual: a"
 
             "feed_in" ->
               "filling_coil: fc\nrunning_feedback: rf\nauto_manual: am\nfull_switch: fs\ntrip: tr"
@@ -167,14 +167,14 @@ defmodule PouCon.Equipment.Schemas.EquipmentTest do
     end
 
     test "validates required keys for feeding type" do
-      # Missing pulse_sensor
+      # Missing pulse_sensor (has all others)
       changeset =
         %Equipment{}
         |> Equipment.changeset(%{
           name: "bad_feeding",
           type: "feeding",
           data_point_tree:
-            "device_to_back_limit: d1\ndevice_to_front_limit: d2\nfront_limit: f\nback_limit: b\nauto_manual: a"
+            "to_back_limit: d1\nto_front_limit: d2\nfwd_feedback: ff\nrev_feedback: rf\nfront_limit: f\nback_limit: b\nauto_manual: a"
         })
 
       refute changeset.valid?

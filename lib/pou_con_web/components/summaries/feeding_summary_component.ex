@@ -67,7 +67,7 @@ defmodule PouConWeb.Components.Summaries.FeedingSummaryComponent do
 
                   # 2. Moving Animation
                   eq.target_limit == :to_front_limit && !eq.at_front &&
-                    "-translate-x-1 bg-green-500 animate-spin",
+                    "-translate-x-2 bg-green-500 animate-spin",
                   eq.target_limit == :to_back_limit && !eq.at_back &&
                     "translate-x-2 bg-green-500 animate-spin",
 

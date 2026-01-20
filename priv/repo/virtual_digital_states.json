@@ -2,7 +2,7 @@
   "virtual_digital_states": [
     {
       "id": 1,
-      "state": 0,
+      "state": 1,
       "slave_id": 200,
       "channel": 1
     },
@@ -14,7 +14,7 @@
     },
     {
       "id": 3,
-      "state": 0,
+      "state": 1,
       "slave_id": 200,
       "channel": 14
     },
@@ -38,7 +38,7 @@
     },
     {
       "id": 7,
-      "state": 0,
+      "state": 1,
       "slave_id": 200,
       "channel": 2
     },

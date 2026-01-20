@@ -20,7 +20,7 @@ defmodule PouCon.Application do
   │  9. TaskSupervisor           (Async logging writes)             │
   │ 10. InterlockController      (Safety chain rules)               │
   │ 11. EquipmentLoader          (Spawns all controllers)           │
-  │ 12. Logging Services         (PeriodicLogger, DailySummary, Cleanup)  │
+  │ 12. Logging Services         (DataPointLogger, DailySummary, Cleanup) │
   │ 13. Automation Services      (Environment, Light, Egg, Feeding) │
   │ 14. Phoenix.Endpoint         (Web UI - always last)             │
   └─────────────────────────────────────────────────────────────────┘
@@ -137,8 +137,8 @@ defmodule PouCon.Application do
             # Periodic UI refresh broadcaster (1 second interval)
             PouCon.Equipment.StatusBroadcaster,
 
-            # Logging system - sensor snapshots every 30 minutes
-            PouCon.Logging.PeriodicLogger,
+            # Logging system - data point value logging based on log_interval settings
+            PouCon.Logging.DataPointLogger,
 
             # Logging system - daily summaries at midnight
             PouCon.Logging.DailySummaryTask,

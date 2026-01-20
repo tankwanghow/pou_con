@@ -2189,14 +2189,15 @@
     {
       "id": 3013,
       "name": "FC01-AUTO",
+      "offset": 0,
       "register": 0,
-      "type": "VDO",
+      "type": "DI",
       "description": "Feeding Chain 1 Auto/Manual Mode",
       "slave_id": 200,
-      "read_fn": "read_virtual_digital_output",
-      "write_fn": "write_virtual_digital_output",
+      "read_fn": "read_digital_input",
       "channel": 13,
-      "port_path": "virtual"
+      "port_path": "s7://192.168.0.1",
+      "scale_factor": 1
     },
     {
       "id": 3014,

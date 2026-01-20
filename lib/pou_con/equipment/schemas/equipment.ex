@@ -151,8 +151,10 @@ defmodule PouCon.Equipment.Schemas.Equipment do
 
   defp required_keys_for_type("feeding"),
     do: [
-      :device_to_back_limit,
-      :device_to_front_limit,
+      :to_back_limit,
+      :to_front_limit,
+      :fwd_feedback,
+      :rev_feedback,
       :front_limit,
       :back_limit,
       :pulse_sensor,

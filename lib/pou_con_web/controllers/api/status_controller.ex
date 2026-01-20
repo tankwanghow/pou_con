@@ -7,11 +7,15 @@ defmodule PouConWeb.API.StatusController do
 
   use PouConWeb, :controller
 
+  import Ecto.Query
+
   alias PouCon.Equipment.Devices
   alias PouCon.Equipment.EquipmentCommands
-  alias PouCon.Logging.PeriodicLogger
+  alias PouCon.Equipment.Schemas.DataPoint
+  alias PouCon.Hardware.DataPointManager
   alias PouCon.Flock.Flocks
   alias PouCon.Operations.Tasks
+  alias PouCon.Repo
 
   @doc """
   GET /api/status
@@ -83,28 +87,56 @@ defmodule PouConWeb.API.StatusController do
   defp format_status(_), do: %{error: :unknown}
 
   defp get_sensor_readings do
-    PeriodicLogger.get_latest_snapshots()
-    |> Enum.map(fn snapshot ->
-      %{
-        equipment_name: snapshot.equipment_name,
-        temperature: snapshot.temperature,
-        humidity: snapshot.humidity,
-        dew_point: snapshot.dew_point,
-        recorded_at: snapshot.inserted_at
-      }
+    # Get data points that are sensors (by unit: °C, %RH, ppm for CO2/NH3)
+    sensor_units = ["°C", "%RH", "ppm"]
+
+    from(d in DataPoint, where: d.unit in ^sensor_units, select: %{name: d.name, unit: d.unit})
+    |> Repo.all()
+    |> Enum.map(fn dp ->
+      case DataPointManager.get_cached_data(dp.name) do
+        {:ok, data} ->
+          %{
+            data_point_name: dp.name,
+            value: Map.get(data, :value),
+            unit: dp.unit,
+            timestamp: DateTime.utc_now()
+          }
+
+        {:error, _} ->
+          %{
+            data_point_name: dp.name,
+            value: nil,
+            unit: dp.unit,
+            timestamp: DateTime.utc_now()
+          }
+      end
     end)
   end
 
   defp get_water_meter_readings do
-    PeriodicLogger.get_latest_water_meter_snapshots()
-    |> Enum.map(fn snapshot ->
-      %{
-        equipment_name: snapshot.equipment_name,
-        positive_flow: snapshot.positive_flow,
-        negative_flow: snapshot.negative_flow,
-        flow_rate: snapshot.flow_rate,
-        recorded_at: snapshot.inserted_at
-      }
+    # Get data points that are water meters (by unit: L or L/min)
+    water_units = ["L", "L/min"]
+
+    from(d in DataPoint, where: d.unit in ^water_units, select: %{name: d.name, unit: d.unit})
+    |> Repo.all()
+    |> Enum.map(fn dp ->
+      case DataPointManager.get_cached_data(dp.name) do
+        {:ok, data} ->
+          %{
+            data_point_name: dp.name,
+            value: Map.get(data, :value),
+            unit: dp.unit,
+            timestamp: DateTime.utc_now()
+          }
+
+        {:error, _} ->
+          %{
+            data_point_name: dp.name,
+            value: nil,
+            unit: dp.unit,
+            timestamp: DateTime.utc_now()
+          }
+      end
     end)
   end
 

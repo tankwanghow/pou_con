@@ -15,9 +15,7 @@ defmodule PouConWeb.API.SyncController do
 
   alias PouCon.Logging.Schemas.{
     EquipmentEvent,
-    SensorSnapshot,
-    WaterMeterSnapshot,
-    PowerMeterSnapshot,
+    DataPointLog,
     DailySummary
   }
 
@@ -111,141 +109,44 @@ defmodule PouConWeb.API.SyncController do
   # ------------------------------------------------------------------ #
 
   @doc """
-  GET /api/sync/sensor_snapshots
+  GET /api/sync/data_point_logs
 
-  Returns sensor snapshots (temperature/humidity readings).
+  Returns data point value logs.
 
   Query params:
   - since: ISO8601 timestamp
   - limit/offset: pagination
-  - equipment_name: filter by sensor name
+  - data_point_name: filter by data point name
   """
-  def sensor_snapshots(conn, params) do
+  def data_point_logs(conn, params) do
     {limit, offset} = parse_pagination(params)
     since = parse_since(params["since"])
 
     query =
-      from(s in SensorSnapshot,
-        order_by: [asc: s.inserted_at, asc: s.id]
+      from(d in DataPointLog,
+        order_by: [asc: d.inserted_at, asc: d.id]
       )
       |> maybe_filter_since(since)
-      |> maybe_filter(:equipment_name, params["equipment_name"])
+      |> maybe_filter(:data_point_name, params["data_point_name"])
 
     total = Repo.aggregate(query, :count)
     records = query |> limit(^limit) |> offset(^offset) |> Repo.all()
 
     json(conn, %{
-      data: Enum.map(records, &serialize_sensor_snapshot/1),
+      data: Enum.map(records, &serialize_data_point_log/1),
       meta: pagination_meta(total, limit, offset, since)
     })
   end
 
-  defp serialize_sensor_snapshot(snapshot) do
+  defp serialize_data_point_log(log) do
     %{
-      id: snapshot.id,
-      equipment_name: snapshot.equipment_name,
-      temperature: snapshot.temperature,
-      humidity: snapshot.humidity,
-      dew_point: snapshot.dew_point,
-      inserted_at: snapshot.inserted_at
-    }
-  end
-
-  # ------------------------------------------------------------------ #
-  # Water Meter Snapshots
-  # ------------------------------------------------------------------ #
-
-  @doc """
-  GET /api/sync/water_meter_snapshots
-
-  Returns water meter snapshots.
-  """
-  def water_meter_snapshots(conn, params) do
-    {limit, offset} = parse_pagination(params)
-    since = parse_since(params["since"])
-
-    query =
-      from(w in WaterMeterSnapshot,
-        order_by: [asc: w.inserted_at, asc: w.id]
-      )
-      |> maybe_filter_since(since)
-      |> maybe_filter(:equipment_name, params["equipment_name"])
-
-    total = Repo.aggregate(query, :count)
-    records = query |> limit(^limit) |> offset(^offset) |> Repo.all()
-
-    json(conn, %{
-      data: Enum.map(records, &serialize_water_meter_snapshot/1),
-      meta: pagination_meta(total, limit, offset, since)
-    })
-  end
-
-  defp serialize_water_meter_snapshot(snapshot) do
-    %{
-      id: snapshot.id,
-      equipment_name: snapshot.equipment_name,
-      positive_flow: snapshot.positive_flow,
-      negative_flow: snapshot.negative_flow,
-      flow_rate: snapshot.flow_rate,
-      temperature: snapshot.temperature,
-      pressure: snapshot.pressure,
-      battery_voltage: snapshot.battery_voltage,
-      inserted_at: snapshot.inserted_at
-    }
-  end
-
-  # ------------------------------------------------------------------ #
-  # Power Meter Snapshots
-  # ------------------------------------------------------------------ #
-
-  @doc """
-  GET /api/sync/power_meter_snapshots
-
-  Returns power meter snapshots for energy tracking and generator sizing.
-  """
-  def power_meter_snapshots(conn, params) do
-    {limit, offset} = parse_pagination(params)
-    since = parse_since(params["since"])
-
-    query =
-      from(p in PowerMeterSnapshot,
-        order_by: [asc: p.inserted_at, asc: p.id]
-      )
-      |> maybe_filter_since(since)
-      |> maybe_filter(:equipment_name, params["equipment_name"])
-
-    total = Repo.aggregate(query, :count)
-    records = query |> limit(^limit) |> offset(^offset) |> Repo.all()
-
-    json(conn, %{
-      data: Enum.map(records, &serialize_power_meter_snapshot/1),
-      meta: pagination_meta(total, limit, offset, since)
-    })
-  end
-
-  defp serialize_power_meter_snapshot(snapshot) do
-    %{
-      id: snapshot.id,
-      equipment_name: snapshot.equipment_name,
-      voltage_l1: snapshot.voltage_l1,
-      voltage_l2: snapshot.voltage_l2,
-      voltage_l3: snapshot.voltage_l3,
-      current_l1: snapshot.current_l1,
-      current_l2: snapshot.current_l2,
-      current_l3: snapshot.current_l3,
-      power_l1: snapshot.power_l1,
-      power_l2: snapshot.power_l2,
-      power_l3: snapshot.power_l3,
-      power_total: snapshot.power_total,
-      pf_avg: snapshot.pf_avg,
-      frequency: snapshot.frequency,
-      energy_import: snapshot.energy_import,
-      energy_export: snapshot.energy_export,
-      power_max: snapshot.power_max,
-      power_min: snapshot.power_min,
-      thd_v_avg: snapshot.thd_v_avg,
-      thd_i_avg: snapshot.thd_i_avg,
-      inserted_at: snapshot.inserted_at
+      id: log.id,
+      data_point_name: log.data_point_name,
+      value: log.value,
+      raw_value: log.raw_value,
+      unit: log.unit,
+      triggered_by: log.triggered_by,
+      inserted_at: log.inserted_at
     }
   end
 
@@ -513,9 +414,7 @@ defmodule PouConWeb.API.SyncController do
   def all_counts(conn, _params) do
     json(conn, %{
       equipment_events: Repo.aggregate(EquipmentEvent, :count),
-      sensor_snapshots: Repo.aggregate(SensorSnapshot, :count),
-      water_meter_snapshots: Repo.aggregate(WaterMeterSnapshot, :count),
-      power_meter_snapshots: Repo.aggregate(PowerMeterSnapshot, :count),
+      data_point_logs: Repo.aggregate(DataPointLog, :count),
       daily_summaries: Repo.aggregate(DailySummary, :count),
       flocks: Repo.aggregate(Flock, :count),
       flock_logs: Repo.aggregate(FlockLog, :count),

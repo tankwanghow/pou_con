@@ -97,6 +97,26 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
 
           <.input field={@form[:description]} type="text" label="Description" />
 
+          <%!-- Logging Section --%>
+          <div class="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div class="flex items-center gap-2 mb-2">
+              <.icon name="hero-document-chart-bar" class="w-5 h-5 text-blue-600" />
+              <span class="text-sm font-medium text-blue-700">Logging</span>
+            </div>
+            <p class="text-xs text-gray-500 mb-2">
+              Empty = log on value change | 0 = no logging | > 0 = interval in seconds
+            </p>
+            <div class="w-1/4">
+              <.input
+                field={@form[:log_interval]}
+                type="number"
+                label="Log Interval (seconds)"
+                placeholder="Empty = on change"
+                min="0"
+              />
+            </div>
+          </div>
+
           <footer>
             <.button phx-disable-with="Saving..." variant="primary">Save Data Point</.button>
             <.button type="button" onclick="history.back()">Cancel</.button>

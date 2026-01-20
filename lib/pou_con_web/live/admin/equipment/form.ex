@@ -17,8 +17,10 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
     "dung_horz" => [:on_off_coil, :running_feedback],
     "dung_exit" => [:on_off_coil, :running_feedback],
     "feeding" => [
-      :device_to_back_limit,
-      :device_to_front_limit,
+      :to_back_limit,
+      :to_front_limit,
+      :fwd_feedback,
+      :rev_feedback,
       :front_limit,
       :back_limit,
       :pulse_sensor,

@@ -32,6 +32,8 @@ defmodule PouCon.Logging.Schemas.EquipmentEvent do
       "start",
       "stop",
       "error",
+      "error_cleared",
+      "mode_change",
       "alarm_triggered",
       "alarm_cleared",
       "alarm_muted"

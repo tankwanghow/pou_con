@@ -7,7 +7,7 @@ defmodule PouConWeb.Live.PowerMeters.Index do
   use PouConWeb, :live_view
 
   alias PouCon.Equipment.EquipmentCommands
-  alias PouCon.Logging.PeriodicLogger
+  alias PouCon.Logging.DataPointLogger
   alias PouConWeb.Components.Formatters
 
   @pubsub_topic "data_point_data"
@@ -104,9 +104,10 @@ defmodule PouConWeb.Live.PowerMeters.Index do
     power_meters = Enum.filter(equipment, &(&1.type == "power_meter"))
 
     # Aggregate power range across all meters
+    # Note: Data point names should match equipment names for power tracking
     ranges =
       Enum.map(power_meters, fn meter ->
-        PeriodicLogger.get_power_range(meter.name, 30)
+        DataPointLogger.get_power_range(meter.name, 30)
       end)
 
     total_peak =

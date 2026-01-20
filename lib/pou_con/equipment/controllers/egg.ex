@@ -205,6 +205,12 @@ defmodule PouCon.Equipment.Controllers.Egg do
     case @data_point_manager.command(state.auto_manual, :set_state, %{state: mode_value}) do
       {:ok, :success} ->
         Logger.info("[#{state.name}] Mode set to #{mode}")
+
+        # Log mode change to database
+        if state.mode != mode do
+          EquipmentLogger.log_mode_change(state.name, state.mode, mode, "user")
+        end
+
         new_state = %{state | mode: mode}
         # Turn off when switching to AUTO mode (clean state)
         new_state = if mode == :auto, do: %{new_state | commanded_on: false}, else: new_state

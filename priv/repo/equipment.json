@@ -198,7 +198,7 @@
       "name": "feed_1",
       "type": "feeding",
       "title": "Feed 01",
-      "data_point_tree": "device_to_back_limit: FC01-START-REV-CMD\ndevice_to_front_limit: FC01-START-FWD-CMD\nrunning_fwd: FC01-RUN-FWD\nrunning_rev: FC01-RUN-REV\nfront_limit: FC01-LS1\nback_limit: FC01-LS2\ntrip: FC01-TRIP\npulse_sensor: FC01-TIMER\nauto_manual: FC01-AUTO"
+      "data_point_tree": "to_back_limit: FC01-START-REV-CMD\nto_front_limit: FC01-START-FWD-CMD\nfwd_feedback: FC01-RUN-FWD\nrev_feedback: FC01-RUN-REV\nfront_limit: FC01-LS1\nback_limit: FC01-LS2\ntrip: FC01-TRIP\npulse_sensor: FC01-TIMER\nauto_manual: FC01-AUTO"
     },
     {
       "active": true,
@@ -206,7 +206,7 @@
       "name": "feed_2",
       "type": "feeding",
       "title": "Feed 02",
-      "data_point_tree": "device_to_back_limit: FC02-START-REV-CMD\ndevice_to_front_limit: FC02-START-FWD-CMD\nrunning_fwd: FC02-RUN-FWD\nrunning_rev: FC02-RUN-REV\nfront_limit: FC02-LS1\nback_limit: FC02-LS2\ntrip: FC02-TRIP\npulse_sensor: FC02-TIMER\nauto_manual: FC02-AUTO"
+      "data_point_tree": "to_back_limit: FC02-START-REV-CMD\nto_front_limit: FC02-START-FWD-CMD\nfwd_feedback: FC02-RUN-FWD\nrev_feedback: FC02-RUN-REV\nfront_limit: FC02-LS1\nback_limit: FC02-LS2\ntrip: FC02-TRIP\npulse_sensor: FC02-TIMER\nauto_manual: FC02-AUTO"
     },
     {
       "active": true,
@@ -214,7 +214,7 @@
       "name": "feed_3",
       "type": "feeding",
       "title": "Feed 03",
-      "data_point_tree": "device_to_back_limit: FC03-START-REV-CMD\ndevice_to_front_limit: FC03-START-FWD-CMD\nrunning_fwd: FC03-RUN-FWD\nrunning_rev: FC03-RUN-REV\nfront_limit: FC03-LS1\nback_limit: FC03-LS2\ntrip: FC03-TRIP\npulse_sensor: FC03-TIMER\nauto_manual: FC03-AUTO"
+      "data_point_tree": "to_back_limit: FC03-START-REV-CMD\nto_front_limit: FC03-START-FWD-CMD\nfwd_feedback: FC03-RUN-FWD\nrev_feedback: FC03-RUN-REV\nfront_limit: FC03-LS1\nback_limit: FC03-LS2\ntrip: FC03-TRIP\npulse_sensor: FC03-TIMER\nauto_manual: FC03-AUTO"
     },
     {
       "active": true,
@@ -222,7 +222,7 @@
       "name": "feed_4",
       "type": "feeding",
       "title": "Feed 04",
-      "data_point_tree": "device_to_back_limit: FC04-START-REV-CMD\ndevice_to_front_limit: FC04-START-FWD-CMD\nrunning_fwd: FC04-RUN-FWD\nrunning_rev: FC04-RUN-REV\nfront_limit: FC04-LS1\nback_limit: FC04-LS2\ntrip: FC04-TRIP\npulse_sensor: FC04-TIMER\nauto_manual: FC04-AUTO"
+      "data_point_tree": "to_back_limit: FC04-START-REV-CMD\nto_front_limit: FC04-START-FWD-CMD\nfwd_feedback: FC04-RUN-FWD\nrev_feedback: FC04-RUN-REV\nfront_limit: FC04-LS1\nback_limit: FC04-LS2\ntrip: FC04-TRIP\npulse_sensor: FC04-TIMER\nauto_manual: FC04-AUTO"
     },
     {
       "active": true,

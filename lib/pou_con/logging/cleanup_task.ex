@@ -7,14 +7,14 @@ defmodule PouCon.Logging.CleanupTask do
   use GenServer
   require Logger
 
-  alias PouCon.Logging.Schemas.{EquipmentEvent, SensorSnapshot, DailySummary}
+  alias PouCon.Logging.Schemas.{EquipmentEvent, DataPointLog, DailySummary}
   alias PouCon.Repo
 
   import Ecto.Query
 
   # Configuration
   @event_retention_days 30
-  @sensor_retention_days 30
+  @data_point_log_retention_days 30
   @summary_retention_days 365
   # 3 AM
   @cleanup_hour 3
@@ -79,13 +79,13 @@ defmodule PouCon.Logging.CleanupTask do
 
     Logger.info("Deleted #{event_count} old equipment events")
 
-    # Delete old sensor snapshots
-    sensor_cutoff = DateTime.utc_now() |> DateTime.add(-@sensor_retention_days, :day)
+    # Delete old data point logs
+    data_point_cutoff = DateTime.utc_now() |> DateTime.add(-@data_point_log_retention_days, :day)
 
-    {sensor_count, _} =
-      Repo.delete_all(from s in SensorSnapshot, where: s.inserted_at < ^sensor_cutoff)
+    {data_point_count, _} =
+      Repo.delete_all(from d in DataPointLog, where: d.inserted_at < ^data_point_cutoff)
 
-    Logger.info("Deleted #{sensor_count} old sensor snapshots")
+    Logger.info("Deleted #{data_point_count} old data point logs")
 
     # Delete old daily summaries
     summary_cutoff = Date.utc_today() |> Date.add(-@summary_retention_days)

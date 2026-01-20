@@ -175,6 +175,11 @@ defmodule PouCon.Equipment.Controllers.Fan do
     case @data_point_manager.command(state.auto_manual, :set_state, %{state: mode_value}) do
       {:ok, :success} ->
         Logger.info("[#{state.name}] Mode set to #{mode}")
+        # Log mode change to database
+        if state.mode != mode do
+          EquipmentLogger.log_mode_change(state.name, state.mode, mode, "user")
+        end
+
         {:noreply, poll_and_update(%{state | mode: mode})}
 
       {:error, reason} ->

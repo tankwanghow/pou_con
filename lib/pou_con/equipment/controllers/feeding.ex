@@ -9,12 +9,14 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   ## Device Tree Configuration
 
   ```yaml
-  device_to_back_limit: WS-15-O-01   # Motor direction: move toward back
-  device_to_front_limit: WS-15-O-02  # Motor direction: move toward front
-  front_limit: WS-15-I-01            # Limit switch at front position
-  back_limit: WS-15-I-02             # Limit switch at back position
-  pulse_sensor: WS-15-I-03           # Optional: rotation/distance sensor
-  auto_manual: VT-200-30             # Virtual device for mode selection
+  to_back_limit: WS-15-O-01    # Motor command: move toward back
+  to_front_limit: WS-15-O-02   # Motor command: move toward front
+  fwd_feedback: WS-15-I-01     # Contactor feedback: forward engaged
+  rev_feedback: WS-15-I-02     # Contactor feedback: reverse engaged
+  front_limit: WS-15-I-03      # Limit switch at front position
+  back_limit: WS-15-I-04       # Limit switch at back position
+  pulse_sensor: WS-15-I-05     # Rotation/distance sensor for stall detection
+  auto_manual: VT-200-30       # Virtual device for mode selection
   ```
 
   ## Movement State Machine
@@ -64,17 +66,25 @@ defmodule PouCon.Equipment.Controllers.Feeding do
     defstruct [
       :name,
       :title,
-      :device_to_back_limit,
-      :device_to_front_limit,
+      # Output coils (commands)
+      :to_back_limit,
+      :to_front_limit,
+      # Input feedback (contactor status)
+      :fwd_feedback,
+      :rev_feedback,
+      # Limit switches
       :front_limit,
       :back_limit,
+      # Sensors
       :pulse_sensor,
       :auto_manual,
       :trip,
-      # Runtime
+      # Runtime state
       commanded_target: nil,
       command_timestamp: nil,
       is_moving: false,
+      fwd_engaged: false,
+      rev_engaged: false,
       is_tripped: false,
       mode: :auto,
       error: nil,
@@ -126,9 +136,10 @@ defmodule PouCon.Equipment.Controllers.Feeding do
     state = %State{
       name: name,
       title: opts[:title] || name,
-      device_to_back_limit: opts[:device_to_back_limit] || raise("Missing :device_to_back_limit"),
-      device_to_front_limit:
-        opts[:device_to_front_limit] || raise("Missing :device_to_front_limit"),
+      to_back_limit: opts[:to_back_limit] || raise("Missing :to_back_limit"),
+      to_front_limit: opts[:to_front_limit] || raise("Missing :to_front_limit"),
+      fwd_feedback: opts[:fwd_feedback] || raise("Missing :fwd_feedback"),
+      rev_feedback: opts[:rev_feedback] || raise("Missing :rev_feedback"),
       front_limit: opts[:front_limit] || raise("Missing :front_limit"),
       back_limit: opts[:back_limit] || raise("Missing :back_limit"),
       pulse_sensor: opts[:pulse_sensor] || raise("Missing :pulse_sensor"),
@@ -214,6 +225,12 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   def handle_cast(:set_auto, state) do
     Logger.info("[#{state.name}] → AUTO mode")
     @data_point_manager.command(state.auto_manual, :set_state, %{state: 0})
+
+    # Log mode change if actually changing
+    if state.mode != :auto do
+      EquipmentLogger.log_mode_change(state.name, state.mode, :auto, "user")
+    end
+
     {:noreply, poll_and_update(stop_and_reset(%{state | mode: :auto}))}
   end
 
@@ -221,6 +238,12 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   def handle_cast(:set_manual, state) do
     Logger.info("[#{state.name}] → MANUAL mode")
     @data_point_manager.command(state.auto_manual, :set_state, %{state: 1})
+
+    # Log mode change if actually changing
+    if state.mode != :manual do
+      EquipmentLogger.log_mode_change(state.name, state.mode, :manual, "user")
+    end
+
     {:noreply, poll_and_update(stop_and_reset(%{state | mode: :manual}))}
   end
 
@@ -232,8 +255,10 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       if state.trip, do: @data_point_manager.read_direct(state.trip), else: {:ok, %{state: 0}}
 
     inputs = [
-      @data_point_manager.read_direct(state.device_to_back_limit),
-      @data_point_manager.read_direct(state.device_to_front_limit),
+      @data_point_manager.read_direct(state.to_back_limit),
+      @data_point_manager.read_direct(state.to_front_limit),
+      @data_point_manager.read_direct(state.fwd_feedback),
+      @data_point_manager.read_direct(state.rev_feedback),
       @data_point_manager.read_direct(state.front_limit),
       @data_point_manager.read_direct(state.back_limit),
       @data_point_manager.read_direct(state.pulse_sensor),
@@ -249,6 +274,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
           safe = %State{
             state
             | is_moving: false,
+              fwd_engaged: false,
+              rev_engaged: false,
               is_tripped: false,
               at_front_limit: false,
               at_back_limit: false,
@@ -263,6 +290,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
             [
               {:ok, %{:state => back_coil}},
               {:ok, %{:state => front_coil}},
+              {:ok, %{:state => fwd_fb}},
+              {:ok, %{:state => rev_fb}},
               {:ok, %{:state => f_lim}},
               {:ok, %{:state => b_lim}},
               {:ok, %{:state => pulse}},
@@ -271,6 +300,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
             ] = inputs
 
             is_moving = pulse == 1
+            fwd_engaged = fwd_fb == 1
+            rev_engaged = rev_fb == 1
             is_tripped = trip_state == 1
             mode = if mode_val == 1, do: :manual, else: :auto
             at_front = f_lim == 1
@@ -295,13 +326,15 @@ defmodule PouCon.Equipment.Controllers.Feeding do
             updated = %State{
               state
               | is_moving: is_moving,
+                fwd_engaged: fwd_engaged,
+                rev_engaged: rev_engaged,
                 is_tripped: is_tripped,
                 mode: mode,
                 at_front_limit: at_front,
                 at_back_limit: at_back,
                 commanded_target: inferred_target,
-                command_timestamp: new_timestamp,
-                error: nil
+                command_timestamp: new_timestamp
+                # Note: error is preserved, cleared by detect_errors when conditions resolve
             }
 
             {updated, nil}
@@ -332,12 +365,20 @@ defmodule PouCon.Equipment.Controllers.Feeding do
         base_state
       end
 
-    # Stall detection (2-second grace)
+    # Grace period for startup (2 seconds)
     grace_active? =
       state_after_limits.commanded_target != nil &&
         state_after_limits.command_timestamp != nil &&
         DateTime.diff(DateTime.utc_now(), state_after_limits.command_timestamp, :millisecond) <
           2000
+
+    # Check if contactor is engaged for the commanded direction
+    contactor_engaged? =
+      case state_after_limits.commanded_target do
+        :to_front_limit -> state_after_limits.fwd_engaged
+        :to_back_limit -> state_after_limits.rev_engaged
+        nil -> false
+      end
 
     new_error =
       cond do
@@ -350,9 +391,13 @@ defmodule PouCon.Equipment.Controllers.Feeding do
         state_after_limits.is_moving && state_after_limits.commanded_target == nil ->
           :moving_without_target
 
-        state_after_limits.commanded_target != nil && !state_after_limits.is_moving &&
-            !grace_active? ->
-          :hardware_stall
+        # Commanded but contactor not engaged (after grace period)
+        state_after_limits.commanded_target != nil && !contactor_engaged? && !grace_active? ->
+          :contactor_failure
+
+        # Contactor engaged but no movement detected (mechanical stall)
+        contactor_engaged? && !state_after_limits.is_moving && !grace_active? ->
+          :mechanical_stall
 
         true ->
           nil
@@ -380,38 +425,57 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   end
 
   defp activate_coil(state, :to_back_limit) do
-    @data_point_manager.command(state.device_to_front_limit, :set_state, %{state: 0})
-    @data_point_manager.command(state.device_to_back_limit, :set_state, %{state: 1})
+    @data_point_manager.command(state.to_front_limit, :set_state, %{state: 0})
+    @data_point_manager.command(state.to_back_limit, :set_state, %{state: 1})
   end
 
   defp activate_coil(state, :to_front_limit) do
-    @data_point_manager.command(state.device_to_back_limit, :set_state, %{state: 0})
-    @data_point_manager.command(state.device_to_front_limit, :set_state, %{state: 1})
+    @data_point_manager.command(state.to_back_limit, :set_state, %{state: 0})
+    @data_point_manager.command(state.to_front_limit, :set_state, %{state: 1})
   end
 
   defp stop_and_reset(state) do
-    @data_point_manager.command(state.device_to_back_limit, :set_state, %{state: 0})
-    @data_point_manager.command(state.device_to_front_limit, :set_state, %{state: 0})
+    @data_point_manager.command(state.to_back_limit, :set_state, %{state: 0})
+    @data_point_manager.command(state.to_front_limit, :set_state, %{state: 0})
     %State{state | commanded_target: nil, command_timestamp: nil}
   end
 
   defp log_error(name, old, new) do
-    # Log error to database
-    if new != nil and old != new do
-      error_type =
-        case new do
-          :timeout -> "sensor_timeout"
-          :invalid_data -> "invalid_data"
-          :tripped -> "motor_tripped"
-          :hardware_stall -> "hardware_stall"
-          :moving_without_target -> "moving_without_target"
-          :crashed_previously -> "crashed_previously"
-          _ -> "unknown_error"
-        end
+    # Log error state changes to database
+    cond do
+      # New error occurred
+      new != nil and old != new ->
+        error_type =
+          case new do
+            :timeout -> "sensor_timeout"
+            :invalid_data -> "invalid_data"
+            :tripped -> "motor_tripped"
+            :contactor_failure -> "contactor_failure"
+            :mechanical_stall -> "mechanical_stall"
+            :moving_without_target -> "moving_without_target"
+            :crashed_previously -> "crashed_previously"
+            _ -> "unknown_error"
+          end
 
-      EquipmentLogger.log_error(name, "auto", error_type, "running")
+        EquipmentLogger.log_error(name, "auto", error_type, "running")
+
+      # Error cleared
+      old != nil and new == nil ->
+        EquipmentLogger.log_event(%{
+          equipment_name: name,
+          event_type: "error_cleared",
+          from_value: to_string(old),
+          to_value: "ok",
+          mode: "auto",
+          triggered_by: "system",
+          metadata: nil
+        })
+
+      true ->
+        nil
     end
 
+    # Console logging
     case {old, new} do
       {nil, nil} -> nil
       {_, nil} -> Logger.info("[#{name}] Error CLEARED")
@@ -425,6 +489,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       name: state.name,
       title: state.title || state.name,
       moving: state.is_moving,
+      fwd_engaged: state.fwd_engaged,
+      rev_engaged: state.rev_engaged,
       is_tripped: state.is_tripped,
       target_limit: state.commanded_target,
       at_front: state.at_front_limit,
@@ -441,7 +507,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   defp error_message(:timeout), do: "SENSOR TIMEOUT"
   defp error_message(:invalid_data), do: "INVALID DATA"
   defp error_message(:tripped), do: "MOTOR TRIPPED"
-  defp error_message(:hardware_stall), do: "STALL (No Pulse Detected)"
+  defp error_message(:contactor_failure), do: "CONTACTOR NOT ENGAGED"
+  defp error_message(:mechanical_stall), do: "STALL (No Pulse Detected)"
   defp error_message(:moving_without_target), do: "MOVING WITHOUT TARGET"
   defp error_message(:crashed_previously), do: "RECOVERED FROM CRASH"
   defp error_message(_), do: "UNKNOWN ERROR"

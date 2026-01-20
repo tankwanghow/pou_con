@@ -7,7 +7,7 @@ defmodule PouConWeb.Live.WaterMeters.Index do
   use PouConWeb, :live_view
 
   alias PouCon.Equipment.EquipmentCommands
-  alias PouCon.Logging.PeriodicLogger
+  alias PouCon.Logging.DataPointLogger
   alias PouConWeb.Components.Formatters
 
   @pubsub_topic "data_point_data"
@@ -103,9 +103,11 @@ defmodule PouConWeb.Live.WaterMeters.Index do
     water_meters = Enum.filter(equipment, &(&1.type == "water_meter"))
 
     # Get daily consumption for last 7 days across all meters
+    # Note: Data point names should match equipment names for consumption tracking
     daily_totals =
       Enum.flat_map(water_meters, fn meter ->
-        PeriodicLogger.get_daily_water_consumption(meter.name, 7)
+        # Use equipment name as data point name prefix for positive flow
+        DataPointLogger.get_daily_water_consumption(meter.name, 7)
       end)
       |> Enum.group_by(& &1.date)
       |> Enum.map(fn {date, items} ->

@@ -65,6 +65,26 @@ defmodule PouCon.Logging.EquipmentLogger do
   end
 
   @doc """
+  Log mode change event (auto <-> manual).
+
+  ## Examples
+
+      log_mode_change("fan_1", "auto", "manual", "user")
+      log_mode_change("pump_2", "manual", "auto", "user")
+  """
+  def log_mode_change(equipment_name, from_mode, to_mode, triggered_by \\ "user") do
+    log_event(%{
+      equipment_name: equipment_name,
+      event_type: "mode_change",
+      from_value: to_string(from_mode),
+      to_value: to_string(to_mode),
+      mode: to_string(to_mode),
+      triggered_by: triggered_by,
+      metadata: nil
+    })
+  end
+
+  @doc """
   Generic log event function. Writes async to avoid blocking.
   IMPORTANT: Logging is paused if system time is invalid (detected on startup).
   """

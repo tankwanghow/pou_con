@@ -1,29 +1,42 @@
 defmodule PouConWeb.Live.Reports.Index do
+  @moduledoc """
+  Reports and logs view for equipment events and data point values.
+
+  ## Tabs
+
+  - **Equipment Events**: Start/stop/error events from equipment controllers
+  - **Data Point Logs**: Value snapshots from data points (based on log_interval settings)
+  - **Daily Summaries**: Aggregated daily statistics
+  - **Errors**: Filtered view of error events only
+  """
+
   use PouConWeb, :live_view
 
-  alias PouCon.Logging.{EquipmentLogger, PeriodicLogger, DailySummaryTask}
-  alias PouCon.Equipment.Devices
+  alias PouCon.Logging.{EquipmentLogger, DataPointLogger, DailySummaryTask}
+  alias PouCon.Equipment.{Devices, DataPoints}
 
   @impl true
   def mount(_params, _session, socket) do
     equipment_list = Devices.list_equipment()
     equipment_names = Enum.map(equipment_list, & &1.name) |> Enum.sort()
 
+    # Get data point names for filtering
+    data_point_names =
+      DataPoints.list_data_points()
+      |> Enum.map(& &1.name)
+      |> Enum.sort()
+
     socket =
       socket
       |> assign(:view_mode, "events")
       |> assign(:equipment_list, equipment_list)
       |> assign(:equipment_names, equipment_names)
+      |> assign(:data_point_names, data_point_names)
       |> assign(:filter_equipment, "all")
+      |> assign(:filter_data_point, "all")
       |> assign(:filter_event_type, "all")
       |> assign(:filter_mode, "all")
       |> assign(:filter_hours, "24")
-      |> assign(:selected_sensor, nil)
-      |> assign(:selected_water_meter, nil)
-      |> assign(:water_meter_snapshots, [])
-      |> assign(:daily_consumption, [])
-      |> assign(:selected_power_meter, nil)
-      |> assign(:power_meter_snapshots, [])
       |> assign(:date_from, Date.add(Date.utc_today(), -7))
       |> assign(:date_to, Date.utc_today())
       |> load_data()
@@ -48,16 +61,14 @@ defmodule PouConWeb.Live.Reports.Index do
     {:noreply, socket}
   end
 
-  def handle_event("select_sensor", %{"sensor" => sensor}, socket) do
-    {:noreply, socket |> assign(:selected_sensor, sensor) |> load_data()}
-  end
+  def handle_event("filter_data_points", params, socket) do
+    socket =
+      socket
+      |> assign(:filter_data_point, params["data_point"] || "all")
+      |> assign(:filter_hours, params["hours"] || "24")
+      |> load_data()
 
-  def handle_event("select_water_meter", %{"meter" => meter}, socket) do
-    {:noreply, socket |> assign(:selected_water_meter, meter) |> load_data()}
-  end
-
-  def handle_event("select_power_meter", %{"meter" => meter}, socket) do
-    {:noreply, socket |> assign(:selected_power_meter, meter) |> load_data()}
+    {:noreply, socket}
   end
 
   def handle_event("change_date_range", params, socket) do
@@ -73,9 +84,7 @@ defmodule PouConWeb.Live.Reports.Index do
   defp load_data(socket) do
     case socket.assigns.view_mode do
       "events" -> load_events(socket)
-      "sensors" -> load_sensors(socket)
-      "water_meters" -> load_water_meters(socket)
-      "power_meters" -> load_power_meters(socket)
+      "data_points" -> load_data_point_logs(socket)
       "summaries" -> load_summaries(socket)
       "errors" -> load_errors(socket)
       _ -> socket
@@ -115,56 +124,23 @@ defmodule PouConWeb.Live.Reports.Index do
     assign(socket, :events, events)
   end
 
-  defp load_sensors(socket) do
-    sensor = socket.assigns.selected_sensor || get_first_sensor(socket)
-    hours = 24
+  defp load_data_point_logs(socket) do
+    hours = String.to_integer(socket.assigns.filter_hours)
 
-    snapshots =
-      if sensor do
-        PeriodicLogger.get_sensor_snapshots(sensor, hours)
+    opts = [
+      from_date: DateTime.utc_now() |> DateTime.add(-hours * 3600, :second),
+      limit: 500
+    ]
+
+    opts =
+      if socket.assigns.filter_data_point != "all" do
+        Keyword.put(opts, :data_point_name, socket.assigns.filter_data_point)
       else
-        []
+        opts
       end
 
-    socket
-    |> assign(:selected_sensor, sensor)
-    |> assign(:sensor_snapshots, snapshots)
-  end
-
-  defp load_water_meters(socket) do
-    meter = socket.assigns.selected_water_meter || get_first_water_meter(socket)
-    hours = 24
-
-    {snapshots, consumption} =
-      if meter do
-        {
-          PeriodicLogger.get_water_meter_snapshots(meter, hours),
-          PeriodicLogger.get_daily_water_consumption(meter, 7)
-        }
-      else
-        {[], []}
-      end
-
-    socket
-    |> assign(:selected_water_meter, meter)
-    |> assign(:water_meter_snapshots, snapshots)
-    |> assign(:daily_consumption, consumption)
-  end
-
-  defp load_power_meters(socket) do
-    meter = socket.assigns.selected_power_meter || get_first_power_meter(socket)
-    hours = 24
-
-    snapshots =
-      if meter do
-        PeriodicLogger.get_power_meter_snapshots(meter, hours)
-      else
-        []
-      end
-
-    socket
-    |> assign(:selected_power_meter, meter)
-    |> assign(:power_meter_snapshots, snapshots)
+    logs = DataPointLogger.query_logs(opts)
+    assign(socket, :data_point_logs, logs)
   end
 
   defp load_summaries(socket) do
@@ -176,33 +152,6 @@ defmodule PouConWeb.Live.Reports.Index do
     hours = String.to_integer(socket.assigns.filter_hours)
     errors = EquipmentLogger.get_errors(hours)
     assign(socket, :errors, errors)
-  end
-
-  defp get_first_sensor(socket) do
-    socket.assigns.equipment_list
-    |> Enum.find(&(&1.type == "temp_hum_sensor"))
-    |> case do
-      nil -> nil
-      sensor -> sensor.name
-    end
-  end
-
-  defp get_first_water_meter(socket) do
-    socket.assigns.equipment_list
-    |> Enum.find(&(&1.type == "water_meter"))
-    |> case do
-      nil -> nil
-      meter -> meter.name
-    end
-  end
-
-  defp get_first_power_meter(socket) do
-    socket.assigns.equipment_list
-    |> Enum.find(&(&1.type == "power_meter"))
-    |> case do
-      nil -> nil
-      meter -> meter.name
-    end
   end
 
   @impl true
@@ -226,24 +175,10 @@ defmodule PouConWeb.Live.Reports.Index do
         </button>
         <button
           phx-click="change_view"
-          phx-value-view="sensors"
-          class={"px-4 py-2 rounded " <> if @view_mode == "sensors", do: "bg-blue-600 text-white", else: "bg-gray-700 text-gray-300"}
+          phx-value-view="data_points"
+          class={"px-4 py-2 rounded " <> if @view_mode == "data_points", do: "bg-green-600 text-white", else: "bg-gray-700 text-gray-300"}
         >
-          Sensor Data
-        </button>
-        <button
-          phx-click="change_view"
-          phx-value-view="water_meters"
-          class={"px-4 py-2 rounded " <> if @view_mode == "water_meters", do: "bg-cyan-600 text-white", else: "bg-gray-700 text-gray-300"}
-        >
-          Water Meters
-        </button>
-        <button
-          phx-click="change_view"
-          phx-value-view="power_meters"
-          class={"px-4 py-2 rounded " <> if @view_mode == "power_meters", do: "bg-amber-600 text-white", else: "bg-gray-700 text-gray-300"}
-        >
-          Power Meters
+          Data Point Logs
         </button>
         <button
           phx-click="change_view"
@@ -260,8 +195,8 @@ defmodule PouConWeb.Live.Reports.Index do
           Errors
         </button>
       </div>
-      
-    <!-- Equipment Events View -->
+
+      <%!-- Equipment Events View --%>
       <%= if @view_mode == "events" do %>
         <div class="bg-gray-400 p-4 rounded-lg mb-4">
           <h3 class="text-lg font-semibold mb-3">Filter Events</h3>
@@ -359,231 +294,77 @@ defmodule PouConWeb.Live.Reports.Index do
           <% end %>
         </div>
       <% end %>
-      
-    <!-- Sensor Data View -->
-      <%= if @view_mode == "sensors" do %>
+
+      <%!-- Data Point Logs View --%>
+      <%= if @view_mode == "data_points" do %>
         <div class="bg-gray-400 p-4 rounded-lg mb-4">
-          <h3 class="text-lg font-semibold mb-3">Select Sensor</h3>
-          <div class="flex gap-2">
-            <%= for eq <- Enum.filter(@equipment_list, &(&1.type == "temp_hum_sensor")) do %>
-              <button
-                phx-click="select_sensor"
-                phx-value-sensor={eq.name}
-                class={"px-4 py-2 rounded " <> if @selected_sensor == eq.name, do: "bg-blue-600 text-white", else: "bg-gray-700 text-gray-300"}
+          <h3 class="text-lg font-semibold mb-3">Filter Data Point Logs</h3>
+          <.form for={%{}} phx-change="filter_data_points" class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm mb-1">Data Point</label>
+              <select
+                name="data_point"
+                class="w-full bg-gray-900 border-gray-600 rounded text-white p-2"
               >
-                {eq.title || eq.name}
-              </button>
-            <% end %>
-          </div>
+                <option value="all" selected={@filter_data_point == "all"}>All Data Points</option>
+                <%= for name <- @data_point_names do %>
+                  <option value={name} selected={@filter_data_point == name}>{name}</option>
+                <% end %>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm mb-1">Time Range</label>
+              <select name="hours" class="w-full bg-gray-900 border-gray-600 rounded text-white p-2">
+                <option value="6" selected={@filter_hours == "6"}>Last 6 hours</option>
+                <option value="24" selected={@filter_hours == "24"}>Last 24 hours</option>
+                <option value="72" selected={@filter_hours == "72"}>Last 3 days</option>
+                <option value="168" selected={@filter_hours == "168"}>Last 7 days</option>
+              </select>
+            </div>
+          </.form>
         </div>
 
-        <%= if @selected_sensor && !Enum.empty?(@sensor_snapshots) do %>
-          <!-- Raw Data Table -->
-          <div class="bg-gray-800 rounded-lg overflow-hidden mt-4">
-            <table class="w-full text-sm">
-              <thead class="bg-blue-400">
-                <tr>
-                  <th class="p-2 text-left">Time</th>
-                  <th class="p-2 text-right">Temperature (°C)</th>
-                  <th class="p-2 text-right">Humidity (%)</th>
-                  <th class="p-2 text-right">Dew Point (°C)</th>
+        <div class="bg-gray-400 rounded-lg overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-green-600">
+              <tr>
+                <th class="p-2 text-left">Time</th>
+                <th class="p-2 text-left">Data Point</th>
+                <th class="p-2 text-right">Value</th>
+                <th class="p-2 text-left">Unit</th>
+                <th class="p-2 text-right">Raw Value</th>
+                <th class="p-2 text-left">Triggered By</th>
+              </tr>
+            </thead>
+            <tbody>
+              <%= for log <- @data_point_logs do %>
+                <tr class="border-t border-gray-700 hover:bg-gray-500">
+                  <td class="p-2">
+                    {Calendar.strftime(to_local(log.inserted_at), "%d-%m-%Y %H:%M:%S")}
+                  </td>
+                  <td class="p-2 font-medium">{log.data_point_name}</td>
+                  <td class="p-2 text-right font-mono text-green-200">
+                    {format_value(log.value)}
+                  </td>
+                  <td class="p-2 text-gray-300">{log.unit || "-"}</td>
+                  <td class="p-2 text-right font-mono text-gray-400">
+                    {format_value(log.raw_value)}
+                  </td>
+                  <td class="p-2">{log.triggered_by || "self"}</td>
                 </tr>
-              </thead>
-              <tbody>
-                <%= for snapshot <- Enum.reverse(@sensor_snapshots) do %>
-                  <tr class="border-t border-gray-200 hover:bg-blue-400">
-                    <td class="p-2 text-gray-200">
-                      {Calendar.strftime(to_local(snapshot.inserted_at), "%d-%m-%Y %H:%M")}
-                    </td>
-                    <td class="p-2 text-right font-medium text-yellow-200">
-                      {if snapshot.temperature, do: Float.round(snapshot.temperature, 1), else: "-"}
-                    </td>
-                    <td class="p-2 text-right font-medium text-blue-200">
-                      {if snapshot.humidity, do: Float.round(snapshot.humidity, 1), else: "-"}
-                    </td>
-                    <td class="p-2 text-right font-medium text-cyan-200">
-                      {if snapshot.dew_point, do: Float.round(snapshot.dew_point, 1), else: "-"}
-                    </td>
-                  </tr>
-                <% end %>
-              </tbody>
-            </table>
-          </div>
-        <% else %>
-          <div class="bg-gray-800 p-8 rounded-lg text-center text-gray-400">
-            No sensor data available.
-          </div>
-        <% end %>
-      <% end %>
-      
-    <!-- Water Meters View -->
-      <%= if @view_mode == "water_meters" do %>
-        <div class="bg-gray-400 p-4 rounded-lg mb-4">
-          <h3 class="text-lg font-semibold mb-3">Select Water Meter</h3>
-          <div class="flex gap-2">
-            <%= for eq <- Enum.filter(@equipment_list, &(&1.type == "water_meter")) do %>
-              <button
-                phx-click="select_water_meter"
-                phx-value-meter={eq.name}
-                class={"px-4 py-2 rounded " <> if @selected_water_meter == eq.name, do: "bg-cyan-600 text-white", else: "bg-gray-700 text-gray-300"}
-              >
-                {eq.title || eq.name}
-              </button>
-            <% end %>
-          </div>
+              <% end %>
+            </tbody>
+          </table>
+          <%= if Enum.empty?(@data_point_logs) do %>
+            <div class="p-8 text-center">
+              No data point logs found. Configure log_interval on data points to enable logging.
+            </div>
+          <% end %>
         </div>
-
-        <%= if @selected_water_meter do %>
-          <!-- Daily Consumption Summary -->
-          <%= if !Enum.empty?(@daily_consumption) do %>
-            <div class="bg-gray-800 rounded-lg p-4 mb-4">
-              <h4 class="text-lg font-semibold mb-3 text-cyan-400">
-                Daily Water Consumption (Last 7 Days)
-              </h4>
-              <div class="grid grid-cols-7 gap-2">
-                <%= for day <- @daily_consumption do %>
-                  <div class="bg-gray-700 p-3 rounded text-center">
-                    <div class="text-xs text-gray-400">
-                      {Calendar.strftime(day.date, "%d-%m-%Y")}
-                    </div>
-                    <div class="text-lg font-bold text-cyan-300">{day.consumption}</div>
-                    <div class="text-xs text-gray-500">m³</div>
-                  </div>
-                <% end %>
-              </div>
-            </div>
-          <% end %>
-          
-    <!-- Raw Data Table -->
-          <%= if !Enum.empty?(@water_meter_snapshots) do %>
-            <div class="bg-gray-800 rounded-lg overflow-hidden">
-              <table class="w-full text-sm">
-                <thead class="bg-cyan-600">
-                  <tr>
-                    <th class="p-2 text-left">Time</th>
-                    <th class="p-2 text-right">Flow Rate (m³/h)</th>
-                    <th class="p-2 text-right">Cumulative (m³)</th>
-                    <th class="p-2 text-right">Temperature (°C)</th>
-                    <th class="p-2 text-right">Pressure (MPa)</th>
-                    <th class="p-2 text-right">Battery (V)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <%= for snapshot <- Enum.reverse(@water_meter_snapshots) do %>
-                    <tr class="border-t border-gray-700 hover:bg-gray-600">
-                      <td class="p-2 text-gray-200">
-                        {Calendar.strftime(to_local(snapshot.inserted_at), "%d-%m-%Y %H:%M")}
-                      </td>
-                      <td class="p-2 text-right font-medium text-cyan-300">
-                        {format_float(snapshot.flow_rate, 3)}
-                      </td>
-                      <td class="p-2 text-right font-medium text-blue-300">
-                        {format_float(snapshot.positive_flow, 3)}
-                      </td>
-                      <td class="p-2 text-right font-medium text-yellow-300">
-                        {format_float(snapshot.temperature, 1)}
-                      </td>
-                      <td class="p-2 text-right font-medium text-green-300">
-                        {format_float(snapshot.pressure, 2)}
-                      </td>
-                      <td class="p-2 text-right font-medium text-gray-300">
-                        {format_float(snapshot.battery_voltage, 2)}
-                      </td>
-                    </tr>
-                  <% end %>
-                </tbody>
-              </table>
-            </div>
-          <% else %>
-            <div class="bg-gray-800 p-8 rounded-lg text-center text-gray-400">
-              No water meter data available. Snapshots are recorded every 30 minutes.
-            </div>
-          <% end %>
-        <% else %>
-          <div class="bg-gray-800 p-8 rounded-lg text-center text-gray-400">
-            No water meters configured.
-          </div>
-        <% end %>
       <% end %>
-      
-    <!-- Power Meters View -->
-      <%= if @view_mode == "power_meters" do %>
-        <div class="bg-gray-400 p-4 rounded-lg mb-4">
-          <h3 class="text-lg font-semibold mb-3">Select Power Meter</h3>
-          <div class="flex gap-2">
-            <%= for eq <- Enum.filter(@equipment_list, &(&1.type == "power_meter")) do %>
-              <button
-                phx-click="select_power_meter"
-                phx-value-meter={eq.name}
-                class={"px-4 py-2 rounded " <> if @selected_power_meter == eq.name, do: "bg-amber-600 text-white", else: "bg-gray-700 text-gray-300"}
-              >
-                {eq.title || eq.name}
-              </button>
-            <% end %>
-          </div>
-        </div>
 
-        <%= if @selected_power_meter do %>
-          <%= if !Enum.empty?(@power_meter_snapshots) do %>
-            <div class="bg-gray-800 rounded-lg overflow-hidden">
-              <table class="w-full text-sm">
-                <thead class="bg-amber-600">
-                  <tr>
-                    <th class="p-2 text-left">Time</th>
-                    <th class="p-2 text-right">V L1</th>
-                    <th class="p-2 text-right">V L2</th>
-                    <th class="p-2 text-right">V L3</th>
-                    <th class="p-2 text-right">Total Power (W)</th>
-                    <th class="p-2 text-right">PF</th>
-                    <th class="p-2 text-right">Freq (Hz)</th>
-                    <th class="p-2 text-right">Energy (kWh)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <%= for snapshot <- Enum.reverse(@power_meter_snapshots) do %>
-                    <tr class="border-t border-gray-700 hover:bg-gray-600">
-                      <td class="p-2 text-gray-200">
-                        {Calendar.strftime(to_local(snapshot.inserted_at), "%d-%m-%Y %H:%M")}
-                      </td>
-                      <td class="p-2 text-right font-medium text-yellow-300">
-                        {format_float(snapshot.voltage_l1, 1)}
-                      </td>
-                      <td class="p-2 text-right font-medium text-yellow-300">
-                        {format_float(snapshot.voltage_l2, 1)}
-                      </td>
-                      <td class="p-2 text-right font-medium text-yellow-300">
-                        {format_float(snapshot.voltage_l3, 1)}
-                      </td>
-                      <td class="p-2 text-right font-medium text-green-300">
-                        {format_int(snapshot.power_total)}
-                      </td>
-                      <td class="p-2 text-right font-medium text-blue-300">
-                        {format_float(snapshot.pf_avg, 3)}
-                      </td>
-                      <td class="p-2 text-right font-medium text-cyan-300">
-                        {format_float(snapshot.frequency, 2)}
-                      </td>
-                      <td class="p-2 text-right font-medium text-amber-300">
-                        {format_float(snapshot.energy_import, 2)}
-                      </td>
-                    </tr>
-                  <% end %>
-                </tbody>
-              </table>
-            </div>
-          <% else %>
-            <div class="bg-gray-800 p-8 rounded-lg text-center text-gray-400">
-              No power meter data available. Snapshots are recorded every 30 minutes.
-            </div>
-          <% end %>
-        <% else %>
-          <div class="bg-gray-800 p-8 rounded-lg text-center text-gray-400">
-            No power meters configured.
-          </div>
-        <% end %>
-      <% end %>
-      
-    <!-- Daily Summaries View -->
+      <%!-- Daily Summaries View --%>
       <%= if @view_mode == "summaries" do %>
         <div class="bg-gray-400 p-4 rounded-lg mb-4">
           <h3 class="text-lg font-semibold mb-3">Date Range</h3>
@@ -653,8 +434,8 @@ defmodule PouConWeb.Live.Reports.Index do
           <% end %>
         </div>
       <% end %>
-      
-    <!-- Errors View -->
+
+      <%!-- Errors View --%>
       <%= if @view_mode == "errors" do %>
         <div class="bg-gray-400 p-4 rounded-lg mb-4">
           <h3 class="text-lg font-semibold mb-3">Error Log</h3>
@@ -700,7 +481,7 @@ defmodule PouConWeb.Live.Reports.Index do
           </table>
           <%= if Enum.empty?(@errors) do %>
             <div class="p-8 text-center text-green-400">
-              ✓ No errors found - all systems operating normally!
+              No errors found - all systems operating normally!
             </div>
           <% end %>
         </div>
@@ -719,14 +500,9 @@ defmodule PouConWeb.Live.Reports.Index do
   defp mode_badge("manual"), do: "px-2 py-1 rounded bg-amber-600 text-white text-xs"
   defp mode_badge(_), do: "px-2 py-1 rounded bg-gray-600 text-white text-xs"
 
-  defp format_float(nil, _precision), do: "-"
-  defp format_float(value, precision) when is_float(value), do: Float.round(value, precision)
-  defp format_float(value, _precision), do: value
-
-  defp format_int(nil), do: "-"
-  defp format_int(value) when is_integer(value), do: value
-  defp format_int(value) when is_float(value), do: round(value)
-  defp format_int(value), do: value
+  defp format_value(nil), do: "-"
+  defp format_value(value) when is_float(value), do: Float.round(value, 3)
+  defp format_value(value), do: value
 
   # Convert UTC datetime to local time using configured timezone from app_config
   defp to_local(nil), do: nil

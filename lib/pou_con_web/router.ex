@@ -84,9 +84,7 @@ defmodule PouConWeb.Router do
     # Sync endpoints for data download
     get("/sync/counts", SyncController, :all_counts)
     get("/sync/equipment_events", SyncController, :equipment_events)
-    get("/sync/sensor_snapshots", SyncController, :sensor_snapshots)
-    get("/sync/water_meter_snapshots", SyncController, :water_meter_snapshots)
-    get("/sync/power_meter_snapshots", SyncController, :power_meter_snapshots)
+    get("/sync/data_point_logs", SyncController, :data_point_logs)
     get("/sync/daily_summaries", SyncController, :daily_summaries)
     get("/sync/flocks", SyncController, :flocks)
     get("/sync/flock_logs", SyncController, :flock_logs)
