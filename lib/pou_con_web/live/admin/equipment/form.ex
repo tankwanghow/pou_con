@@ -4,6 +4,9 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
   alias PouCon.Equipment.Devices
   alias PouCon.Equipment.DataPoints
   alias PouCon.Equipment.Schemas.Equipment
+  alias PouCon.Hardware.DataPointManager
+
+  @pubsub_topic "data_point_data"
 
   @required_keys %{
     "fan" => [:on_off_coil, :running_feedback, :auto_manual],
@@ -48,6 +51,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
 
   attr :data_point_tree, :string, default: nil
   attr :data_point_map, :map, required: true
+  attr :data_point_cache, :map, required: true
 
   defp data_point_links(assigns) do
     parsed = parse_data_point_tree(assigns.data_point_tree)
@@ -55,16 +59,17 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
 
     ~H"""
     <div :if={@parsed != []} class="font-sans -mt-2 mb-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-      <div class="text-xs text-gray-500 uppercase mb-2 font-medium">Data Points</div>
+      <div class="text-xs text-gray-500 uppercase mb-2 font-medium">Data Points (Live)</div>
       <div class="space-y-1">
         <%= for {key, values} <- @parsed do %>
           <div class="flex items-center gap-2 text-sm">
             <span class="text-gray-600 font-medium w-40 truncate" title={to_string(key)}>
               {key}:
             </span>
-            <div class="flex flex-wrap gap-1">
+            <div class="flex flex-wrap gap-1 items-center">
               <%= for value <- List.wrap(values) do %>
                 <% dp_id = Map.get(@data_point_map, value) %>
+                <% cached = Map.get(@data_point_cache, value) %>
                 <%= if dp_id do %>
                   <.link
                     navigate={~p"/admin/data_points/#{dp_id}/edit"}
@@ -72,6 +77,12 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
                   >
                     {value}
                   </.link>
+                  <span class={[
+                    "px-2 py-0.5 rounded text-xs font-mono",
+                    value_status_class(cached)
+                  ]}>
+                    {format_cached_value(cached)}
+                  </span>
                 <% else %>
                   <span class="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs font-mono" title="Data point not found">
                     {value} ⚠
@@ -85,6 +96,26 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
     </div>
     """
   end
+
+  defp value_status_class(nil), do: "bg-gray-200 text-gray-500"
+  defp value_status_class({:error, _}), do: "bg-red-200 text-red-700"
+  defp value_status_class(_), do: "bg-green-100 text-green-700"
+
+  defp format_cached_value(nil), do: "—"
+  defp format_cached_value({:error, :timeout}), do: "TIMEOUT"
+  defp format_cached_value({:error, :no_data}), do: "NO DATA"
+  defp format_cached_value({:error, reason}), do: "ERR: #{inspect(reason)}"
+  defp format_cached_value(%{state: 1}), do: "ON (1)"
+  defp format_cached_value(%{state: 0}), do: "OFF (0)"
+  defp format_cached_value(%{value: v, unit: u}) when not is_nil(u), do: "#{v} #{u}"
+  defp format_cached_value(%{value: v}), do: "#{v}"
+  defp format_cached_value(%{temperature: t, humidity: h}) do
+    parts = []
+    parts = if t, do: ["#{t}°C" | parts], else: parts
+    parts = if h, do: ["#{h}%" | parts], else: parts
+    Enum.reverse(parts) |> Enum.join(" / ")
+  end
+  defp format_cached_value(map) when is_map(map), do: inspect(map, limit: 3)
 
   defp parse_data_point_tree(nil), do: []
   defp parse_data_point_tree(""), do: []
@@ -172,6 +203,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
           <.data_point_links
             data_point_tree={@form[:data_point_tree].value}
             data_point_map={@data_point_map}
+            data_point_cache={@data_point_cache}
           />
         </div>
         <footer>
@@ -185,10 +217,27 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
 
   @impl true
   def mount(params, _session, socket) do
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
+    end
+
     {:ok,
      socket
      |> assign(:data_point_map, load_data_point_map())
+     |> assign(:data_point_cache, load_data_point_cache())
      |> apply_action(socket.assigns.live_action, params)}
+  end
+
+  @impl true
+  def handle_info(:data_refreshed, socket) do
+    {:noreply, assign(socket, :data_point_cache, load_data_point_cache())}
+  end
+
+  defp load_data_point_cache do
+    case DataPointManager.get_all_cached_data() do
+      {:ok, data} -> data
+      _ -> %{}
+    end
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
