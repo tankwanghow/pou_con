@@ -152,7 +152,7 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
               </div>
 
             <% :success -> %>
-              <.restore_success result={@restore_result} />
+              <.restore_success result={@restore_result} reload_state={@reload_state} />
 
             <% :error -> %>
               <.restore_error error={@restore_error} />
@@ -368,6 +368,9 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
   end
 
   # Success component
+  attr :result, :map, required: true
+  attr :reload_state, :atom, required: true
+
   defp restore_success(assigns) do
     ~H"""
     <div class="space-y-4">
@@ -384,12 +387,64 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
       </div>
 
       <div class="p-4 bg-amber-100 border border-amber-400 rounded-lg">
-        <h4 class="font-semibold text-amber-800 mb-2">Restart Required</h4>
+        <h4 class="font-semibold text-amber-800 mb-2">Apply Configuration</h4>
         <p class="text-sm text-amber-700 mb-3">
-          The application needs to be restarted to apply the restored configuration.
+          The restored configuration needs to be applied. Choose one of these options:
         </p>
-        <div class="bg-gray-900 text-green-400 p-2 rounded font-mono text-xs">
-          systemctl restart pou_con
+
+        <div class="space-y-3">
+          <%!-- Reload button --%>
+          <div class="flex items-start gap-3">
+            <button
+              type="button"
+              phx-click="reload_config"
+              disabled={@reload_state == :reloading}
+              class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+            >
+              <%= if @reload_state == :reloading do %>
+                <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Reloading...
+              <% else %>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Reload Configuration
+              <% end %>
+            </button>
+            <div class="text-xs text-gray-600">
+              <strong>Recommended:</strong> Reloads services without restarting web server
+            </div>
+          </div>
+
+          <%!-- Link to system management for full restart --%>
+          <div class="flex items-start gap-3">
+            <a
+              href="/admin/system"
+              class="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              System Management
+            </a>
+            <div class="text-xs text-gray-600">
+              For full restart if ports changed or reload doesn't work
+            </div>
+          </div>
+
+          <%!-- Manual command --%>
+          <div class="mt-2 p-2 bg-white rounded border">
+            <div class="text-xs text-gray-600 mb-1">
+              <strong>Or manual restart:</strong>
+            </div>
+            <div class="bg-gray-900 text-green-400 p-2 rounded font-mono text-xs">
+              sudo systemctl restart pou_con
+            </div>
+          </div>
         </div>
       </div>
 
@@ -488,6 +543,7 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
      |> assign(:backup_summary, nil)
      |> assign(:restore_result, nil)
      |> assign(:restore_error, nil)
+     |> assign(:reload_state, :idle)
      |> allow_upload(:backup,
        accept: ~w(.json),
        max_entries: 1,
@@ -586,7 +642,39 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
      |> assign(:backup_summary, nil)
      |> assign(:restore_result, nil)
      |> assign(:restore_error, nil)
+     |> assign(:reload_state, :idle)
      |> assign(:counts, get_counts())}
+  end
+
+  @impl true
+  def handle_event("reload_config", _params, socket) do
+    socket = assign(socket, :reload_state, :reloading)
+
+    # Run reload asynchronously to not block the UI
+    pid = self()
+
+    Task.start(fn ->
+      result = PouCon.System.reload_after_restore()
+      send(pid, {:reload_complete, result})
+    end)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:reload_complete, :ok}, socket) do
+    {:noreply,
+     socket
+     |> assign(:reload_state, :idle)
+     |> put_flash(:info, "Configuration reloaded successfully. All services are now using the restored configuration.")}
+  end
+
+  @impl true
+  def handle_info({:reload_complete, {:error, errors}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:reload_state, :idle)
+     |> put_flash(:error, "Reload completed with errors: #{inspect(errors)}. Consider using System Management for a full restart.")}
   end
 
   defp get_counts do

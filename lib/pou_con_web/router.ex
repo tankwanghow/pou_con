@@ -162,6 +162,7 @@ defmodule PouConWeb.Router do
       # Admin settings
       live("/settings", Live.Auth.AdminSettings)
       live("/system_time", Live.Admin.SystemTime.Index, :index)
+      live("/system", Live.Admin.System.Index, :index)
       live("/backup", Live.Admin.Backup.Index, :index)
 
       # Hardware configuration
