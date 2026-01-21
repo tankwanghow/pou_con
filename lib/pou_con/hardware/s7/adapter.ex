@@ -27,8 +27,23 @@ defmodule PouCon.Hardware.S7.Adapter do
   @behaviour PouCon.Hardware.S7.AdapterBehaviour
 
   defmodule State do
-    defstruct [:client_pid, :ip, :rack, :slot, :connected]
+    defstruct [
+      :client_pid,
+      :ip,
+      :rack,
+      :slot,
+      :connected,
+      # Retry state for exponential backoff
+      retry_count: 0,
+      # Connection state: :disconnected | :connecting | :connected
+      connection_state: :disconnected
+    ]
   end
+
+  # Exponential backoff constants
+  @initial_retry_delay 5_000
+  @max_retry_delay 60_000
+  @max_retry_count 100
 
   # ------------------------------------------------------------------ #
   # Client API
@@ -164,6 +179,9 @@ defmodule PouCon.Hardware.S7.Adapter do
 
   @impl GenServer
   def init(opts) do
+    # Trap exits to handle Snapex7 port crashes gracefully
+    Process.flag(:trap_exit, true)
+
     # Start the Snapex7 client
     case Snapex7.Client.start_link() do
       {:ok, client_pid} ->
@@ -172,7 +190,9 @@ defmodule PouCon.Hardware.S7.Adapter do
           ip: opts[:ip],
           rack: opts[:rack] || 0,
           slot: opts[:slot] || 1,
-          connected: false
+          connected: false,
+          connection_state: :disconnected,
+          retry_count: 0
         }
 
         # Auto-connect if IP provided
@@ -190,28 +210,139 @@ defmodule PouCon.Hardware.S7.Adapter do
 
   @impl GenServer
   def handle_info(:auto_connect, state) do
-    case do_connect(state.client_pid, state.ip, state.rack, state.slot) do
-      :ok ->
-        Logger.info(
-          "[S7.Adapter] Connected to #{state.ip} (rack=#{state.rack}, slot=#{state.slot})"
+    # Skip if already connected or currently connecting with another attempt
+    if state.connected do
+      {:noreply, state}
+    else
+      state = %{state | connection_state: :connecting}
+
+      # Wrap connection attempt in try/catch to handle Snapex7 port timeouts
+      result =
+        try do
+          do_connect(state.client_pid, state.ip, state.rack, state.slot)
+        catch
+          :exit, :port_timed_out ->
+            Logger.warning(
+              "[S7.Adapter] Connection to #{state.ip} timed out (C port blocked)"
+            )
+
+            {:error, :port_timed_out}
+
+          :exit, reason ->
+            Logger.warning(
+              "[S7.Adapter] Connection to #{state.ip} exited: #{inspect(reason)}"
+            )
+
+            {:error, {:exit, reason}}
+        end
+
+      case result do
+        :ok ->
+          Logger.info(
+            "[S7.Adapter] Connected to #{state.ip} (rack=#{state.rack}, slot=#{state.slot})"
+          )
+
+          {:noreply, %{state | connected: true, connection_state: :connected, retry_count: 0}}
+
+        {:error, reason} ->
+          new_retry_count = state.retry_count + 1
+          delay = calculate_backoff_delay(new_retry_count)
+
+          Logger.warning(
+            "[S7.Adapter] Connection to #{state.ip} failed: #{inspect(reason)}. " <>
+              "Retry #{new_retry_count}/#{@max_retry_count} in #{div(delay, 1000)}s"
+          )
+
+          if new_retry_count < @max_retry_count do
+            Process.send_after(self(), :auto_connect, delay)
+          else
+            Logger.error(
+              "[S7.Adapter] Max retries (#{@max_retry_count}) reached for #{state.ip}. " <>
+                "Will retry in #{div(@max_retry_delay, 1000)}s"
+            )
+
+            # Reset count but keep trying at max interval
+            Process.send_after(self(), :auto_connect, @max_retry_delay)
+          end
+
+          {:noreply,
+           %{state | connection_state: :disconnected, retry_count: new_retry_count, connected: false}}
+      end
+    end
+  end
+
+  # Handle Snapex7 client crashes
+  @impl GenServer
+  def handle_info({:EXIT, pid, reason}, state) when pid == state.client_pid do
+    Logger.error("[S7.Adapter] Snapex7 client crashed: #{inspect(reason)}. Restarting...")
+
+    # Attempt to restart the Snapex7 client
+    case Snapex7.Client.start_link() do
+      {:ok, new_client_pid} ->
+        # Schedule reconnection with backoff
+        delay = calculate_backoff_delay(state.retry_count + 1)
+        Process.send_after(self(), :auto_connect, delay)
+
+        {:noreply,
+         %{
+           state
+           | client_pid: new_client_pid,
+             connected: false,
+             connection_state: :disconnected,
+             retry_count: state.retry_count + 1
+         }}
+
+      {:error, start_reason} ->
+        Logger.error(
+          "[S7.Adapter] Failed to restart Snapex7 client: #{inspect(start_reason)}. " <>
+            "Retrying in #{div(@max_retry_delay, 1000)}s"
         )
 
-        {:noreply, %{state | connected: true}}
+        Process.send_after(self(), :restart_client, @max_retry_delay)
+        {:noreply, %{state | client_pid: nil, connected: false, connection_state: :disconnected}}
+    end
+  end
+
+  # Handle other EXIT messages (linked processes)
+  @impl GenServer
+  def handle_info({:EXIT, _pid, _reason}, state) do
+    {:noreply, state}
+  end
+
+  # Handle client restart after failed restart attempt
+  @impl GenServer
+  def handle_info(:restart_client, state) do
+    case Snapex7.Client.start_link() do
+      {:ok, new_client_pid} ->
+        send(self(), :auto_connect)
+        {:noreply, %{state | client_pid: new_client_pid, connection_state: :disconnected}}
 
       {:error, reason} ->
-        Logger.error("[S7.Adapter] Auto-connect failed to #{state.ip}: #{inspect(reason)}")
-        # Retry after 5 seconds
-        Process.send_after(self(), :auto_connect, 5_000)
+        Logger.error("[S7.Adapter] Client restart failed: #{inspect(reason)}. Retrying...")
+        Process.send_after(self(), :restart_client, @max_retry_delay)
         {:noreply, state}
     end
   end
 
   @impl GenServer
   def handle_call({:connect, ip, rack, slot}, _from, state) do
-    case do_connect(state.client_pid, ip, rack, slot) do
+    result =
+      try do
+        do_connect(state.client_pid, ip, rack, slot)
+      catch
+        :exit, :port_timed_out ->
+          {:error, :port_timed_out}
+
+        :exit, reason ->
+          {:error, {:exit, reason}}
+      end
+
+    case result do
       :ok ->
         Logger.info("[S7.Adapter] Connected to #{ip}")
-        {:reply, :ok, %{state | ip: ip, rack: rack, slot: slot, connected: true}}
+
+        {:reply, :ok,
+         %{state | ip: ip, rack: rack, slot: slot, connected: true, connection_state: :connected, retry_count: 0}}
 
       {:error, _} = err ->
         {:reply, err, state}
@@ -220,9 +351,9 @@ defmodule PouCon.Hardware.S7.Adapter do
 
   @impl GenServer
   def handle_call(:disconnect, _from, state) do
-    Snapex7.Client.disconnect(state.client_pid)
+    safe_disconnect(state.client_pid)
     Logger.info("[S7.Adapter] Disconnected from #{state.ip}")
-    {:reply, :ok, %{state | connected: false}}
+    {:reply, :ok, %{state | connected: false, connection_state: :disconnected}}
   end
 
   @impl GenServer
@@ -232,9 +363,13 @@ defmodule PouCon.Hardware.S7.Adapter do
 
   @impl GenServer
   def handle_call({:read_inputs, start_byte, size}, _from, state) do
-    if state.connected do
-      result = Snapex7.Client.eb_read(state.client_pid, start: start_byte, amount: size)
-      {:reply, result, state}
+    if state.connected and state.client_pid != nil do
+      {result, new_state} =
+        safe_call(state, fn ->
+          Snapex7.Client.eb_read(state.client_pid, start: start_byte, amount: size)
+        end)
+
+      {:reply, result, new_state}
     else
       {:reply, {:error, :not_connected}, state}
     end
@@ -242,9 +377,13 @@ defmodule PouCon.Hardware.S7.Adapter do
 
   @impl GenServer
   def handle_call({:write_outputs, start_byte, data}, _from, state) do
-    if state.connected do
-      result = Snapex7.Client.ab_write(state.client_pid, start: start_byte, data: data)
-      {:reply, result, state}
+    if state.connected and state.client_pid != nil do
+      {result, new_state} =
+        safe_call(state, fn ->
+          Snapex7.Client.ab_write(state.client_pid, start: start_byte, data: data)
+        end)
+
+      {:reply, result, new_state}
     else
       {:reply, {:error, :not_connected}, state}
     end
@@ -252,9 +391,13 @@ defmodule PouCon.Hardware.S7.Adapter do
 
   @impl GenServer
   def handle_call({:read_outputs, start_byte, size}, _from, state) do
-    if state.connected do
-      result = Snapex7.Client.ab_read(state.client_pid, start: start_byte, amount: size)
-      {:reply, result, state}
+    if state.connected and state.client_pid != nil do
+      {result, new_state} =
+        safe_call(state, fn ->
+          Snapex7.Client.ab_read(state.client_pid, start: start_byte, amount: size)
+        end)
+
+      {:reply, result, new_state}
     else
       {:reply, {:error, :not_connected}, state}
     end
@@ -262,15 +405,17 @@ defmodule PouCon.Hardware.S7.Adapter do
 
   @impl GenServer
   def handle_call({:read_db, db_number, start, size}, _from, state) do
-    if state.connected do
-      result =
-        Snapex7.Client.db_read(state.client_pid,
-          db_number: db_number,
-          start: start,
-          amount: size
-        )
+    if state.connected and state.client_pid != nil do
+      {result, new_state} =
+        safe_call(state, fn ->
+          Snapex7.Client.db_read(state.client_pid,
+            db_number: db_number,
+            start: start,
+            amount: size
+          )
+        end)
 
-      {:reply, result, state}
+      {:reply, result, new_state}
     else
       {:reply, {:error, :not_connected}, state}
     end
@@ -278,15 +423,17 @@ defmodule PouCon.Hardware.S7.Adapter do
 
   @impl GenServer
   def handle_call({:write_db, db_number, start, data}, _from, state) do
-    if state.connected do
-      result =
-        Snapex7.Client.db_write(state.client_pid,
-          db_number: db_number,
-          start: start,
-          data: data
-        )
+    if state.connected and state.client_pid != nil do
+      {result, new_state} =
+        safe_call(state, fn ->
+          Snapex7.Client.db_write(state.client_pid,
+            db_number: db_number,
+            start: start,
+            data: data
+          )
+        end)
 
-      {:reply, result, state}
+      {:reply, result, new_state}
     else
       {:reply, {:error, :not_connected}, state}
     end
@@ -294,9 +441,13 @@ defmodule PouCon.Hardware.S7.Adapter do
 
   @impl GenServer
   def handle_call({:read_markers, start_byte, size}, _from, state) do
-    if state.connected do
-      result = Snapex7.Client.mb_read(state.client_pid, start: start_byte, amount: size)
-      {:reply, result, state}
+    if state.connected and state.client_pid != nil do
+      {result, new_state} =
+        safe_call(state, fn ->
+          Snapex7.Client.mb_read(state.client_pid, start: start_byte, amount: size)
+        end)
+
+      {:reply, result, new_state}
     else
       {:reply, {:error, :not_connected}, state}
     end
@@ -304,9 +455,13 @@ defmodule PouCon.Hardware.S7.Adapter do
 
   @impl GenServer
   def handle_call({:write_markers, start_byte, data}, _from, state) do
-    if state.connected do
-      result = Snapex7.Client.mb_write(state.client_pid, start: start_byte, data: data)
-      {:reply, result, state}
+    if state.connected and state.client_pid != nil do
+      {result, new_state} =
+        safe_call(state, fn ->
+          Snapex7.Client.mb_write(state.client_pid, start: start_byte, data: data)
+        end)
+
+      {:reply, result, new_state}
     else
       {:reply, {:error, :not_connected}, state}
     end
@@ -314,8 +469,8 @@ defmodule PouCon.Hardware.S7.Adapter do
 
   @impl GenServer
   def terminate(_reason, state) do
-    if state.connected do
-      Snapex7.Client.disconnect(state.client_pid)
+    if state.client_pid do
+      safe_disconnect(state.client_pid)
     end
 
     :ok
@@ -327,5 +482,58 @@ defmodule PouCon.Hardware.S7.Adapter do
 
   defp do_connect(client_pid, ip, rack, slot) do
     Snapex7.Client.connect_to(client_pid, ip: ip, rack: rack, slot: slot)
+  end
+
+  # Safely execute a Snapex7 call, handling timeouts and connection failures
+  # Returns {result, new_state} where result is {:ok, data} or {:error, reason}
+  defp safe_call(state, fun) do
+    try do
+      result = fun.()
+      {result, state}
+    catch
+      :exit, :port_timed_out ->
+        Logger.warning("[S7.Adapter] Operation timed out on #{state.ip}, marking disconnected")
+        schedule_reconnect(state)
+        {{:error, :timeout}, mark_disconnected(state)}
+
+      :exit, reason ->
+        Logger.warning("[S7.Adapter] Operation failed on #{state.ip}: #{inspect(reason)}")
+        schedule_reconnect(state)
+        {{:error, {:exit, reason}}, mark_disconnected(state)}
+    end
+  end
+
+  # Safely disconnect from the PLC
+  defp safe_disconnect(client_pid) when is_pid(client_pid) do
+    try do
+      Snapex7.Client.disconnect(client_pid)
+    catch
+      :exit, _ -> :ok
+      _, _ -> :ok
+    end
+  end
+
+  defp safe_disconnect(_), do: :ok
+
+  # Mark connection as disconnected and schedule reconnection
+  defp mark_disconnected(state) do
+    %{state | connected: false, connection_state: :disconnected}
+  end
+
+  defp schedule_reconnect(state) do
+    # Only schedule if not already scheduled (check connection_state)
+    if state.connection_state == :connected do
+      delay = calculate_backoff_delay(1)
+      Process.send_after(self(), :auto_connect, delay)
+    end
+  end
+
+  # Calculate exponential backoff delay with jitter
+  # Formula: min(initial * 2^retry_count + jitter, max_delay)
+  defp calculate_backoff_delay(retry_count) do
+    base_delay = @initial_retry_delay * :math.pow(2, min(retry_count - 1, 5))
+    # Add 0-20% jitter to prevent thundering herd
+    jitter = :rand.uniform(round(base_delay * 0.2))
+    round(min(base_delay + jitter, @max_retry_delay))
   end
 end
