@@ -34,6 +34,7 @@ defmodule PouCon.Logging.Schemas.DataPointLog do
   import Ecto.Changeset
 
   schema "data_point_logs" do
+    field :house_id, :string
     field :data_point_name, :string
     field :value, :float
     field :raw_value, :float
@@ -46,7 +47,7 @@ defmodule PouCon.Logging.Schemas.DataPointLog do
   @doc false
   def changeset(log, attrs) do
     log
-    |> cast(attrs, [:data_point_name, :value, :raw_value, :unit, :triggered_by, :inserted_at])
-    |> validate_required([:data_point_name, :inserted_at])
+    |> cast(attrs, [:house_id, :data_point_name, :value, :raw_value, :unit, :triggered_by, :inserted_at])
+    |> validate_required([:house_id, :data_point_name, :inserted_at])
   end
 end

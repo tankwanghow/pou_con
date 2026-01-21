@@ -95,8 +95,11 @@ defmodule PouCon.Logging.EquipmentLogger do
 
       :time_invalid
     else
-      # Add timestamp if not provided
-      attrs = Map.put_new(attrs, :inserted_at, DateTime.utc_now())
+      # Add house_id and timestamp if not provided
+      attrs =
+        attrs
+        |> Map.put_new(:house_id, get_house_id())
+        |> Map.put_new(:inserted_at, DateTime.utc_now())
 
       # Async write using Task to avoid blocking equipment operations
       # In test environment, TaskSupervisor may not be running
@@ -137,6 +140,11 @@ defmodule PouCon.Logging.EquipmentLogger do
   defp encode_metadata(nil), do: nil
   defp encode_metadata(metadata) when is_map(metadata), do: Jason.encode!(metadata)
   defp encode_metadata(metadata) when is_binary(metadata), do: metadata
+
+  # Get house_id from Auth module
+  defp get_house_id do
+    PouCon.Auth.get_house_id() || "unknown"
+  end
 
   # ===== Query Functions =====
 

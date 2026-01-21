@@ -2010,7 +2010,7 @@
     },
     {
       "id": 2019,
-      "name": "RH01-FRONT",
+      "name": "RH01-FNT",
       "offset": 0,
       "register": 360,
       "type": "AI",
@@ -2026,7 +2026,7 @@
     },
     {
       "id": 2020,
-      "name": "FT01-FRONT",
+      "name": "FT01-FNT",
       "offset": 0,
       "register": 362,
       "type": "AI",

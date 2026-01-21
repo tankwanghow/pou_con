@@ -5,6 +5,7 @@ defmodule PouCon.Flock.Schemas.FlockLog do
   alias PouCon.Flock.Schemas.Flock
 
   schema "flock_logs" do
+    field :house_id, :string
     field :log_date, :date
     field :deaths, :integer, default: 0
     field :eggs, :integer, default: 0
@@ -17,8 +18,8 @@ defmodule PouCon.Flock.Schemas.FlockLog do
 
   def changeset(log, attrs) do
     log
-    |> cast(attrs, [:flock_id, :log_date, :deaths, :eggs, :notes])
-    |> validate_required([:flock_id, :log_date])
+    |> cast(attrs, [:house_id, :flock_id, :log_date, :deaths, :eggs, :notes])
+    |> validate_required([:house_id, :flock_id, :log_date])
     |> validate_number(:deaths, greater_than_or_equal_to: 0)
     |> validate_number(:eggs, greater_than_or_equal_to: 0)
     |> foreign_key_constraint(:flock_id)

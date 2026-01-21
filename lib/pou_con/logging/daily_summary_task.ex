@@ -76,7 +76,7 @@ defmodule PouCon.Logging.DailySummaryTask do
       # Insert summaries
       case Repo.insert_all(DailySummary, summaries,
              on_conflict: :replace_all,
-             conflict_target: [:date, :equipment_name]
+             conflict_target: [:house_id, :date, :equipment_name]
            ) do
         {count, _} ->
           Logger.info("Generated #{count} daily summaries for #{yesterday}")
@@ -102,6 +102,7 @@ defmodule PouCon.Logging.DailySummaryTask do
       hums = snapshots |> Enum.map(& &1.humidity) |> Enum.reject(&is_nil/1)
 
       %{
+        house_id: get_house_id(),
         date: date,
         equipment_name: sensor.name,
         equipment_type: sensor.type,
@@ -146,6 +147,7 @@ defmodule PouCon.Logging.DailySummaryTask do
       runtime_minutes = calculate_runtime(events)
 
       %{
+        house_id: get_house_id(),
         date: date,
         equipment_name: equipment.name,
         equipment_type: equipment.type,
@@ -188,6 +190,11 @@ defmodule PouCon.Logging.DailySummaryTask do
     rescue
       _ -> true
     end
+  end
+
+  # Get house_id from Auth module
+  defp get_house_id do
+    PouCon.Auth.get_house_id() || "unknown"
   end
 
   # ===== Query Functions =====
@@ -233,7 +240,7 @@ defmodule PouCon.Logging.DailySummaryTask do
 
     case Repo.insert_all(DailySummary, summaries,
            on_conflict: :replace_all,
-           conflict_target: [:date, :equipment_name]
+           conflict_target: [:house_id, :date, :equipment_name]
          ) do
       {count, _} ->
         Logger.info("Generated #{count} summaries for #{date}")

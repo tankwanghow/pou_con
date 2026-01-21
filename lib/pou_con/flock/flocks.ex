@@ -191,9 +191,17 @@ defmodule PouCon.Flock.Flocks do
   Creates a flock log.
   """
   def create_flock_log(attrs \\ %{}) do
+    # Add house_id automatically
+    attrs = Map.put_new(attrs, :house_id, get_house_id())
+    attrs = Map.put_new(attrs, "house_id", get_house_id())
+
     %FlockLog{}
     |> FlockLog.changeset(attrs)
     |> Repo.insert()
+  end
+
+  defp get_house_id do
+    PouCon.Auth.get_house_id() || "unknown"
   end
 
   @doc """

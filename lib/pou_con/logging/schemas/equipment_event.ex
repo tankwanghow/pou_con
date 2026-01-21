@@ -3,6 +3,7 @@ defmodule PouCon.Logging.Schemas.EquipmentEvent do
   import Ecto.Changeset
 
   schema "equipment_events" do
+    field :house_id, :string
     field :equipment_name, :string
     field :event_type, :string
     field :from_value, :string
@@ -18,6 +19,7 @@ defmodule PouCon.Logging.Schemas.EquipmentEvent do
   def changeset(event, attrs) do
     event
     |> cast(attrs, [
+      :house_id,
       :equipment_name,
       :event_type,
       :from_value,
@@ -27,7 +29,7 @@ defmodule PouCon.Logging.Schemas.EquipmentEvent do
       :metadata,
       :inserted_at
     ])
-    |> validate_required([:equipment_name, :event_type, :to_value, :mode, :triggered_by])
+    |> validate_required([:house_id, :equipment_name, :event_type, :to_value, :mode, :triggered_by])
     |> validate_inclusion(:event_type, [
       "start",
       "stop",

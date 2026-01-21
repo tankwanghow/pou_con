@@ -151,6 +151,7 @@ defmodule PouCon.Operations.Tasks do
   def complete_task(task_template_id, attrs \\ %{}) do
     attrs =
       Map.merge(attrs, %{
+        "house_id" => get_house_id(),
         "task_template_id" => task_template_id,
         "completed_at" => DateTime.utc_now()
       })
@@ -158,6 +159,10 @@ defmodule PouCon.Operations.Tasks do
     %TaskCompletion{}
     |> TaskCompletion.changeset(attrs)
     |> Repo.insert()
+  end
+
+  defp get_house_id do
+    PouCon.Auth.get_house_id() || "unknown"
   end
 
   @doc """

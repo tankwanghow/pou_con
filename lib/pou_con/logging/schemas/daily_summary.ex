@@ -3,6 +3,7 @@ defmodule PouCon.Logging.Schemas.DailySummary do
   import Ecto.Changeset
 
   schema "daily_summaries" do
+    field :house_id, :string
     field :date, :date
     field :equipment_name, :string
     field :equipment_type, :string
@@ -28,6 +29,7 @@ defmodule PouCon.Logging.Schemas.DailySummary do
   def changeset(summary, attrs) do
     summary
     |> cast(attrs, [
+      :house_id,
       :date,
       :equipment_name,
       :equipment_type,
@@ -42,7 +44,7 @@ defmodule PouCon.Logging.Schemas.DailySummary do
       :error_count,
       :state_change_count
     ])
-    |> validate_required([:date, :equipment_name, :equipment_type])
-    |> unique_constraint([:date, :equipment_name])
+    |> validate_required([:house_id, :date, :equipment_name, :equipment_type])
+    |> unique_constraint([:house_id, :date, :equipment_name])
   end
 end

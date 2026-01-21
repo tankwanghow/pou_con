@@ -30,6 +30,8 @@ defmodule Mix.Tasks.ExportSeeds do
     export_light_schedules()
     export_egg_collection_schedules()
     export_feeding_schedules()
+    export_alarm_rules()
+    export_alarm_conditions()
     export_task_categories()
     export_task_templates()
 
@@ -104,7 +106,8 @@ defmodule Mix.Tasks.ExportSeeds do
           title: e.title,
           type: e.type,
           data_point_tree: e.data_point_tree,
-          active: e.active
+          active: e.active,
+          poll_interval_ms: e.poll_interval_ms
         }
       )
       |> Repo.all()
@@ -112,6 +115,7 @@ defmodule Mix.Tasks.ExportSeeds do
         # Convert SQLite integer to boolean for active field
         %{row | active: row.active == 1 || row.active == true}
       end)
+      |> Enum.map(&clean_nil_values/1)
 
     write_json("equipment.json", %{"equipment" => rows})
   end
@@ -270,6 +274,49 @@ defmodule Mix.Tasks.ExportSeeds do
       |> Enum.map(&format_time_fields(&1, [:move_to_back_limit_time, :move_to_front_limit_time]))
 
     write_json("feeding_schedules.json", %{"feeding_schedules" => rows})
+  end
+
+  defp export_alarm_rules do
+    alias PouCon.Repo
+    import Ecto.Query
+
+    rows =
+      from(a in "alarm_rules",
+        select: %{
+          id: a.id,
+          name: a.name,
+          siren_names: a.siren_names,
+          logic: a.logic,
+          auto_clear: a.auto_clear,
+          enabled: a.enabled,
+          max_mute_minutes: a.max_mute_minutes
+        }
+      )
+      |> Repo.all()
+
+    write_json("alarm_rules.json", %{"alarm_rules" => rows})
+  end
+
+  defp export_alarm_conditions do
+    alias PouCon.Repo
+    import Ecto.Query
+
+    rows =
+      from(c in "alarm_conditions",
+        select: %{
+          id: c.id,
+          alarm_rule_id: c.alarm_rule_id,
+          source_type: c.source_type,
+          source_name: c.source_name,
+          condition: c.condition,
+          threshold: c.threshold,
+          enabled: c.enabled
+        }
+      )
+      |> Repo.all()
+      |> Enum.map(&clean_nil_values/1)
+
+    write_json("alarm_conditions.json", %{"alarm_conditions" => rows})
   end
 
   defp export_task_categories do

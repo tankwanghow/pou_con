@@ -23,12 +23,6 @@
       "id": 4,
       "upstream_equipment_id": 25,
       "downstream_equipment_id": 24
-    },
-    {
-      "enabled": 1,
-      "id": 5,
-      "upstream_equipment_id": 26,
-      "downstream_equipment_id": 25
     }
   ]
 }

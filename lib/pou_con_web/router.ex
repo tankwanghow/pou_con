@@ -81,6 +81,9 @@ defmodule PouConWeb.Router do
     # House info
     get("/info", SyncController, :info)
 
+    # Configuration backup (for central server or automation)
+    get("/backup", BackupController, :download)
+
     # Sync endpoints for data download
     get("/sync/counts", SyncController, :all_counts)
     get("/sync/equipment_events", SyncController, :equipment_events)
@@ -148,6 +151,9 @@ defmodule PouConWeb.Router do
   scope "/admin", PouConWeb do
     pipe_through([:browser, :required_admin])
 
+    # Non-LiveView admin routes (file downloads)
+    get("/backup/download", API.BackupController, :download)
+
     live_session :ensure_is_admin,
       on_mount: [
         {PouConWeb.AuthHooks, :ensure_is_admin},
@@ -156,6 +162,7 @@ defmodule PouConWeb.Router do
       # Admin settings
       live("/settings", Live.Auth.AdminSettings)
       live("/system_time", Live.Admin.SystemTime.Index, :index)
+      live("/backup", Live.Admin.Backup.Index, :index)
 
       # Hardware configuration
       live("/data_points", Live.Admin.DataPoints.Index, :index)

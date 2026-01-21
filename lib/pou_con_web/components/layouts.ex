@@ -179,6 +179,12 @@ defmodule PouConWeb.Layouts do
               color="cyan"
               href="/admin/simulation"
             />
+            <.sidebar_link
+              icon="hero-arrow-down-tray-solid"
+              title="Backup & Restore"
+              color="emerald"
+              href="/admin/backup"
+            />
           </div>
         <% end %>
 
