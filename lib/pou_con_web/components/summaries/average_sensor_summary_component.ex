@@ -50,18 +50,38 @@ defmodule PouConWeb.Components.Summaries.AverageSensorSummaryComponent do
       <div class="flex items-center gap-1">
         <.avg_icon color={@sensor.color} />
         <div class="flex flex-col">
-          <span class={"text-sm font-mono font-bold text-#{@sensor.temp_color}-500"}>
-            {@sensor.temp}
-          </span>
-          <span :if={@sensor.has_hum} class={"text-xs font-mono text-#{@sensor.hum_color}-500"}>
-            {@sensor.hum}
-          </span>
-          <span :if={@sensor.has_co2} class={"text-xs font-mono text-#{@sensor.co2_color}-500"}>
-            {@sensor.co2}
-          </span>
-          <span :if={@sensor.has_nh3} class={"text-xs font-mono text-#{@sensor.nh3_color}-500"}>
-            {@sensor.nh3}
-          </span>
+          <div class="flex items-baseline gap-1">
+            <span class={"text-sm font-mono font-bold text-#{@sensor.temp_color}-500"}>
+              {@sensor.temp}
+            </span>
+            <span :if={@sensor.temp_range} class="text-gray-400 text-xs font-mono">
+              {@sensor.temp_range}
+            </span>
+          </div>
+          <div :if={@sensor.has_hum} class="flex items-baseline gap-1">
+            <span class={"text-xs font-mono text-#{@sensor.hum_color}-500"}>
+              {@sensor.hum}
+            </span>
+            <span :if={@sensor.hum_range} class="text-gray-400 text-xs font-mono">
+              {@sensor.hum_range}
+            </span>
+          </div>
+          <div :if={@sensor.has_co2} class="flex items-baseline gap-1">
+            <span class={"text-xs font-mono text-#{@sensor.co2_color}-500"}>
+              {@sensor.co2}
+            </span>
+            <span :if={@sensor.co2_range} class="text-gray-400 text-xs font-mono">
+              {@sensor.co2_range}
+            </span>
+          </div>
+          <div :if={@sensor.has_nh3} class="flex items-baseline gap-1">
+            <span class={"text-xs font-mono text-#{@sensor.nh3_color}-500"}>
+              {@sensor.nh3}
+            </span>
+            <span :if={@sensor.nh3_range} class="text-gray-400 text-xs font-mono">
+              {@sensor.nh3_range}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -97,6 +117,10 @@ defmodule PouConWeb.Components.Summaries.AverageSensorSummaryComponent do
       hum: "--.-%",
       co2: "-- ppm",
       nh3: "-- ppm",
+      temp_range: nil,
+      hum_range: nil,
+      co2_range: nil,
+      nh3_range: nil,
       temp_color: "gray",
       hum_color: "gray",
       co2_color: "gray",
@@ -124,6 +148,10 @@ defmodule PouConWeb.Components.Summaries.AverageSensorSummaryComponent do
       hum: format_hum(avg_hum),
       co2: format_co2(avg_co2),
       nh3: format_nh3(avg_nh3),
+      temp_range: format_range(status[:temp_min], status[:temp_max], "°"),
+      hum_range: format_range(status[:humidity_min], status[:humidity_max], "%"),
+      co2_range: format_range_int(status[:co2_min], status[:co2_max]),
+      nh3_range: format_range(status[:nh3_min], status[:nh3_max], ""),
       temp_color: temp_color(avg_temp),
       hum_color: hum_color(avg_hum),
       co2_color: co2_color(avg_co2),
@@ -145,6 +173,21 @@ defmodule PouConWeb.Components.Summaries.AverageSensorSummaryComponent do
 
   defp format_nh3(nil), do: "-- ppm"
   defp format_nh3(nh3), do: "#{nh3} ppm"
+
+  # Format 24h min/max range as "(min-max)" with unit suffix
+  defp format_range(nil, nil, _suffix), do: nil
+  defp format_range(min, nil, suffix), do: "(#{format_num(min)}#{suffix})"
+  defp format_range(nil, max, suffix), do: "(#{format_num(max)}#{suffix})"
+  defp format_range(min, max, suffix), do: "(#{format_num(min)}-#{format_num(max)}#{suffix})"
+
+  # Format range for integer values (CO2)
+  defp format_range_int(nil, nil), do: nil
+  defp format_range_int(min, nil), do: "(#{round(min)})"
+  defp format_range_int(nil, max), do: "(#{round(max)})"
+  defp format_range_int(min, max), do: "(#{round(min)}-#{round(max)})"
+
+  defp format_num(val) when is_float(val), do: :erlang.float_to_binary(val, decimals: 1)
+  defp format_num(val), do: "#{val}"
 
   defp main_color(nil, _), do: "gray"
   defp main_color(_temp, :partial_data), do: "amber"

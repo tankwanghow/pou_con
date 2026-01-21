@@ -43,10 +43,10 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
           </div>
 
           <div class="flex-1 flex flex-col justify-center">
-            <.sensor_row label="Temp" value={@display.temp} color={@display.temp_color} bold={true} />
-            <.sensor_row :if={@display.has_hum} label="Hum" value={@display.hum} color={@display.hum_color} />
-            <.sensor_row :if={@display.has_co2} label="CO₂" value={@display.co2} color={@display.co2_color} />
-            <.sensor_row :if={@display.has_nh3} label="NH₃" value={@display.nh3} color={@display.nh3_color} />
+            <.sensor_row label="Temp" value={@display.temp} range={@display.temp_range} color={@display.temp_color} bold={true} />
+            <.sensor_row :if={@display.has_hum} label="Hum" value={@display.hum} range={@display.hum_range} color={@display.hum_color} />
+            <.sensor_row :if={@display.has_co2} label="CO₂" value={@display.co2} range={@display.co2_range} color={@display.co2_color} />
+            <.sensor_row :if={@display.has_nh3} label="NH₃" value={@display.nh3} range={@display.nh3_range} color={@display.nh3_color} />
             <.count_row counts={@display.counts} />
           </div>
         </div>
@@ -61,6 +61,7 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
 
   attr :label, :string, required: true
   attr :value, :string, required: true
+  attr :range, :string, default: nil
   attr :color, :string, required: true
   attr :bold, :boolean, default: false
 
@@ -68,7 +69,10 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
     ~H"""
     <div class={["flex justify-between items-baseline text-lg font-mono", @bold && "font-bold"]}>
       <span class="text-gray-400 uppercase tracking-wide text-sm">{@label}</span>
-      <span class={"text-#{@color}-500"}>{@value}</span>
+      <div class="flex items-baseline gap-1">
+        <span class={"text-#{@color}-500"}>{@value}</span>
+        <span :if={@range} class="text-gray-400 text-xs">{@range}</span>
+      </div>
     </div>
     """
   end
@@ -117,6 +121,10 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
       hum: "--.-%",
       co2: "-- ppm",
       nh3: "-- ppm",
+      temp_range: nil,
+      hum_range: nil,
+      co2_range: nil,
+      nh3_range: nil,
       temp_color: "gray",
       hum_color: "gray",
       co2_color: "gray",
@@ -163,18 +171,22 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
       # Temperature (always shown)
       temp: format_temp(avg_temp),
       temp_color: get_temp_color(avg_temp),
+      temp_range: format_range(status[:temp_min], status[:temp_max], "°"),
       # Humidity (optional)
       has_hum: length(hum_sensors) > 0,
       hum: format_hum(avg_hum),
       hum_color: get_hum_color(avg_hum),
+      hum_range: format_range(status[:humidity_min], status[:humidity_max], "%"),
       # CO2 (optional)
       has_co2: length(co2_sensors) > 0,
       co2: format_co2(avg_co2),
       co2_color: get_co2_color(avg_co2),
+      co2_range: format_range_int(status[:co2_min], status[:co2_max]),
       # NH3 (optional)
       has_nh3: length(nh3_sensors) > 0,
       nh3: format_nh3(avg_nh3),
       nh3_color: get_nh3_color(avg_nh3),
+      nh3_range: format_range(status[:nh3_min], status[:nh3_max], ""),
       # Counts
       counts: counts
     }
@@ -191,6 +203,21 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
 
   defp format_nh3(nil), do: "-- ppm"
   defp format_nh3(nh3), do: "#{nh3} ppm"
+
+  # Format 24h min/max range as "(min-max)" with unit suffix
+  defp format_range(nil, nil, _suffix), do: nil
+  defp format_range(min, nil, suffix), do: "(#{format_num(min)}#{suffix})"
+  defp format_range(nil, max, suffix), do: "(#{format_num(max)}#{suffix})"
+  defp format_range(min, max, suffix), do: "(#{format_num(min)}-#{format_num(max)}#{suffix})"
+
+  # Format range for integer values (CO2)
+  defp format_range_int(nil, nil), do: nil
+  defp format_range_int(min, nil), do: "(#{round(min)})"
+  defp format_range_int(nil, max), do: "(#{round(max)})"
+  defp format_range_int(min, max), do: "(#{round(min)}-#{round(max)})"
+
+  defp format_num(val) when is_float(val), do: :erlang.float_to_binary(val, decimals: 1)
+  defp format_num(val), do: "#{val}"
 
   defp get_main_color(nil, _error), do: "gray"
   defp get_main_color(_temp, :partial_data), do: "amber"

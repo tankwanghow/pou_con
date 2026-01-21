@@ -48,11 +48,15 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
   require Logger
 
   alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
+  alias PouCon.Logging.DataPointLogger
 
   @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
 
   # Environment averages change slowly - 5 second polling is sufficient
   @default_poll_interval 5000
+
+  # Min/max refresh interval - every 60 seconds is enough for 24h stats
+  @min_max_refresh_interval 60_000
 
   defmodule State do
     defstruct [
@@ -68,6 +72,15 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
       avg_humidity: nil,
       avg_co2: nil,
       avg_nh3: nil,
+      # 24-hour min/max from data_point_logs
+      temp_min: nil,
+      temp_max: nil,
+      humidity_min: nil,
+      humidity_max: nil,
+      co2_min: nil,
+      co2_max: nil,
+      nh3_min: nil,
+      nh3_max: nil,
       # Individual readings: [{sensor_name, value}, ...]
       temp_readings: [],
       humidity_readings: [],
@@ -163,6 +176,9 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
 
     Logger.info("[#{name}] Starting AverageSensor with #{sensor_counts} sensors")
 
+    # Schedule initial min/max refresh after a short delay
+    Process.send_after(self(), :refresh_min_max, 1000)
+
     {:ok, state, {:continue, :initial_poll}}
   end
 
@@ -185,6 +201,13 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
     {:noreply, new_state}
   end
 
+  @impl GenServer
+  def handle_info(:refresh_min_max, state) do
+    new_state = refresh_min_max(state)
+    schedule_min_max_refresh()
+    {:noreply, new_state}
+  end
+
   # Ignore unknown messages
   @impl GenServer
   def handle_info(_msg, state), do: {:noreply, state}
@@ -192,6 +215,36 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
   defp schedule_poll(interval_ms) do
     Process.send_after(self(), :poll, interval_ms)
   end
+
+  defp schedule_min_max_refresh do
+    Process.send_after(self(), :refresh_min_max, @min_max_refresh_interval)
+  end
+
+  # ——————————————————————————————————————————————————————————————
+  # Min/Max Refresh: Query 24-hour stats from data_point_logs
+  # ——————————————————————————————————————————————————————————————
+  defp refresh_min_max(%State{} = state) do
+    # Get min/max for each sensor type from last 24 hours
+    temp_stats = DataPointLogger.get_sensors_min_max(state.temp_sensors, 24)
+    humidity_stats = DataPointLogger.get_sensors_min_max(state.humidity_sensors, 24)
+    co2_stats = DataPointLogger.get_sensors_min_max(state.co2_sensors, 24)
+    nh3_stats = DataPointLogger.get_sensors_min_max(state.nh3_sensors, 24)
+
+    %State{
+      state
+      | temp_min: round_value(temp_stats.min, 1),
+        temp_max: round_value(temp_stats.max, 1),
+        humidity_min: round_value(humidity_stats.min, 1),
+        humidity_max: round_value(humidity_stats.max, 1),
+        co2_min: round_value(co2_stats.min, 0),
+        co2_max: round_value(co2_stats.max, 0),
+        nh3_min: round_value(nh3_stats.min, 1),
+        nh3_max: round_value(nh3_stats.max, 1)
+    }
+  end
+
+  defp round_value(nil, _precision), do: nil
+  defp round_value(value, precision), do: Float.round(value / 1, precision)
 
   # ——————————————————————————————————————————————————————————————
   # Self-Polling: Read from sensor controllers
@@ -317,6 +370,15 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
       avg_humidity: state.avg_humidity,
       avg_co2: state.avg_co2,
       avg_nh3: state.avg_nh3,
+      # 24-hour min/max
+      temp_min: state.temp_min,
+      temp_max: state.temp_max,
+      humidity_min: state.humidity_min,
+      humidity_max: state.humidity_max,
+      co2_min: state.co2_min,
+      co2_max: state.co2_max,
+      nh3_min: state.nh3_min,
+      nh3_max: state.nh3_max,
       # Counts
       temp_count: state.temp_count,
       humidity_count: state.humidity_count,

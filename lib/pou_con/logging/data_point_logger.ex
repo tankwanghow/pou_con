@@ -201,6 +201,7 @@ defmodule PouCon.Logging.DataPointLogger do
   # Build a log entry map for batch insert
   defp build_log_entry(data_point, cached_value, timestamp) do
     %{
+      house_id: get_house_id(),
       data_point_name: data_point.name,
       value: extract_value({:ok, cached_value_to_map(cached_value)}),
       raw_value: extract_raw_value({:ok, cached_value_to_map(cached_value)}),
@@ -208,6 +209,11 @@ defmodule PouCon.Logging.DataPointLogger do
       triggered_by: "self",
       inserted_at: timestamp
     }
+  end
+
+  # Get house_id from Auth module
+  defp get_house_id do
+    PouCon.Auth.get_house_id() || "unknown"
   end
 
   # Convert cached value to map for extraction
@@ -412,6 +418,46 @@ defmodule PouCon.Logging.DataPointLogger do
 
       _ ->
         %{peak_power: nil, base_load: nil}
+    end
+  end
+
+  @doc """
+  Get min/max values for multiple sensor data points over the last N hours.
+  Used by AverageSensor to show 24-hour min/max alongside current averages.
+
+  Takes a list of data point names and returns aggregated min/max across all of them.
+
+  Returns %{min: float() | nil, max: float() | nil}.
+
+  ## Example
+
+      get_sensors_min_max(["TT01-BACK", "TT02-FRONT"], 24)
+      # => %{min: 25.2, max: 38.5}
+  """
+  def get_sensors_min_max(data_point_names, hours_back \\ 24)
+  def get_sensors_min_max([], _hours_back), do: %{min: nil, max: nil}
+
+  def get_sensors_min_max(data_point_names, hours_back) do
+    cutoff = DateTime.utc_now() |> DateTime.add(-hours_back * 3600, :second)
+
+    result =
+      from(l in DataPointLog,
+        where: l.data_point_name in ^data_point_names,
+        where: l.inserted_at >= ^cutoff,
+        where: not is_nil(l.value),
+        select: %{
+          min: min(l.value),
+          max: max(l.value)
+        }
+      )
+      |> Repo.one()
+
+    case result do
+      %{min: min_val, max: max_val} when not is_nil(min_val) ->
+        %{min: min_val, max: max_val}
+
+      _ ->
+        %{min: nil, max: nil}
     end
   end
 end
