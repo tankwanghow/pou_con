@@ -76,23 +76,8 @@ defmodule PouConWeb.Layouts do
       </div>
 
       <nav class="p-2">
-        <%!-- Navigation --%>
-        <div class="mb-4">
-          <h3 class="px-3 py-1 text-xs font-semibold text-gray-400 uppercase">Navigation</h3>
-          <.sidebar_link icon="hero-home-solid" title="Dashboard" color="gray" href="/" />
-        </div>
-
-        <%!-- Reports --%>
-        <div class="mb-4">
-          <h3 class="px-3 py-1 text-xs font-semibold text-gray-400 uppercase">Reports</h3>
-          <.sidebar_link icon="hero-chart-bar-solid" title="Reports" color="yellow" href="/reports" />
-        </div>
-
-        <%!-- Help --%>
-        <div class="mb-4">
-          <h3 class="px-3 py-1 text-xs font-semibold text-gray-400 uppercase">Help</h3>
-          <.sidebar_link icon="hero-book-open-solid" title="User Guide" color="blue" href="/help" />
-        </div>
+        <.sidebar_link icon="hero-home-solid" title="Dashboard" color="gray" href="/" />
+        <.sidebar_link icon="hero-book-open-solid" title="User Guide" color="blue" href="/help" />
 
         <%!-- Control & Schedules (Admin only) --%>
         <%= if @current_role == :admin do %>
@@ -142,12 +127,6 @@ defmodule PouConWeb.Layouts do
           <div class="mb-4">
             <h3 class="px-3 py-1 text-xs font-semibold text-gray-400 uppercase">Configuration</h3>
             <.sidebar_link
-              icon="hero-cog-6-tooth-solid"
-              title="Settings"
-              color="purple"
-              href="/admin/settings"
-            />
-            <.sidebar_link
               icon="hero-shield-check-solid"
               title="Interlocks"
               color="indigo"
@@ -179,11 +158,41 @@ defmodule PouConWeb.Layouts do
               color="cyan"
               href="/admin/simulation"
             />
+          </div>
+
+          <%!-- System (Admin only) --%>
+          <div class="mb-4">
+            <h3 class="px-3 py-1 text-xs font-semibold text-gray-400 uppercase">System</h3>
+            <.sidebar_link
+              icon="hero-cog-6-tooth-solid"
+              title="Settings"
+              color="purple"
+              href="/admin/settings"
+            />
             <.sidebar_link
               icon="hero-arrow-down-tray-solid"
               title="Backup & Restore"
               color="emerald"
               href="/admin/backup"
+            />
+            <.sidebar_link icon="hero-chart-bar-solid" title="Reports" color="yellow" href="/reports" />
+            <.sidebar_link
+              icon="hero-server-solid"
+              title="System Management"
+              color="slate"
+              href="/admin/system"
+            />
+            <.sidebar_link
+              icon="hero-clock-solid"
+              title="System Time"
+              color="blue"
+              href="/admin/system_time"
+            />
+            <.sidebar_link
+              icon="hero-computer-desktop-solid"
+              title="Screen Saver"
+              color="violet"
+              href="/admin/screensaver"
             />
           </div>
         <% end %>

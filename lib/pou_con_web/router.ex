@@ -163,6 +163,7 @@ defmodule PouConWeb.Router do
       live("/settings", Live.Auth.AdminSettings)
       live("/system_time", Live.Admin.SystemTime.Index, :index)
       live("/system", Live.Admin.System.Index, :index)
+      live("/screensaver", Live.Admin.Screensaver.Index, :index)
       live("/backup", Live.Admin.Backup.Index, :index)
 
       # Hardware configuration

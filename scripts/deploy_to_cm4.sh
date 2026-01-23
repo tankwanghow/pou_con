@@ -145,6 +145,33 @@ deploy_to_cm4() {
         echo "Starting service..."
         sudo systemctl start pou_con 2>/dev/null || echo "Service not configured. Run setup manually."
 
+        echo "Configuring screen saver (3 minute idle timeout)..."
+        IDLE_SECONDS=180
+
+        # Configure X11 screen blanking via LXDE autostart
+        sudo mkdir -p /etc/xdg/lxsession/LXDE-pi
+        sudo tee /etc/xdg/lxsession/LXDE-pi/autostart > /dev/null << EOF
+@lxpanel --profile LXDE-pi
+@pcmanfm --desktop --profile LXDE-pi
+@xset s ${IDLE_SECONDS} ${IDLE_SECONDS}
+@xset dpms ${IDLE_SECONDS} ${IDLE_SECONDS} ${IDLE_SECONDS}
+EOF
+
+        # Configure lightdm for login screen
+        if [ -d /etc/lightdm ]; then
+            sudo mkdir -p /etc/lightdm/lightdm.conf.d
+            sudo tee /etc/lightdm/lightdm.conf.d/screensaver.conf > /dev/null << EOF
+[SeatDefaults]
+xserver-command=X -s ${IDLE_SECONDS} -dpms
+EOF
+        fi
+
+        # Apply immediately if X is running
+        export DISPLAY=:0
+        xset s ${IDLE_SECONDS} ${IDLE_SECONDS} 2>/dev/null || true
+        xset dpms ${IDLE_SECONDS} ${IDLE_SECONDS} ${IDLE_SECONDS} 2>/dev/null || true
+        echo "Screen saver configured for ${IDLE_SECONDS} seconds"
+
         echo "Deployment complete!"
 
         # Cleanup
