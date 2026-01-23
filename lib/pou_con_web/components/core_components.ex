@@ -447,6 +447,7 @@ defmodule PouConWeb.CoreComponents do
       "gray" -> "bg-gray-500 border-gray-500 text-gray-500 text-gray-700"
       "blue" -> "bg-blue-500 border-blue-500 text-blue-500 text-blue-700"
       "amber" -> "bg-amber-500 border-amber-500 text-amber-500 text-amber-700"
+      "yellow" -> "bg-yellow-500 border-yellow-500 text-yellow-500 text-yellow-700"
       "pink" -> "bg-pink-500 border-pink-500 text-pink-500 text-pink-700"
       _ -> "bg-gray-500 border-gray-500 text-gray-700"
     end

@@ -26,8 +26,8 @@ defmodule PouConWeb.SimulationLive do
       |> assign(:search, "")
       |> assign(:sort_by, :equipment)
       |> assign(:sort_order, :asc)
-      # Temporary storage for inputs
-      |> assign(:temp_values, %{})
+      # Temporary storage for raw value inputs
+      |> assign(:raw_values, %{})
 
     {:ok, socket}
   end
@@ -119,27 +119,23 @@ defmodule PouConWeb.SimulationLive do
   end
 
   @impl true
-  def handle_event("update_temp", %{"data_point" => data_point_name}, socket) do
-    # Get values from temp_values
-    values = socket.assigns.temp_values[data_point_name] || %{}
-    {temp, _} = Float.parse(values["temp"] || "25.0")
-    {hum, _} = Float.parse(values["hum"] || "60.0")
-
-    DataPointManager.simulate_register(data_point_name, %{temperature: temp, humidity: hum})
-
-    {:noreply, put_flash(socket, :info, "Updated #{data_point_name}")}
+  def handle_event("raw_change", %{"data_point" => data_point, "value" => val}, socket) do
+    new_raw_vals = Map.put(socket.assigns.raw_values, data_point, val)
+    {:noreply, assign(socket, :raw_values, new_raw_vals)}
   end
 
   @impl true
-  def handle_event(
-        "temp_change",
-        %{"data_point" => data_point, "type" => type, "value" => val},
-        socket
-      ) do
-    current_dev_vals = socket.assigns.temp_values[data_point] || %{}
-    new_dev_vals = Map.put(current_dev_vals, type, val)
-    new_temp_vals = Map.put(socket.assigns.temp_values, data_point, new_dev_vals)
-    {:noreply, assign(socket, :temp_values, new_temp_vals)}
+  def handle_event("set_raw", %{"data_point" => data_point_name}, socket) do
+    raw_str = socket.assigns.raw_values[data_point_name] || ""
+
+    case parse_raw_value(raw_str) do
+      {:ok, value} ->
+        DataPointManager.simulate_register(data_point_name, value)
+        {:noreply, put_flash(socket, :info, "Set #{data_point_name} raw value to #{value}")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Invalid raw value: #{reason}")}
+    end
   end
 
   @impl true
@@ -301,8 +297,9 @@ defmodule PouConWeb.SimulationLive do
         >
           Current Value {sort_indicator(@sort_by, @sort_order, :value)}
         </div>
-        <div class="flex flex-2">
-          <div class="flex-5 font-bold text-blue-400 truncate">Actions</div>
+        <div class="flex flex-3">
+          <div class="flex-1 font-bold text-blue-400 truncate">Quick</div>
+          <div class="flex-2 font-bold text-purple-400 truncate">Raw Value</div>
           <div class="flex-1 font-bold text-blue-400 truncate">Offline</div>
         </div>
       </div>
@@ -337,12 +334,13 @@ defmodule PouConWeb.SimulationLive do
           <div class="flex-1 text-xs text-yellow-400 truncate">
             {format_value(data_point.current_value)}
           </div>
-          <div class="flex flex-2">
-            <%= cond do %>
-              <% match?({:error, _}, data_point.current_value) or is_nil(data_point.current_value) -> %>
-                <div class="flex-5 text-xs text-gray-500 italic">No controls</div>
-              <% data_point.type in ["digital_input", "switch", "flag", "DO", "virtual_digital_output"] or (data_point.read_fn == :read_digital_input) or (data_point.read_fn == :read_virtual_digital_output) -> %>
-                <div class="flex-5">
+          <div class="flex flex-3 gap-1">
+            <%!-- Quick controls for digital I/O --%>
+            <div class="flex-1">
+              <%= cond do %>
+                <% match?({:error, _}, data_point.current_value) or is_nil(data_point.current_value) -> %>
+                  <span class="text-xs text-gray-500">-</span>
+                <% data_point.type in ["digital_input", "switch", "flag", "DO", "virtual_digital_output"] or (data_point.read_fn == :read_digital_input) or (data_point.read_fn == :read_virtual_digital_output) -> %>
                   <button
                     :if={Map.get(data_point.current_value, :state) == 0}
                     phx-click="toggle_input"
@@ -361,45 +359,35 @@ defmodule PouConWeb.SimulationLive do
                   >
                     OFF
                   </button>
-                </div>
-              <% data_point.type == "temp_hum_sensor" or data_point.read_fn == :read_temperature_humidity -> %>
-                <div class="flex flex-5 space-y-1 justify-between gap-1 items-center">
-                  <div class="flex items-center">
-                    <span class="text-xs text-gray-400">Temp :</span>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={get_in(@temp_values, [data_point.name, "temp"]) || "25.0"}
-                      phx-keyup="temp_change"
-                      phx-value-data_point={data_point.name}
-                      phx-value-type="temp"
-                      class="input input-xs input-bordered flex-1 bg-gray-900 border-gray-600 text-white px-1"
-                    />
-                  </div>
-                  <div class="flex items-center">
-                    <span class="text-xs text-gray-400">Hum :</span>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={get_in(@temp_values, [data_point.name, "hum"]) || "60.0"}
-                      phx-keyup="temp_change"
-                      phx-value-data_point={data_point.name}
-                      phx-value-type="hum"
-                      class="input input-xs input-bordered flex-1 bg-gray-900 border-gray-600 text-white px-1"
-                    />
-                  </div>
-                  <button
-                    phx-click="update_temp"
-                    phx-value-data_point={data_point.name}
-                    class="px-4 text-xs bg-blue-700 hover:bg-blue-600 text-white rounded"
-                  >
-                    Set
-                  </button>
-                </div>
-              <% true -> %>
-                <p class="text-xs text-gray-500 italic">No controls</p>
-            <% end %>
+                <% true -> %>
+                  <span class="text-xs text-gray-500">-</span>
+              <% end %>
+            </div>
 
+            <%!-- Raw value input for analog data points only (not DI/DO/VDI/VDO) --%>
+            <div class="flex-2 flex items-center gap-1">
+              <%= if is_digital_io?(data_point) do %>
+                <span class="text-xs text-gray-500">-</span>
+              <% else %>
+                <input
+                  type="text"
+                  placeholder={get_raw_placeholder(data_point)}
+                  value={Map.get(@raw_values, data_point.name, "")}
+                  phx-keyup="raw_change"
+                  phx-value-data_point={data_point.name}
+                  class="input input-xs input-bordered w-20 bg-gray-900 border-purple-600 text-white px-1 text-xs"
+                />
+                <button
+                  phx-click="set_raw"
+                  phx-value-data_point={data_point.name}
+                  class="px-2 text-xs bg-purple-700 hover:bg-purple-600 text-white rounded"
+                >
+                  Set
+                </button>
+              <% end %>
+            </div>
+
+            <%!-- Offline toggle --%>
             <div class="flex-1">
               <% is_offline = data_point.current_value == {:error, :timeout} %>
               <button
@@ -469,13 +457,65 @@ defmodule PouConWeb.SimulationLive do
     "#{t_str} #{h_str}"
   end
 
+  # Analog sensor with conversion - show converted value and raw
+  defp format_value(%{value: val, unit: unit, raw: raw}) when not is_nil(val) do
+    val_str = if is_float(val), do: Float.round(val, 2), else: val
+    unit_str = unit || ""
+    "#{val_str}#{unit_str} (raw: #{raw})"
+  end
+
   defp format_value(map) when is_map(map) do
     cond do
       Map.has_key?(map, :channels) -> "Raw: #{inspect(map.channels)}"
+      Map.has_key?(map, :value) -> "#{map.value}#{map[:unit] || ""}"
       true -> inspect(map)
     end
   end
 
   defp format_value({:error, reason}), do: "Error: #{reason}"
   defp format_value(val), do: inspect(val)
+
+  defp parse_raw_value(str) when is_binary(str) do
+    str = String.trim(str)
+
+    cond do
+      str == "" ->
+        {:error, "empty value"}
+
+      String.contains?(str, ".") ->
+        case Float.parse(str) do
+          {val, ""} -> {:ok, val}
+          _ -> {:error, "invalid float"}
+        end
+
+      true ->
+        case Integer.parse(str) do
+          {val, ""} -> {:ok, val}
+          _ -> {:error, "invalid integer"}
+        end
+    end
+  end
+
+  # Check if data point is digital I/O (DI, DO, VDI, VDO)
+  defp is_digital_io?(data_point) do
+    data_point.type in ["digital_input", "switch", "flag", "DO", "DI", "virtual_digital_output"] or
+      data_point.read_fn in [:read_digital_input, :read_digital_output, :read_virtual_digital_output]
+  end
+
+  # Generate placeholder text based on data point type (only for analog)
+  defp get_raw_placeholder(data_point) do
+    cond do
+      data_point.type == "temp_hum_sensor" or data_point.read_fn == :read_temperature_humidity ->
+        "e.g. 250"
+
+      data_point.value_type in ["float32", "float64"] ->
+        "e.g. 25.5"
+
+      data_point.value_type in ["int16", "int32"] ->
+        "e.g. -100"
+
+      true ->
+        "raw val"
+    end
+  end
 end

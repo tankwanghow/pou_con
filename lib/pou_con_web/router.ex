@@ -213,17 +213,18 @@ defmodule PouConWeb.Router do
 
   # --------------------------------------------------------------------
   # Authenticated Routes (Any logged-in user can access)
+  # Note: Cross-session navigation causes full page reload (expected)
   # --------------------------------------------------------------------
   scope "/", PouConWeb do
     pipe_through([:browser, :authenticated])
 
-    live_session :require_authenticated_user,
+    live_session :authenticated_user,
       on_mount: [{PouConWeb.AuthHooks, :ensure_authenticated}] do
-      # Flock pages - accessible to any authenticated user
+      # Flock pages
       live("/flock/:id/logs", Live.Flock.Logs, :index)
       live("/flock/:id/daily-yields", Live.Flock.DailyYields, :index)
 
-      # Operations tasks - accessible to any authenticated user
+      # Operations tasks
       live("/operations/tasks", Live.Operations.Tasks, :index)
     end
   end

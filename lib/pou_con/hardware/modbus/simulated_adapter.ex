@@ -149,56 +149,76 @@ defmodule PouCon.Hardware.Modbus.SimulatedAdapter do
   end
 
   # Read Input Registers (rir) - Temperature/Humidity/CO2/NH3 sensors
+  # IMPORTANT: Always check for manually-set register values first before falling back to simulation
   defp handle_command({:rir, slave_id, start_addr, count}, state) do
-    cond do
-      # CO2 sensor (SenseCAP S-CO2-03): reads registers 0x0000-0x0002 (CO2, temp*100, humidity*100)
-      start_addr == 0x0000 and count == 3 ->
-        values = simulate_co2_sensor()
-        {{:ok, values}, state}
+    # First, check if ANY register in the range has been manually set
+    # If so, return stored values (with simulation fallback for unset registers)
+    has_manual_values =
+      Enum.any?(0..(count - 1), fn i ->
+        get_register(state, slave_id, start_addr + i, nil) != nil
+      end)
 
-      # NH3 sensor (SenseCAP S-NH3-01): reads registers 0x2000-0x2006
-      # NH3 (Float32 at 0x2000-0x2001), temp at 0x2004, humidity at 0x2006
-      start_addr == 0x2000 and count >= 7 ->
-        values = simulate_nh3_sensor(count)
-        {{:ok, values}, state}
+    if has_manual_values do
+      # Return stored registers, using simulation defaults for any unset registers
+      values =
+        for i <- 0..(count - 1) do
+          addr = start_addr + i
 
-      # Temperature/Humidity sensor (SenseCAP S-TH-01): standard 2-3 registers
-      start_addr == 0 and count in [2, 3] ->
-        values = simulate_temp_hum_sensor(count)
-        {{:ok, values}, state}
+          case get_register(state, slave_id, addr, nil) do
+            nil ->
+              # Fallback to simulation default
+              base = if rem(addr, 2) == 0, do: 250, else: 600
+              base + :rand.uniform(20) - 10
 
-      # Single register temp/hum reads (Cytron format: values × 10)
-      # Used when polling one data point at a time
-      start_addr in [0, 1] and count == 1 ->
-        value =
-          if start_addr == 0 do
-            # Temperature: 22-28°C (stored as °C × 10)
-            220 + :rand.uniform(60)
-          else
-            # Humidity: 50-70% (stored as % × 10)
-            500 + :rand.uniform(200)
+            val ->
+              val
           end
+        end
 
-        {{:ok, [value]}, state}
+      {{:ok, values}, state}
+    else
+      # No manual values set - use sensor simulation
+      cond do
+        # CO2 sensor (SenseCAP S-CO2-03): reads registers 0x0000-0x0002 (CO2, temp*100, humidity*100)
+        start_addr == 0x0000 and count == 3 ->
+          values = simulate_co2_sensor()
+          {{:ok, values}, state}
 
-      true ->
-        # Fallback: return stored registers or simulated values
-        values =
-          for i <- 0..(count - 1) do
-            addr = start_addr + i
+        # NH3 sensor (SenseCAP S-NH3-01): reads registers 0x2000-0x2006
+        # NH3 (Float32 at 0x2000-0x2001), temp at 0x2004, humidity at 0x2006
+        start_addr == 0x2000 and count >= 7 ->
+          values = simulate_nh3_sensor(count)
+          {{:ok, values}, state}
 
-            case get_register(state, slave_id, addr, nil) do
-              nil ->
-                # Fallback to simulation
-                base = if rem(addr, 2) == 0, do: 250, else: 600
-                base + :rand.uniform(20) - 10
+        # Temperature/Humidity sensor (SenseCAP S-TH-01): standard 2-3 registers
+        start_addr == 0 and count in [2, 3] ->
+          values = simulate_temp_hum_sensor(count)
+          {{:ok, values}, state}
 
-              val ->
-                val
+        # Single register temp/hum reads (Cytron format: values × 10)
+        # Used when polling one data point at a time
+        start_addr in [0, 1] and count == 1 ->
+          value =
+            if start_addr == 0 do
+              # Temperature: 22-28°C (stored as °C × 10)
+              220 + :rand.uniform(60)
+            else
+              # Humidity: 50-70% (stored as % × 10)
+              500 + :rand.uniform(200)
             end
-          end
 
-        {{:ok, values}, state}
+          {{:ok, [value]}, state}
+
+        true ->
+          # Generic fallback: simulated values
+          values =
+            for _i <- 0..(count - 1) do
+              base = if rem(start_addr, 2) == 0, do: 250, else: 600
+              base + :rand.uniform(20) - 10
+            end
+
+          {{:ok, values}, state}
+      end
     end
   end
 
