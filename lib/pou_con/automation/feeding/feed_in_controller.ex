@@ -25,9 +25,12 @@ defmodule PouCon.Automation.Feeding.FeedInController do
   @default_poll_interval 500
   # Movement takes ~15 mins, allow 30 min timeout
   @movement_timeout_ms :timer.minutes(30)
+  # Only warn about missing equipment after this many consecutive failures
+  # At 500ms poll interval, 10 failures = 5 seconds grace period for startup
+  @max_silent_failures 10
 
   defmodule State do
-    # %{bucket_name => %{prev_at_front: bool, move_to_front_time: timestamp}}
+    # %{bucket_name => %{prev_at_front: bool, move_to_front_time: timestamp, failure_count: int}}
     defstruct poll_interval_ms: 500,
               trigger_buckets: %{},
               schedules: []
@@ -124,7 +127,7 @@ defmodule PouCon.Automation.Feeding.FeedInController do
     # Initialize tracking state for each trigger bucket
     trigger_bucket_names
     |> Enum.map(fn name ->
-      {name, %{prev_at_front: false, move_to_front_time: nil}}
+      {name, %{prev_at_front: false, move_to_front_time: nil, failure_count: 0}}
     end)
     |> Map.new()
   end
@@ -180,29 +183,45 @@ defmodule PouCon.Automation.Feeding.FeedInController do
           end
         end
 
-        # Return updated tracker
-        %{prev_at_front: current_at_front, move_to_front_time: new_move_time}
+        # Return updated tracker (reset failure count on success)
+        %{prev_at_front: current_at_front, move_to_front_time: new_move_time, failure_count: 0}
 
       %{mode: :manual} ->
         Logger.debug("FeedInController: #{bucket_name} in MANUAL mode, skipping")
-        tracker
+        %{tracker | failure_count: 0}
 
       %{error: error} when error != nil ->
         Logger.debug("FeedInController: #{bucket_name} has error: #{inspect(error)}")
-        tracker
+        %{tracker | failure_count: 0}
 
       _ ->
         Logger.warning("FeedInController: Unknown status for #{bucket_name}")
-        tracker
+        %{tracker | failure_count: 0}
     end
   rescue
     e ->
-      Logger.warning("FeedInController: Error checking #{bucket_name}: #{inspect(e)}")
-      tracker
+      handle_check_failure(bucket_name, tracker, {:error, e})
   catch
     :exit, reason ->
-      Logger.warning("FeedInController: Exit when checking #{bucket_name}: #{inspect(reason)}")
-      tracker
+      handle_check_failure(bucket_name, tracker, {:exit, reason})
+  end
+
+  # Handle failures with retry logic - only warn after threshold exceeded
+  defp handle_check_failure(bucket_name, tracker, reason) do
+    new_count = tracker.failure_count + 1
+
+    if new_count > @max_silent_failures do
+      # Only log warning after exceeding threshold
+      case reason do
+        {:exit, r} ->
+          Logger.warning("FeedInController: Exit when checking #{bucket_name}: #{inspect(r)}")
+
+        {:error, e} ->
+          Logger.warning("FeedInController: Error checking #{bucket_name}: #{inspect(e)}")
+      end
+    end
+
+    %{tracker | failure_count: new_count}
   end
 
   defp start_feedin_if_needed do
