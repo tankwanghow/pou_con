@@ -60,7 +60,26 @@ defmodule PouCon.Hardware.DataPointManager do
   # Runtime Structures
   # ------------------------------------------------------------------ #
   defmodule RuntimePort do
-    defstruct [:device_path, :protocol, :connection_pid, :description]
+    @moduledoc """
+    Runtime state for a communication port.
+
+    ## Connection Status
+    - `:connected` - Port is connected and operational
+    - `:disconnected` - Port was disconnected (USB unplugged, network down, etc.)
+    - `:error` - Port failed to connect on startup
+    """
+    defstruct [
+      :device_path,
+      :protocol,
+      :connection_pid,
+      :description,
+      :monitor_ref,
+      :db_port,
+      # :connected | :disconnected | :error
+      status: :connected,
+      # Error message if status is :error or :disconnected
+      error_reason: nil
+    ]
 
     # Legacy alias for compatibility
     def modbus_pid(%__MODULE__{connection_pid: pid}), do: pid
@@ -86,7 +105,12 @@ defmodule PouCon.Hardware.DataPointManager do
       unit: nil,
       value_type: nil,
       min_valid: nil,
-      max_valid: nil
+      max_valid: nil,
+      # Display color thresholds
+      threshold_mode: "upper",
+      green_low: nil,
+      yellow_low: nil,
+      red_low: nil
     ]
   end
 
@@ -144,6 +168,18 @@ defmodule PouCon.Hardware.DataPointManager do
 
   def unskip_slave(port_path, slave_id),
     do: GenServer.cast(__MODULE__, {:unskip_slave, port_path, slave_id})
+
+  @doc """
+  Get the connection status of all ports.
+  Returns a list of maps with port info and status.
+  """
+  def get_port_statuses, do: GenServer.call(__MODULE__, :get_port_statuses)
+
+  @doc """
+  Manually reconnect a disconnected port.
+  Only works for ports with status :disconnected or :error.
+  """
+  def reconnect_port(device_path), do: GenServer.call(__MODULE__, {:reconnect_port, device_path})
 
   # ------------------------------------------------------------------ #
   # Port & Device Management
@@ -455,9 +491,84 @@ defmodule PouCon.Hardware.DataPointManager do
   end
 
   @impl GenServer
+  def handle_call(:get_port_statuses, _from, state) do
+    statuses =
+      Enum.map(state.ports, fn {device_path, port} ->
+        %{
+          device_path: device_path,
+          protocol: port.protocol,
+          description: port.description,
+          status: port.status,
+          error_reason: port.error_reason,
+          connected: port.status == :connected and port.connection_pid != nil
+        }
+      end)
+
+    {:reply, statuses, state}
+  end
+
+  @impl GenServer
+  def handle_call({:reconnect_port, device_path}, _from, state) do
+    case Map.get(state.ports, device_path) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      %RuntimePort{status: :connected, connection_pid: pid} when pid != nil ->
+        {:reply, {:error, :already_connected}, state}
+
+      %RuntimePort{db_port: nil} ->
+        {:reply, {:error, :no_db_port}, state}
+
+      %RuntimePort{db_port: db_port} = port ->
+        Logger.info("[DataPointManager] Attempting to reconnect port #{device_path}")
+
+        case PouCon.Hardware.PortSupervisor.start_connection(db_port) do
+          {:ok, pid} ->
+            # Monitor the new connection
+            ref = if pid, do: Process.monitor(pid), else: nil
+
+            new_port = %RuntimePort{
+              port
+              | connection_pid: pid,
+                monitor_ref: ref,
+                status: :connected,
+                error_reason: nil
+            }
+
+            new_state = %{state | ports: Map.put(state.ports, device_path, new_port)}
+            Logger.info("[DataPointManager] Port #{device_path} reconnected successfully")
+            {:reply, {:ok, :reconnected}, new_state}
+
+          {:error, reason} ->
+            Logger.error("[DataPointManager] Failed to reconnect port #{device_path}: #{inspect(reason)}")
+
+            new_port = %RuntimePort{
+              port
+              | status: :error,
+                error_reason: inspect(reason)
+            }
+
+            new_state = %{state | ports: Map.put(state.ports, device_path, new_port)}
+            {:reply, {:error, reason}, new_state}
+        end
+    end
+  end
+
+  @impl GenServer
   def handle_call({:query, device_name}, _from, state) do
     result = get_cached_data(device_name)
     {:reply, result, state}
+  end
+
+  @impl GenServer
+  def handle_call({:get_connection_pid, device_path}, _from, state) do
+    case Map.get(state.ports, device_path) do
+      %RuntimePort{connection_pid: pid} when is_pid(pid) ->
+        {:reply, {:ok, pid}, state}
+
+      _ ->
+        {:reply, {:error, :not_found}, state}
+    end
   end
 
   @impl GenServer
@@ -610,6 +721,46 @@ defmodule PouCon.Hardware.DataPointManager do
   end
 
   # ------------------------------------------------------------------ #
+  # Process Monitoring - Handle port disconnection
+  # ------------------------------------------------------------------ #
+  @impl GenServer
+  def handle_info({:DOWN, ref, :process, _pid, reason}, state) do
+    # Find the port that this monitor belongs to
+    case Enum.find(state.ports, fn {_path, port} -> port.monitor_ref == ref end) do
+      {device_path, port} ->
+        Logger.warning(
+          "[DataPointManager] Port #{device_path} disconnected: #{inspect(reason)}"
+        )
+
+        # Mark port as disconnected - DO NOT auto-reconnect
+        # Operator must manually reconnect via UI
+        new_port = %RuntimePort{
+          port
+          | connection_pid: nil,
+            monitor_ref: nil,
+            status: :disconnected,
+            error_reason: format_disconnect_reason(reason)
+        }
+
+        new_ports = Map.put(state.ports, device_path, new_port)
+        {:noreply, %{state | ports: new_ports}}
+
+      nil ->
+        # Unknown monitor, ignore
+        {:noreply, state}
+    end
+  end
+
+  # Ignore other info messages
+  @impl GenServer
+  def handle_info(_msg, state), do: {:noreply, state}
+
+  defp format_disconnect_reason(:normal), do: "Process exited normally"
+  defp format_disconnect_reason(:shutdown), do: "Process shutdown"
+  defp format_disconnect_reason({:shutdown, reason}), do: "Shutdown: #{inspect(reason)}"
+  defp format_disconnect_reason(reason), do: inspect(reason)
+
+  # ------------------------------------------------------------------ #
   # State Loading
   # ------------------------------------------------------------------ #
   @impl GenServer
@@ -634,11 +785,18 @@ defmodule PouCon.Hardware.DataPointManager do
 
         case PouCon.Hardware.PortSupervisor.start_connection(db_port) do
           {:ok, pid} ->
+            # Monitor the connection process to detect disconnection
+            ref = if pid, do: Process.monitor(pid), else: nil
+
             Map.put(acc, db_port.device_path, %RuntimePort{
               device_path: db_port.device_path,
               protocol: protocol,
               connection_pid: pid,
-              description: db_port.description
+              monitor_ref: ref,
+              description: db_port.description,
+              db_port: db_port,
+              status: :connected,
+              error_reason: nil
             })
 
           {:error, reason} ->
@@ -646,7 +804,17 @@ defmodule PouCon.Hardware.DataPointManager do
               "[DataPointManager] Failed to start port #{db_port.device_path}: #{inspect(reason)}"
             )
 
-            acc
+            # Store the port with error status so it can be reconnected later
+            Map.put(acc, db_port.device_path, %RuntimePort{
+              device_path: db_port.device_path,
+              protocol: protocol,
+              connection_pid: nil,
+              monitor_ref: nil,
+              description: db_port.description,
+              db_port: db_port,
+              status: :error,
+              error_reason: inspect(reason)
+            })
         end
       end)
 
@@ -671,7 +839,12 @@ defmodule PouCon.Hardware.DataPointManager do
           unit: d.unit,
           value_type: d.value_type,
           min_valid: d.min_valid,
-          max_valid: d.max_valid
+          max_valid: d.max_valid,
+          # Display color thresholds
+          threshold_mode: d.threshold_mode || "upper",
+          green_low: d.green_low,
+          yellow_low: d.yellow_low,
+          red_low: d.red_low
         }
       end)
       |> Map.new(&{&1.name, &1})
@@ -849,14 +1022,27 @@ defmodule PouCon.Hardware.DataPointManager do
           unit: data_point.unit,
           value_type: data_point.value_type,
           valid: valid?,
-          raw: raw_value
+          raw: raw_value,
+          # Color thresholds for UI
+          threshold_mode: data_point.threshold_mode,
+          green_low: data_point.green_low,
+          yellow_low: data_point.yellow_low,
+          red_low: data_point.red_low,
+          min_valid: data_point.min_valid,
+          max_valid: data_point.max_valid
         }
       else
         # Non-numeric or nil - pass through with metadata
         Map.merge(data, %{
           unit: data_point.unit,
           value_type: data_point.value_type,
-          valid: false
+          valid: false,
+          threshold_mode: data_point.threshold_mode,
+          green_low: data_point.green_low,
+          yellow_low: data_point.yellow_low,
+          red_low: data_point.red_low,
+          min_valid: data_point.min_valid,
+          max_valid: data_point.max_valid
         })
       end
     else

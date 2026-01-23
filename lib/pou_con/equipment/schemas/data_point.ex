@@ -76,6 +76,27 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
     field :min_valid, :float
     field :max_valid, :float
 
+    # Display color thresholds (optional)
+    # threshold_mode controls how thresholds are interpreted:
+    #   "upper" (default): Higher values are worse (NH3, CO2)
+    #     - value < green_low → GREEN
+    #     - green_low ≤ value < yellow_low → YELLOW
+    #     - yellow_low ≤ value < red_low → AMBER
+    #     - value ≥ red_low → RED
+    #   "lower": Lower values are worse (O2, pressure)
+    #     - value > green_low → GREEN
+    #     - yellow_low < value ≤ green_low → YELLOW
+    #     - red_low < value ≤ yellow_low → AMBER
+    #     - value ≤ red_low → RED
+    #   "range": Middle is best (temperature, humidity)
+    #     - Uses min_valid/max_valid to mirror thresholds
+    #     - green_high = max_valid - (green_low - min_valid)
+    #     - Values in green zone → GREEN, outside → YELLOW/AMBER/RED
+    field :threshold_mode, :string, default: "upper"
+    field :green_low, :float
+    field :yellow_low, :float
+    field :red_low, :float
+
     # Logging configuration
     # nil = log on change, 0 = no logging, > 0 = interval in seconds
     field :log_interval, :integer
@@ -108,10 +129,16 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
       :value_type,
       :min_valid,
       :max_valid,
+      # Display color thresholds
+      :threshold_mode,
+      :green_low,
+      :yellow_low,
+      :red_low,
       # Logging
       :log_interval
     ])
     |> validate_number(:log_interval, greater_than_or_equal_to: 0)
+    |> validate_inclusion(:threshold_mode, ["upper", "lower", "range", nil])
     |> validate_required([:name, :type, :slave_id, :port_path])
     |> unique_constraint(:name)
   end

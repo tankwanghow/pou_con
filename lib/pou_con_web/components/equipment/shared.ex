@@ -450,6 +450,174 @@ defmodule PouConWeb.Components.Equipment.Shared do
   end
 
   # ——————————————————————————————————————————————
+  # Threshold-Based Color Determination
+  # ——————————————————————————————————————————————
+
+  @doc """
+  Determines display color based on value, thresholds, and threshold_mode.
+
+  ## Modes
+
+  ### "upper" (default) - Higher values are worse (NH3, CO2)
+  - value < green_low → GREEN (optimal)
+  - green_low ≤ value < yellow_low → YELLOW (caution)
+  - yellow_low ≤ value < red_low → AMBER (warning)
+  - value ≥ red_low → RED (critical)
+
+  ### "lower" - Lower values are worse (O2, pressure)
+  - value > green_low → GREEN (optimal)
+  - yellow_low < value ≤ green_low → YELLOW (caution)
+  - red_low < value ≤ yellow_low → AMBER (warning)
+  - value ≤ red_low → RED (critical)
+
+  ### "range" - Middle is best (temperature, humidity)
+  Uses min_valid/max_valid to mirror thresholds:
+  - green_high = max_valid - (green_low - min_valid)
+  - Values in green zone → GREEN
+  - Values outside green but inside yellow → YELLOW
+  - Values outside yellow but inside red → AMBER
+  - Values outside red → RED
+
+  Returns a color string: "green", "yellow", "amber", "red", or fallback_color
+  """
+  def color_from_thresholds(value, thresholds, fallback_color \\ "blue")
+
+  def color_from_thresholds(nil, _thresholds, fallback_color), do: fallback_color
+
+  def color_from_thresholds(value, nil, fallback_color) when is_number(value), do: fallback_color
+
+  def color_from_thresholds(value, %{} = thresholds, fallback_color) when is_number(value) do
+    green_low = Map.get(thresholds, :green_low)
+    yellow_low = Map.get(thresholds, :yellow_low)
+    red_low = Map.get(thresholds, :red_low)
+    mode = Map.get(thresholds, :threshold_mode) || "upper"
+
+    # If no thresholds defined, use fallback
+    if is_nil(green_low) and is_nil(yellow_low) and is_nil(red_low) do
+      fallback_color
+    else
+      case mode do
+        "upper" -> color_for_upper_mode(value, green_low, yellow_low, red_low)
+        "lower" -> color_for_lower_mode(value, green_low, yellow_low, red_low)
+        "range" -> color_for_range_mode(value, thresholds)
+        _ -> color_for_upper_mode(value, green_low, yellow_low, red_low)
+      end
+    end
+  end
+
+  def color_from_thresholds(_value, _thresholds, fallback_color), do: fallback_color
+
+  # "upper" mode: Higher values are worse
+  # value < green_low → GREEN, green_low ≤ value < yellow_low → YELLOW, etc.
+  defp color_for_upper_mode(value, green_low, yellow_low, red_low) do
+    cond do
+      red_low && value >= red_low -> "red"
+      yellow_low && value >= yellow_low -> "amber"
+      green_low && value >= green_low -> "yellow"
+      true -> "green"
+    end
+  end
+
+  # "lower" mode: Lower values are worse
+  # value > green_low → GREEN, yellow_low < value ≤ green_low → YELLOW, etc.
+  defp color_for_lower_mode(value, green_low, yellow_low, red_low) do
+    cond do
+      red_low && value <= red_low -> "red"
+      yellow_low && value <= yellow_low -> "amber"
+      green_low && value <= green_low -> "yellow"
+      true -> "green"
+    end
+  end
+
+  # "range" mode: Middle is best, uses min_valid/max_valid to mirror thresholds
+  # Thresholds are auto-sorted: smallest=red (extreme), middle=yellow, largest=green (inner)
+  defp color_for_range_mode(value, thresholds) do
+    green_low = Map.get(thresholds, :green_low)
+    yellow_low = Map.get(thresholds, :yellow_low)
+    red_low = Map.get(thresholds, :red_low)
+    min_valid = Map.get(thresholds, :min_valid)
+    max_valid = Map.get(thresholds, :max_valid)
+
+    # Sort thresholds for range mode: smallest=red (extreme), largest=green (inner)
+    {sorted_red, sorted_yellow, sorted_green} = sort_range_thresholds(red_low, yellow_low, green_low)
+
+    # Calculate high thresholds by mirroring around the valid range
+    {green_high, yellow_high, red_high} =
+      if min_valid && max_valid && sorted_green do
+        {
+          max_valid - (sorted_green - min_valid),
+          if(sorted_yellow, do: max_valid - (sorted_yellow - min_valid), else: nil),
+          if(sorted_red, do: max_valid - (sorted_red - min_valid), else: nil)
+        }
+      else
+        # Without min/max, can't mirror - fall back to upper mode behavior
+        {nil, nil, nil}
+      end
+
+    cond do
+      # Check red zone (too low or too high)
+      sorted_red && value < sorted_red -> "red"
+      red_high && value > red_high -> "red"
+
+      # Check amber zone
+      sorted_yellow && value < sorted_yellow -> "amber"
+      yellow_high && value > yellow_high -> "amber"
+
+      # Check yellow zone
+      sorted_green && value < sorted_green -> "yellow"
+      green_high && value > green_high -> "yellow"
+
+      # Within green zone
+      true -> "green"
+    end
+  end
+
+  # Sort thresholds for range mode: smallest=red (extreme), middle=yellow, largest=green (inner)
+  defp sort_range_thresholds(red, yellow, green) do
+    values = [red, yellow, green] |> Enum.reject(&is_nil/1) |> Enum.sort()
+
+    case values do
+      [a, b, c] -> {a, b, c}  # red, yellow, green (smallest to largest)
+      [a, b] -> {nil, a, b}   # yellow, green
+      [a] -> {nil, nil, a}    # just green
+      [] -> {nil, nil, nil}
+    end
+  end
+
+  # ——————————————————————————————————————————————
+  # Color Class Helpers
+  # ——————————————————————————————————————————————
+
+  @doc """
+  Generates a Tailwind text color class from a color name.
+
+  If the color already contains a hyphen (e.g., "green-700"), returns "text-green-700".
+  Otherwise, appends "-500" (e.g., "red" -> "text-red-500").
+  """
+  def text_color(color) when is_binary(color) do
+    if String.contains?(color, "-") do
+      "text-#{color}"
+    else
+      "text-#{color}-500"
+    end
+  end
+
+  def text_color(_), do: "text-gray-500"
+
+  @doc """
+  Generates a Tailwind background color class from a color name.
+  """
+  def bg_color(color) when is_binary(color) do
+    if String.contains?(color, "-") do
+      "bg-#{color}"
+    else
+      "bg-#{color}-500"
+    end
+  end
+
+  def bg_color(_), do: "bg-gray-500"
+
+  # ——————————————————————————————————————————————
   # Equipment Body Section
   # ——————————————————————————————————————————————
 
