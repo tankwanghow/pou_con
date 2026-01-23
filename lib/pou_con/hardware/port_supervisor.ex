@@ -54,6 +54,8 @@ defmodule PouCon.Hardware.PortSupervisor do
   # ------------------------------------------------------------------ #
 
   def start_modbus_master(port) do
+    Logger.info("[PortSupervisor] Starting Modbus RTU connection to #{port.device_path}")
+
     spec =
       {PouCon.Utils.Modbus,
        tty: port.device_path,
@@ -66,10 +68,20 @@ defmodule PouCon.Hardware.PortSupervisor do
          debug: false
        ]}
 
-    DynamicSupervisor.start_child(__MODULE__, spec)
+    case DynamicSupervisor.start_child(__MODULE__, spec) do
+      {:ok, pid} ->
+        Logger.info("[PortSupervisor] Modbus RTU connection started: #{inspect(pid)}")
+        {:ok, pid}
+
+      {:error, reason} = err ->
+        Logger.error("[PortSupervisor] Modbus RTU connection failed: #{inspect(reason)}")
+        err
+    end
   end
 
   def stop_modbus_master(pid) do
+    Logger.info("[PortSupervisor] Stopping Modbus RTU connection #{inspect(pid)}")
+
     # Wrap in try/catch since the process may be in a bad state
     # (e.g., USB unplugged causing :ebadf errors)
     try do
@@ -110,6 +122,11 @@ defmodule PouCon.Hardware.PortSupervisor do
         Logger.info("[PortSupervisor] S7 connection started: #{inspect(pid)}")
         {:ok, pid}
 
+      {:error, {:already_started, pid}} ->
+        # Process with this name already exists - reuse it
+        Logger.info("[PortSupervisor] S7 connection already exists: #{inspect(pid)}, reusing")
+        {:ok, pid}
+
       {:error, reason} = err ->
         Logger.error("[PortSupervisor] S7 connection failed: #{inspect(reason)}")
         err
@@ -117,6 +134,8 @@ defmodule PouCon.Hardware.PortSupervisor do
   end
 
   def stop_s7_connection(pid) do
+    Logger.info("[PortSupervisor] Stopping S7 connection #{inspect(pid)}")
+
     try do
       s7_adapter().stop(pid)
     catch

@@ -2,6 +2,7 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
   use PouConWeb, :live_view
 
   alias PouCon.Hardware.Ports.Ports
+  alias PouCon.Hardware.DataPointManager
 
   @impl true
   def render(assigns) do
@@ -16,27 +17,47 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
       </.header>
 
       <div class="font-medium flex flex-wrap text-center bg-amber-200 border-b border-t border-amber-400 py-1">
-        <div class="w-[12%]">Protocol</div>
-        <div class="w-[20%]">Connection</div>
-        <div class="w-[15%]">Settings</div>
-        <div class="w-[33%]">Description</div>
-        <div class="w-[15%]">Action</div>
+        <div class="w-[10%]">Status</div>
+        <div class="w-[10%]">Protocol</div>
+        <div class="w-[18%]">Connection</div>
+        <div class="w-[12%]">Settings</div>
+        <div class="w-[30%]">Description</div>
+        <div class="w-[20%]">Action</div>
       </div>
       <div id="ports_list" phx-update="stream">
         <%= for {id, port} <- @streams.ports do %>
-          <div id={id} class="flex flex-row text-center border-b py-4 items-center">
-            <div class="w-[12%]">
+          <% status = Map.get(@port_statuses, port.device_path, %{status: :unknown}) %>
+          <div id={id} class={[
+            "flex flex-row text-center border-b py-4 items-center",
+            status.status == :disconnected && "bg-rose-50",
+            status.status == :error && "bg-amber-50"
+          ]}>
+            <div class="w-[10%]">
+              <.status_badge status={status.status} error_reason={status[:error_reason]} />
+            </div>
+            <div class="w-[10%]">
               <.protocol_badge protocol={port.protocol} />
             </div>
-            <div class="w-[20%] text-sm">
+            <div class="w-[18%] text-sm">
               <.connection_info port={port} />
             </div>
-            <div class="w-[15%] text-xs text-gray-500">
+            <div class="w-[12%] text-xs text-gray-500">
               <.settings_info port={port} />
             </div>
-            <div class="w-[33%]">{port.description}</div>
-            <div :if={!@readonly} class="w-[15%]">
+            <div class="w-[30%] text-sm">{port.description}</div>
+            <div class="w-[20%] flex justify-center gap-1">
+              <%= if status.status in [:disconnected, :error] do %>
+                <button
+                  phx-click="reconnect"
+                  phx-value-device_path={port.device_path}
+                  class="p-2 border-1 rounded-xl border-emerald-600 bg-emerald-200 hover:bg-emerald-300"
+                  title="Reconnect"
+                >
+                  <.icon name="hero-arrow-path-mini" class="text-emerald-600" />
+                </button>
+              <% end %>
               <.link
+                :if={!@readonly}
                 navigate={~p"/admin/ports/#{port.id}/edit"}
                 class="p-2 border-1 rounded-xl border-blue-600 bg-blue-200"
               >
@@ -44,9 +65,10 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
               </.link>
 
               <.link
-                phx-click={JS.push("delete", value: %{id: port.id}) |> hide("##{port.id}")}
+                :if={!@readonly}
+                phx-click={JS.push("delete", value: %{id: port.id}) |> hide("##{id}")}
                 data-confirm="Are you sure?"
-                class="p-2 border-1 rounded-xl border-rose-600 bg-rose-200 ml-2"
+                class="p-2 border-1 rounded-xl border-rose-600 bg-rose-200"
               >
                 <.icon name="hero-trash-mini" class="text-rose-600" />
               </.link>
@@ -55,6 +77,38 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
         <% end %>
       </div>
     </Layouts.app>
+    """
+  end
+
+  attr :status, :atom, required: true
+  attr :error_reason, :string, default: nil
+
+  defp status_badge(assigns) do
+    ~H"""
+    <%= case @status do %>
+      <% :connected -> %>
+        <span class="px-2 py-1 text-xs font-bold rounded bg-emerald-100 text-emerald-700 border border-emerald-300">
+          Connected
+        </span>
+      <% :disconnected -> %>
+        <span
+          class="px-2 py-1 text-xs font-bold rounded bg-rose-100 text-rose-700 border border-rose-300"
+          title={@error_reason}
+        >
+          Disconnected
+        </span>
+      <% :error -> %>
+        <span
+          class="px-2 py-1 text-xs font-bold rounded bg-amber-100 text-amber-700 border border-amber-300"
+          title={@error_reason}
+        >
+          Error
+        </span>
+      <% _ -> %>
+        <span class="px-2 py-1 text-xs font-bold rounded bg-gray-100 text-gray-700 border border-gray-300">
+          Unknown
+        </span>
+    <% end %>
     """
   end
 
@@ -120,21 +174,43 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
   end
 
   @impl true
-  def mount(_params, %{"current_role" => :admin}, socket) do
+  def mount(_params, %{"current_role" => role}, socket) do
+    # Subscribe to status updates
+    if connected?(socket) do
+      :timer.send_interval(2000, self(), :refresh_statuses)
+    end
+
     {:ok,
      socket
      |> assign(:page_title, "Listing Ports")
-     |> assign(readonly: false)
+     |> assign(readonly: role != :admin)
+     |> assign(:port_statuses, load_port_statuses())
      |> stream(:ports, list_ports())}
   end
 
   @impl true
-  def mount(_params, %{"current_role" => :user}, socket) do
-    {:ok,
-     socket
-     |> assign(:page_title, "Listing Ports")
-     |> assign(readonly: true)
-     |> stream(:ports, list_ports())}
+  def handle_info(:refresh_statuses, socket) do
+    {:noreply, assign(socket, :port_statuses, load_port_statuses())}
+  end
+
+  @impl true
+  def handle_event("reconnect", %{"device_path" => device_path}, socket) do
+    case DataPointManager.reconnect_port(device_path) do
+      {:ok, :reconnected} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Port #{device_path} reconnected successfully")
+         |> assign(:port_statuses, load_port_statuses())}
+
+      {:error, :already_connected} ->
+        {:noreply, put_flash(socket, :info, "Port is already connected")}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Failed to reconnect: #{inspect(reason)}")
+         |> assign(:port_statuses, load_port_statuses())}
+    end
   end
 
   @impl true
@@ -145,7 +221,13 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
     {:noreply, stream_delete(socket, :ports, port)}
   end
 
-  defp list_ports() do
+  defp list_ports do
     Ports.list_ports()
+  end
+
+  defp load_port_statuses do
+    DataPointManager.get_port_statuses()
+    |> Enum.map(fn status -> {status.device_path, status} end)
+    |> Map.new()
   end
 end

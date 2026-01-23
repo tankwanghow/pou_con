@@ -12,18 +12,17 @@ defmodule PouConWeb.SimulationLive do
   def mount(_params, _session, socket) do
     if connected?(socket) do
       PubSub.subscribe(PouCon.PubSub, "data_point_data")
+      # Refresh port statuses periodically
+      :timer.send_interval(2000, self(), :refresh_ports)
     end
 
     data_points = list_data_points()
-
-    # Rebuild map of id needed? No, list_data_points already merges.
-    # Wait, the list_data_points logic merges DataPointManager's details with Equipments.
-    # DataPointManager.list_data_points_details() now returns structs with :id.
 
     socket =
       socket
       |> assign(:page_title, "Simulation Control")
       |> assign(:data_points, data_points)
+      |> assign(:port_statuses, DataPointManager.get_port_statuses())
       |> assign(:search, "")
       |> assign(:sort_by, :equipment)
       |> assign(:sort_order, :asc)
@@ -89,6 +88,11 @@ defmodule PouConWeb.SimulationLive do
   end
 
   @impl true
+  def handle_info(:refresh_ports, socket) do
+    {:noreply, assign(socket, :port_statuses, DataPointManager.get_port_statuses())}
+  end
+
+  @impl true
   def handle_event("search", %{"value" => term}, socket) do
     {:noreply, assign(socket, :search, term)}
   end
@@ -150,11 +154,112 @@ defmodule PouConWeb.SimulationLive do
   end
 
   @impl true
+  def handle_event("disconnect_port", %{"device_path" => device_path}, socket) do
+    # Find the port and properly terminate its connection process
+    statuses = DataPointManager.get_port_statuses()
+    port_info = Enum.find(statuses, &(&1.device_path == device_path))
+
+    case port_info do
+      %{status: :connected, protocol: protocol} ->
+        case get_connection_pid(device_path) do
+          {:ok, pid} when is_pid(pid) ->
+            # Use PortSupervisor.stop_connection to properly terminate and remove from supervision
+            PouCon.Hardware.PortSupervisor.stop_connection(pid, protocol)
+
+            {:noreply,
+             socket
+             |> put_flash(:info, "Port #{device_path} disconnected")
+             |> assign(:port_statuses, DataPointManager.get_port_statuses())}
+
+          _ ->
+            {:noreply, put_flash(socket, :error, "Could not find connection process")}
+        end
+
+      %{status: status} when status in [:disconnected, :error] ->
+        {:noreply, put_flash(socket, :error, "Port is already disconnected")}
+
+      nil ->
+        {:noreply, put_flash(socket, :error, "Port not found")}
+    end
+  end
+
+  @impl true
+  def handle_event("reconnect_port", %{"device_path" => device_path}, socket) do
+    case DataPointManager.reconnect_port(device_path) do
+      {:ok, :reconnected} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Port #{device_path} reconnected")
+         |> assign(:port_statuses, DataPointManager.get_port_statuses())}
+
+      {:error, :already_connected} ->
+        {:noreply, put_flash(socket, :info, "Port is already connected")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to reconnect: #{inspect(reason)}")}
+    end
+  end
+
+  # Helper to get connection pid from DataPointManager
+  defp get_connection_pid(device_path) do
+    # Use GenServer.call to get the actual state
+    try do
+      GenServer.call(DataPointManager, {:get_connection_pid, device_path})
+    catch
+      :exit, _ -> {:error, :not_found}
+    end
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-4/5" current_role={@current_role}>
+      <%!-- Port Control Section --%>
+      <div class="mb-6 p-4 bg-gray-900 rounded-lg border border-gray-700">
+        <h2 class="text-lg font-bold text-white mb-3">Port Control (Simulate Disconnection)</h2>
+        <div class="flex flex-wrap gap-3">
+          <%= for port <- @port_statuses do %>
+            <div class={[
+              "flex items-center gap-2 px-3 py-2 rounded-lg border",
+              port.status == :connected && "bg-emerald-900/30 border-emerald-600",
+              port.status == :disconnected && "bg-rose-900/30 border-rose-600",
+              port.status == :error && "bg-amber-900/30 border-amber-600"
+            ]}>
+              <div class="flex flex-col">
+                <span class="text-sm font-mono text-white">{port.device_path}</span>
+                <span class={[
+                  "text-xs",
+                  port.status == :connected && "text-emerald-400",
+                  port.status == :disconnected && "text-rose-400",
+                  port.status == :error && "text-amber-400"
+                ]}>
+                  {port.status |> to_string() |> String.upcase()}
+                </span>
+              </div>
+              <%= if port.status == :connected do %>
+                <button
+                  phx-click="disconnect_port"
+                  phx-value-device_path={port.device_path}
+                  class="px-3 py-1 text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white rounded"
+                >
+                  Disconnect
+                </button>
+              <% else %>
+                <button
+                  phx-click="reconnect_port"
+                  phx-value-device_path={port.device_path}
+                  class="px-3 py-1 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded"
+                >
+                  Reconnect
+                </button>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
       <div class="flex justify-between items-center mb-4">
-        <h1 class="text-xl font-bold">data_point Simulation</h1>
+        <h1 class="text-xl font-bold">Data Point Simulation</h1>
         <div class="form-control w-full max-w-xs">
           <input
             type="text"
@@ -234,7 +339,7 @@ defmodule PouConWeb.SimulationLive do
           </div>
           <div class="flex flex-2">
             <%= cond do %>
-              <% data_point.current_value == {:error, :timeout} or is_nil(data_point.current_value) -> %>
+              <% match?({:error, _}, data_point.current_value) or is_nil(data_point.current_value) -> %>
                 <div class="flex-5 text-xs text-gray-500 italic">No controls</div>
               <% data_point.type in ["digital_input", "switch", "flag", "DO", "virtual_digital_output"] or (data_point.read_fn == :read_digital_input) or (data_point.read_fn == :read_virtual_digital_output) -> %>
                 <div class="flex-5">
@@ -371,5 +476,6 @@ defmodule PouConWeb.SimulationLive do
     end
   end
 
+  defp format_value({:error, reason}), do: "Error: #{reason}"
   defp format_value(val), do: inspect(val)
 end
