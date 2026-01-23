@@ -42,6 +42,10 @@ defmodule PouCon.Equipment.Controllers.Light do
   # Default polling interval for lights (1000ms)
   @default_poll_interval 1000
 
+  # Number of consecutive mismatch detections before raising error
+  # With 1000ms poll interval, 3 counts = 3s grace period for physical response
+  @error_debounce_threshold 3
+
   defmodule State do
     defstruct [
       :name,
@@ -58,7 +62,11 @@ defmodule PouCon.Equipment.Controllers.Light do
       interlocked: false,
       # True if auto_manual data point is virtual (software-controlled mode)
       is_auto_manual_virtual_di: false,
-      poll_interval_ms: 1000
+      # True for NC (normally closed) relay wiring: coil OFF = light ON
+      inverted: false,
+      poll_interval_ms: 1000,
+      # Consecutive mismatch error count for debouncing
+      error_count: 0
     ]
   end
 
@@ -115,6 +123,7 @@ defmodule PouCon.Equipment.Controllers.Light do
       mode: :auto,
       error: nil,
       is_auto_manual_virtual_di: is_virtual,
+      inverted: opts[:inverted] == true,
       poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
@@ -166,7 +175,7 @@ defmodule PouCon.Equipment.Controllers.Light do
   # ——————————————————————————————————————————————————————————————
   @impl GenServer
   def handle_cast({:set_mode, mode}, %{is_auto_manual_virtual_di: true} = state) do
-    mode_value = if mode == :auto, do: 0, else: 1
+    mode_value = if mode == :auto, do: 1, else: 0
 
     case @data_point_manager.command(state.auto_manual, :set_state, %{state: mode_value}) do
       {:ok, :success} ->
@@ -197,7 +206,7 @@ defmodule PouCon.Equipment.Controllers.Light do
   # ——————————————————————————————————————————————————————————————
   # SAFE sync_coil — never crashes even if state is nil
   # ——————————————————————————————————————————————————————————————
-  defp sync_coil(%State{commanded_on: cmd, actual_on: act, on_off_coil: coil} = state)
+  defp sync_coil(%State{commanded_on: cmd, actual_on: act, on_off_coil: coil, inverted: inv} = state)
        when cmd != act do
     Logger.info("[#{state.name}] #{if cmd, do: "Turning ON", else: "Turning OFF"} light")
 
@@ -210,7 +219,17 @@ defmodule PouCon.Equipment.Controllers.Light do
       end
     end
 
-    case @data_point_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)}) do
+    # Normal (NO): coil ON (1) = light ON, coil OFF (0) = light OFF
+    # Inverted (NC): coil OFF (0) = light ON, coil ON (1) = light OFF
+    coil_value =
+      case {cmd, inv} do
+        {true, false} -> 1
+        {false, false} -> 0
+        {true, true} -> 0
+        {false, true} -> 1
+      end
+
+    case @data_point_manager.command(coil, :set_state, %{state: coil_value}) do
       {:ok, :success} ->
         poll_and_update(state)
 
@@ -261,8 +280,10 @@ defmodule PouCon.Equipment.Controllers.Light do
             {:ok, %{:state => coil_state}} = coil_res
             {:ok, %{:state => mode_state}} = mode_res
 
-            actual_on = coil_state == 1
-            mode = if mode_state == 1, do: :manual, else: :auto
+            # Normal (NO): coil ON (1) = light ON, coil OFF (0) = light OFF
+            # Inverted (NC): coil OFF (0) = light ON, coil ON (1) = light OFF
+            actual_on = if state.inverted, do: coil_state == 0, else: coil_state == 1
+            mode = if mode_state == 1, do: :auto, else: :manual
 
             updated = %State{
               state
@@ -281,7 +302,31 @@ defmodule PouCon.Equipment.Controllers.Light do
 
     # For lights without feedback, use actual_on as is_running equivalent
     state_for_error_check = Map.put(new_state, :is_running, new_state.actual_on)
-    error = Helpers.detect_error(state_for_error_check, temp_error)
+    raw_error = Helpers.detect_error(state_for_error_check, temp_error)
+
+    # Apply debouncing for mismatch errors (physical equipment has response time)
+    # Immediate errors (timeout, command_failed) are reported instantly
+    {error, error_count} =
+      case raw_error do
+        nil ->
+          # No error - reset count
+          {nil, 0}
+
+        err when err in [:on_but_not_running, :off_but_running] ->
+          # Mismatch error - debounce to allow physical response time
+          new_count = state.error_count + 1
+
+          if new_count >= @error_debounce_threshold do
+            {err, new_count}
+          else
+            # Not yet at threshold - keep previous error state (or nil)
+            {state.error, new_count}
+          end
+
+        immediate_error ->
+          # Immediate errors (timeout, invalid_data, command_failed)
+          {immediate_error, 0}
+      end
 
     # Compare with the PREVIOUS state's error, not new_state.error (which is nil)
     if error != state.error do
@@ -292,7 +337,7 @@ defmodule PouCon.Equipment.Controllers.Light do
     # Check interlock status when stopped and no error (use actual_on as running status)
     interlocked = Helpers.check_interlock_status(state.name, new_state.actual_on, error)
 
-    %State{new_state | error: error, interlocked: interlocked}
+    %State{new_state | error: error, error_count: error_count, interlocked: interlocked}
   end
 
   # Defensive: never crash on nil state

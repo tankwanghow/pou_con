@@ -62,6 +62,10 @@ defmodule PouCon.Equipment.Controllers.Egg do
   # Default polling interval (500ms for responsive feedback)
   @default_poll_interval 500
 
+  # Number of consecutive mismatch detections before raising error
+  # With 500ms poll interval, 3 counts = 1.5s grace period for physical response
+  @error_debounce_threshold 3
+
   defmodule State do
     defstruct [
       :name,
@@ -85,7 +89,11 @@ defmodule PouCon.Equipment.Controllers.Egg do
       interlocked: false,
       # True if auto_manual data point is virtual (software-controlled mode)
       is_auto_manual_virtual_di: false,
-      poll_interval_ms: 500
+      # True for NC (normally closed) relay wiring: coil OFF = equipment ON
+      inverted: false,
+      poll_interval_ms: 500,
+      # Consecutive mismatch error count for debouncing
+      error_count: 0
     ]
   end
 
@@ -145,6 +153,7 @@ defmodule PouCon.Equipment.Controllers.Egg do
       mode: :auto,
       error: nil,
       is_auto_manual_virtual_di: is_virtual,
+      inverted: opts[:inverted] == true,
       poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
@@ -200,7 +209,7 @@ defmodule PouCon.Equipment.Controllers.Egg do
   # ——————————————————————————————————————————————————————————————
   @impl GenServer
   def handle_cast({:set_mode, mode}, %{is_auto_manual_virtual_di: true} = state) do
-    mode_value = if mode == :auto, do: 0, else: 1
+    mode_value = if mode == :auto, do: 1, else: 0
 
     case @data_point_manager.command(state.auto_manual, :set_state, %{state: mode_value}) do
       {:ok, :success} ->
@@ -248,9 +257,17 @@ defmodule PouCon.Equipment.Controllers.Egg do
         end
       end
 
-      case @data_point_manager.command(state.on_off_coil, :set_state, %{
-             state: if(target, do: 1, else: 0)
-           }) do
+      # Normal (NO): coil ON (1) = equipment ON, coil OFF (0) = equipment OFF
+      # Inverted (NC): coil OFF (0) = equipment ON, coil ON (1) = equipment OFF
+      coil_value =
+        case {target, state.inverted} do
+          {true, false} -> 1
+          {false, false} -> 0
+          {true, true} -> 0
+          {false, true} -> 1
+        end
+
+      case @data_point_manager.command(state.on_off_coil, :set_state, %{state: coil_value}) do
         {:ok, :success} ->
           poll_and_update(%{state | actual_on: target})
 
@@ -313,9 +330,11 @@ defmodule PouCon.Equipment.Controllers.Egg do
             {:ok, %{:state => fb_state}} = fb_res
             {:ok, %{:state => mode_state}} = mode_res
 
-            actual_on = coil_state == 1
+            # Normal (NO): coil ON (1) = equipment ON, coil OFF (0) = equipment OFF
+            # Inverted (NC): coil OFF (0) = equipment ON, coil ON (1) = equipment OFF
+            actual_on = if state.inverted, do: coil_state == 0, else: coil_state == 1
             is_running = fb_state == 1
-            mode = if mode_state == 1, do: :manual, else: :auto
+            mode = if mode_state == 1, do: :auto, else: :manual
 
             # Read switch position (only used in MANUAL mode)
             switch_on = read_switch_position(switch_res)
@@ -350,7 +369,31 @@ defmodule PouCon.Equipment.Controllers.Egg do
           end
       end
 
-    error = Helpers.detect_error(new_state, temp_error)
+    raw_error = Helpers.detect_error(new_state, temp_error)
+
+    # Apply debouncing for mismatch errors (physical equipment has response time)
+    # Immediate errors (timeout, command_failed) are reported instantly
+    {error, error_count} =
+      case raw_error do
+        nil ->
+          # No error - reset count
+          {nil, 0}
+
+        err when err in [:on_but_not_running, :off_but_running] ->
+          # Mismatch error - debounce to allow physical response time
+          new_count = state.error_count + 1
+
+          if new_count >= @error_debounce_threshold do
+            {err, new_count}
+          else
+            # Not yet at threshold - keep previous error state (or nil)
+            {state.error, new_count}
+          end
+
+        immediate_error ->
+          # Immediate errors (timeout, invalid_data, command_failed)
+          {immediate_error, 0}
+      end
 
     # Compare with the PREVIOUS state's error, not new_state.error (which is nil)
     if error != state.error do
@@ -369,7 +412,7 @@ defmodule PouCon.Equipment.Controllers.Egg do
         false
       end
 
-    final_state = %State{new_state | error: error, interlocked: interlocked}
+    final_state = %State{new_state | error: error, error_count: error_count, interlocked: interlocked}
 
     # In MANUAL mode with switch, sync coil ONLY when switch position changes
     if final_state.mode == :manual and switch_changed and

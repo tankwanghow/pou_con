@@ -60,6 +60,10 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   # Default polling interval (500ms for responsive feedback)
   @default_poll_interval 500
 
+  # Number of consecutive mismatch detections before raising error
+  # With 500ms poll interval, 3 counts = 1.5s grace period for physical response
+  @error_debounce_threshold 3
+
   defmodule State do
     defstruct [
       :name,
@@ -81,7 +85,11 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
       interlocked: false,
       # True if auto_manual data point is virtual (software-controlled mode)
       is_auto_manual_virtual_di: false,
-      poll_interval_ms: 500
+      # True for NC (normally closed) relay wiring: coil OFF = equipment ON
+      inverted: false,
+      poll_interval_ms: 500,
+      # Consecutive mismatch error count for debouncing
+      error_count: 0
     ]
   end
 
@@ -135,6 +143,7 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
       full_switch: opts[:full_switch] || raise("Missing :full_switch"),
       trip: opts[:trip],
       is_auto_manual_virtual_di: is_virtual,
+      inverted: opts[:inverted] == true,
       poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
@@ -204,7 +213,7 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   # ——————————————————————————————————————————————————————————————
   @impl GenServer
   def handle_cast({:set_mode, mode}, %{is_auto_manual_virtual_di: true} = state) do
-    mode_value = if mode == :auto, do: 0, else: 1
+    mode_value = if mode == :auto, do: 1, else: 0
 
     case @data_point_manager.command(state.auto_manual, :set_state, %{state: mode_value}) do
       {:ok, :success} ->
@@ -294,10 +303,12 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
             {:ok, %{:state => manual_state}} = am_res
             {:ok, %{:state => trip_state}} = trip_res
 
-            is_manual = manual_state == 1
+            is_manual = manual_state == 0
             is_full = full_state == 1
             is_running = fb_state == 1
-            actual_on = coil_state == 1
+            # Normal (NO): coil ON (1) = equipment ON, coil OFF (0) = equipment OFF
+            # Inverted (NC): coil OFF (0) = equipment ON, coil ON (1) = equipment OFF
+            actual_on = if state.inverted, do: coil_state == 0, else: coil_state == 1
             is_tripped = trip_state == 1
 
             commanded_on =
@@ -329,7 +340,31 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
           end
       end
 
-    error = detect_runtime_error(new_state, temp_error)
+    raw_error = detect_runtime_error(new_state, temp_error)
+
+    # Apply debouncing for mismatch errors (physical equipment has response time)
+    # Immediate errors (timeout, command_failed, tripped) are reported instantly
+    {error, error_count} =
+      case raw_error do
+        nil ->
+          # No error - reset count
+          {nil, 0}
+
+        err when err in [:on_but_not_running, :off_but_running] ->
+          # Mismatch error - debounce to allow physical response time
+          new_count = state.error_count + 1
+
+          if new_count >= @error_debounce_threshold do
+            {err, new_count}
+          else
+            # Not yet at threshold - keep previous error state (or nil)
+            {state.error, new_count}
+          end
+
+        immediate_error ->
+          # Immediate errors (timeout, invalid_data, command_failed, tripped)
+          {immediate_error, 0}
+      end
 
     # Compare with the PREVIOUS state's error, not new_state.error (which is nil)
     if error != state.error do
@@ -347,7 +382,7 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
         false
       end
 
-    %State{new_state | error: error, interlocked: interlocked}
+    %State{new_state | error: error, error_count: error_count, interlocked: interlocked}
   end
 
   # Fallback: should never happen, but prevents crash loop
@@ -367,7 +402,7 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
     end
   end
 
-  defp sync_coil(%State{commanded_on: cmd, actual_on: act, filling_coil: coil} = state)
+  defp sync_coil(%State{commanded_on: cmd, actual_on: act, filling_coil: coil, inverted: inv} = state)
        when is_boolean(cmd) and is_boolean(act) and cmd != act do
     Logger.info("[#{state.name}] #{if cmd, do: "Starting", else: "Stopping"} filling")
 
@@ -380,7 +415,17 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
       end
     end
 
-    @data_point_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)})
+    # Normal (NO): coil ON (1) = equipment ON, coil OFF (0) = equipment OFF
+    # Inverted (NC): coil OFF (0) = equipment ON, coil ON (1) = equipment OFF
+    coil_value =
+      case {cmd, inv} do
+        {true, false} -> 1
+        {false, false} -> 0
+        {true, true} -> 0
+        {false, true} -> 1
+      end
+
+    @data_point_manager.command(coil, :set_state, %{state: coil_value})
     state
   end
 

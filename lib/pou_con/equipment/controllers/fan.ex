@@ -11,7 +11,15 @@ defmodule PouCon.Equipment.Controllers.Fan do
   on_off_coil: WS-11-O-01      # Digital output to control fan relay
   running_feedback: WS-11-I-01  # Digital input for motor running status
   auto_manual: WS-11-I-02       # Physical DI from 3-way switch (AUTO position)
+  inverted: true                # Optional: true for NC (normally closed) relay wiring
   ```
+
+  ## Inverted (NC) Wiring Support
+
+  For normally closed (NC) relay wiring where coil OFF = fan runs:
+  - Set `inverted: true` in device tree
+  - Coil OFF (0) → Fan ON
+  - Coil ON (1) → Fan OFF
 
   ## Physical 3-Way Switch Control
 
@@ -61,6 +69,10 @@ defmodule PouCon.Equipment.Controllers.Fan do
   # Default polling interval for fans (500ms for responsive feedback)
   @default_poll_interval 500
 
+  # Number of consecutive mismatch detections before raising error
+  # With 500ms poll interval, 3 counts = 1.5s grace period for physical response
+  @error_debounce_threshold 3
+
   defmodule State do
     defstruct [
       :name,
@@ -81,8 +93,12 @@ defmodule PouCon.Equipment.Controllers.Fan do
       # True if auto_manual data point is virtual (software-controlled mode)
       # False if auto_manual is a real DI (physical 3-way switch)
       is_auto_manual_virtual_di: false,
+      # True for NC (normally closed) relay wiring: coil OFF = fan ON
+      inverted: false,
       # Self-polling interval in milliseconds
-      poll_interval_ms: 500
+      poll_interval_ms: 500,
+      # Consecutive mismatch error count for debouncing
+      error_count: 0
     ]
   end
 
@@ -139,6 +155,7 @@ defmodule PouCon.Equipment.Controllers.Fan do
       trip: opts[:trip],
       current_input: opts[:current_input],
       is_auto_manual_virtual_di: is_auto_manual_virtual_di,
+      inverted: opts[:inverted] == true,
       poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
@@ -236,12 +253,19 @@ defmodule PouCon.Equipment.Controllers.Fan do
   end
 
   # AUTO mode: sync commanded state with hardware
-  defp sync_coil(%State{commanded_on: cmd, actual_on: act, on_off_coil: coil} = state)
+  defp sync_coil(%State{commanded_on: cmd, actual_on: act, on_off_coil: coil, inverted: inv} = state)
        when cmd != act do
     Logger.info("[#{state.name}] #{if cmd, do: "Turning ON", else: "Turning OFF"} fan")
 
-    # NO relay: coil ON (1) = fan runs, coil OFF (0) = fan stops
-    coil_value = if(cmd, do: 1, else: 0)
+    # Normal (NO): coil ON (1) = fan runs, coil OFF (0) = fan stops
+    # Inverted (NC): coil OFF (0) = fan runs, coil ON (1) = fan stops
+    coil_value =
+      case {cmd, inv} do
+        {true, false} -> 1
+        {false, false} -> 0
+        {true, true} -> 0
+        {false, true} -> 1
+      end
 
     case @data_point_manager.command(coil, :set_state, %{state: coil_value}) do
       {:ok, :success} ->
@@ -316,8 +340,9 @@ defmodule PouCon.Equipment.Controllers.Fan do
                 _ -> nil
               end
 
-            # NO relay: coil ON (1) = fan ON, coil OFF (0) = fan OFF
-            actual_on = coil_state == 1
+            # Normal (NO): coil ON (1) = fan ON, coil OFF (0) = fan OFF
+            # Inverted (NC): coil OFF (0) = fan ON, coil ON (1) = fan OFF
+            actual_on = if state.inverted, do: coil_state == 0, else: coil_state == 1
             is_running = fb_state == 1
             is_tripped = trip_state == 1
 
@@ -349,11 +374,35 @@ defmodule PouCon.Equipment.Controllers.Fan do
     # Skip error detection only for physical DI in manual mode (panel bypasses software)
     should_detect_errors = new_state.mode == :auto or state.is_auto_manual_virtual_di
 
-    error =
+    raw_error =
       if should_detect_errors do
         Helpers.detect_error(new_state, temp_error)
       else
         temp_error
+      end
+
+    # Apply debouncing for mismatch errors (physical equipment has response time)
+    # Immediate errors (timeout, command_failed, tripped) are reported instantly
+    {error, error_count} =
+      case raw_error do
+        nil ->
+          # No error - reset count
+          {nil, 0}
+
+        err when err in [:on_but_not_running, :off_but_running] ->
+          # Mismatch error - debounce to allow physical response time
+          new_count = state.error_count + 1
+
+          if new_count >= @error_debounce_threshold do
+            {err, new_count}
+          else
+            # Not yet at threshold - keep previous error state (or nil)
+            {state.error, new_count}
+          end
+
+        immediate_error ->
+          # Immediate errors (timeout, invalid_data, command_failed, tripped)
+          {immediate_error, 0}
       end
 
     # Compare with the PREVIOUS state's error, not new_state.error (which is nil)
@@ -370,7 +419,7 @@ defmodule PouCon.Equipment.Controllers.Fan do
         false
       end
 
-    %State{new_state | error: error, interlocked: interlocked}
+    %State{new_state | error: error, error_count: error_count, interlocked: interlocked}
   end
 
   # Defensive: never crash on nil state

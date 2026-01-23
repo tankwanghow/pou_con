@@ -54,6 +54,10 @@ defmodule PouCon.Equipment.Controllers.DungHor do
   # Default polling interval (500ms for responsive feedback)
   @default_poll_interval 500
 
+  # Number of consecutive mismatch detections before raising error
+  # With 500ms poll interval, 3 counts = 1.5s grace period for physical response
+  @error_debounce_threshold 3
+
   defmodule State do
     defstruct [
       :name,
@@ -67,7 +71,11 @@ defmodule PouCon.Equipment.Controllers.DungHor do
       is_tripped: false,
       error: nil,
       interlocked: false,
-      poll_interval_ms: 500
+      # True for NC (normally closed) relay wiring: coil OFF = equipment ON
+      inverted: false,
+      poll_interval_ms: 500,
+      # Consecutive mismatch error count for debouncing
+      error_count: 0
     ]
   end
 
@@ -103,6 +111,7 @@ defmodule PouCon.Equipment.Controllers.DungHor do
       on_off_coil: opts[:on_off_coil] || raise("Missing :on_off_coil"),
       running_feedback: opts[:running_feedback] || raise("Missing :running_feedback"),
       trip: opts[:trip],
+      inverted: opts[:inverted] == true,
       poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
@@ -149,7 +158,7 @@ defmodule PouCon.Equipment.Controllers.DungHor do
   # ——————————————————————————————————————————————————————————————
   # SAFE sync_coil — never crashes even if state is nil
   # ——————————————————————————————————————————————————————————————
-  defp sync_coil(%State{commanded_on: cmd, actual_on: act, on_off_coil: coil} = state)
+  defp sync_coil(%State{commanded_on: cmd, actual_on: act, on_off_coil: coil, inverted: inv} = state)
        when cmd != act do
     Logger.info(
       "[#{state.name}] #{if cmd, do: "Turning ON", else: "Turning OFF"} dung horizontal"
@@ -162,7 +171,17 @@ defmodule PouCon.Equipment.Controllers.DungHor do
       EquipmentLogger.log_stop(state.name, "manual", "user", "on")
     end
 
-    case @data_point_manager.command(coil, :set_state, %{state: if(cmd, do: 1, else: 0)}) do
+    # Normal (NO): coil ON (1) = equipment ON, coil OFF (0) = equipment OFF
+    # Inverted (NC): coil OFF (0) = equipment ON, coil ON (1) = equipment OFF
+    coil_value =
+      case {cmd, inv} do
+        {true, false} -> 1
+        {false, false} -> 0
+        {true, true} -> 0
+        {false, true} -> 1
+      end
+
+    case @data_point_manager.command(coil, :set_state, %{state: coil_value}) do
       {:ok, :success} ->
         poll_and_update(state)
 
@@ -211,7 +230,9 @@ defmodule PouCon.Equipment.Controllers.DungHor do
             {:ok, %{:state => c}} = coil_res
             {:ok, %{:state => f}} = fb_res
             {:ok, %{:state => t}} = trip_res
-            actual_on = c == 1
+            # Normal (NO): coil ON (1) = equipment ON, coil OFF (0) = equipment OFF
+            # Inverted (NC): coil OFF (0) = equipment ON, coil ON (1) = equipment OFF
+            actual_on = if state.inverted, do: c == 0, else: c == 1
 
             {%State{
                state
@@ -226,7 +247,31 @@ defmodule PouCon.Equipment.Controllers.DungHor do
           end
       end
 
-    error = Helpers.detect_error(new_state, temp_error)
+    raw_error = Helpers.detect_error(new_state, temp_error)
+
+    # Apply debouncing for mismatch errors (physical equipment has response time)
+    # Immediate errors (timeout, command_failed, tripped) are reported instantly
+    {error, error_count} =
+      case raw_error do
+        nil ->
+          # No error - reset count
+          {nil, 0}
+
+        err when err in [:on_but_not_running, :off_but_running] ->
+          # Mismatch error - debounce to allow physical response time
+          new_count = state.error_count + 1
+
+          if new_count >= @error_debounce_threshold do
+            {err, new_count}
+          else
+            # Not yet at threshold - keep previous error state (or nil)
+            {state.error, new_count}
+          end
+
+        immediate_error ->
+          # Immediate errors (timeout, invalid_data, command_failed, tripped)
+          {immediate_error, 0}
+      end
 
     # Compare with the PREVIOUS state's error, not new_state.error (which is nil)
     if error != state.error do
@@ -236,7 +281,7 @@ defmodule PouCon.Equipment.Controllers.DungHor do
 
     interlocked = Helpers.check_interlock_status(state.name, new_state.is_running, error)
 
-    %State{new_state | error: error, interlocked: interlocked}
+    %State{new_state | error: error, error_count: error_count, interlocked: interlocked}
   end
 
   defp poll_and_update(nil) do

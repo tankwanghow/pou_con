@@ -55,6 +55,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   require Logger
 
   alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
+  alias PouCon.Equipment.DataPoints
   alias PouCon.Logging.EquipmentLogger
 
   @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
@@ -90,6 +91,9 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       error: nil,
       at_front_limit: false,
       at_back_limit: false,
+      # True if auto_manual data point is virtual (software-controlled mode)
+      # False if auto_manual is a real DI (physical 3-way switch)
+      is_auto_manual_virtual_di: false,
       poll_interval_ms: 500
     ]
   end
@@ -132,6 +136,10 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   @impl GenServer
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
+    auto_manual = opts[:auto_manual] || raise("Missing :auto_manual")
+
+    # Check if auto_manual data point is virtual (software-controlled mode)
+    is_auto_manual_virtual_di = DataPoints.is_virtual?(auto_manual)
 
     state = %State{
       name: name,
@@ -143,8 +151,9 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       front_limit: opts[:front_limit] || raise("Missing :front_limit"),
       back_limit: opts[:back_limit] || raise("Missing :back_limit"),
       pulse_sensor: opts[:pulse_sensor] || raise("Missing :pulse_sensor"),
-      auto_manual: opts[:auto_manual] || raise("Missing :auto_manual"),
+      auto_manual: auto_manual,
       trip: opts[:trip],
+      is_auto_manual_virtual_di: is_auto_manual_virtual_di,
       poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
@@ -221,10 +230,11 @@ defmodule PouCon.Equipment.Controllers.Feeding do
     end
   end
 
+  # Set mode only works for virtual DI (software-controlled mode)
   @impl GenServer
-  def handle_cast(:set_auto, state) do
+  def handle_cast(:set_auto, %{is_auto_manual_virtual_di: true} = state) do
     Logger.info("[#{state.name}] → AUTO mode")
-    @data_point_manager.command(state.auto_manual, :set_state, %{state: 0})
+    @data_point_manager.command(state.auto_manual, :set_state, %{state: 1})
 
     # Log mode change if actually changing
     if state.mode != :auto do
@@ -234,10 +244,16 @@ defmodule PouCon.Equipment.Controllers.Feeding do
     {:noreply, poll_and_update(stop_and_reset(%{state | mode: :auto}))}
   end
 
+  def handle_cast(:set_auto, state) do
+    # Real DI - mode controlled by physical switch, ignore
+    Logger.debug("[#{state.name}] Set auto ignored - mode controlled by physical switch")
+    {:noreply, state}
+  end
+
   @impl GenServer
-  def handle_cast(:set_manual, state) do
+  def handle_cast(:set_manual, %{is_auto_manual_virtual_di: true} = state) do
     Logger.info("[#{state.name}] → MANUAL mode")
-    @data_point_manager.command(state.auto_manual, :set_state, %{state: 1})
+    @data_point_manager.command(state.auto_manual, :set_state, %{state: 0})
 
     # Log mode change if actually changing
     if state.mode != :manual do
@@ -245,6 +261,12 @@ defmodule PouCon.Equipment.Controllers.Feeding do
     end
 
     {:noreply, poll_and_update(stop_and_reset(%{state | mode: :manual}))}
+  end
+
+  def handle_cast(:set_manual, state) do
+    # Real DI - mode controlled by physical switch, ignore
+    Logger.debug("[#{state.name}] Set manual ignored - mode controlled by physical switch")
+    {:noreply, state}
   end
 
   # ——————————————————————————————————————————————————————————————
@@ -303,7 +325,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
             fwd_engaged = fwd_fb == 1
             rev_engaged = rev_fb == 1
             is_tripped = trip_state == 1
-            mode = if mode_val == 1, do: :manual, else: :auto
+            mode = if mode_val == 1, do: :auto, else: :manual
             at_front = f_lim == 1
             at_back = b_lim == 1
 
@@ -497,7 +519,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       at_back: state.at_back_limit,
       mode: state.mode,
       error: state.error,
-      error_message: error_message(state.error)
+      error_message: error_message(state.error),
+      is_auto_manual_virtual_di: state.is_auto_manual_virtual_di
     }
 
     {:reply, reply, state}

@@ -48,6 +48,8 @@ defmodule PouCon.Equipment.Controllers.Siren do
       interlocked: false,
       # True if auto_manual data point is virtual (software-controlled mode)
       is_auto_manual_virtual_di: false,
+      # True for NC (normally closed) relay wiring: coil OFF = siren ON
+      inverted: false,
       poll_interval_ms: 1000
     ]
   end
@@ -105,6 +107,7 @@ defmodule PouCon.Equipment.Controllers.Siren do
       mode: :auto,
       error: nil,
       is_auto_manual_virtual_di: is_virtual,
+      inverted: opts[:inverted] == true,
       poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
@@ -158,7 +161,7 @@ defmodule PouCon.Equipment.Controllers.Siren do
   # ——————————————————————————————————————————————————————————————
   @impl GenServer
   def handle_cast({:set_mode, mode}, %{is_auto_manual_virtual_di: true} = state) do
-    mode_value = if mode == :auto, do: 0, else: 1
+    mode_value = if mode == :auto, do: 1, else: 0
 
     case @data_point_manager.command(state.auto_manual, :set_state, %{state: mode_value}) do
       {:ok, :success} ->
@@ -204,9 +207,17 @@ defmodule PouCon.Equipment.Controllers.Siren do
       end
     end
 
-    case @data_point_manager.command(state.on_off_coil, :set_state, %{
-           state: if(target, do: 1, else: 0)
-         }) do
+    # Normal (NO): coil ON (1) = siren ON, coil OFF (0) = siren OFF
+    # Inverted (NC): coil OFF (0) = siren ON, coil ON (1) = siren OFF
+    coil_value =
+      case {target, state.inverted} do
+        {true, false} -> 1
+        {false, false} -> 0
+        {true, true} -> 0
+        {false, true} -> 1
+      end
+
+    case @data_point_manager.command(state.on_off_coil, :set_state, %{state: coil_value}) do
       {:ok, :success} ->
         %State{state | is_on: target, error: nil}
 
@@ -238,7 +249,7 @@ defmodule PouCon.Equipment.Controllers.Siren do
           {%State{state | error: :timeout}, :timeout}
 
         {:ok, %{:state => mode_state}} ->
-          mode = if mode_state == 1, do: :manual, else: :auto
+          mode = if mode_state == 1, do: :auto, else: :manual
           {%State{state | mode: mode, error: nil}, nil}
 
         _ ->
