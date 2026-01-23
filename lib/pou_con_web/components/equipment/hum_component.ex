@@ -91,7 +91,7 @@ defmodule PouConWeb.Components.Equipment.HumComponent do
   end
 
   defp calculate_display_data(status) do
-    hum = status[:value]
+    hum = status[:hum]
 
     if is_nil(hum) do
       %{

@@ -6,6 +6,7 @@ defmodule PouConWeb.Components.Summaries.TempSummaryComponent do
 
   use PouConWeb, :live_component
 
+  alias PouConWeb.Components.Equipment.Shared
   alias PouConWeb.Components.Formatters
 
   @impl true
@@ -45,10 +46,10 @@ defmodule PouConWeb.Components.Summaries.TempSummaryComponent do
   defp sensor_item(assigns) do
     ~H"""
     <div class="p-2 flex flex-col items-center justify-center">
-      <div class={"text-#{@sensor.color}-500 text-sm"}>{@sensor.title}</div>
+      <div class={[Shared.text_color(@sensor.color), "text-sm"]}>{@sensor.title}</div>
       <div class="flex items-center gap-1">
         <.temp_icon color={@sensor.color} />
-        <span class={"text-sm font-mono font-bold text-#{@sensor.value_color}-500"}>
+        <span class={[Shared.text_color(@sensor.value_color), "text-sm font-mono font-bold"]}>
           {@sensor.display}
         </span>
       </div>
@@ -58,7 +59,7 @@ defmodule PouConWeb.Components.Summaries.TempSummaryComponent do
 
   defp temp_icon(assigns) do
     ~H"""
-    <svg viewBox="0 0 32 32" fill="currentColor" class={"w-6 h-6 text-#{@color}-500"}>
+    <svg viewBox="0 0 32 32" fill="currentColor" class={["w-6 h-6", Shared.text_color(@color)]}>
       <path d="M16,2a5,5,0,0,0-5,5V18.13a7,7,0,1,0,10,0V7A5,5,0,0,0,16,2Zm0,26a5,5,0,0,1-2.5-9.33l.5-.29V7a2,2,0,0,1,4,0V18.38l.5.29A5,5,0,0,1,16,28Z" />
       <circle cx="16" cy="23" r="3" />
     </svg>
@@ -85,14 +86,20 @@ defmodule PouConWeb.Components.Summaries.TempSummaryComponent do
     }
   end
 
+  # No thresholds configured = neutral dark green color (no color coding)
+  @no_threshold_color "green-700"
+
   defp format_sensor(status) do
-    temp = status[:value]
+    temp = status[:temp]
+    thresholds = status[:thresholds] || %{}
+    temp_thresh = Map.get(thresholds, :temp, %{})
 
     if is_number(temp) do
+      color = get_color(temp, temp_thresh)
       %{
         title: status[:title] || "Temp",
-        color: "green",
-        value_color: temp_color(temp),
+        color: color,
+        value_color: color,
         display: Formatters.format_temperature(temp)
       }
     else
@@ -104,7 +111,9 @@ defmodule PouConWeb.Components.Summaries.TempSummaryComponent do
   # Color Helpers
   # ============================================================================
 
-  defp temp_color(temp) when temp >= 38.0, do: "rose"
-  defp temp_color(temp) when temp > 24.0, do: "green"
-  defp temp_color(_), do: "blue"
+  # Get color using thresholds if available, otherwise use slate
+  defp get_color(nil, _thresholds), do: "gray"
+  defp get_color(value, thresholds) do
+    Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
+  end
 end

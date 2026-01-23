@@ -30,11 +30,15 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
           equipment_id={@equipment_id}
         >
           <:controls>
-            <Shared.mode_toggle
-              mode={@display.mode}
-              is_offline={@display.state_text == "OFFLINE"}
-              myself={@myself}
-            />
+            <%= if @display.is_auto_manual_virtual_di do %>
+              <Shared.mode_toggle
+                mode={@display.mode}
+                is_offline={@display.state_text == "OFFLINE"}
+                myself={@myself}
+              />
+            <% else %>
+              <Shared.mode_indicator mode={@display.mode} />
+            <% end %>
           </:controls>
         </Shared.equipment_header>
 
@@ -204,6 +208,7 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
       is_error: false,
       is_moving: false,
       is_interlocked: false,
+      is_auto_manual_virtual_di: false,
       mode: :auto,
       state_text: "OFFLINE",
       color: "gray"
@@ -212,6 +217,7 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
 
   defp calculate_display_data(status) do
     is_interlocked = Map.get(status, :interlocked, false)
+    is_auto_manual_virtual_di = Map.get(status, :is_auto_manual_virtual_di, false)
 
     {color, text} =
       cond do
@@ -245,6 +251,7 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
       is_error: status.error != nil,
       is_moving: status.moving,
       is_interlocked: is_interlocked,
+      is_auto_manual_virtual_di: is_auto_manual_virtual_di,
       mode: status.mode,
       state_text: text,
       color: color

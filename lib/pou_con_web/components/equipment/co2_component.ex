@@ -37,15 +37,14 @@ defmodule PouConWeb.Components.Equipment.Co2Component do
         <div class="flex items-center gap-4 px-4 py-3">
           <div class="flex-shrink-0">
             <div class="relative flex items-center justify-center transition-colors">
-              <.co2_icon class={"w-16 h-16 text-#{@display.main_color}-500"} />
+              <.co2_icon class={"w-16 h-16 #{Shared.text_color(@display.main_color)}"} />
             </div>
           </div>
 
           <div class="flex-1 flex flex-col justify-center">
-            <.sensor_row label="CO2" value={@display.co2} color={@display.co2_color} bold={true} />
-            <.sensor_row label="Temp" value={@display.temp} color={@display.temp_color} />
-            <.sensor_row label="Hum" value={@display.hum} color={@display.hum_color} />
-            <.sensor_row label="Dew" value={@display.dew} color={@display.dew_color} />
+            <%= for {label, value, color, bold} <- @display.rows do %>
+              <.sensor_row label={label} value={value} color={color} bold={bold} />
+            <% end %>
           </div>
         </div>
       </Shared.equipment_card>
@@ -66,7 +65,7 @@ defmodule PouConWeb.Components.Equipment.Co2Component do
     ~H"""
     <div class={["flex justify-between items-baseline text-lg font-mono", @bold && "font-bold"]}>
       <span class="text-gray-400 uppercase tracking-wide text-sm">{@label}</span>
-      <span class={"text-#{@color}-500"}>{@value}</span>
+      <span class={Shared.text_color(@color)}>{@value}</span>
     </div>
     """
   end
@@ -95,83 +94,96 @@ defmodule PouConWeb.Components.Equipment.Co2Component do
   Calculates display data for CO2 sensor status.
   Returns a map with colors and formatted values.
   """
+  # Metadata keys to exclude from display
+  @metadata_keys [:name, :title, :error, :error_message, :thresholds]
+
   def calculate_display_data(%{error: error}) when error in [:invalid_data, :timeout] do
     %{
       is_error: true,
       main_color: "gray",
-      co2: "---- ppm",
-      temp: "--.-°C",
-      hum: "--.-%",
-      dew: "--.-°C",
-      co2_color: "gray",
-      temp_color: "gray",
-      hum_color: "gray",
-      dew_color: "gray"
+      rows: [{"--", "---- ppm", "gray", true}]
     }
   end
 
   def calculate_display_data(status) do
-    co2 = status[:co2]
-    temp = status[:temperature]
-    hum = status[:humidity]
-    dew = status[:dew_point]
+    # Filter out metadata keys, get only data point values
+    data_keys = Map.keys(status) -- @metadata_keys
+    thresholds = Map.get(status, :thresholds, %{})
 
-    if is_nil(co2) or is_nil(temp) or is_nil(hum) do
+    # Check if we have any data
+    if Enum.empty?(data_keys) or all_nil?(status, data_keys) do
       calculate_display_data(%{error: :invalid_data})
     else
+      # Build rows dynamically from status keys (with thresholds for coloring)
+      rows = build_rows(status, data_keys, thresholds)
+
+      # Determine main color from first available value
+      first_key = Enum.find(data_keys, fn k -> not is_nil(status[k]) end)
+      first_value = if first_key, do: status[first_key], else: nil
+      first_thresholds = if first_key, do: Map.get(thresholds, first_key, %{}), else: %{}
+      main_color = get_main_color(first_value, first_thresholds)
+
       %{
         is_error: false,
-        main_color: get_co2_main_color(co2),
-        co2: Formatters.format_ppm(co2),
-        temp: Formatters.format_temperature(temp),
-        hum: Formatters.format_percentage(hum),
-        dew: Formatters.format_temperature(dew),
-        co2_color: get_co2_color(co2),
-        temp_color: get_temp_color(temp),
-        hum_color: get_hum_color(hum),
-        dew_color: get_dew_color(dew, temp)
+        main_color: main_color,
+        rows: rows
       }
     end
   end
 
-  # CO2 thresholds for poultry
-  defp get_co2_main_color(co2) do
+  defp all_nil?(status, keys) do
+    Enum.all?(keys, fn k -> is_nil(status[k]) end)
+  end
+
+  defp build_rows(status, keys, thresholds) do
+    keys
+    |> Enum.reject(fn k -> is_nil(status[k]) end)
+    |> Enum.with_index()
+    |> Enum.map(fn {key, idx} ->
+      value = status[key]
+      key_thresholds = Map.get(thresholds, key, %{})
+      label = format_label(key)
+      formatted = format_value(key, value)
+      color = get_value_color(key, value, key_thresholds)
+      bold = idx == 0  # First row is bold (primary value)
+      {label, formatted, color, bold}
+    end)
+  end
+
+  # Convert atom key to display label
+  defp format_label(key) do
+    key
+    |> Atom.to_string()
+    |> String.replace("_", " ")
+    |> String.split()
+    |> Enum.map(&String.capitalize/1)
+    |> Enum.join(" ")
+  end
+
+  # Format value based on key name hints
+  defp format_value(key, value) when is_number(value) do
+    key_str = Atom.to_string(key)
     cond do
-      co2 >= 3000 -> "red"
-      co2 >= 2500 -> "amber"
-      co2 >= 1000 -> "yellow"
-      true -> "green"
+      String.contains?(key_str, "co2") -> Formatters.format_ppm(value)
+      String.contains?(key_str, "temp") -> Formatters.format_temperature(value)
+      String.contains?(key_str, "hum") -> Formatters.format_percentage(value)
+      true -> "#{Float.round(value * 1.0, 1)}"
     end
   end
+  defp format_value(_key, value), do: "#{value}"
 
-  defp get_co2_color(co2) do
-    cond do
-      co2 >= 3000 -> "red"
-      co2 >= 2500 -> "amber"
-      co2 >= 1000 -> "yellow"
-      true -> "green"
-    end
+  # No thresholds configured = neutral slate color (no color coding)
+  @no_threshold_color "green-700"
+
+  # Color based on value and thresholds (defaults to slate when no thresholds)
+  defp get_value_color(_key, value, thresholds) when is_number(value) do
+    Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
   end
+  defp get_value_color(_key, _value, _thresholds), do: "gray"
 
-  defp get_temp_color(temp) do
-    cond do
-      temp >= 38.0 -> "rose"
-      temp > 24.0 -> "green"
-      true -> "blue"
-    end
+  defp get_main_color(nil, _thresholds), do: "gray"
+  defp get_main_color(value, thresholds) when is_number(value) do
+    Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
   end
-
-  defp get_hum_color(hum) do
-    cond do
-      hum >= 90.0 -> "blue"
-      hum > 20.0 -> "green"
-      true -> "red"
-    end
-  end
-
-  defp get_dew_color(nil, _temp), do: "gray"
-
-  defp get_dew_color(dew, temp) do
-    if temp - dew < 2.0, do: "rose", else: "green"
-  end
+  defp get_main_color(_, _), do: @no_threshold_color
 end

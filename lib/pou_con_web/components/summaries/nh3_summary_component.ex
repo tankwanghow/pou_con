@@ -6,6 +6,8 @@ defmodule PouConWeb.Components.Summaries.Nh3SummaryComponent do
 
   use PouConWeb, :live_component
 
+  alias PouConWeb.Components.Equipment.Shared
+
   @impl true
   def update(assigns, socket) do
     sensors = prepare_sensors(assigns[:sensors] || [])
@@ -33,7 +35,6 @@ defmodule PouConWeb.Components.Summaries.Nh3SummaryComponent do
     >
       <div class="flex flex-wrap">
         <.sensor_item :for={eq <- @sensors} eq={eq} />
-        <.stats_panel stats={@stats} />
       </div>
     </div>
     """
@@ -46,17 +47,17 @@ defmodule PouConWeb.Components.Summaries.Nh3SummaryComponent do
   defp sensor_item(assigns) do
     ~H"""
     <div class="p-2 flex flex-col items-center justify-center">
-      <div class={"text-#{@eq.main_color}-500 text-sm"}>{@eq.title}</div>
+      <div class={[Shared.text_color(@eq.main_color), "text-sm"]}>{@eq.title}</div>
       <div class="flex items-center gap-1">
         <.nh3_icon color={@eq.main_color} />
         <div class="flex flex-col space-y-0.5">
-          <span class={"text-xs font-mono font-bold text-#{@eq.nh3_color}-500"}>
+          <span class={[Shared.text_color(@eq.nh3_color), "text-xs font-mono font-bold"]}>
             {@eq.nh3}
           </span>
-          <span class={"text-xs font-mono text-#{@eq.temp_color}-500"}>
+          <span :if={@eq.has_temp} class={[Shared.text_color(@eq.temp_color), "text-xs font-mono"]}>
             {@eq.temp}
           </span>
-          <span class={"text-xs font-mono text-#{@eq.hum_color}-500"}>
+          <span :if={@eq.has_hum} class={[Shared.text_color(@eq.hum_color), "text-xs font-mono"]}>
             {@eq.hum}
           </span>
         </div>
@@ -65,43 +66,9 @@ defmodule PouConWeb.Components.Summaries.Nh3SummaryComponent do
     """
   end
 
-  defp stats_panel(assigns) do
-    ~H"""
-    <div class="px-2 flex flex-col gap-1 justify-center">
-      <.stat_row
-        label="NH3"
-        value={@stats.avg_nh3}
-        unit="ppm"
-        color={@stats.nh3_color}
-        bold={true}
-      />
-      <.stat_row
-        label="Temp"
-        value={@stats.avg_temp}
-        unit="°C"
-        color={@stats.temp_color}
-        bold={false}
-      />
-      <.stat_row label="Hum" value={@stats.avg_hum} unit="%" color={@stats.hum_color} bold={false} />
-    </div>
-    """
-  end
-
-  defp stat_row(assigns) do
-    ~H"""
-    <div class="flex gap-1 items-center justify-center">
-      <div class="text-sm">{@label}</div>
-      <span class={"font-mono #{if @bold, do: "font-black", else: ""} text-#{@color}-500 flex items-baseline gap-0.5"}>
-        {@value}
-        <span class="text-xs font-medium text-gray-400">{@unit}</span>
-      </span>
-    </div>
-    """
-  end
-
   defp nh3_icon(assigns) do
     ~H"""
-    <svg fill="currentColor" class={"w-9 h-9 text-#{@color}-500"} viewBox="0 0 24 24">
+    <svg fill="currentColor" class={["w-9 h-9", Shared.text_color(@color)]} viewBox="0 0 24 24">
       <circle cx="12" cy="8" r="3" />
       <circle cx="6" cy="16" r="2.5" />
       <circle cx="12" cy="18" r="2.5" />
@@ -132,24 +99,43 @@ defmodule PouConWeb.Components.Summaries.Nh3SummaryComponent do
       hum: "--.-",
       nh3_color: "gray",
       temp_color: "gray",
-      hum_color: "gray"
+      hum_color: "gray",
+      has_temp: false,
+      has_hum: false
     }
   end
+
+  # No thresholds configured = neutral dark green color (no color coding)
+  @no_threshold_color "green-700"
 
   defp calculate_display(status) do
     nh3 = status[:nh3]
     temp = status[:temperature]
     hum = status[:humidity]
+    thresholds = status[:thresholds] || %{}
 
+    nh3_thresh = Map.get(thresholds, :nh3, %{})
+    temp_thresh = Map.get(thresholds, :temperature, %{})
+    hum_thresh = Map.get(thresholds, :humidity, %{})
+
+    # Only show fields that are configured (have non-nil values)
     %{
-      main_color: nh3_main_color(nh3),
+      main_color: get_color(nh3, nh3_thresh),
       nh3: format_nh3(nh3),
       temp: if(temp, do: "#{temp}°C", else: "--.-"),
       hum: if(hum, do: "#{hum}%", else: "--.-"),
-      nh3_color: nh3_color(nh3),
-      temp_color: temp_color(temp),
-      hum_color: hum_color(hum)
+      nh3_color: get_color(nh3, nh3_thresh),
+      temp_color: get_color(temp, temp_thresh),
+      hum_color: get_color(hum, hum_thresh),
+      has_temp: not is_nil(temp),
+      has_hum: not is_nil(hum)
     }
+  end
+
+  # Get color using thresholds if available, otherwise use slate
+  defp get_color(nil, _thresholds), do: "gray"
+  defp get_color(value, thresholds) do
+    Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
   end
 
   defp format_nh3(nil), do: "--.-"
@@ -181,44 +167,15 @@ defmodule PouConWeb.Components.Summaries.Nh3SummaryComponent do
       avg_temp = Float.round(Enum.sum(Enum.map(valid, &(&1[:temperature] || 0))) / count, 1)
       avg_hum = Float.round(Enum.sum(Enum.map(valid, &(&1[:humidity] || 0))) / count, 1)
 
+      # Averages use slate color (no thresholds for calculated values)
       %{
         avg_nh3: avg_nh3,
         avg_temp: avg_temp,
         avg_hum: avg_hum,
-        nh3_color: nh3_color(avg_nh3),
-        temp_color: temp_color(avg_temp),
-        hum_color: hum_color(avg_hum)
+        nh3_color: @no_threshold_color,
+        temp_color: @no_threshold_color,
+        hum_color: @no_threshold_color
       }
     end
   end
-
-  # ============================================================================
-  # Color Helpers (NH3 thresholds are more sensitive than CO2)
-  # < 10 ppm: Excellent
-  # 10-25 ppm: Acceptable
-  # 25-50 ppm: Poor (action needed)
-  # > 50 ppm: Critical
-  # ============================================================================
-
-  defp nh3_main_color(nil), do: "gray"
-  defp nh3_main_color(nh3) when nh3 >= 50, do: "red"
-  defp nh3_main_color(nh3) when nh3 >= 25, do: "amber"
-  defp nh3_main_color(nh3) when nh3 >= 10, do: "yellow"
-  defp nh3_main_color(_), do: "green"
-
-  defp nh3_color(nil), do: "gray"
-  defp nh3_color(nh3) when nh3 >= 50, do: "red"
-  defp nh3_color(nh3) when nh3 >= 25, do: "amber"
-  defp nh3_color(nh3) when nh3 >= 10, do: "yellow"
-  defp nh3_color(_), do: "green"
-
-  defp temp_color(nil), do: "gray"
-  defp temp_color(temp) when temp >= 38.0, do: "rose"
-  defp temp_color(temp) when temp > 24.0, do: "green"
-  defp temp_color(_), do: "blue"
-
-  defp hum_color(nil), do: "gray"
-  defp hum_color(hum) when hum >= 90.0, do: "blue"
-  defp hum_color(hum) when hum > 20.0, do: "green"
-  defp hum_color(_), do: "rose"
 end

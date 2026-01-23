@@ -1,7 +1,7 @@
 defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
   @moduledoc """
   LiveView component for displaying power meter status.
-  Shows 3-phase voltage, current, power, energy consumption, and max/min power for generator sizing.
+  Dynamically displays configured data points using their key names as labels.
   """
 
   use PouConWeb, :live_component
@@ -34,55 +34,17 @@ defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
           equipment_id={@equipment_id}
         />
 
-        <div class="p-4 space-y-3">
-          <%!-- 3-Phase Voltage Row --%>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-500 uppercase font-medium">Voltage</span>
-            <div class="flex gap-2 font-mono text-sm">
-              <.phase_value label="L1" value={@display.voltage_l1} unit="V" color={@display.v1_color} />
-              <.phase_value label="L2" value={@display.voltage_l2} unit="V" color={@display.v2_color} />
-              <.phase_value label="L3" value={@display.voltage_l3} unit="V" color={@display.v3_color} />
+        <div class="flex items-center gap-4 px-4 py-3">
+          <div class="flex-shrink-0">
+            <div class="relative flex items-center justify-center transition-colors">
+              <.power_meter_icon class={"w-16 h-16 #{Shared.text_color(@display.main_color)}"} />
             </div>
           </div>
 
-          <%!-- 3-Phase Current Row --%>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-500 uppercase font-medium">Current</span>
-            <div class="flex gap-2 font-mono text-sm">
-              <.phase_value label="L1" value={@display.current_l1} unit="A" color="blue" />
-              <.phase_value label="L2" value={@display.current_l2} unit="A" color="blue" />
-              <.phase_value label="L3" value={@display.current_l3} unit="A" color="blue" />
-            </div>
-          </div>
-
-          <%!-- Power Summary Row --%>
-          <div class="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
-            <.stat_box
-              label="Total Power"
-              value={@display.power_total}
-              unit="kW"
-              color={@display.power_color}
-            />
-            <.stat_box label="Energy" value={@display.energy_import} unit="kWh" color="emerald" />
-          </div>
-
-          <%!-- Generator Sizing Row (Max/Min) --%>
-          <div class="grid grid-cols-2 gap-2">
-            <.stat_box label="Peak" value={@display.power_max} unit="kW" color="rose" />
-            <.stat_box label="Base" value={@display.power_min} unit="kW" color="sky" />
-          </div>
-
-          <%!-- Power Quality Row --%>
-          <div class="flex justify-between items-center pt-2 border-t border-gray-100 text-xs">
-            <span class={"font-mono text-#{@display.pf_color}-500"}>
-              PF: {@display.pf_avg}
-            </span>
-            <span class="font-mono text-gray-500">
-              {@display.frequency} Hz
-            </span>
-            <span class={"font-mono text-#{@display.thd_color}-500"}>
-              THD: {@display.thd_avg}
-            </span>
+          <div class="flex-1 flex flex-col justify-center">
+            <%= for {label, value, color, bold} <- @display.rows do %>
+              <.meter_row label={label} value={value} color={color} bold={bold} />
+            <% end %>
           </div>
         </div>
       </Shared.equipment_card>
@@ -96,32 +58,14 @@ defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
 
   attr :label, :string, required: true
   attr :value, :string, required: true
-  attr :unit, :string, required: true
   attr :color, :string, default: "gray"
+  attr :bold, :boolean, default: false
 
-  defp phase_value(assigns) do
+  defp meter_row(assigns) do
     ~H"""
-    <div class="flex items-baseline gap-0.5">
-      <span class="text-gray-400 text-xs">{@label}</span>
-      <span class={"text-#{@color}-500 font-bold"}>{@value}</span>
-      <span class="text-gray-400 text-xs">{@unit}</span>
-    </div>
-    """
-  end
-
-  attr :label, :string, required: true
-  attr :value, :string, required: true
-  attr :unit, :string, required: true
-  attr :color, :string, default: "gray"
-
-  defp stat_box(assigns) do
-    ~H"""
-    <div class="bg-gray-50 rounded p-2 text-center">
-      <div class="text-xs text-gray-500 uppercase">{@label}</div>
-      <div class={"text-lg font-bold font-mono text-#{@color}-500"}>
-        {@value}
-        <span class="text-xs text-gray-400">{@unit}</span>
-      </div>
+    <div class={["flex justify-between items-baseline text-lg font-mono", @bold && "font-bold"]}>
+      <span class="text-gray-400 uppercase tracking-wide text-sm">{@label}</span>
+      <span class={Shared.text_color(@color)}>{@value}</span>
     </div>
     """
   end
@@ -148,187 +92,114 @@ defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
   # Display Data (public for summary components)
   # ——————————————————————————————————————————————
 
+  # Metadata keys to exclude from display
+  @metadata_keys [:name, :title, :error, :error_message, :thresholds]
+
   @doc """
   Calculates display data for power meter status.
-  Returns a map with colors and formatted values.
-  Used by both PowerMeterComponent and summary components.
+  Dynamically builds rows from configured data points.
   """
   def calculate_display_data(%{error: error}) when error in [:invalid_data, :timeout] do
     %{
       is_error: true,
       main_color: "gray",
-      voltage_l1: "--.-",
-      voltage_l2: "--.-",
-      voltage_l3: "--.-",
-      v1_color: "gray",
-      v2_color: "gray",
-      v3_color: "gray",
-      current_l1: "--.-",
-      current_l2: "--.-",
-      current_l3: "--.-",
-      power_total: "--.-",
-      power_color: "gray",
-      power_max: "--.-",
-      power_min: "--.-",
-      energy_import: "--.-",
-      pf_avg: "--.-",
-      pf_color: "gray",
-      frequency: "--.-",
-      thd_avg: "--%",
-      thd_color: "gray"
+      rows: [{"--", "--.- V", "gray", true}]
     }
   end
 
   def calculate_display_data(status) do
-    # Format voltages
-    v1 = format_voltage(status[:voltage_l1])
-    v2 = format_voltage(status[:voltage_l2])
-    v3 = format_voltage(status[:voltage_l3])
+    # Filter out metadata keys, get only data point values
+    data_keys = Map.keys(status) -- @metadata_keys
+    thresholds = Map.get(status, :thresholds, %{})
 
-    # Format currents
-    i1 = format_current(status[:current_l1])
-    i2 = format_current(status[:current_l2])
-    i3 = format_current(status[:current_l3])
+    # Check if we have any data
+    if Enum.empty?(data_keys) or all_nil?(status, data_keys) do
+      calculate_display_data(%{error: :invalid_data})
+    else
+      # Build rows dynamically from status keys (with thresholds for coloring)
+      rows = build_rows(status, data_keys, thresholds)
 
-    # Format power (convert W to kW)
-    power_total = format_power(status[:power_total])
-    power_max = format_power(status[:power_max])
-    power_min = format_power(status[:power_min])
+      # Determine main color from first voltage value
+      {first_voltage, first_thresholds} = find_first_voltage(status, data_keys, thresholds)
+      main_color = get_main_color(first_voltage, first_thresholds)
 
-    # Energy in kWh
-    energy = format_energy(status[:energy_import])
-
-    # Power factor and frequency
-    pf = format_pf(status[:pf_avg])
-    freq = format_frequency(status[:frequency])
-
-    # THD average (voltage THD is typically the primary concern for power quality)
-    thd_v_avg = avg_values([status[:thd_v1], status[:thd_v2], status[:thd_v3]])
-    _thd_i_avg = avg_values([status[:thd_i1], status[:thd_i2], status[:thd_i3]])
-    thd_avg = if thd_v_avg, do: "#{Float.round(thd_v_avg, 1)}%", else: "--%"
-
-    %{
-      is_error: false,
-      main_color: get_main_color(status[:voltage_l1]),
-      voltage_l1: v1,
-      voltage_l2: v2,
-      voltage_l3: v3,
-      v1_color: get_voltage_color(status[:voltage_l1]),
-      v2_color: get_voltage_color(status[:voltage_l2]),
-      v3_color: get_voltage_color(status[:voltage_l3]),
-      current_l1: i1,
-      current_l2: i2,
-      current_l3: i3,
-      power_total: power_total,
-      power_color: get_power_color(status[:power_total]),
-      power_max: power_max,
-      power_min: power_min,
-      energy_import: energy,
-      pf_avg: pf,
-      pf_color: get_pf_color(status[:pf_avg]),
-      frequency: freq,
-      thd_avg: thd_avg,
-      thd_color: get_thd_color(thd_v_avg)
-    }
-  end
-
-  # ——————————————————————————————————————————————
-  # Formatting Helpers
-  # ——————————————————————————————————————————————
-
-  defp format_voltage(nil), do: "--.-"
-  defp format_voltage(v) when is_number(v), do: Float.round(v * 1.0, 1) |> to_string()
-  defp format_voltage(_), do: "--.-"
-
-  defp format_current(nil), do: "--.-"
-  defp format_current(i) when is_number(i), do: Float.round(i * 1.0, 1) |> to_string()
-  defp format_current(_), do: "--.-"
-
-  defp format_power(nil), do: "--.-"
-
-  defp format_power(w) when is_number(w) do
-    kw = w / 1000.0
-    Float.round(kw, 2) |> to_string()
-  end
-
-  defp format_power(_), do: "--.-"
-
-  defp format_energy(nil), do: "--.-"
-  defp format_energy(kwh) when is_number(kwh), do: Float.round(kwh * 1.0, 1) |> to_string()
-  defp format_energy(_), do: "--.-"
-
-  defp format_pf(nil), do: "--.-"
-  defp format_pf(pf) when is_number(pf), do: Float.round(pf * 1.0, 2) |> to_string()
-  defp format_pf(_), do: "--.-"
-
-  defp format_frequency(nil), do: "--.-"
-  defp format_frequency(f) when is_number(f), do: Float.round(f * 1.0, 1) |> to_string()
-  defp format_frequency(_), do: "--.-"
-
-  defp avg_values(values) do
-    valid = Enum.filter(values, &is_number/1)
-    if length(valid) > 0, do: Enum.sum(valid) / length(valid), else: nil
-  end
-
-  # ——————————————————————————————————————————————
-  # Color Helpers
-  # ——————————————————————————————————————————————
-
-  defp get_main_color(nil), do: "gray"
-  defp get_main_color(v) when is_number(v) and v > 200, do: "emerald"
-  defp get_main_color(_), do: "amber"
-
-  defp get_voltage_color(nil), do: "gray"
-
-  defp get_voltage_color(v) when is_number(v) do
-    cond do
-      v < 200 -> "rose"
-      v > 250 -> "rose"
-      v < 210 -> "amber"
-      v > 240 -> "amber"
-      true -> "emerald"
+      %{
+        is_error: false,
+        main_color: main_color,
+        rows: rows
+      }
     end
   end
 
-  defp get_voltage_color(_), do: "gray"
+  defp all_nil?(status, keys) do
+    Enum.all?(keys, fn k -> is_nil(status[k]) end)
+  end
 
-  defp get_power_color(nil), do: "gray"
-
-  defp get_power_color(w) when is_number(w) do
-    kw = w / 1000.0
-
-    cond do
-      kw > 50 -> "rose"
-      kw > 30 -> "amber"
-      true -> "emerald"
+  defp find_first_voltage(status, keys, thresholds) do
+    keys
+    |> Enum.find(fn k ->
+      key_str = Atom.to_string(k)
+      String.contains?(key_str, "voltage") and not is_nil(status[k])
+    end)
+    |> case do
+      nil -> {nil, %{}}
+      key -> {status[key], Map.get(thresholds, key, %{})}
     end
   end
 
-  defp get_power_color(_), do: "gray"
-
-  defp get_pf_color(nil), do: "gray"
-
-  defp get_pf_color(pf) when is_number(pf) do
-    abs_pf = abs(pf)
-
-    cond do
-      abs_pf < 0.8 -> "rose"
-      abs_pf < 0.9 -> "amber"
-      true -> "emerald"
-    end
+  defp build_rows(status, keys, thresholds) do
+    keys
+    |> Enum.reject(fn k -> is_nil(status[k]) end)
+    |> Enum.with_index()
+    |> Enum.map(fn {key, idx} ->
+      value = status[key]
+      key_thresholds = Map.get(thresholds, key, %{})
+      label = format_label(key)
+      formatted = format_value(key, value)
+      color = get_value_color(key, value, key_thresholds)
+      bold = idx == 0  # First row is bold (primary value)
+      {label, formatted, color, bold}
+    end)
   end
 
-  defp get_pf_color(_), do: "gray"
-
-  defp get_thd_color(nil), do: "gray"
-
-  defp get_thd_color(thd) when is_number(thd) do
-    cond do
-      thd > 10 -> "rose"
-      thd > 5 -> "amber"
-      true -> "emerald"
-    end
+  # Convert atom key to display label
+  defp format_label(key) do
+    key
+    |> Atom.to_string()
+    |> String.replace("_", " ")
+    |> String.split()
+    |> Enum.map(&String.capitalize/1)
+    |> Enum.join(" ")
   end
 
-  defp get_thd_color(_), do: "gray"
+  # Format value based on key name hints
+  defp format_value(key, value) when is_number(value) do
+    key_str = Atom.to_string(key)
+    cond do
+      String.contains?(key_str, "voltage") -> "#{Float.round(value * 1.0, 1)} V"
+      String.contains?(key_str, "current") -> "#{Float.round(value * 1.0, 2)} A"
+      String.contains?(key_str, "power") -> "#{Float.round(value / 1000.0, 2)} kW"
+      String.contains?(key_str, "energy") -> "#{Float.round(value * 1.0, 1)} kWh"
+      String.contains?(key_str, "pf") -> "#{Float.round(value * 1.0, 2)}"
+      String.contains?(key_str, "frequency") -> "#{Float.round(value * 1.0, 1)} Hz"
+      String.contains?(key_str, "thd") -> "#{Float.round(value * 1.0, 1)}%"
+      true -> "#{Float.round(value * 1.0, 2)}"
+    end
+  end
+  defp format_value(_key, value), do: "#{value}"
+
+  # No thresholds configured = neutral dark green color (no color coding)
+  @no_threshold_color "green-700"
+
+  # Color based on value and thresholds (defaults to slate when no thresholds)
+  defp get_value_color(_key, value, thresholds) when is_number(value) do
+    Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
+  end
+  defp get_value_color(_key, _value, _thresholds), do: "gray"
+
+  defp get_main_color(nil, _thresholds), do: "gray"
+  defp get_main_color(value, thresholds) when is_number(value) do
+    Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
+  end
+  defp get_main_color(_, _), do: @no_threshold_color
 end

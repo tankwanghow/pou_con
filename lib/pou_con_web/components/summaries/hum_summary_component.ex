@@ -6,6 +6,7 @@ defmodule PouConWeb.Components.Summaries.HumSummaryComponent do
 
   use PouConWeb, :live_component
 
+  alias PouConWeb.Components.Equipment.Shared
   alias PouConWeb.Components.Formatters
 
   @impl true
@@ -45,10 +46,10 @@ defmodule PouConWeb.Components.Summaries.HumSummaryComponent do
   defp sensor_item(assigns) do
     ~H"""
     <div class="p-2 flex flex-col items-center justify-center">
-      <div class={"text-#{@sensor.color}-500 text-sm"}>{@sensor.title}</div>
+      <div class={[Shared.text_color(@sensor.color), "text-sm"]}>{@sensor.title}</div>
       <div class="flex items-center gap-1">
         <.hum_icon color={@sensor.color} />
-        <span class={"text-sm font-mono font-bold text-#{@sensor.value_color}-500"}>
+        <span class={[Shared.text_color(@sensor.value_color), "text-sm font-mono font-bold"]}>
           {@sensor.display}
         </span>
       </div>
@@ -58,7 +59,7 @@ defmodule PouConWeb.Components.Summaries.HumSummaryComponent do
 
   defp hum_icon(assigns) do
     ~H"""
-    <svg viewBox="0 0 32 32" fill="currentColor" class={"w-6 h-6 text-#{@color}-500"}>
+    <svg viewBox="0 0 32 32" fill="currentColor" class={["w-6 h-6", Shared.text_color(@color)]}>
       <path d="M16,2c-.38,0-.74.17-.98.46C14.34,3.27,8,10.87,8,17a8,8,0,0,0,16,0c0-6.13-6.34-13.73-7.02-14.54A1.25,1.25,0,0,0,16,2Zm0,21a6,6,0,0,1-6-6c0-4.13,4-9.67,6-12.26,2,2.59,6,8.13,6,12.26A6,6,0,0,1,16,23Z" />
     </svg>
     """
@@ -84,14 +85,20 @@ defmodule PouConWeb.Components.Summaries.HumSummaryComponent do
     }
   end
 
+  # No thresholds configured = neutral dark green color (no color coding)
+  @no_threshold_color "green-700"
+
   defp format_sensor(status) do
-    hum = status[:value]
+    hum = status[:hum]
+    thresholds = status[:thresholds] || %{}
+    hum_thresh = Map.get(thresholds, :hum, %{})
 
     if is_number(hum) do
+      color = get_color(hum, hum_thresh)
       %{
         title: status[:title] || "Hum",
-        color: "cyan",
-        value_color: hum_color(hum),
+        color: color,
+        value_color: color,
         display: Formatters.format_percentage(hum)
       }
     else
@@ -103,7 +110,9 @@ defmodule PouConWeb.Components.Summaries.HumSummaryComponent do
   # Color Helpers
   # ============================================================================
 
-  defp hum_color(hum) when hum >= 90.0, do: "blue"
-  defp hum_color(hum) when hum > 20.0, do: "green"
-  defp hum_color(_), do: "rose"
+  # Get color using thresholds if available, otherwise use slate
+  defp get_color(nil, _thresholds), do: "gray"
+  defp get_color(value, thresholds) do
+    Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
+  end
 end

@@ -1,4 +1,8 @@
 defmodule PouConWeb.Components.Equipment.WaterMeterComponent do
+  @moduledoc """
+  LiveView component for displaying water meter status.
+  Dynamically displays configured data points using their key names as labels.
+  """
   use PouConWeb, :live_component
 
   alias PouConWeb.Components.Equipment.Shared
@@ -32,20 +36,14 @@ defmodule PouConWeb.Components.Equipment.WaterMeterComponent do
         <div class="flex items-center gap-4 px-4">
           <div class="flex-shrink-0">
             <div class="relative flex items-center justify-center transition-colors">
-              <.water_meter_icon class={"scale-200 w-24 h-12 text-#{@display.main_color}-500"} />
+              <.water_meter_icon class={"scale-200 w-24 h-12 #{Shared.text_color(@display.main_color)}"} />
             </div>
           </div>
 
           <div class="flex-1 flex flex-col justify-center">
-            <.meter_row label="Usage" value={@display.usage} color={@display.usage_color} bold={true} />
-            <.meter_row
-              label="Flow"
-              value={@display.flow_rate}
-              color={@display.flow_color}
-              bold={true}
-            />
-            <.meter_row label="Temp" value={@display.temperature} color={@display.temp_color} />
-            <.meter_row label="Pres" value={@display.pressure} color={@display.temp_color} />
+            <%= for {label, value, color, bold} <- @display.rows do %>
+              <.meter_row label={label} value={value} color={color} bold={bold} />
+            <% end %>
           </div>
         </div>
       </Shared.equipment_card>
@@ -66,7 +64,7 @@ defmodule PouConWeb.Components.Equipment.WaterMeterComponent do
     ~H"""
     <div class={["flex justify-between items-baseline text-lg font-mono", @bold && "font-bold"]}>
       <span class="text-gray-400 uppercase tracking-wide text-sm">{@label}</span>
-      <span class={"text-#{@color}-500"}>{@value}</span>
+      <span class={Shared.text_color(@color)}>{@value}</span>
     </div>
     """
   end
@@ -93,75 +91,101 @@ defmodule PouConWeb.Components.Equipment.WaterMeterComponent do
   # Display Data (public for summary components)
   # ——————————————————————————————————————————————
 
+  # Metadata keys to exclude from display
+  @metadata_keys [:name, :title, :error, :error_message, :thresholds]
+
   @doc """
   Calculates display data for water meter status.
-  Returns a map with colors and formatted values.
-  Used by both WaterMeterComponent and summary components.
+  Dynamically builds rows from configured data points.
   """
   def calculate_display_data(%{error: error}) when error in [:invalid_data, :timeout] do
     %{
-      positive_flow: "--.- m³",
-      negative_flow: "--.- m³",
-      pressure: "-.-- bar",
       is_error: true,
       main_color: "gray",
-      usage: "--.- m³",
-      flow_rate: "--.- m³/h",
-      temperature: "--.-°C",
-      usage_color: "gray",
-      flow_color: "gray",
-      temp_color: "gray"
+      rows: [{"--", "--.- m³/h", "gray", true}]
     }
   end
 
   def calculate_display_data(status) do
-    positive = (status.positive_flow || 0.0) |> Float.ceil(2)
-    negative = (status.negative_flow || 0.0) |> Float.ceil(2)
-    pressure = (status.pressure * 10 || 0.0) |> Float.ceil(2)
-    usage = Float.round(positive - negative, 2)
-    flow_rate = (status.flow_rate || 0.0) |> Float.ceil(2)
-    temperature = status.temperature |> Float.ceil(1)
+    # Filter out metadata keys, get only data point values
+    data_keys = Map.keys(status) -- @metadata_keys
+    thresholds = Map.get(status, :thresholds, %{})
 
-    main_color = if flow_rate > 0, do: "blue", else: "rose"
+    # Check if we have any data
+    if Enum.empty?(data_keys) or all_nil?(status, data_keys) do
+      calculate_display_data(%{error: :invalid_data})
+    else
+      # Build rows dynamically from status keys (with thresholds for coloring)
+      rows = build_rows(status, data_keys, thresholds)
 
-    %{
-      positive_flow: format_volume(positive),
-      negative_flow: format_volume(negative),
-      pressure: format_pressure(pressure),
-      is_error: false,
-      main_color: main_color,
-      usage: format_volume(usage),
-      flow_rate: format_flow_rate(flow_rate),
-      temperature: format_temperature(temperature),
-      usage_color: "blue",
-      flow_color: get_flow_color(flow_rate),
-      temp_color: get_temp_color(temperature)
-    }
-  end
+      # Determine main color from first available value
+      first_key = Enum.find(data_keys, fn k -> not is_nil(status[k]) end)
+      first_value = if first_key, do: status[first_key], else: nil
+      first_thresholds = if first_key, do: Map.get(thresholds, first_key, %{}), else: %{}
+      main_color = get_main_color(first_value, first_thresholds)
 
-  defp format_volume(nil), do: "--.- m³"
-  defp format_volume(value), do: "#{value} m³"
-
-  defp format_flow_rate(nil), do: "--.- m³/h"
-  defp format_flow_rate(value), do: "#{value} m³/h"
-
-  defp format_pressure(nil), do: "-.-- bar"
-  defp format_pressure(value), do: "#{value} bar"
-
-  defp format_temperature(nil), do: "--.-°C"
-  defp format_temperature(value), do: "#{value}°C"
-
-  defp get_flow_color(nil), do: "gray"
-  defp get_flow_color(rate) when rate > 0, do: "blue"
-  defp get_flow_color(_), do: "green"
-
-  defp get_temp_color(nil), do: "gray"
-
-  defp get_temp_color(temp) do
-    cond do
-      temp >= 35.0 -> "rose"
-      temp <= 25.0 -> "green"
-      true -> "blue"
+      %{
+        is_error: false,
+        main_color: main_color,
+        rows: rows
+      }
     end
   end
+
+  defp all_nil?(status, keys) do
+    Enum.all?(keys, fn k -> is_nil(status[k]) end)
+  end
+
+  defp build_rows(status, keys, thresholds) do
+    keys
+    |> Enum.reject(fn k -> is_nil(status[k]) end)
+    |> Enum.with_index()
+    |> Enum.map(fn {key, idx} ->
+      value = status[key]
+      key_thresholds = Map.get(thresholds, key, %{})
+      label = format_label(key)
+      formatted = format_value(key, value)
+      color = get_value_color(key, value, key_thresholds)
+      bold = idx == 0  # First row is bold (primary value)
+      {label, formatted, color, bold}
+    end)
+  end
+
+  # Convert atom key to display label
+  defp format_label(key) do
+    key
+    |> Atom.to_string()
+    |> String.replace("_", " ")
+    |> String.split()
+    |> Enum.map(&String.capitalize/1)
+    |> Enum.join(" ")
+  end
+
+  # Format value based on key name hints
+  defp format_value(key, value) when is_number(value) do
+    key_str = Atom.to_string(key)
+    cond do
+      String.contains?(key_str, "flow_rate") -> "#{Float.round(value * 1.0, 2)} m³/h"
+      String.contains?(key_str, "flow") -> "#{Float.round(value * 1.0, 2)} m³"
+      String.contains?(key_str, "pressure") -> "#{Float.round(value * 10.0, 2)} bar"
+      String.contains?(key_str, "temp") -> "#{Float.round(value * 1.0, 1)}°C"
+      true -> "#{Float.round(value * 1.0, 2)}"
+    end
+  end
+  defp format_value(_key, value), do: "#{value}"
+
+  # No thresholds configured = neutral dark green color (no color coding)
+  @no_threshold_color "green-700"
+
+  # Color based on value and thresholds (defaults to slate when no thresholds)
+  defp get_value_color(_key, value, thresholds) when is_number(value) do
+    Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
+  end
+  defp get_value_color(_key, _value, _thresholds), do: "gray"
+
+  defp get_main_color(nil, _thresholds), do: "gray"
+  defp get_main_color(value, thresholds) when is_number(value) do
+    Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
+  end
+  defp get_main_color(_, _), do: @no_threshold_color
 end

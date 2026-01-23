@@ -1,7 +1,7 @@
 defmodule PouConWeb.Components.Equipment.Nh3Component do
   @moduledoc """
   LiveView component for displaying NH3 (Ammonia) sensor readings.
-  Shows NH3 concentration along with temperature and humidity.
+  Dynamically displays configured data points using their key names as labels.
   """
   use PouConWeb, :live_component
 
@@ -37,15 +37,14 @@ defmodule PouConWeb.Components.Equipment.Nh3Component do
         <div class="flex items-center gap-4 px-4 py-3">
           <div class="flex-shrink-0">
             <div class="relative flex items-center justify-center transition-colors">
-              <.nh3_icon class={"w-16 h-16 text-#{@display.main_color}-500"} />
+              <.nh3_icon class={"w-16 h-16 #{Shared.text_color(@display.main_color)}"} />
             </div>
           </div>
 
           <div class="flex-1 flex flex-col justify-center">
-            <.sensor_row label="NH3" value={@display.nh3} color={@display.nh3_color} bold={true} />
-            <.sensor_row label="Temp" value={@display.temp} color={@display.temp_color} />
-            <.sensor_row label="Hum" value={@display.hum} color={@display.hum_color} />
-            <.sensor_row label="Dew" value={@display.dew} color={@display.dew_color} />
+            <%= for {label, value, color, bold} <- @display.rows do %>
+              <.sensor_row label={label} value={value} color={color} bold={bold} />
+            <% end %>
           </div>
         </div>
       </Shared.equipment_card>
@@ -66,7 +65,7 @@ defmodule PouConWeb.Components.Equipment.Nh3Component do
     ~H"""
     <div class={["flex justify-between items-baseline text-lg font-mono", @bold && "font-bold"]}>
       <span class="text-gray-400 uppercase tracking-wide text-sm">{@label}</span>
-      <span class={"text-#{@color}-500"}>{@value}</span>
+      <span class={Shared.text_color(@color)}>{@value}</span>
     </div>
     """
   end
@@ -95,95 +94,100 @@ defmodule PouConWeb.Components.Equipment.Nh3Component do
   # Display Data
   # ——————————————————————————————————————————————
 
+  # Metadata keys to exclude from display
+  @metadata_keys [:name, :title, :error, :error_message, :thresholds]
+
   @doc """
   Calculates display data for NH3 sensor status.
-  Returns a map with colors and formatted values.
+  Dynamically builds rows from configured data points.
   """
   def calculate_display_data(%{error: error}) when error in [:invalid_data, :timeout] do
     %{
       is_error: true,
       main_color: "gray",
-      nh3: "--.- ppm",
-      temp: "--.-°C",
-      hum: "--.-%",
-      dew: "--.-°C",
-      nh3_color: "gray",
-      temp_color: "gray",
-      hum_color: "gray",
-      dew_color: "gray"
+      rows: [{"--", "---- ppm", "gray", true}]
     }
   end
 
   def calculate_display_data(status) do
-    nh3 = status[:nh3]
-    temp = status[:temperature]
-    hum = status[:humidity]
-    dew = status[:dew_point]
+    # Filter out metadata keys, get only data point values
+    data_keys = Map.keys(status) -- @metadata_keys
+    thresholds = Map.get(status, :thresholds, %{})
 
-    if is_nil(nh3) or is_nil(temp) or is_nil(hum) do
+    # Check if we have any data
+    if Enum.empty?(data_keys) or all_nil?(status, data_keys) do
       calculate_display_data(%{error: :invalid_data})
     else
+      # Build rows dynamically from status keys (with thresholds for coloring)
+      rows = build_rows(status, data_keys, thresholds)
+
+      # Determine main color from first available value
+      first_key = Enum.find(data_keys, fn k -> not is_nil(status[k]) end)
+      first_value = if first_key, do: status[first_key], else: nil
+      first_thresholds = if first_key, do: Map.get(thresholds, first_key, %{}), else: %{}
+      main_color = get_main_color(first_value, first_thresholds)
+
       %{
         is_error: false,
-        main_color: get_nh3_main_color(nh3),
-        nh3: format_nh3(nh3),
-        temp: Formatters.format_temperature(temp),
-        hum: Formatters.format_percentage(hum),
-        dew: Formatters.format_temperature(dew),
-        nh3_color: get_nh3_color(nh3),
-        temp_color: get_temp_color(temp),
-        hum_color: get_hum_color(hum),
-        dew_color: get_dew_color(dew, temp)
+        main_color: main_color,
+        rows: rows
       }
     end
   end
 
-  # NH3 uses 1 decimal precision, different from CO2 integer ppm
-  defp format_nh3(nh3) when is_number(nh3), do: "#{Formatters.format_decimal(nh3, 1)} ppm"
-  defp format_nh3(_), do: "-- ppm"
+  defp all_nil?(status, keys) do
+    Enum.all?(keys, fn k -> is_nil(status[k]) end)
+  end
 
-  # NH3 thresholds for poultry (more sensitive than CO2)
-  # < 10 ppm: Excellent
-  # 10-25 ppm: Acceptable
-  # 25-50 ppm: Poor (action needed)
-  # > 50 ppm: Critical
-  defp get_nh3_main_color(nh3) do
+  defp build_rows(status, keys, thresholds) do
+    keys
+    |> Enum.reject(fn k -> is_nil(status[k]) end)
+    |> Enum.with_index()
+    |> Enum.map(fn {key, idx} ->
+      value = status[key]
+      key_thresholds = Map.get(thresholds, key, %{})
+      label = format_label(key)
+      formatted = format_value(key, value)
+      color = get_value_color(key, value, key_thresholds)
+      bold = idx == 0  # First row is bold (primary value)
+      {label, formatted, color, bold}
+    end)
+  end
+
+  # Convert atom key to display label
+  defp format_label(key) do
+    key
+    |> Atom.to_string()
+    |> String.replace("_", " ")
+    |> String.split()
+    |> Enum.map(&String.capitalize/1)
+    |> Enum.join(" ")
+  end
+
+  # Format value based on key name hints
+  defp format_value(key, value) when is_number(value) do
+    key_str = Atom.to_string(key)
     cond do
-      nh3 >= 50 -> "red"
-      nh3 >= 25 -> "amber"
-      nh3 >= 10 -> "yellow"
-      true -> "green"
+      String.contains?(key_str, "nh3") -> "#{Formatters.format_decimal(value, 1)} ppm"
+      String.contains?(key_str, "temp") -> Formatters.format_temperature(value)
+      String.contains?(key_str, "hum") -> Formatters.format_percentage(value)
+      true -> "#{Float.round(value * 1.0, 1)}"
     end
   end
+  defp format_value(_key, value), do: "#{value}"
 
-  defp get_nh3_color(nh3) do
-    cond do
-      nh3 >= 50 -> "red"
-      nh3 >= 25 -> "amber"
-      nh3 >= 10 -> "yellow"
-      true -> "green"
-    end
+  # No thresholds configured = neutral dark green color (no color coding)
+  @no_threshold_color "green-700"
+
+  # Color based on value and thresholds (defaults to slate when no thresholds)
+  defp get_value_color(_key, value, thresholds) when is_number(value) do
+    Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
   end
+  defp get_value_color(_key, _value, _thresholds), do: "gray"
 
-  defp get_temp_color(temp) do
-    cond do
-      temp >= 38.0 -> "rose"
-      temp > 24.0 -> "green"
-      true -> "blue"
-    end
+  defp get_main_color(nil, _thresholds), do: "gray"
+  defp get_main_color(value, thresholds) when is_number(value) do
+    Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
   end
-
-  defp get_hum_color(hum) do
-    cond do
-      hum >= 90.0 -> "blue"
-      hum > 20.0 -> "green"
-      true -> "red"
-    end
-  end
-
-  defp get_dew_color(nil, _temp), do: "gray"
-
-  defp get_dew_color(dew, temp) do
-    if temp - dew < 2.0, do: "rose", else: "green"
-  end
+  defp get_main_color(_, _), do: @no_threshold_color
 end

@@ -6,6 +6,7 @@ defmodule PouConWeb.Components.Summaries.WaterMeterSummaryComponent do
 
   use PouConWeb, :live_component
 
+  alias PouConWeb.Components.Equipment.Shared
   alias PouConWeb.Components.Equipment.WaterMeterComponent
 
   @impl true
@@ -45,14 +46,14 @@ defmodule PouConWeb.Components.Summaries.WaterMeterSummaryComponent do
   defp water_meter_item(assigns) do
     ~H"""
     <div class="p-2 flex flex-col items-center justify-center">
-      <div class={"text-#{@eq.flow_color}-500 text-sm"}>{@eq.title}</div>
+      <div class={[Shared.text_color(@eq.main_color), "text-sm"]}>{@eq.title}</div>
       <div class="flex items-center gap-1">
-        <WaterMeterComponent.water_meter_icon class={"w-9 h-15 text-#{@eq.flow_color}-500"} />
+        <WaterMeterComponent.water_meter_icon class={"w-9 h-15 #{Shared.text_color(@eq.main_color)}"} />
         <div class="flex flex-col space-y-0.5">
-          <span class={"text-xs font-mono font-bold text-#{@eq.flow_color}-500"}>
+          <span :if={@eq.has_cumulative} class={[Shared.text_color(@eq.main_color), "text-xs font-mono font-bold"]}>
             {@eq.cumulative}
           </span>
-          <span class={"text-xs font-mono font-bold text-#{@eq.flow_color}-500 "}>
+          <span :if={@eq.has_flow_rate} class={[Shared.text_color(@eq.main_color), "text-xs font-mono font-bold"]}>
             {@eq.flow_rate}
           </span>
         </div>
@@ -73,14 +74,15 @@ defmodule PouConWeb.Components.Summaries.WaterMeterSummaryComponent do
 
   defp calculate_water_meter_display(status) do
     display = WaterMeterComponent.calculate_display_data(status)
-    flow = status[:flow_rate] || 0.0
-    cumulative = status[:positive_flow] || 0.0
+    flow = status[:flow_rate]
+    cumulative = status[:positive_flow]
 
     %{
-      color: display.main_color,
+      main_color: display.main_color,
       flow_rate: format_flow(flow),
       cumulative: format_cumulative(cumulative),
-      flow_color: if(display.is_error, do: "gray", else: display.flow_color)
+      has_flow_rate: not is_nil(flow),
+      has_cumulative: not is_nil(cumulative)
     }
   end
 
