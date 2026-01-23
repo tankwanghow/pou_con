@@ -48,6 +48,7 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
   require Logger
 
   alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
+  alias PouCon.Equipment.DataPoints
   alias PouCon.Logging.DataPointLogger
 
   @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
@@ -91,6 +92,11 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
       humidity_count: 0,
       co2_count: 0,
       nh3_count: 0,
+      # Color zones from first data point in each group (all must match)
+      temp_color_zones: [],
+      humidity_color_zones: [],
+      co2_color_zones: [],
+      nh3_color_zones: [],
       # Error state
       error: nil,
       poll_interval_ms: 5000
@@ -153,13 +159,24 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
 
+    temp_sensors = ensure_list(opts[:temp_sensors])
+    humidity_sensors = ensure_list(opts[:humidity_sensors])
+    co2_sensors = ensure_list(opts[:co2_sensors])
+    nh3_sensors = ensure_list(opts[:nh3_sensors])
+
+    # Load color_zones from first data point in each sensor group
+    # (validation ensures all data points in a group have matching zones)
     state = %State{
       name: name,
       title: opts[:title] || name,
-      temp_sensors: ensure_list(opts[:temp_sensors]),
-      humidity_sensors: ensure_list(opts[:humidity_sensors]),
-      co2_sensors: ensure_list(opts[:co2_sensors]),
-      nh3_sensors: ensure_list(opts[:nh3_sensors]),
+      temp_sensors: temp_sensors,
+      humidity_sensors: humidity_sensors,
+      co2_sensors: co2_sensors,
+      nh3_sensors: nh3_sensors,
+      temp_color_zones: get_first_color_zones(temp_sensors),
+      humidity_color_zones: get_first_color_zones(humidity_sensors),
+      co2_color_zones: get_first_color_zones(co2_sensors),
+      nh3_color_zones: get_first_color_zones(nh3_sensors),
       poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
     }
 
@@ -181,6 +198,10 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
 
     {:ok, state, {:continue, :initial_poll}}
   end
+
+  # Get color_zones from the first data point in a sensor list
+  defp get_first_color_zones([]), do: []
+  defp get_first_color_zones([first | _]), do: DataPoints.get_color_zones(first)
 
   # Handle single string values (no comma in data_point_tree) by wrapping in list
   defp ensure_list(nil), do: []
@@ -362,6 +383,14 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
   # ——————————————————————————————————————————————————————————————
   @impl GenServer
   def handle_call(:status, _from, state) do
+    # Build thresholds map with color_zones for each sensor type
+    thresholds = %{
+      temp: %{color_zones: state.temp_color_zones},
+      humidity: %{color_zones: state.humidity_color_zones},
+      co2: %{color_zones: state.co2_color_zones},
+      nh3: %{color_zones: state.nh3_color_zones}
+    }
+
     reply = %{
       name: state.name,
       title: state.title || state.name,
@@ -394,6 +423,8 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
       humidity_sensors: state.humidity_sensors,
       co2_sensors: state.co2_sensors,
       nh3_sensors: state.nh3_sensors,
+      # Color zones thresholds for UI coloring
+      thresholds: thresholds,
       # Error state
       error: state.error,
       error_message: error_message(state.error)

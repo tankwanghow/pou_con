@@ -140,4 +140,86 @@ defmodule PouCon.Equipment.DataPoints do
       _ -> false
     end
   end
+
+  @doc """
+  Validates that all data points in a list have matching color_zones.
+  Returns {:ok, color_zones} if all match, or {:error, reason} if they don't.
+
+  Used by AverageSensor to ensure consistent color coding for averaged values.
+  """
+  def validate_matching_color_zones([]), do: {:ok, nil}
+
+  def validate_matching_color_zones(data_point_names) when is_list(data_point_names) do
+    # Fetch all data points and their color_zones
+    data_points =
+      data_point_names
+      |> Enum.map(fn name ->
+        case get_data_point_by_name(name) do
+          nil -> {name, :not_found}
+          dp -> {name, dp.color_zones}
+        end
+      end)
+
+    # Check for missing data points
+    missing = Enum.filter(data_points, fn {_name, zones} -> zones == :not_found end)
+
+    if length(missing) > 0 do
+      missing_names = Enum.map(missing, fn {name, _} -> name end)
+      {:error, {:not_found, missing_names}}
+    else
+      # Normalize color_zones for comparison (nil and "[]" and [] are equivalent)
+      normalized =
+        Enum.map(data_points, fn {name, zones} ->
+          {name, normalize_color_zones(zones)}
+        end)
+
+      # Get all unique color_zones
+      unique_zones =
+        normalized
+        |> Enum.map(fn {_name, zones} -> zones end)
+        |> Enum.uniq()
+
+      case unique_zones do
+        [single_zones] ->
+          # All match - return the shared color_zones
+          {:ok, single_zones}
+
+        _multiple ->
+          # Find which data points have different zones
+          first_zones = normalized |> List.first() |> elem(1)
+
+          mismatched =
+            normalized
+            |> Enum.filter(fn {_name, zones} -> zones != first_zones end)
+            |> Enum.map(fn {name, _} -> name end)
+
+          {:error, {:mismatched, mismatched}}
+      end
+    end
+  end
+
+  defp normalize_color_zones(nil), do: []
+  defp normalize_color_zones(""), do: []
+  defp normalize_color_zones("[]"), do: []
+
+  defp normalize_color_zones(json) when is_binary(json) do
+    case Jason.decode(json) do
+      {:ok, zones} when is_list(zones) -> zones
+      _ -> []
+    end
+  end
+
+  defp normalize_color_zones(zones) when is_list(zones), do: zones
+  defp normalize_color_zones(_), do: []
+
+  @doc """
+  Gets the color_zones for a data point by name.
+  Returns parsed list or empty list if not found/not set.
+  """
+  def get_color_zones(name) when is_binary(name) do
+    case get_data_point_by_name(name) do
+      nil -> []
+      dp -> normalize_color_zones(dp.color_zones)
+    end
+  end
 end

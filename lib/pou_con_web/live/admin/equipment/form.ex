@@ -8,6 +8,9 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
 
   @pubsub_topic "data_point_data"
 
+  # Sensor group keys for AverageSensor that need color_zones validation
+  @average_sensor_groups [:temp_sensors, :humidity_sensors, :co2_sensors, :nh3_sensors]
+
   @required_keys %{
     "fan" => [:on_off_coil, :running_feedback, :auto_manual],
     "pump" => [:on_off_coil, :running_feedback, :auto_manual],
@@ -207,6 +210,32 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
               </div>
             <% end %>
           <% end %>
+
+          <%!-- AverageSensor color_zones validation errors --%>
+          <%= if @color_zones_errors != [] do %>
+            <div class="font-sans -mt-2 mb-2 p-3 bg-red-50 rounded-lg border border-red-200">
+              <div class="text-sm font-medium text-red-700 mb-1">
+                Color Zones Mismatch
+              </div>
+              <div class="text-xs text-red-600">
+                All data points in a sensor group must have identical color zones configuration.
+              </div>
+              <ul class="mt-2 space-y-1">
+                <%= for {group, error} <- @color_zones_errors do %>
+                  <li class="text-sm text-red-700">
+                    <span class="font-medium">{group}:</span>
+                    <%= case error do %>
+                      <% {:not_found, names} -> %>
+                        <span class="text-red-600">Data points not found: {Enum.join(names, ", ")}</span>
+                      <% {:mismatched, names} -> %>
+                        <span class="text-red-600">Mismatched zones in: {Enum.join(names, ", ")}</span>
+                    <% end %>
+                  </li>
+                <% end %>
+              </ul>
+            </div>
+          <% end %>
+
           <.data_point_links
             data_point_tree={@form[:data_point_tree].value}
             data_point_map={@data_point_map}
@@ -232,6 +261,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
      socket
      |> assign(:data_point_map, load_data_point_map())
      |> assign(:data_point_cache, load_data_point_cache())
+     |> assign(:color_zones_errors, [])
      |> apply_action(socket.assigns.live_action, params)}
   end
 
@@ -280,11 +310,55 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
   @impl true
   def handle_event("validate", %{"equipment" => equipment_params}, socket) do
     changeset = Devices.change_equipment(socket.assigns.equipment, equipment_params)
-    {:noreply, assign(socket, form: to_form(changeset, action: :validate))}
+
+    # Validate AverageSensor color_zones consistency
+    color_zones_errors =
+      if equipment_params["type"] == "average_sensor" do
+        validate_average_sensor_color_zones(equipment_params["data_point_tree"])
+      else
+        []
+      end
+
+    {:noreply,
+     socket
+     |> assign(:color_zones_errors, color_zones_errors)
+     |> assign(form: to_form(changeset, action: :validate))}
   end
 
   def handle_event("save", %{"equipment" => equipment_params}, socket) do
-    save_equipment(socket, socket.assigns.live_action, equipment_params)
+    # Prevent save if there are color_zones validation errors
+    if socket.assigns.color_zones_errors != [] do
+      {:noreply, put_flash(socket, :error, "Cannot save: color zones must match within each sensor group")}
+    else
+      save_equipment(socket, socket.assigns.live_action, equipment_params)
+    end
+  end
+
+  # Validate that all data points in each sensor group have matching color_zones
+  defp validate_average_sensor_color_zones(nil), do: []
+  defp validate_average_sensor_color_zones(""), do: []
+
+  defp validate_average_sensor_color_zones(data_point_tree) do
+    parsed = parse_data_point_tree(data_point_tree)
+
+    @average_sensor_groups
+    |> Enum.map(fn group_key ->
+      group_name = Atom.to_string(group_key)
+
+      # Find the sensor group in parsed tree
+      case Enum.find(parsed, fn {key, _} -> key == group_name end) do
+        nil ->
+          nil
+
+        {_key, values} ->
+          # Validate color_zones match for all data points in this group
+          case DataPoints.validate_matching_color_zones(List.wrap(values)) do
+            {:ok, _zones} -> nil
+            {:error, reason} -> {group_name, reason}
+          end
+      end
+    end)
+    |> Enum.reject(&is_nil/1)
   end
 
   defp save_equipment(socket, :edit, equipment_params) do
