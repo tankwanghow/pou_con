@@ -29,7 +29,14 @@ defmodule PouConWeb.Live.Environment.Control do
 
   @impl true
   def handle_info(:data_refreshed, socket) do
-    {:noreply, fetch_average_sensor_status(socket)}
+    # Refresh equipment mode status along with sensor readings
+    socket =
+      socket
+      |> assign(:fans, list_equipment("fan"))
+      |> assign(:pumps, list_equipment("pump"))
+      |> fetch_average_sensor_status()
+
+    {:noreply, socket}
   end
 
   defp fetch_average_sensor_status(socket) do
@@ -106,9 +113,36 @@ defmodule PouConWeb.Live.Environment.Control do
   defp list_equipment(type) do
     PouCon.Equipment.Devices.list_equipment()
     |> Enum.filter(&(&1.type == type))
-    |> Enum.map(&%{name: &1.name, title: &1.title})
+    |> Enum.map(fn eq ->
+      mode = get_equipment_mode(type, eq.name)
+      %{name: eq.name, title: eq.title, mode: mode}
+    end)
     |> Enum.sort_by(& &1.title)
   end
+
+  defp get_equipment_mode("fan", name) do
+    try do
+      status = PouCon.Equipment.Controllers.Fan.status(name)
+      status[:mode] || :auto
+    rescue
+      _ -> :unknown
+    catch
+      :exit, _ -> :unknown
+    end
+  end
+
+  defp get_equipment_mode("pump", name) do
+    try do
+      status = PouCon.Equipment.Controllers.Pump.status(name)
+      status[:mode] || :auto
+    rescue
+      _ -> :unknown
+    catch
+      :exit, _ -> :unknown
+    end
+  end
+
+  defp get_equipment_mode(_, _), do: :auto
 
   defp process_step_checkboxes(config, all_params) do
     Enum.reduce(1..10, config, fn n, acc ->
@@ -158,6 +192,10 @@ defmodule PouConWeb.Live.Environment.Control do
           <p class="text-gray-700">
             <span class="font-medium">Temp 0°C to skip a step.</span>
             Steps are evaluated in ascending temp order.
+            <span class="inline-flex items-center gap-1 ml-2">
+              <span class="text-[10px] bg-amber-500 text-white px-1 rounded font-bold">PANEL</span>
+              <span class="text-sm">= panel switch not in AUTO</span>
+            </span>
           </p>
           <.dashboard_link />
         </div>
@@ -252,11 +290,13 @@ defmodule PouConWeb.Live.Environment.Control do
                   |> Enum.filter(&(&1 != "")) %>
                 <%= for fan <- @fans do %>
                   <% is_selected = fan.name in selected_fans %>
-                  <label class={
-                    if is_selected,
-                      do: "btn-active btn btn-outline btn-info font-bold",
-                      else: "btn btn-outline btn-info font-thin"
-                  }>
+                  <% is_manual = fan.mode == :manual %>
+                  <label class={[
+                    "btn btn-outline relative",
+                    is_manual && "btn-disabled opacity-50 cursor-not-allowed",
+                    !is_manual && is_selected && "btn-active btn-info font-bold",
+                    !is_manual && !is_selected && "btn-info font-thin"
+                  ]}>
                     <.input
                       type="checkbox"
                       name={"step_#{n}_fans_#{fan.name}"}
@@ -264,6 +304,12 @@ defmodule PouConWeb.Live.Environment.Control do
                       class="hidden"
                     />
                     <span>{fan.title}</span>
+                    <span
+                      :if={is_manual}
+                      class="absolute -top-2 -right-2 text-[10px] bg-amber-500 text-white px-1 rounded font-bold"
+                    >
+                      PANEL
+                    </span>
                   </label>
                 <% end %>
                 <% selected_pumps =
@@ -272,11 +318,13 @@ defmodule PouConWeb.Live.Environment.Control do
                   |> Enum.filter(&(&1 != "")) %>
                 <%= for pump <- @pumps do %>
                   <% is_selected = pump.name in selected_pumps %>
-                  <label class={
-                    if is_selected,
-                      do: "btn-active btn btn-outline btn-success font-bold",
-                      else: "btn btn-outline btn-success font-medium"
-                  }>
+                  <% is_manual = pump.mode == :manual %>
+                  <label class={[
+                    "btn btn-outline relative",
+                    is_manual && "btn-disabled opacity-50 cursor-not-allowed",
+                    !is_manual && is_selected && "btn-active btn-success font-bold",
+                    !is_manual && !is_selected && "btn-success font-medium"
+                  ]}>
                     <.input
                       type="checkbox"
                       name={"step_#{n}_pumps_#{pump.name}"}
@@ -284,6 +332,12 @@ defmodule PouConWeb.Live.Environment.Control do
                       class="hidden"
                     />
                     <span>{pump.title}</span>
+                    <span
+                      :if={is_manual}
+                      class="absolute -top-2 -right-2 text-[10px] bg-amber-500 text-white px-1 rounded font-bold"
+                    >
+                      PANEL
+                    </span>
                   </label>
                 <% end %>
               </div>
