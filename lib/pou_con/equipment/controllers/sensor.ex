@@ -89,7 +89,7 @@ defmodule PouCon.Equipment.Controllers.Sensor do
       field_keys: [],
       # Current readings: %{field_key => value}
       readings: %{},
-      # Thresholds per key: %{field_key => %{green_low: ..., yellow_low: ..., red_low: ...}}
+      # Color zones per key: %{field_key => %{color_zones: [...]}}
       thresholds: %{},
       # Error state
       error: nil,
@@ -236,13 +236,10 @@ defmodule PouCon.Equipment.Controllers.Sensor do
     end
   end
 
-  # Extract threshold fields from data point response
+  # Extract color zones from data point response
   defp extract_thresholds(data) when is_map(data) do
     %{
-      threshold_mode: Map.get(data, :threshold_mode, "upper"),
-      green_low: Map.get(data, :green_low),
-      yellow_low: Map.get(data, :yellow_low),
-      red_low: Map.get(data, :red_low),
+      color_zones: Map.get(data, :color_zones, []),
       min_valid: Map.get(data, :min_valid),
       max_valid: Map.get(data, :max_valid)
     }

@@ -76,26 +76,12 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
     field :min_valid, :float
     field :max_valid, :float
 
-    # Display color thresholds (optional)
-    # threshold_mode controls how thresholds are interpreted:
-    #   "upper" (default): Higher values are worse (NH3, CO2)
-    #     - value < green_low → GREEN
-    #     - green_low ≤ value < yellow_low → YELLOW
-    #     - yellow_low ≤ value < red_low → AMBER
-    #     - value ≥ red_low → RED
-    #   "lower": Lower values are worse (O2, pressure)
-    #     - value > green_low → GREEN
-    #     - yellow_low < value ≤ green_low → YELLOW
-    #     - red_low < value ≤ yellow_low → AMBER
-    #     - value ≤ red_low → RED
-    #   "range": Middle is best (temperature, humidity)
-    #     - Uses min_valid/max_valid to mirror thresholds
-    #     - green_high = max_valid - (green_low - min_valid)
-    #     - Values in green zone → GREEN, outside → YELLOW/AMBER/RED
-    field :threshold_mode, :string, default: "upper"
-    field :green_low, :float
-    field :yellow_low, :float
-    field :red_low, :float
+    # Zone-based color system
+    # JSON array of zones: [{"from": 0, "to": 25, "color": "green"}, ...]
+    # Max 5 zones, colors: red, green, yellow, blue, purple
+    # Values outside all zones show as gray
+    # Use min_valid/max_valid as the overall valid range for UI guidance
+    field :color_zones, :string
 
     # Logging configuration
     # nil = log on change, 0 = no logging, > 0 = interval in seconds
@@ -129,17 +115,77 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
       :value_type,
       :min_valid,
       :max_valid,
-      # Display color thresholds
-      :threshold_mode,
-      :green_low,
-      :yellow_low,
-      :red_low,
+      # Zone-based color system
+      :color_zones,
       # Logging
       :log_interval
     ])
     |> validate_number(:log_interval, greater_than_or_equal_to: 0)
-    |> validate_inclusion(:threshold_mode, ["upper", "lower", "range", nil])
+    |> validate_color_zones()
     |> validate_required([:name, :type, :slave_id, :port_path])
     |> unique_constraint(:name)
   end
+
+  @valid_zone_colors ~w(red green yellow blue purple)
+
+  defp validate_color_zones(changeset) do
+    case get_change(changeset, :color_zones) do
+      nil -> changeset
+      "" -> changeset
+      json when is_binary(json) ->
+        case Jason.decode(json) do
+          {:ok, zones} when is_list(zones) ->
+            if valid_zones?(zones) do
+              changeset
+            else
+              add_error(changeset, :color_zones,
+                "must be a list of zones with 'from', 'to' (numbers) and 'color' (#{Enum.join(@valid_zone_colors, ", ")})")
+            end
+          {:ok, _} ->
+            add_error(changeset, :color_zones, "must be a JSON array of zones")
+          {:error, _} ->
+            add_error(changeset, :color_zones, "must be valid JSON")
+        end
+      _ -> changeset
+    end
+  end
+
+  defp valid_zones?(zones) when is_list(zones) do
+    length(zones) <= 5 and Enum.all?(zones, &valid_zone?/1)
+  end
+
+  defp valid_zone?(%{"from" => from, "to" => to, "color" => color})
+       when is_number(from) and is_number(to) and is_binary(color) do
+    color in @valid_zone_colors and from < to
+  end
+  defp valid_zone?(_), do: false
+
+  @doc """
+  Parses color_zones JSON string into a list of zone maps.
+  Returns empty list if nil or invalid.
+  """
+  def parse_color_zones(nil), do: []
+  def parse_color_zones(""), do: []
+  def parse_color_zones(json) when is_binary(json) do
+    case Jason.decode(json) do
+      {:ok, zones} when is_list(zones) -> zones
+      _ -> []
+    end
+  end
+  def parse_color_zones(_), do: []
+
+  @doc """
+  Determines the color for a value based on color_zones.
+  Returns the color string or "gray" if no zone matches.
+  """
+  def color_for_value(value, zones) when is_number(value) and is_list(zones) do
+    Enum.find_value(zones, "gray", fn zone ->
+      from = zone["from"]
+      to = zone["to"]
+      if is_number(from) and is_number(to) and value >= from and value < to do
+        zone["color"]
+      end
+    end)
+  end
+  def color_for_value(_, _), do: "gray"
 end

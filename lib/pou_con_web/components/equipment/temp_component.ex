@@ -5,6 +5,7 @@ defmodule PouConWeb.Components.Equipment.TempComponent do
   """
   use PouConWeb, :live_component
 
+  alias PouConWeb.Components.Equipment.Shared
   alias PouConWeb.Components.Formatters
 
   @impl true
@@ -80,6 +81,9 @@ defmodule PouConWeb.Components.Equipment.TempComponent do
     """
   end
 
+  # Default color when no zones configured
+  @default_color "green-700"
+
   defp calculate_display_data(%{error: error})
        when error in [:invalid_data, :timeout, :unresponsive] do
     %{
@@ -92,6 +96,7 @@ defmodule PouConWeb.Components.Equipment.TempComponent do
 
   defp calculate_display_data(status) do
     temp = status[:temp]
+    color_zones = get_color_zones(status, :temp)
 
     if is_nil(temp) do
       %{
@@ -101,20 +106,22 @@ defmodule PouConWeb.Components.Equipment.TempComponent do
         temp_color: "gray"
       }
     else
+      color = Shared.color_from_zones(temp, color_zones, @default_color)
+
       %{
         is_error: false,
-        main_color: "green",
+        main_color: color,
         temp: Formatters.format_temperature(temp),
-        temp_color: get_temp_color(temp)
+        temp_color: color
       }
     end
   end
 
-  defp get_temp_color(temp) do
-    cond do
-      temp >= 38.0 -> "rose"
-      temp > 24.0 -> "green"
-      true -> "blue"
+  # Extract color_zones from status
+  defp get_color_zones(status, key) do
+    case status[:thresholds] do
+      %{^key => %{color_zones: zones}} when is_list(zones) -> zones
+      _ -> status[:color_zones] || []
     end
   end
 end

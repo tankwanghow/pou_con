@@ -136,6 +136,9 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
     }
   end
 
+  # No thresholds configured = neutral dark green color
+  @no_threshold_color "green-700"
+
   def calculate_display_data(status) do
     avg_temp = status[:avg_temp]
     avg_hum = status[:avg_humidity]
@@ -152,6 +155,13 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
     co2_count = status[:co2_count] || 0
     nh3_count = status[:nh3_count] || 0
 
+    # Get thresholds from status
+    thresholds = status[:thresholds] || %{}
+    temp_thresholds = Map.get(thresholds, :temp, %{})
+    hum_thresholds = Map.get(thresholds, :humidity, %{})
+    co2_thresholds = Map.get(thresholds, :co2, %{})
+    nh3_thresholds = Map.get(thresholds, :nh3, %{})
+
     is_error = is_nil(avg_temp) and length(temp_sensors) > 0
 
     # Build counts list dynamically based on configured sensors
@@ -165,32 +175,41 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
       |> Enum.filter(fn {_, _, _, configured} -> configured end)
       |> Enum.map(fn {label, count, total, _} -> {label, count, total} end)
 
+    temp_color = get_color_with_threshold(avg_temp, temp_thresholds, status[:error])
+
     %{
       is_error: is_error,
-      main_color: get_main_color(avg_temp, status[:error]),
+      main_color: temp_color,
       # Temperature (always shown)
       temp: format_temp(avg_temp),
-      temp_color: get_temp_color(avg_temp),
+      temp_color: temp_color,
       temp_range: format_range(status[:temp_min], status[:temp_max], "°"),
       # Humidity (optional)
       has_hum: length(hum_sensors) > 0,
       hum: format_hum(avg_hum),
-      hum_color: get_hum_color(avg_hum),
+      hum_color: get_color_with_threshold(avg_hum, hum_thresholds, nil),
       hum_range: format_range(status[:humidity_min], status[:humidity_max], "%"),
       # CO2 (optional)
       has_co2: length(co2_sensors) > 0,
       co2: format_co2(avg_co2),
-      co2_color: get_co2_color(avg_co2),
+      co2_color: get_color_with_threshold(avg_co2, co2_thresholds, nil),
       co2_range: format_range_int(status[:co2_min], status[:co2_max]),
       # NH3 (optional)
       has_nh3: length(nh3_sensors) > 0,
       nh3: format_nh3(avg_nh3),
-      nh3_color: get_nh3_color(avg_nh3),
+      nh3_color: get_color_with_threshold(avg_nh3, nh3_thresholds, nil),
       nh3_range: format_range(status[:nh3_min], status[:nh3_max], ""),
       # Counts
       counts: counts
     }
   end
+
+  defp get_color_with_threshold(nil, _thresholds, _error), do: "gray"
+  defp get_color_with_threshold(_value, _thresholds, :partial_data), do: "amber"
+  defp get_color_with_threshold(value, thresholds, _error) when is_number(value) do
+    Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
+  end
+  defp get_color_with_threshold(_, _, _), do: @no_threshold_color
 
   defp format_temp(nil), do: "--.-°C"
   defp format_temp(temp), do: Formatters.format_temperature(temp)
@@ -218,32 +237,4 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
 
   defp format_num(val) when is_float(val), do: :erlang.float_to_binary(val, decimals: 1)
   defp format_num(val), do: "#{val}"
-
-  defp get_main_color(nil, _error), do: "gray"
-  defp get_main_color(_temp, :partial_data), do: "amber"
-  defp get_main_color(temp, _error) when temp >= 38.0, do: "rose"
-  defp get_main_color(temp, _error) when temp > 24.0, do: "green"
-  defp get_main_color(_temp, _error), do: "blue"
-
-  defp get_temp_color(nil), do: "gray"
-  defp get_temp_color(temp) when temp >= 38.0, do: "rose"
-  defp get_temp_color(temp) when temp > 24.0, do: "green"
-  defp get_temp_color(_), do: "blue"
-
-  defp get_hum_color(nil), do: "gray"
-  defp get_hum_color(hum) when hum >= 90.0, do: "blue"
-  defp get_hum_color(hum) when hum > 20.0, do: "green"
-  defp get_hum_color(_), do: "rose"
-
-  # CO2 color: green < 1000 ppm, amber 1000-2000 ppm, rose > 2000 ppm
-  defp get_co2_color(nil), do: "gray"
-  defp get_co2_color(co2) when co2 > 2000, do: "rose"
-  defp get_co2_color(co2) when co2 > 1000, do: "amber"
-  defp get_co2_color(_), do: "green"
-
-  # NH3 color: green < 10 ppm, amber 10-25 ppm, rose > 25 ppm
-  defp get_nh3_color(nil), do: "gray"
-  defp get_nh3_color(nh3) when nh3 > 25, do: "rose"
-  defp get_nh3_color(nh3) when nh3 > 10, do: "amber"
-  defp get_nh3_color(_), do: "green"
 end

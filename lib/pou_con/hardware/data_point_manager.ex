@@ -106,11 +106,8 @@ defmodule PouCon.Hardware.DataPointManager do
       value_type: nil,
       min_valid: nil,
       max_valid: nil,
-      # Display color thresholds
-      threshold_mode: "upper",
-      green_low: nil,
-      yellow_low: nil,
-      red_low: nil
+      # Zone-based color system
+      color_zones: nil
     ]
   end
 
@@ -840,11 +837,8 @@ defmodule PouCon.Hardware.DataPointManager do
           value_type: d.value_type,
           min_valid: d.min_valid,
           max_valid: d.max_valid,
-          # Display color thresholds
-          threshold_mode: d.threshold_mode || "upper",
-          green_low: d.green_low,
-          yellow_low: d.yellow_low,
-          red_low: d.red_low
+          # Zone-based color system
+          color_zones: parse_color_zones(d.color_zones)
         }
       end)
       |> Map.new(&{&1.name, &1})
@@ -1023,11 +1017,8 @@ defmodule PouCon.Hardware.DataPointManager do
           value_type: data_point.value_type,
           valid: valid?,
           raw: raw_value,
-          # Color thresholds for UI
-          threshold_mode: data_point.threshold_mode,
-          green_low: data_point.green_low,
-          yellow_low: data_point.yellow_low,
-          red_low: data_point.red_low,
+          # Color zones for UI
+          color_zones: data_point.color_zones,
           min_valid: data_point.min_valid,
           max_valid: data_point.max_valid
         }
@@ -1037,10 +1028,7 @@ defmodule PouCon.Hardware.DataPointManager do
           unit: data_point.unit,
           value_type: data_point.value_type,
           valid: false,
-          threshold_mode: data_point.threshold_mode,
-          green_low: data_point.green_low,
-          yellow_low: data_point.yellow_low,
-          red_low: data_point.red_low,
+          color_zones: data_point.color_zones,
           min_valid: data_point.min_valid,
           max_valid: data_point.max_valid
         })
@@ -1053,6 +1041,18 @@ defmodule PouCon.Hardware.DataPointManager do
   end
 
   def apply_data_point_conversion(data, _data_point), do: data
+
+  # Parse color_zones JSON string into list of zone maps
+  defp parse_color_zones(nil), do: []
+  defp parse_color_zones(""), do: []
+  defp parse_color_zones(json) when is_binary(json) do
+    case Jason.decode(json) do
+      {:ok, zones} when is_list(zones) -> zones
+      _ -> []
+    end
+  end
+  defp parse_color_zones(zones) when is_list(zones), do: zones
+  defp parse_color_zones(_), do: []
 
   # Extract the primary numeric value from data point data
   defp get_primary_value(data) do

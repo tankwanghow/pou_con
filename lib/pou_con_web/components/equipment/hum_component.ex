@@ -5,6 +5,7 @@ defmodule PouConWeb.Components.Equipment.HumComponent do
   """
   use PouConWeb, :live_component
 
+  alias PouConWeb.Components.Equipment.Shared
   alias PouConWeb.Components.Formatters
 
   @impl true
@@ -80,6 +81,9 @@ defmodule PouConWeb.Components.Equipment.HumComponent do
     """
   end
 
+  # Default color when no zones configured
+  @default_color "green-700"
+
   defp calculate_display_data(%{error: error})
        when error in [:invalid_data, :timeout, :unresponsive] do
     %{
@@ -92,6 +96,7 @@ defmodule PouConWeb.Components.Equipment.HumComponent do
 
   defp calculate_display_data(status) do
     hum = status[:hum]
+    color_zones = get_color_zones(status, :hum)
 
     if is_nil(hum) do
       %{
@@ -101,22 +106,22 @@ defmodule PouConWeb.Components.Equipment.HumComponent do
         hum_color: "gray"
       }
     else
+      color = Shared.color_from_zones(hum, color_zones, @default_color)
+
       %{
         is_error: false,
-        main_color: "cyan",
+        main_color: color,
         hum: Formatters.format_percentage(hum),
-        hum_color: get_hum_color(hum)
+        hum_color: color
       }
     end
   end
 
-  defp get_hum_color(hum) do
-    cond do
-      hum >= 90.0 -> "blue"
-      hum >= 80.0 -> "cyan"
-      hum > 40.0 -> "green"
-      hum > 20.0 -> "amber"
-      true -> "red"
+  # Extract color_zones from status
+  defp get_color_zones(status, key) do
+    case status[:thresholds] do
+      %{^key => %{color_zones: zones}} when is_list(zones) -> zones
+      _ -> status[:color_zones] || []
     end
   end
 end

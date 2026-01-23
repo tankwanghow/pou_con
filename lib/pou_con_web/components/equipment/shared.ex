@@ -53,6 +53,7 @@ defmodule PouConWeb.Components.Equipment.Shared do
   attr :color, :string, default: "gray"
   attr :is_running, :boolean, default: false
   attr :equipment_id, :integer, default: nil
+  attr :inverted, :boolean, default: false
   slot :controls
   slot :badge
 
@@ -70,6 +71,13 @@ defmodule PouConWeb.Components.Equipment.Shared do
           {@title}
         </.link>
         <span :if={!@equipment_id} class="font-bold text-gray-700 text-xl truncate">{@title}</span>
+        <span
+          :if={@inverted}
+          class="px-1 py-0.5 text-xs font-medium bg-orange-100 text-orange-600 rounded"
+          title="Inverted logic (NC relay)"
+        >
+          INV
+        </span>
         {render_slot(@badge)}
       </div>
       {render_slot(@controls)}
@@ -450,139 +458,68 @@ defmodule PouConWeb.Components.Equipment.Shared do
   end
 
   # ——————————————————————————————————————————————
-  # Threshold-Based Color Determination
+  # Zone-Based Color Determination
   # ——————————————————————————————————————————————
 
   @doc """
-  Determines display color based on value, thresholds, and threshold_mode.
+  Determines display color based on value and color zones.
 
-  ## Modes
+  ## Zone System
 
-  ### "upper" (default) - Higher values are worse (NH3, CO2)
-  - value < green_low → GREEN (optimal)
-  - green_low ≤ value < yellow_low → YELLOW (caution)
-  - yellow_low ≤ value < red_low → AMBER (warning)
-  - value ≥ red_low → RED (critical)
+  Zones are a list of maps defining value ranges and colors:
+  - Each zone: %{"from" => number, "to" => number, "color" => "red"|"green"|"yellow"|"blue"|"purple"}
+  - Value falls into first matching zone where from <= value < to
+  - Values outside all zones return fallback_color (default: "gray")
+  - Maximum 5 zones supported
 
-  ### "lower" - Lower values are worse (O2, pressure)
-  - value > green_low → GREEN (optimal)
-  - yellow_low < value ≤ green_low → YELLOW (caution)
-  - red_low < value ≤ yellow_low → AMBER (warning)
-  - value ≤ red_low → RED (critical)
+  ## Example
 
-  ### "range" - Middle is best (temperature, humidity)
-  Uses min_valid/max_valid to mirror thresholds:
-  - green_high = max_valid - (green_low - min_valid)
-  - Values in green zone → GREEN
-  - Values outside green but inside yellow → YELLOW
-  - Values outside yellow but inside red → AMBER
-  - Values outside red → RED
+      zones = [
+        %{"from" => 0, "to" => 20, "color" => "blue"},
+        %{"from" => 20, "to" => 28, "color" => "green"},
+        %{"from" => 28, "to" => 35, "color" => "yellow"},
+        %{"from" => 35, "to" => 50, "color" => "red"}
+      ]
 
-  Returns a color string: "green", "yellow", "amber", "red", or fallback_color
+      color_from_zones(25, zones)  # => "green"
+      color_from_zones(40, zones)  # => "red"
+      color_from_zones(-5, zones)  # => "gray" (outside all zones)
   """
-  def color_from_thresholds(value, thresholds, fallback_color \\ "blue")
+  def color_from_zones(value, zones, fallback_color \\ "gray")
+
+  def color_from_zones(nil, _zones, fallback_color), do: fallback_color
+  def color_from_zones(_value, nil, fallback_color), do: fallback_color
+  def color_from_zones(_value, [], fallback_color), do: fallback_color
+
+  def color_from_zones(value, zones, fallback_color) when is_number(value) and is_list(zones) do
+    Enum.find_value(zones, fallback_color, fn zone ->
+      from = zone["from"] || zone[:from]
+      to = zone["to"] || zone[:to]
+      color = zone["color"] || zone[:color]
+
+      if is_number(from) and is_number(to) and value >= from and value < to do
+        color
+      end
+    end)
+  end
+
+  def color_from_zones(_value, _zones, fallback_color), do: fallback_color
+
+  @doc """
+  Alias for color_from_zones for backward compatibility.
+  Extracts :color_zones from thresholds map if present.
+  """
+  def color_from_thresholds(value, thresholds, fallback_color \\ "gray")
 
   def color_from_thresholds(nil, _thresholds, fallback_color), do: fallback_color
-
-  def color_from_thresholds(value, nil, fallback_color) when is_number(value), do: fallback_color
+  def color_from_thresholds(_value, nil, fallback_color), do: fallback_color
 
   def color_from_thresholds(value, %{} = thresholds, fallback_color) when is_number(value) do
-    green_low = Map.get(thresholds, :green_low)
-    yellow_low = Map.get(thresholds, :yellow_low)
-    red_low = Map.get(thresholds, :red_low)
-    mode = Map.get(thresholds, :threshold_mode) || "upper"
-
-    # If no thresholds defined, use fallback
-    if is_nil(green_low) and is_nil(yellow_low) and is_nil(red_low) do
-      fallback_color
-    else
-      case mode do
-        "upper" -> color_for_upper_mode(value, green_low, yellow_low, red_low)
-        "lower" -> color_for_lower_mode(value, green_low, yellow_low, red_low)
-        "range" -> color_for_range_mode(value, thresholds)
-        _ -> color_for_upper_mode(value, green_low, yellow_low, red_low)
-      end
-    end
+    zones = Map.get(thresholds, :color_zones) || Map.get(thresholds, "color_zones") || []
+    color_from_zones(value, zones, fallback_color)
   end
 
   def color_from_thresholds(_value, _thresholds, fallback_color), do: fallback_color
-
-  # "upper" mode: Higher values are worse
-  # value < green_low → GREEN, green_low ≤ value < yellow_low → YELLOW, etc.
-  defp color_for_upper_mode(value, green_low, yellow_low, red_low) do
-    cond do
-      red_low && value >= red_low -> "red"
-      yellow_low && value >= yellow_low -> "amber"
-      green_low && value >= green_low -> "yellow"
-      true -> "green"
-    end
-  end
-
-  # "lower" mode: Lower values are worse
-  # value > green_low → GREEN, yellow_low < value ≤ green_low → YELLOW, etc.
-  defp color_for_lower_mode(value, green_low, yellow_low, red_low) do
-    cond do
-      red_low && value <= red_low -> "red"
-      yellow_low && value <= yellow_low -> "amber"
-      green_low && value <= green_low -> "yellow"
-      true -> "green"
-    end
-  end
-
-  # "range" mode: Middle is best, uses min_valid/max_valid to mirror thresholds
-  # Thresholds are auto-sorted: smallest=red (extreme), middle=yellow, largest=green (inner)
-  defp color_for_range_mode(value, thresholds) do
-    green_low = Map.get(thresholds, :green_low)
-    yellow_low = Map.get(thresholds, :yellow_low)
-    red_low = Map.get(thresholds, :red_low)
-    min_valid = Map.get(thresholds, :min_valid)
-    max_valid = Map.get(thresholds, :max_valid)
-
-    # Sort thresholds for range mode: smallest=red (extreme), largest=green (inner)
-    {sorted_red, sorted_yellow, sorted_green} = sort_range_thresholds(red_low, yellow_low, green_low)
-
-    # Calculate high thresholds by mirroring around the valid range
-    {green_high, yellow_high, red_high} =
-      if min_valid && max_valid && sorted_green do
-        {
-          max_valid - (sorted_green - min_valid),
-          if(sorted_yellow, do: max_valid - (sorted_yellow - min_valid), else: nil),
-          if(sorted_red, do: max_valid - (sorted_red - min_valid), else: nil)
-        }
-      else
-        # Without min/max, can't mirror - fall back to upper mode behavior
-        {nil, nil, nil}
-      end
-
-    cond do
-      # Check red zone (too low or too high)
-      sorted_red && value < sorted_red -> "red"
-      red_high && value > red_high -> "red"
-
-      # Check amber zone
-      sorted_yellow && value < sorted_yellow -> "amber"
-      yellow_high && value > yellow_high -> "amber"
-
-      # Check yellow zone
-      sorted_green && value < sorted_green -> "yellow"
-      green_high && value > green_high -> "yellow"
-
-      # Within green zone
-      true -> "green"
-    end
-  end
-
-  # Sort thresholds for range mode: smallest=red (extreme), middle=yellow, largest=green (inner)
-  defp sort_range_thresholds(red, yellow, green) do
-    values = [red, yellow, green] |> Enum.reject(&is_nil/1) |> Enum.sort()
-
-    case values do
-      [a, b, c] -> {a, b, c}  # red, yellow, green (smallest to largest)
-      [a, b] -> {nil, a, b}   # yellow, green
-      [a] -> {nil, nil, a}    # just green
-      [] -> {nil, nil, nil}
-    end
-  end
 
   # ——————————————————————————————————————————————
   # Color Class Helpers
