@@ -11,42 +11,76 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
   alias PouCon.Equipment.DataPoints
   alias PouCon.Equipment.Schemas.DataPoint
 
+  @valid_colors ~w(red green yellow blue purple)
+  @tabs [:conversion, :color_zones, :logging]
+
   # ============================================================================
-  # Threshold Preview Component
+  # Tab Components
   # ============================================================================
 
-  defp threshold_preview(%{preview: nil} = assigns) do
+  attr :active_tab, :atom, required: true
+  attr :tabs, :list, required: true
+
+  defp tab_navigation(assigns) do
     ~H"""
-    <div class="mt-2 p-2 bg-white rounded border border-yellow-200 text-xs text-gray-400 italic">
-      Enter threshold values to see color preview
+    <div class="border-b border-gray-200 mt-4">
+      <nav class="-mb-px flex gap-4" aria-label="Tabs">
+        <%= for tab <- @tabs do %>
+          <button
+            type="button"
+            phx-click="switch_tab"
+            phx-value-tab={tab}
+            class={[
+              "py-2 px-1 border-b-2 font-medium text-sm transition-colors",
+              @active_tab == tab &&
+                "border-blue-500 text-blue-600",
+              @active_tab != tab &&
+                "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            ]}
+          >
+            {tab_label(tab)}
+          </button>
+        <% end %>
+      </nav>
     </div>
     """
   end
 
-  defp threshold_preview(%{preview: _preview} = assigns) do
+  defp tab_label(:conversion), do: "Conversion"
+  defp tab_label(:color_zones), do: "Color Zones"
+  defp tab_label(:logging), do: "Logging"
+
+  # ============================================================================
+  # Zone Preview Component
+  # ============================================================================
+
+  defp zone_preview(%{zones: []} = assigns) do
     ~H"""
-    <div class="mt-2 p-2 bg-white rounded border border-yellow-200">
-      <div class="text-xs font-medium text-gray-600 mb-2">Preview: {@preview.mode_label}</div>
+    <div class="mt-2 p-2 bg-white rounded border border-gray-200 text-xs text-gray-400 italic">
+      No color zones defined - values will display in gray
+    </div>
+    """
+  end
+
+  defp zone_preview(assigns) do
+    ~H"""
+    <div class="mt-2 p-2 bg-white rounded border border-gray-200">
+      <div class="text-xs font-medium text-gray-600 mb-2">Preview:</div>
       <div class="flex flex-wrap gap-1 text-xs font-mono">
-        <%= for {range, color} <- @preview.ranges do %>
-          <span class={[
-            "px-2 py-1 rounded",
-            color_class(color)
-          ]}>
-            {range}
+        <%= for zone <- @zones do %>
+          <span class={["px-2 py-1 rounded", color_class(zone["color"])]}>
+            {zone["from"]} - {zone["to"]}
           </span>
         <% end %>
       </div>
-      <%= if @preview.note do %>
-        <div class="mt-1 text-xs text-gray-500 italic">{@preview.note}</div>
-      <% end %>
     </div>
     """
   end
 
   defp color_class("green"), do: "bg-green-500 text-white"
   defp color_class("yellow"), do: "bg-yellow-400 text-gray-800"
-  defp color_class("amber"), do: "bg-amber-500 text-white"
+  defp color_class("blue"), do: "bg-blue-500 text-white"
+  defp color_class("purple"), do: "bg-purple-500 text-white"
   defp color_class("red"), do: "bg-red-500 text-white"
   defp color_class(_), do: "bg-gray-300 text-gray-600"
 
@@ -64,6 +98,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
         </.header>
 
         <.form for={@form} id="data-point-form" phx-change="validate" phx-submit="save">
+          <%!-- Basic Info Section --%>
           <div class="flex gap-1">
             <div class="w-1/4">
               <.input field={@form[:name]} type="text" label="Name" />
@@ -80,7 +115,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
           </div>
 
           <div class="flex gap-1">
-          <div class="w-1/8">
+            <div class="w-1/8">
               <.input field={@form[:register]} type="number" label="Register" />
             </div>
             <div class="w-1/8">
@@ -93,131 +128,170 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
               <.input field={@form[:write_fn]} type="text" label="Write Function" />
             </div>
           </div>
-          <p class="text-xs text-gray-500">
+
+          <p class="text-xs text-gray-500 mb-2">
             Digital: read_digital_input, read_digital_output, write_digital_output |
             Analog: read_analog_input, read_analog_output, write_analog_output
           </p>
 
-          <%!-- Conversion Section --%>
-          <div class="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <div class="flex items-center gap-2 mb-2">
-              <.icon name="hero-calculator" class="w-5 h-5 text-gray-600" />
-              <span class="text-sm font-medium text-gray-700">Conversion (for analog)</span>
-            </div>
-            <p class="text-xs text-gray-500">
-              Formula: converted = (raw × scale_factor) + offset
-            </p>
-
-            <div class="flex gap-1">
-              <div class="w-1/4">
-                <.input
-                  field={@form[:value_type]}
-                  type="text"
-                  label="Data Type"
-                  placeholder="int16, uint16, float32"
-                />
-              </div>
-              <div class="w-1/4">
-                <.input field={@form[:scale_factor]} type="number" step="any" label="Scale Factor" />
-              </div>
-              <div class="w-1/4">
-                <.input field={@form[:offset]} type="number" step="any" label="Offset" />
-              </div>
-              <div class="w-1/4">
-                <.input field={@form[:unit]} type="text" label="Unit" placeholder="°C, %, bar" />
-              </div>
-            </div>
-
-            <div class="flex gap-1">
-              <div class="w-1/2">
-                <.input field={@form[:min_valid]} type="number" step="any" label="Min Valid" />
-              </div>
-              <div class="w-1/2">
-                <.input field={@form[:max_valid]} type="number" step="any" label="Max Valid" />
-              </div>
-            </div>
-          </div>
-
-          <%!-- Threshold Section --%>
-          <div class="mt-2 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-            <div class="flex items-center gap-2 mb-2">
-              <.icon name="hero-adjustments-horizontal" class="w-5 h-5 text-yellow-600" />
-              <span class="text-sm font-medium text-yellow-700">Color Thresholds</span>
-            </div>
-
-            <div class="flex gap-1 mb-2">
-              <div class="w-1/4">
-                <.input
-                  field={@form[:threshold_mode]}
-                  type="select"
-                  label="Mode"
-                  options={[
-                    {"Higher is Bad (NH3, CO2)", "upper"},
-                    {"Lower is Bad (O2, Pressure)", "lower"},
-                    {"Middle is Best (Temp)", "range"}
-                  ]}
-                />
-              </div>
-              <div class="w-1/4">
-                <.input
-                  field={@form[:green_low]}
-                  type="number"
-                  step="any"
-                  label="Threshold 1"
-                  placeholder="e.g. 10"
-                />
-              </div>
-              <div class="w-1/4">
-                <.input
-                  field={@form[:yellow_low]}
-                  type="number"
-                  step="any"
-                  label="Threshold 2"
-                  placeholder="e.g. 20"
-                />
-              </div>
-              <div class="w-1/4">
-                <.input
-                  field={@form[:red_low]}
-                  type="number"
-                  step="any"
-                  label="Threshold 3"
-                  placeholder="e.g. 30"
-                />
-              </div>
-            </div>
-            <p class="text-xs text-gray-500 mb-2">
-              <strong>Upper/Lower:</strong> Values auto-assigned as green &lt; yellow &lt; red thresholds.
-              <strong>Range:</strong> Smallest=red (extreme), largest=green (inner). Set min/max so midpoint = optimal value.
-            </p>
-
-            <%!-- Live Preview --%>
-            <.threshold_preview preview={@threshold_preview} />
-          </div>
-
           <.input field={@form[:description]} type="text" label="Description" />
 
-          <%!-- Logging Section --%>
-          <div class="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <div class="flex items-center gap-2 mb-2">
-              <.icon name="hero-document-chart-bar" class="w-5 h-5 text-blue-600" />
-              <span class="text-sm font-medium text-blue-700">Logging</span>
+          <%!-- Tabs only shown for Analog Input (AI) type --%>
+          <%= if @form[:type].value == "AI" do %>
+            <%!-- Tab Navigation --%>
+            <.tab_navigation active_tab={@active_tab} tabs={@tabs} />
+
+            <%!-- Tab Content --%>
+            <div class="mt-4">
+            <%!-- Conversion Tab --%>
+            <div :if={@active_tab == :conversion} class="space-y-4">
+              <p class="text-sm text-gray-600">
+                Formula: <code class="bg-gray-100 px-1 rounded">converted = (raw × scale_factor) + offset</code>
+              </p>
+
+              <div class="flex gap-1">
+                <div class="w-1/4">
+                  <.input
+                    field={@form[:value_type]}
+                    type="text"
+                    label="Data Type"
+                    placeholder="int16, uint16, float32"
+                  />
+                </div>
+                <div class="w-1/4">
+                  <.input field={@form[:scale_factor]} type="number" step="any" label="Scale Factor" />
+                </div>
+                <div class="w-1/4">
+                  <.input field={@form[:offset]} type="number" step="any" label="Offset" />
+                </div>
+                <div class="w-1/4">
+                  <.input field={@form[:unit]} type="text" label="Unit" placeholder="°C, %, bar" />
+                </div>
+              </div>
+
+              <div class="flex gap-1">
+                <div class="w-1/2">
+                  <.input field={@form[:min_valid]} type="number" step="any" label="Min Valid" />
+                </div>
+                <div class="w-1/2">
+                  <.input field={@form[:max_valid]} type="number" step="any" label="Max Valid" />
+                </div>
+              </div>
+
+              <p class="text-xs text-gray-500">
+                Values outside Min/Max Valid range will be marked as invalid.
+              </p>
             </div>
-            <p class="text-xs text-gray-500 mb-2">
-              Empty = log on value change | 0 = no logging | > 0 = interval in seconds
-            </p>
-            <div class="w-1/4">
-              <.input
-                field={@form[:log_interval]}
-                type="number"
-                label="Log Interval (seconds)"
-                placeholder="Empty = on change"
-                min="0"
-              />
+
+            <%!-- Color Zones Tab --%>
+            <div :if={@active_tab == :color_zones} class="space-y-4">
+              <div class="flex items-center justify-between">
+                <p class="text-sm text-gray-600">
+                  Define value ranges and their display colors. Values outside all zones display as gray.
+                </p>
+                <button
+                  :if={length(@color_zones) < 5}
+                  type="button"
+                  phx-click="add_zone"
+                  class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  + Add Zone
+                </button>
+              </div>
+
+              <%!-- Zone List --%>
+              <div class="space-y-2">
+                <%= for {zone, idx} <- Enum.with_index(@color_zones) do %>
+                  <div class="flex gap-3 items-end bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <div class="w-1/4">
+                      <label class="block text-xs font-medium text-gray-500 mb-1">From</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={zone["from"]}
+                        phx-blur="update_zone"
+                        phx-value-idx={idx}
+                        phx-value-field="from"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div class="w-1/4">
+                      <label class="block text-xs font-medium text-gray-500 mb-1">To</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={zone["to"]}
+                        phx-blur="update_zone"
+                        phx-value-idx={idx}
+                        phx-value-field="to"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div class="w-1/4">
+                      <label class="block text-xs font-medium text-gray-500 mb-1">Color</label>
+                      <select
+                        phx-change="update_zone"
+                        phx-value-idx={idx}
+                        phx-value-field="color"
+                        name={"zone_color_#{idx}"}
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <%= for color <- @valid_colors do %>
+                          <option value={color} selected={zone["color"] == color}>
+                            {String.capitalize(color)}
+                          </option>
+                        <% end %>
+                      </select>
+                    </div>
+                    <div class="w-1/8">
+                      <button
+                        type="button"
+                        phx-click="remove_zone"
+                        phx-value-idx={idx}
+                        class="px-3 py-2 text-sm bg-red-500 text-white rounded-md hover:bg-red-600"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+
+              <%!-- Hidden field for form submission --%>
+              <input type="hidden" name="data_point[color_zones]" value={Jason.encode!(@color_zones)} />
+
+              <%!-- Live Preview --%>
+              <.zone_preview zones={@color_zones} />
+            </div>
+
+            <%!-- Logging Tab --%>
+            <div :if={@active_tab == :logging} class="space-y-4">
+              <p class="text-sm text-gray-600">
+                Configure how often this data point's value is logged to the database.
+              </p>
+
+              <div class="w-1/3">
+                <.input
+                  field={@form[:log_interval]}
+                  type="number"
+                  label="Log Interval (seconds)"
+                  placeholder="Empty = on change"
+                  min="0"
+                />
+              </div>
+
+              <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <div class="text-sm text-blue-800 space-y-1">
+                  <div><strong>Empty</strong> = Log whenever the value changes</div>
+                  <div><strong>0</strong> = No logging (disabled)</div>
+                  <div><strong>> 0</strong> = Log at fixed interval (in seconds)</div>
+                </div>
+              </div>
             </div>
           </div>
+          <% end %>
 
-          <footer>
+          <footer class="mt-6">
             <.button phx-disable-with="Saving..." variant="primary">Save Data Point</.button>
             <.button type="button" onclick="history.back()">Cancel</.button>
           </footer>
@@ -232,22 +306,26 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
     {:ok,
      socket
      |> assign(:ports, PouCon.Hardware.Ports.Ports.list_ports() |> Enum.map(& &1.device_path))
-     |> assign(:threshold_preview, nil)
+     |> assign(:valid_colors, @valid_colors)
+     |> assign(:tabs, @tabs)
+     |> assign(:active_tab, :conversion)
      |> apply_action(socket.assigns.live_action, params)}
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     data_point = DataPoints.get_data_point!(id)
+    zones = DataPoint.parse_color_zones(data_point.color_zones)
 
     socket
     |> assign(:page_title, "Edit Data Point")
     |> assign(:data_point, data_point)
     |> assign(:form, to_form(DataPoints.change_data_point(data_point)))
-    |> assign(:threshold_preview, calculate_preview(data_point))
+    |> assign(:color_zones, zones)
   end
 
   defp apply_action(socket, :new, %{"id" => id}) do
     data_point = DataPoints.get_data_point!(id)
+    zones = DataPoint.parse_color_zones(data_point.color_zones)
 
     socket
     |> assign(:page_title, "New Data Point")
@@ -256,7 +334,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
       :form,
       to_form(DataPoints.change_data_point(data_point, %{name: "#{data_point.name} Copy"}))
     )
-    |> assign(:threshold_preview, calculate_preview(data_point))
+    |> assign(:color_zones, zones)
   end
 
   defp apply_action(socket, :new, _params) do
@@ -266,230 +344,95 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
     |> assign(:page_title, "New Data Point")
     |> assign(:data_point, data_point)
     |> assign(:form, to_form(DataPoints.change_data_point(data_point)))
+    |> assign(:color_zones, [])
   end
 
   @impl true
+  def handle_event("switch_tab", %{"tab" => tab}, socket) do
+    {:noreply, assign(socket, :active_tab, String.to_existing_atom(tab))}
+  end
+
   def handle_event("validate", %{"data_point" => params}, socket) do
     changeset = DataPoints.change_data_point(socket.assigns.data_point, params)
-    preview = calculate_preview_from_params(params)
+    {:noreply, assign(socket, :form, to_form(changeset, action: :validate))}
+  end
 
-    {:noreply,
-     socket
-     |> assign(:form, to_form(changeset, action: :validate))
-     |> assign(:threshold_preview, preview)}
+  def handle_event("add_zone", _params, socket) do
+    zones = socket.assigns.color_zones
+
+    if length(zones) < 5 do
+      # Default new zone based on existing zones or 0-100
+      new_zone = %{"from" => 0, "to" => 100, "color" => "green"}
+      {:noreply, assign(socket, :color_zones, zones ++ [new_zone])}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("remove_zone", %{"idx" => idx_str}, socket) do
+    idx = String.to_integer(idx_str)
+    zones = List.delete_at(socket.assigns.color_zones, idx)
+    {:noreply, assign(socket, :color_zones, zones)}
+  end
+
+  def handle_event("update_zone", %{"idx" => idx_str, "field" => field, "value" => value}, socket) do
+    idx = String.to_integer(idx_str)
+    zones = socket.assigns.color_zones
+
+    updated_zone =
+      zones
+      |> Enum.at(idx, %{})
+      |> Map.put(field, parse_zone_value(field, value))
+
+    updated_zones = List.replace_at(zones, idx, updated_zone)
+    {:noreply, assign(socket, :color_zones, updated_zones)}
+  end
+
+  # Handle select change event - phx-change sends different param structure
+  # Params look like: %{"_target" => ["zone_color_0"], "zone_color_0" => "yellow"}
+  def handle_event("update_zone", %{"_target" => [target]} = params, socket)
+      when is_binary(target) do
+    case Regex.run(~r/^zone_color_(\d+)$/, target) do
+      [_, idx_str] ->
+        idx = String.to_integer(idx_str)
+        color = params[target] || "green"
+        zones = socket.assigns.color_zones
+
+        updated_zone =
+          zones
+          |> Enum.at(idx, %{})
+          |> Map.put("color", color)
+
+        updated_zones = List.replace_at(zones, idx, updated_zone)
+        {:noreply, assign(socket, :color_zones, updated_zones)}
+
+      _ ->
+        {:noreply, socket}
+    end
   end
 
   def handle_event("save", %{"data_point" => params}, socket) do
+    # Ensure color_zones is properly encoded
+    params = Map.put(params, "color_zones", Jason.encode!(socket.assigns.color_zones))
     save_data_point(socket, socket.assigns.live_action, params)
   end
 
-  # ============================================================================
-  # Preview Calculation
-  # ============================================================================
+  defp parse_zone_value("from", value), do: parse_number(value)
+  defp parse_zone_value("to", value), do: parse_number(value)
+  defp parse_zone_value("color", value), do: value
+  defp parse_zone_value(_, value), do: value
 
-  defp calculate_preview(data_point) do
-    calculate_preview_from_values(
-      data_point.threshold_mode,
-      data_point.green_low,
-      data_point.yellow_low,
-      data_point.red_low,
-      data_point.min_valid,
-      data_point.max_valid
-    )
-  end
+  defp parse_number(""), do: 0
 
-  defp calculate_preview_from_params(params) do
-    mode = params["threshold_mode"] || "upper"
-    green = parse_float(params["green_low"])
-    yellow = parse_float(params["yellow_low"])
-    red = parse_float(params["red_low"])
-    min_valid = parse_float(params["min_valid"])
-    max_valid = parse_float(params["max_valid"])
-
-    calculate_preview_from_values(mode, green, yellow, red, min_valid, max_valid)
-  end
-
-  defp parse_float(nil), do: nil
-  defp parse_float(""), do: nil
-  defp parse_float(val) when is_binary(val) do
+  defp parse_number(val) when is_binary(val) do
     case Float.parse(val) do
       {f, _} -> f
-      :error -> nil
-    end
-  end
-  defp parse_float(val) when is_number(val), do: val * 1.0
-
-  defp calculate_preview_from_values(_mode, nil, nil, nil, _min, _max), do: nil
-
-  defp calculate_preview_from_values("upper", green, yellow, red, _min, _max) do
-    ranges = build_upper_ranges(green, yellow, red)
-    %{
-      mode_label: "Higher is Bad",
-      ranges: ranges,
-      note: nil
-    }
-  end
-
-  defp calculate_preview_from_values("lower", green, yellow, red, _min, _max) do
-    ranges = build_lower_ranges(green, yellow, red)
-    %{
-      mode_label: "Lower is Bad",
-      ranges: ranges,
-      note: nil
-    }
-  end
-
-  defp calculate_preview_from_values("range", green, yellow, red, min_valid, max_valid) do
-    if min_valid && max_valid && green do
-      # For range mode, sort thresholds so green is innermost (closest to center)
-      # User can enter in any order - we interpret smallest as red (extreme), largest as green (inner)
-      {sorted_red, sorted_yellow, sorted_green} = sort_range_thresholds(red, yellow, green)
-
-      # Calculate mirrored high thresholds
-      green_high = max_valid - (sorted_green - min_valid)
-      yellow_high = if sorted_yellow, do: max_valid - (sorted_yellow - min_valid), else: nil
-      red_high = if sorted_red, do: max_valid - (sorted_red - min_valid), else: nil
-
-      # Validate that green_low < green_high (otherwise min/max are wrong)
-      if sorted_green >= green_high do
-        %{
-          mode_label: "Middle is Best",
-          ranges: [{"Invalid: green(#{format_num(sorted_green)}) ≥ green_high(#{format_num(green_high)})", "red"}],
-          note: "Adjust min_valid/max_valid so midpoint equals your optimal value. Current midpoint: #{format_num((min_valid + max_valid) / 2)}"
-        }
-      else
-        midpoint = (min_valid + max_valid) / 2
-        ranges = build_range_ranges(sorted_green, sorted_yellow, sorted_red, green_high, yellow_high, red_high)
-        %{
-          mode_label: "Middle is Best (midpoint: #{format_num(midpoint)})",
-          ranges: ranges,
-          note: "Green zone: #{format_num(sorted_green)} - #{format_num(green_high)}" <>
-                if(sorted_yellow, do: " | Yellow: #{format_num(sorted_yellow)} & #{format_num(yellow_high)}", else: "") <>
-                if(sorted_red, do: " | Red: <#{format_num(sorted_red)} or >#{format_num(red_high)}", else: "")
-        }
-      end
-    else
-      %{
-        mode_label: "Middle is Best",
-        ranges: [{"Set min_valid & max_valid", "gray"}],
-        note: "Range mode requires min_valid and max_valid to calculate mirrored thresholds"
-      }
+      :error -> 0
     end
   end
 
-  defp calculate_preview_from_values(_, green, yellow, red, min, max) do
-    # Default to upper mode
-    calculate_preview_from_values("upper", green, yellow, red, min, max)
-  end
-
-  # Sort thresholds for range mode: smallest=red (extreme), middle=yellow, largest=green (inner)
-  defp sort_range_thresholds(red, yellow, green) do
-    values = [red, yellow, green] |> Enum.reject(&is_nil/1) |> Enum.sort()
-
-    case values do
-      [a, b, c] -> {a, b, c}  # red, yellow, green (smallest to largest)
-      [a, b] -> {nil, a, b}   # yellow, green
-      [a] -> {nil, nil, a}    # just green
-      [] -> {nil, nil, nil}
-    end
-  end
-
-  defp build_upper_ranges(green, yellow, red) do
-    ranges = []
-
-    # Build ranges from lowest to highest
-    ranges = if green, do: ranges ++ [{"< #{format_num(green)}", "green"}], else: ranges
-
-    ranges = if green && yellow do
-      ranges ++ [{"#{format_num(green)} - #{format_num(yellow)}", "yellow"}]
-    else
-      ranges
-    end
-
-    ranges = if yellow && red do
-      ranges ++ [{"#{format_num(yellow)} - #{format_num(red)}", "amber"}]
-    else
-      ranges
-    end
-
-    ranges = if red, do: ranges ++ [{"≥ #{format_num(red)}", "red"}], else: ranges
-
-    if Enum.empty?(ranges), do: [{"No thresholds set", "gray"}], else: ranges
-  end
-
-  defp build_lower_ranges(green, yellow, red) do
-    ranges = []
-
-    # Build ranges from highest to lowest (opposite of upper)
-    ranges = if green, do: ranges ++ [{"> #{format_num(green)}", "green"}], else: ranges
-
-    ranges = if green && yellow do
-      ranges ++ [{"#{format_num(yellow)} - #{format_num(green)}", "yellow"}]
-    else
-      ranges
-    end
-
-    ranges = if yellow && red do
-      ranges ++ [{"#{format_num(red)} - #{format_num(yellow)}", "amber"}]
-    else
-      ranges
-    end
-
-    ranges = if red, do: ranges ++ [{"≤ #{format_num(red)}", "red"}], else: ranges
-
-    if Enum.empty?(ranges), do: [{"No thresholds set", "gray"}], else: ranges
-  end
-
-  defp build_range_ranges(green, yellow, red, green_high, yellow_high, red_high) do
-    ranges = []
-
-    # Red low zone
-    ranges = if red, do: ranges ++ [{"< #{format_num(red)}", "red"}], else: ranges
-
-    # Amber low zone
-    ranges = if yellow && red do
-      ranges ++ [{"#{format_num(red)} - #{format_num(yellow)}", "amber"}]
-    else
-      ranges
-    end
-
-    # Yellow low zone
-    ranges = if green && yellow do
-      ranges ++ [{"#{format_num(yellow)} - #{format_num(green)}", "yellow"}]
-    else
-      ranges
-    end
-
-    # Green zone (middle)
-    ranges = if green && green_high do
-      ranges ++ [{"#{format_num(green)} - #{format_num(green_high)}", "green"}]
-    else
-      ranges
-    end
-
-    # Yellow high zone
-    ranges = if green_high && yellow_high do
-      ranges ++ [{"#{format_num(green_high)} - #{format_num(yellow_high)}", "yellow"}]
-    else
-      ranges
-    end
-
-    # Amber high zone
-    ranges = if yellow_high && red_high do
-      ranges ++ [{"#{format_num(yellow_high)} - #{format_num(red_high)}", "amber"}]
-    else
-      ranges
-    end
-
-    # Red high zone
-    ranges = if red_high, do: ranges ++ [{"> #{format_num(red_high)}", "red"}], else: ranges
-
-    if Enum.empty?(ranges), do: [{"No thresholds set", "gray"}], else: ranges
-  end
-
-  defp format_num(nil), do: "?"
-  defp format_num(n) when is_float(n), do: :erlang.float_to_binary(n, decimals: 1)
-  defp format_num(n), do: "#{n}"
+  defp parse_number(val) when is_number(val), do: val
+  defp parse_number(_), do: 0
 
   defp save_data_point(socket, :edit, params) do
     case DataPoints.update_data_point(socket.assigns.data_point, params) do
