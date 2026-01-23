@@ -26,14 +26,6 @@ defmodule PouCon.Equipment.EquipmentLoader do
             "fan" ->
               PouCon.Equipment.Controllers.Fan
 
-            # Generic Sensor controller for all sensor types
-            # The DataPoint's value_type field determines the sensor type
-            t when t in ["temp_sensor", "humidity_sensor", "co2_sensor", "nh3_sensor"] ->
-              PouCon.Equipment.Controllers.Sensor
-
-            "water_meter" ->
-              PouCon.Equipment.Controllers.WaterMeter
-
             "pump" ->
               PouCon.Equipment.Controllers.Pump
 
@@ -58,17 +50,19 @@ defmodule PouCon.Equipment.EquipmentLoader do
             "feed_in" ->
               PouCon.Equipment.Controllers.FeedIn
 
-            "power_meter" ->
-              PouCon.Equipment.Controllers.PowerMeter
-
-            "average_sensor" ->
-              PouCon.Equipment.Controllers.AverageSensor
-
             "siren" ->
               PouCon.Equipment.Controllers.Siren
 
             "power_indicator" ->
               PouCon.Equipment.Controllers.PowerIndicator
+
+            # AverageSensor is special - aggregates multiple sensors
+            "average_sensor" ->
+              PouCon.Equipment.Controllers.AverageSensor
+
+            # All sensor and meter types use the generic Sensor controller
+            t when t in ["temp_sensor", "humidity_sensor", "co2_sensor", "nh3_sensor", "water_meter", "power_meter"] ->
+              PouCon.Equipment.Controllers.Sensor
 
             _ ->
               Logger.warning(

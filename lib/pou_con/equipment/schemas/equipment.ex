@@ -13,6 +13,10 @@ defmodule PouCon.Equipment.Schemas.Equipment do
     timestamps()
   end
 
+  # Types that use the generic Sensor controller (any data point keys allowed)
+  @generic_sensor_types ~w(temp_sensor humidity_sensor co2_sensor nh3_sensor water_meter power_meter)
+
+  # Types with slower polling defaults
   @sensor_meter_types ~w(temp_sensor humidity_sensor co2_sensor nh3_sensor water_meter power_meter average_sensor power_indicator)
 
   def changeset(equipment, attrs) do
@@ -76,11 +80,18 @@ defmodule PouCon.Equipment.Schemas.Equipment do
       try do
         opts = PouCon.Hardware.DataPointTreeParser.parse(data_point_tree_str)
 
-        # Special validation for average_sensor (uses lists, not single data points)
-        if type == "average_sensor" do
-          validate_average_sensor_tree(changeset, opts)
-        else
-          validate_standard_tree(changeset, type, opts)
+        cond do
+          # Average sensor uses lists, special validation
+          type == "average_sensor" ->
+            validate_average_sensor_tree(changeset, opts)
+
+          # Generic sensor types - just need at least one data point
+          type in @generic_sensor_types ->
+            validate_generic_sensor_tree(changeset, opts)
+
+          # Standard equipment with specific required keys
+          true ->
+            validate_standard_tree(changeset, type, opts)
         end
       rescue
         e -> add_error(changeset, :data_point_tree, "parse error: #{inspect(e)}")
@@ -109,6 +120,26 @@ defmodule PouCon.Equipment.Schemas.Equipment do
 
       true ->
         changeset
+    end
+  end
+
+  # Generic sensor/meter types - any keys allowed, just need at least one data point
+  defp validate_generic_sensor_tree(changeset, opts) do
+    if Enum.empty?(opts) do
+      add_error(changeset, :data_point_tree, "at least one data point must be configured")
+    else
+      # Validate all values are non-empty strings (data point names)
+      invalid =
+        Enum.filter(opts, fn {_k, v} ->
+          !is_binary(v) || String.trim(v) == ""
+        end)
+
+      if invalid != [] do
+        keys = Enum.map(invalid, fn {k, _v} -> k end)
+        add_error(changeset, :data_point_tree, "invalid (non-string or empty) values for keys: #{inspect(keys)}")
+      else
+        changeset
+      end
     end
   end
 
@@ -170,18 +201,11 @@ defmodule PouCon.Equipment.Schemas.Equipment do
       :trip
     ]
 
-  # Sensor types - all use :sensor key
-  defp required_keys_for_type("temp_sensor"), do: [:sensor]
-  defp required_keys_for_type("humidity_sensor"), do: [:sensor]
-  defp required_keys_for_type("co2_sensor"), do: [:sensor]
-  defp required_keys_for_type("nh3_sensor"), do: [:sensor]
-
-  # Meter types
-  defp required_keys_for_type("water_meter"), do: [:meter]
-  defp required_keys_for_type("power_meter"), do: [:meter]
-
   # Average sensor uses list values, validation handled separately
   defp required_keys_for_type("average_sensor"), do: []
+
+  # Generic sensor/meter types - validation handled by validate_generic_sensor_tree
+  defp required_keys_for_type(type) when type in @generic_sensor_types, do: []
 
   # Power indicator - simple digital input for status monitoring
   defp required_keys_for_type("power_indicator"), do: [:indicator]

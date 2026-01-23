@@ -27,15 +27,9 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
       :auto_manual
     ],
     "feed_in" => [:filling_coil, :running_feedback, :auto_manual, :full_switch],
-    # Single-purpose sensors
-    "temp_sensor" => [:sensor],
-    "humidity_sensor" => [:sensor],
-    "co2_sensor" => [:sensor],
-    "nh3_sensor" => [:sensor],
-    # Meters
-    "water_meter" => [:meter],
-    "power_meter" => [:meter],
-    # Average sensor (uses comma-separated lists of sensor equipment names)
+    "siren" => [:on_off_coil, :auto_manual],
+    "power_indicator" => [:indicator],
+    # Average sensor (uses comma-separated lists of data point names)
     "average_sensor" => [:temp_sensors]
   }
 
@@ -44,8 +38,12 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
     "average_sensor" => [:humidity_sensors, :co2_sensors, :nh3_sensors]
   }
 
+  # Generic sensor/meter types - any keys allowed
+  @generic_sensor_types ~w(temp_sensor humidity_sensor co2_sensor nh3_sensor water_meter power_meter)
+
   defp required_keys_for_type(type), do: Map.get(@required_keys, type, [])
   defp optional_keys_for_type(type), do: Map.get(@optional_keys, type, [])
+  defp is_generic_sensor_type?(type), do: type in @generic_sensor_types
 
   # ——————————————————————————————————————————————
   # Data Point Links Component
@@ -186,21 +184,28 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
           <% type = @form[:type].value %>
           <% required = if type, do: required_keys_for_type(type), else: [] %>
           <% optional = if type, do: optional_keys_for_type(type), else: [] %>
-          <%= if required != [] or optional != [] do %>
-            <div class="font-sans mb-2 -mt-2 text-sm">
-              <%= if required != [] do %>
-                <div>
-                  <span class="text-gray-600">Required:</span>
-                  <span class="text-gray-400">{Enum.join(required, ", ")}</span>
-                </div>
-              <% end %>
-              <%= if optional != [] do %>
-                <div>
-                  <span class="text-gray-600">Optional:</span>
-                  <span class="text-gray-400">{Enum.join(optional, ", ")}</span>
-                </div>
-              <% end %>
+          <% is_generic = type && is_generic_sensor_type?(type) %>
+          <%= if is_generic do %>
+            <div class="font-sans mb-2 -mt-2 text-sm text-gray-500">
+              Any key: data_point_name pairs (e.g., temperature: temp_dp_1)
             </div>
+          <% else %>
+            <%= if required != [] or optional != [] do %>
+              <div class="font-sans mb-2 -mt-2 text-sm">
+                <%= if required != [] do %>
+                  <div>
+                    <span class="text-gray-600">Required:</span>
+                    <span class="text-gray-400">{Enum.join(required, ", ")}</span>
+                  </div>
+                <% end %>
+                <%= if optional != [] do %>
+                  <div>
+                    <span class="text-gray-600">Optional:</span>
+                    <span class="text-gray-400">{Enum.join(optional, ", ")}</span>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
           <% end %>
           <.data_point_links
             data_point_tree={@form[:data_point_tree].value}
