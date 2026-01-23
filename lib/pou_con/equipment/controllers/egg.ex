@@ -451,7 +451,8 @@ defmodule PouCon.Equipment.Controllers.Egg do
       error: state.error,
       error_message: Helpers.error_message(state.error),
       interlocked: state.interlocked,
-      is_auto_manual_virtual_di: state.is_auto_manual_virtual_di
+      is_auto_manual_virtual_di: state.is_auto_manual_virtual_di,
+      inverted: state.inverted
     }
 
     {:reply, reply, state}

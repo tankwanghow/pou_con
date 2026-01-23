@@ -291,7 +291,8 @@ defmodule PouCon.Equipment.Controllers.DungExit do
       is_tripped: state.is_tripped,
       error: state.error,
       error_message: Helpers.error_message(state.error),
-      interlocked: state.interlocked
+      interlocked: state.interlocked,
+      inverted: state.inverted
     }
 
     {:reply, reply, state}

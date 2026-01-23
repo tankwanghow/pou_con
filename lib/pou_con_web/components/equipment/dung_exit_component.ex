@@ -28,6 +28,7 @@ defmodule PouConWeb.Components.Equipment.DungExitComponent do
           color={@display.color}
           is_running={@display.is_running}
           equipment_id={@equipment_id}
+          inverted={@status[:inverted] || false}
         >
           <:controls>
             <Shared.manual_only_badge />

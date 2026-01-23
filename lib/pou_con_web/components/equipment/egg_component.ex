@@ -28,6 +28,7 @@ defmodule PouConWeb.Components.Equipment.EggComponent do
           color={@display.color}
           is_running={@display.is_running}
           equipment_id={@equipment_id}
+          inverted={@status[:inverted] || false}
         >
           <:controls>
             <%= if @display.is_auto_manual_virtual_di do %>
