@@ -85,6 +85,7 @@ defmodule PouCon.Hardware.DataPointManager do
       offset: 0.0,
       unit: nil,
       value_type: nil,
+      byte_order: "high_low",
       min_valid: nil,
       max_valid: nil
     ]
@@ -670,6 +671,7 @@ defmodule PouCon.Hardware.DataPointManager do
           offset: d.offset || 0.0,
           unit: d.unit,
           value_type: d.value_type,
+          byte_order: d.byte_order || "high_low",
           min_valid: d.min_valid,
           max_valid: d.max_valid
         }
@@ -690,11 +692,31 @@ defmodule PouCon.Hardware.DataPointManager do
   end
 
   # Determine 5th parameter for data point read functions
+  # New version with byte_order support
+  defp get_fifth_param(%{
+         read_fn: read_fn,
+         channel: channel,
+         value_type: value_type,
+         byte_order: byte_order
+       }) do
+    case read_fn do
+      :read_analog_input ->
+        %{type: parse_value_type(value_type), byte_order: byte_order || "high_low"}
+
+      :read_analog_output ->
+        %{type: parse_value_type(value_type), byte_order: byte_order || "high_low"}
+
+      # Digital I/O uses channel
+      _ ->
+        channel
+    end
+  end
+
+  # Fallback for data points without byte_order field (backward compatibility)
   defp get_fifth_param(%{read_fn: read_fn, channel: channel, value_type: value_type}) do
     case read_fn do
-      :read_analog_input -> parse_value_type(value_type)
-      :read_analog_output -> parse_value_type(value_type)
-      # Digital I/O uses channel
+      :read_analog_input -> %{type: parse_value_type(value_type), byte_order: "high_low"}
+      :read_analog_output -> %{type: parse_value_type(value_type), byte_order: "high_low"}
       _ -> channel
     end
   end
