@@ -72,18 +72,22 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
   - `protocol` - Protocol atom (:modbus_rtu, :modbus_tcp, :s7)
   - `slave_id` - Modbus slave address (ignored for S7)
   - `register` - Register/word address
-  - `data_type` - Data type: :uint16, :int16, :uint32, :int32, :float32 (default: :uint16)
+  - `data_type_or_opts` - Either:
+    - Atom: :uint16, :int16, :uint32, :int32, :float32 (default: :uint16, byte_order: "high_low")
+    - Map: %{type: :uint32, byte_order: "low_high"} for DIJIANG/Chinese meters
   """
-  def read_analog_input(conn, protocol, slave_id, register, data_type \\ :uint16)
+  def read_analog_input(conn, protocol, slave_id, register, data_type_or_opts \\ :uint16)
 
   # Modbus RTU/TCP - Input Registers
-  def read_analog_input(conn, protocol, slave_id, register, data_type)
+  def read_analog_input(conn, protocol, slave_id, register, data_type_or_opts)
       when protocol in [:modbus_rtu, :modbus_tcp] do
-    read_modbus_register(conn, :input, slave_id, register, data_type)
+    {data_type, byte_order} = normalize_type_and_order(data_type_or_opts)
+    read_modbus_register(conn, :input, slave_id, register, data_type, byte_order)
   end
 
   # S7 - Peripheral Input Word
-  def read_analog_input(conn, :s7, _slave_id, word_address, data_type) do
+  def read_analog_input(conn, :s7, _slave_id, word_address, data_type_or_opts) do
+    {data_type, _byte_order} = normalize_type_and_order(data_type_or_opts)
     read_s7_input(conn, word_address, data_type)
   end
 
@@ -93,14 +97,16 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
   For Modbus: Uses function code 03 (Read Holding Registers)
   For S7: Reads from output area or data block
   """
-  def read_analog_output(conn, protocol, slave_id, register, data_type \\ :uint16)
+  def read_analog_output(conn, protocol, slave_id, register, data_type_or_opts \\ :uint16)
 
-  def read_analog_output(conn, protocol, slave_id, register, data_type)
+  def read_analog_output(conn, protocol, slave_id, register, data_type_or_opts)
       when protocol in [:modbus_rtu, :modbus_tcp] do
-    read_modbus_register(conn, :holding, slave_id, register, data_type)
+    {data_type, byte_order} = normalize_type_and_order(data_type_or_opts)
+    read_modbus_register(conn, :holding, slave_id, register, data_type, byte_order)
   end
 
-  def read_analog_output(conn, :s7, _slave_id, word_address, data_type) do
+  def read_analog_output(conn, :s7, _slave_id, word_address, data_type_or_opts) do
+    {data_type, _byte_order} = normalize_type_and_order(data_type_or_opts)
     # S7 typically reads output feedback from input area or a DB
     read_s7_input(conn, word_address, data_type)
   end
@@ -121,9 +127,9 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
   - `slave_id` - Modbus slave address (ignored for S7)
   - `register` - Register/word address
   - `{:set_value, %{value: number}}` - Command tuple
-  - `data_type` - Data type for encoding
+  - `data_type_or_opts` - Data type for encoding (atom or map)
   """
-  def write_analog_output(conn, protocol, slave_id, register, command, data_type \\ :uint16)
+  def write_analog_output(conn, protocol, slave_id, register, command, data_type_or_opts \\ :uint16)
 
   def write_analog_output(
         conn,
@@ -131,10 +137,11 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
         slave_id,
         register,
         {:set_value, %{value: value}},
-        data_type
+        data_type_or_opts
       )
       when protocol in [:modbus_rtu, :modbus_tcp] do
-    write_modbus_register(conn, slave_id, register, value, data_type)
+    {data_type, byte_order} = normalize_type_and_order(data_type_or_opts)
+    write_modbus_register(conn, slave_id, register, value, data_type, byte_order)
   end
 
   def write_analog_output(
@@ -143,8 +150,9 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
         _slave_id,
         word_address,
         {:set_value, %{value: value}},
-        data_type
+        data_type_or_opts
       ) do
+    {data_type, _byte_order} = normalize_type_and_order(data_type_or_opts)
     write_s7_output(conn, word_address, value, data_type)
   end
 
@@ -170,15 +178,36 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
   end
 
   # ------------------------------------------------------------------ #
+  # Helper Functions
+  # ------------------------------------------------------------------ #
+
+  # Normalize data_type input - accepts either atom or map
+  # Returns {data_type_atom, byte_order_string}
+  defp normalize_type_and_order(data_type) when is_atom(data_type) do
+    {data_type, "high_low"}
+  end
+
+  defp normalize_type_and_order(%{type: type, byte_order: byte_order}) do
+    {type, byte_order}
+  end
+
+  defp normalize_type_and_order(%{type: type}) do
+    {type, "high_low"}
+  end
+
+  # Fallback for backward compatibility
+  defp normalize_type_and_order(_), do: {:uint16, "high_low"}
+
+  # ------------------------------------------------------------------ #
   # Modbus Implementation
   # ------------------------------------------------------------------ #
 
-  defp read_modbus_register(conn, register_type, slave_id, register, data_type) do
+  defp read_modbus_register(conn, register_type, slave_id, register, data_type, byte_order \\ "high_low") do
     {cmd, _count} = modbus_read_params(register_type, data_type, slave_id, register)
 
     case PouCon.Utils.Modbus.request(conn, cmd) do
       {:ok, values} ->
-        decoded = decode_modbus_value(values, data_type)
+        decoded = decode_modbus_value(values, data_type, byte_order)
         {:ok, %{value: decoded, raw: decoded}}
 
       {:error, reason} ->
@@ -192,8 +221,8 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
     {{cmd_atom, slave_id, register, count}, count}
   end
 
-  defp write_modbus_register(conn, slave_id, register, value, data_type) do
-    encoded = encode_modbus_value(value, data_type)
+  defp write_modbus_register(conn, slave_id, register, value, data_type, byte_order \\ "high_low") do
+    encoded = encode_modbus_value(value, data_type, byte_order)
 
     case encoded do
       [single] ->
@@ -202,9 +231,9 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
           error -> error
         end
 
-      [high, low] ->
-        with :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register, high}),
-             :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register + 1, low}) do
+      [word1, word2] ->
+        with :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register, word1}),
+             :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register + 1, word2}) do
           {:ok, :success}
         end
 
@@ -257,56 +286,131 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
   defp register_count(_), do: 1
 
   # Modbus decoding (list of 16-bit values)
-  defp decode_modbus_value([value], :uint16), do: value
-  defp decode_modbus_value([value], :int16) when value > 32767, do: value - 65536
-  defp decode_modbus_value([value], :int16), do: value
+  # 16-bit values don't need byte order (single register)
+  # Made public for testing but not part of public API
+  @doc false
+  def decode_modbus_value([value], :uint16, _byte_order), do: value
+  @doc false
+  def decode_modbus_value([value], :int16, _byte_order) when value > 32767, do: value - 65536
+  @doc false
+  def decode_modbus_value([value], :int16, _byte_order), do: value
 
-  defp decode_modbus_value([high, low], :uint32) do
-    Bitwise.bsl(high, 16) + low
+  # 32-bit values - respect byte order
+  # "high_low" = standard Modbus (high word first) - most common
+  # "low_high" = DIJIANG/Chinese meters (low word first)
+  @doc false
+  def decode_modbus_value([word1, word2], :uint32, "high_low") do
+    Bitwise.bsl(word1, 16) + word2
   end
 
-  defp decode_modbus_value([high, low], :int32) do
-    unsigned = Bitwise.bsl(high, 16) + low
+  @doc false
+  def decode_modbus_value([word1, word2], :uint32, "low_high") do
+    Bitwise.bsl(word2, 16) + word1
+  end
+
+  @doc false
+  def decode_modbus_value([word1, word2], :int32, "high_low") do
+    unsigned = Bitwise.bsl(word1, 16) + word2
     if unsigned > 2_147_483_647, do: unsigned - 4_294_967_296, else: unsigned
   end
 
-  defp decode_modbus_value([high, low], :float32) do
+  @doc false
+  def decode_modbus_value([word1, word2], :int32, "low_high") do
+    unsigned = Bitwise.bsl(word2, 16) + word1
+    if unsigned > 2_147_483_647, do: unsigned - 4_294_967_296, else: unsigned
+  end
+
+  @doc false
+  def decode_modbus_value([word1, word2], :float32, "high_low") do
     try do
-      <<value::float-big-32>> = <<high::16, low::16>>
+      <<value::float-big-32>> = <<word1::16, word2::16>>
       Float.round(value, 3)
     rescue
       _ -> nil
     end
   end
 
-  defp decode_modbus_value(values, _), do: hd(values)
+  @doc false
+  def decode_modbus_value([word1, word2], :float32, "low_high") do
+    try do
+      <<value::float-big-32>> = <<word2::16, word1::16>>
+      Float.round(value, 3)
+    rescue
+      _ -> nil
+    end
+  end
+
+  # Fallback
+  @doc false
+  def decode_modbus_value(values, _, _), do: hd(values)
 
   # Modbus encoding (returns list of 16-bit values)
-  defp encode_modbus_value(value, :uint16) when is_number(value) do
+  # 16-bit values don't need byte order (single register)
+  # Made public for testing but not part of public API
+  @doc false
+  def encode_modbus_value(value, :uint16, _byte_order) when is_number(value) do
     [round(value) |> max(0) |> min(65535)]
   end
 
-  defp encode_modbus_value(value, :int16) when is_number(value) do
+  @doc false
+  def encode_modbus_value(value, :int16, _byte_order) when is_number(value) do
     clamped = round(value) |> max(-32768) |> min(32767)
     unsigned = if clamped < 0, do: clamped + 65536, else: clamped
     [unsigned]
   end
 
-  defp encode_modbus_value(value, :uint32) when is_number(value) do
+  # 32-bit values - respect byte order
+  @doc false
+  def encode_modbus_value(value, :uint32, "high_low") when is_number(value) do
     v = round(value)
     [Bitwise.bsr(v, 16) |> Bitwise.band(0xFFFF), Bitwise.band(v, 0xFFFF)]
   end
 
-  defp encode_modbus_value(value, :float32) when is_number(value) do
+  @doc false
+  def encode_modbus_value(value, :uint32, "low_high") when is_number(value) do
+    v = round(value)
+    [Bitwise.band(v, 0xFFFF), Bitwise.bsr(v, 16) |> Bitwise.band(0xFFFF)]
+  end
+
+  @doc false
+  def encode_modbus_value(value, :int32, "high_low") when is_number(value) do
+    v = round(value)
+    # Convert to unsigned for encoding
+    unsigned = if v < 0, do: v + 4_294_967_296, else: v
+    [Bitwise.bsr(unsigned, 16) |> Bitwise.band(0xFFFF), Bitwise.band(unsigned, 0xFFFF)]
+  end
+
+  @doc false
+  def encode_modbus_value(value, :int32, "low_high") when is_number(value) do
+    v = round(value)
+    # Convert to unsigned for encoding
+    unsigned = if v < 0, do: v + 4_294_967_296, else: v
+    [Bitwise.band(unsigned, 0xFFFF), Bitwise.bsr(unsigned, 16) |> Bitwise.band(0xFFFF)]
+  end
+
+  @doc false
+  def encode_modbus_value(value, :float32, "high_low") when is_number(value) do
     try do
-      <<high::16, low::16>> = <<value * 1.0::float-big-32>>
-      [high, low]
+      <<word1::16, word2::16>> = <<value * 1.0::float-big-32>>
+      [word1, word2]
     rescue
       _ -> {:error, :encoding_failed}
     end
   end
 
-  defp encode_modbus_value(value, _), do: [round(value) |> max(0) |> min(65535)]
+  @doc false
+  def encode_modbus_value(value, :float32, "low_high") when is_number(value) do
+    try do
+      <<word1::16, word2::16>> = <<value * 1.0::float-big-32>>
+      [word2, word1]
+    rescue
+      _ -> {:error, :encoding_failed}
+    end
+  end
+
+  # Fallback
+  @doc false
+  def encode_modbus_value(value, _, _), do: [round(value) |> max(0) |> min(65535)]
 
   # S7 decoding (binary data)
   defp decode_s7_value(<<value::unsigned-big-16>>, :uint16), do: value

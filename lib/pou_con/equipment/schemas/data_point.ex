@@ -72,6 +72,11 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
     field :unit, :string
     field :value_type, :string
 
+    # Byte order for 32-bit values (uint32, int32, float32)
+    # "high_low" = standard Modbus (high word first, most common)
+    # "low_high" = DIJIANG/some Chinese meters (low word first)
+    field :byte_order, :string, default: "high_low"
+
     # Validation range (optional)
     field :min_valid, :float
     field :max_valid, :float
@@ -113,6 +118,7 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
       :offset,
       :unit,
       :value_type,
+      :byte_order,
       :min_valid,
       :max_valid,
       # Zone-based color system
