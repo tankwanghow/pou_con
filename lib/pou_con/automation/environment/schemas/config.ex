@@ -12,55 +12,40 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
 
     field :enabled, :boolean, default: false
 
-    # 10-step control configuration
-    # Each step has: temp threshold, fan names (comma-separated), pump names (comma-separated)
+    # Polling interval for EnvironmentController
+    field :environment_poll_interval_ms, :integer, default: 5000
+
+    # Failsafe fans: number of fans user keeps in MANUAL mode + ON
+    # System validates this matches actual manual+on fan count
+    field :failsafe_fans_count, :integer, default: 1
+
+    # 5-step control configuration
+    # Each step has: temp threshold, extra_fans (integer count), pump names (comma-separated)
+    # Total fans at step = failsafe_fans_count (manual) + extra_fans (auto)
     field :step_1_temp, :float, default: 0.0
-    field :step_1_fans, :string, default: ""
+    field :step_1_extra_fans, :integer, default: 0
     field :step_1_pumps, :string, default: ""
 
     field :step_2_temp, :float, default: 0.0
-    field :step_2_fans, :string, default: ""
+    field :step_2_extra_fans, :integer, default: 0
     field :step_2_pumps, :string, default: ""
 
     field :step_3_temp, :float, default: 0.0
-    field :step_3_fans, :string, default: ""
+    field :step_3_extra_fans, :integer, default: 0
     field :step_3_pumps, :string, default: ""
 
     field :step_4_temp, :float, default: 0.0
-    field :step_4_fans, :string, default: ""
+    field :step_4_extra_fans, :integer, default: 0
     field :step_4_pumps, :string, default: ""
 
     field :step_5_temp, :float, default: 0.0
-    field :step_5_fans, :string, default: ""
+    field :step_5_extra_fans, :integer, default: 0
     field :step_5_pumps, :string, default: ""
-
-    field :step_6_temp, :float, default: 0.0
-    field :step_6_fans, :string, default: ""
-    field :step_6_pumps, :string, default: ""
-
-    field :step_7_temp, :float, default: 0.0
-    field :step_7_fans, :string, default: ""
-    field :step_7_pumps, :string, default: ""
-
-    field :step_8_temp, :float, default: 0.0
-    field :step_8_fans, :string, default: ""
-    field :step_8_pumps, :string, default: ""
-
-    field :step_9_temp, :float, default: 0.0
-    field :step_9_fans, :string, default: ""
-    field :step_9_pumps, :string, default: ""
-
-    field :step_10_temp, :float, default: 0.0
-    field :step_10_fans, :string, default: ""
-    field :step_10_pumps, :string, default: ""
-
-    # Polling interval for EnvironmentController
-    field :environment_poll_interval_ms, :integer, default: 5000
 
     timestamps()
   end
 
-  @step_fields (for n <- 1..10, field <- [:temp, :fans, :pumps] do
+  @step_fields (for n <- 1..5, field <- [:temp, :extra_fans, :pumps] do
                   String.to_atom("step_#{n}_#{field}")
                 end)
 
@@ -74,7 +59,8 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
         :hum_min,
         :hum_max,
         :enabled,
-        :environment_poll_interval_ms
+        :environment_poll_interval_ms,
+        :failsafe_fans_count
       ] ++
         @step_fields
     )
@@ -86,12 +72,14 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
       greater_than_or_equal_to: 1000,
       less_than_or_equal_to: 60000
     )
+    |> validate_number(:failsafe_fans_count, greater_than_or_equal_to: 1)
     |> validate_step_temps()
+    |> validate_step_extra_fans()
     |> validate_active_steps()
   end
 
   defp validate_step_temps(changeset) do
-    Enum.reduce(1..10, changeset, fn n, cs ->
+    Enum.reduce(1..5, changeset, fn n, cs ->
       validate_number(cs, String.to_atom("step_#{n}_temp"),
         greater_than_or_equal_to: 0,
         less_than_or_equal_to: 50
@@ -99,31 +87,35 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
     end)
   end
 
+  defp validate_step_extra_fans(changeset) do
+    Enum.reduce(1..5, changeset, fn n, cs ->
+      validate_number(cs, String.to_atom("step_#{n}_extra_fans"),
+        greater_than_or_equal_to: 0
+      )
+    end)
+  end
+
   # Validates active steps:
   # 1. Active steps must be consecutive starting from step 1 (no gaps)
-  # 2. Every active step (temp > 0) has at least one fan
-  # 3. Fan count does not decrease as steps increase (by temperature)
-  # 4. Step temperatures must be in strictly ascending order by step number
+  # 2. Extra fans count does not decrease as steps increase (by temperature)
+  # 3. Step temperatures must be in strictly ascending order by step number
   defp validate_active_steps(changeset) do
-    # Build list of active steps from the changeset (after applying changes)
-    # Keep original step order for temperature ascending validation
+    # Build list of active steps from the changeset
     active_steps_by_step_num =
-      1..10
+      1..5
       |> Enum.map(fn n ->
         temp = get_field(changeset, String.to_atom("step_#{n}_temp"))
-        fans_str = get_field(changeset, String.to_atom("step_#{n}_fans"))
-        fans = parse_order(fans_str)
-        %{step: n, temp: temp, fans: fans, fan_count: length(fans)}
+        extra_fans = get_field(changeset, String.to_atom("step_#{n}_extra_fans")) || 0
+        %{step: n, temp: temp, extra_fans: extra_fans}
       end)
       |> Enum.filter(fn step -> step.temp != nil and step.temp > 0 end)
 
-    # Sort by temperature for fan count validation (higher temps need >= fans)
+    # Sort by temperature for extra_fans count validation
     active_steps_by_temp = Enum.sort_by(active_steps_by_step_num, & &1.temp)
 
     changeset
     |> validate_consecutive_steps(active_steps_by_step_num)
-    |> validate_step_has_fans(active_steps_by_step_num)
-    |> validate_fan_count_progression(active_steps_by_temp)
+    |> validate_extra_fans_progression(active_steps_by_temp)
     |> validate_temp_ascending(active_steps_by_step_num)
   end
 
@@ -137,7 +129,6 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
     if step_numbers == expected_steps do
       changeset
     else
-      # Find the first gap or issue
       cond do
         # First active step is not step 1
         hd(step_numbers) != 1 ->
@@ -151,12 +142,10 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
 
         # There's a gap in the sequence
         true ->
-          # Find the first missing step
           missing_step =
             Enum.find(expected_steps, fn n -> n not in step_numbers end) ||
               length(step_numbers) + 1
 
-          # Find the step after the gap
           step_after_gap = Enum.find(step_numbers, fn n -> n > missing_step end)
 
           if step_after_gap do
@@ -172,35 +161,20 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
     end
   end
 
-  # Validate each active step has at least one fan
-  defp validate_step_has_fans(changeset, active_steps) do
-    Enum.reduce(active_steps, changeset, fn step, cs ->
-      if step.fan_count == 0 do
-        add_error(
-          cs,
-          String.to_atom("step_#{step.step}_fans"),
-          "active step must have at least one fan"
-        )
-      else
-        cs
-      end
-    end)
-  end
-
-  # Validate fan count doesn't decrease between consecutive steps (by temperature order)
-  defp validate_fan_count_progression(changeset, active_steps) when length(active_steps) < 2 do
+  # Validate extra_fans count doesn't decrease between consecutive steps (by temperature order)
+  defp validate_extra_fans_progression(changeset, active_steps) when length(active_steps) < 2 do
     changeset
   end
 
-  defp validate_fan_count_progression(changeset, active_steps) do
+  defp validate_extra_fans_progression(changeset, active_steps) do
     active_steps
     |> Enum.chunk_every(2, 1, :discard)
     |> Enum.reduce(changeset, fn [lower, higher], cs ->
-      if higher.fan_count < lower.fan_count do
+      if higher.extra_fans < lower.extra_fans do
         add_error(
           cs,
-          String.to_atom("step_#{higher.step}_fans"),
-          "must have at least #{lower.fan_count} fans (same as step #{lower.step} at #{lower.temp}°C)"
+          String.to_atom("step_#{higher.step}_extra_fans"),
+          "must be at least #{lower.extra_fans} (same as step #{lower.step} at #{lower.temp}C)"
         )
       else
         cs
@@ -221,7 +195,7 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
         add_error(
           cs,
           String.to_atom("step_#{higher.step}_temp"),
-          "must be greater than #{lower.temp}°C (step #{lower.step})"
+          "must be greater than #{lower.temp}C (step #{lower.step})"
         )
       else
         cs
@@ -246,15 +220,15 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
   Extract steps as a sorted list of maps for the control algorithm.
   Only includes steps with temp > 0 (active steps).
 
-  Returns: [%{temp: 24.0, fans: ["fan_1", "fan_2"], pumps: ["pump_1"]}, ...]
+  Returns: [%{step: 1, temp: 24.0, extra_fans: 2, pumps: ["pump_1"]}, ...]
   """
   def get_active_steps(config) do
-    1..10
+    1..5
     |> Enum.map(fn n ->
       %{
         step: n,
         temp: Map.get(config, String.to_atom("step_#{n}_temp")),
-        fans: parse_order(Map.get(config, String.to_atom("step_#{n}_fans"))),
+        extra_fans: Map.get(config, String.to_atom("step_#{n}_extra_fans")) || 0,
         pumps: parse_order(Map.get(config, String.to_atom("step_#{n}_pumps")))
       }
     end)
@@ -265,7 +239,7 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
   @doc """
   Find the appropriate step for a given temperature.
   Returns the highest step whose temp threshold is <= current_temp.
-  If current_temp is below all thresholds, returns nil (no action needed).
+  If current_temp is below all thresholds, returns nil.
   """
   def find_step_for_temp(config, current_temp) do
     config

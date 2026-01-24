@@ -91,7 +91,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_role={@current_role}>
+    <Layouts.app flash={@flash} current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
       <div class="mx-auto w-2xl">
         <.header>
           {@page_title}

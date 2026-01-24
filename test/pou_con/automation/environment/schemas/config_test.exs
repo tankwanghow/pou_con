@@ -12,14 +12,16 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
       assert get_field(changeset, :stagger_delay_seconds) == 5
       assert get_field(changeset, :delay_between_step_seconds) == 120
       assert get_field(changeset, :enabled) == false
+      assert get_field(changeset, :failsafe_fans_count) == 1
     end
 
     test "valid changeset with step configuration" do
       changeset =
         %Config{}
         |> Config.changeset(%{
+          failsafe_fans_count: 2,
           step_1_temp: 25.0,
-          step_1_fans: "fan_1, fan_2",
+          step_1_extra_fans: 2,
           step_1_pumps: "pump_1"
         })
 
@@ -78,125 +80,92 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
       assert %{step_1_temp: ["must be less than or equal to 50"]} = errors_on(changeset)
     end
 
+    test "validates failsafe_fans_count minimum is 1" do
+      changeset = %Config{} |> Config.changeset(%{failsafe_fans_count: 0})
+      refute changeset.valid?
+
+      assert %{failsafe_fans_count: ["must be greater than or equal to 1"]} =
+               errors_on(changeset)
+    end
+
+    test "validates extra_fans is non-negative" do
+      changeset = %Config{} |> Config.changeset(%{step_1_extra_fans: -1})
+      refute changeset.valid?
+
+      assert %{step_1_extra_fans: ["must be greater than or equal to 0"]} =
+               errors_on(changeset)
+    end
+
     test "accepts valid step configuration" do
-      # Disable default steps and only configure two valid steps
+      # Configure two valid steps
       changeset =
         %Config{}
         |> Config.changeset(%{
+          failsafe_fans_count: 2,
           step_1_temp: 24.0,
-          step_1_fans: "fan_1",
+          step_1_extra_fans: 2,
           step_1_pumps: "",
           step_2_temp: 28.0,
-          step_2_fans: "fan_1, fan_2",
+          step_2_extra_fans: 4,
           step_2_pumps: "pump_1",
           step_3_temp: 0.0,
           step_4_temp: 0.0,
-          step_5_temp: 0.0,
-          step_6_temp: 0.0,
-          step_7_temp: 0.0,
-          step_8_temp: 0.0,
-          step_9_temp: 0.0,
-          step_10_temp: 0.0
+          step_5_temp: 0.0
         })
 
       assert changeset.valid?
     end
 
-    test "rejects active step with no fans" do
-      # Create a struct with no fans for step 1 (simulating db record with empty fans)
-      config =
-        struct(Config, %{
-          step_1_temp: 24.0,
-          step_1_fans: "",
-          step_2_temp: 0.0,
-          step_2_fans: "",
-          step_3_temp: 0.0,
-          step_3_fans: "",
-          step_4_temp: 0.0,
-          step_4_fans: "",
-          step_5_temp: 0.0,
-          step_5_fans: "",
-          step_6_temp: 0.0,
-          step_6_fans: "",
-          step_7_temp: 0.0,
-          step_7_fans: "",
-          step_8_temp: 0.0,
-          step_8_fans: "",
-          step_9_temp: 0.0,
-          step_9_fans: "",
-          step_10_temp: 0.0,
-          step_10_fans: ""
-        })
-
-      # Validate the existing config (no changes needed to trigger validation)
-      changeset = Config.changeset(config, %{})
-
-      refute changeset.valid?
-      assert %{step_1_fans: ["active step must have at least one fan"]} = errors_on(changeset)
-    end
-
-    test "rejects decreasing fan count in higher temperature steps" do
+    test "rejects decreasing extra_fans count in higher temperature steps" do
       changeset =
         %Config{}
         |> Config.changeset(%{
+          failsafe_fans_count: 1,
           step_1_temp: 24.0,
-          step_1_fans: "fan_1, fan_2, fan_3",
+          step_1_extra_fans: 4,
           step_2_temp: 28.0,
-          step_2_fans: "fan_1, fan_2",
+          step_2_extra_fans: 2,
           step_3_temp: 0.0,
           step_4_temp: 0.0,
-          step_5_temp: 0.0,
-          step_6_temp: 0.0,
-          step_7_temp: 0.0,
-          step_8_temp: 0.0,
-          step_9_temp: 0.0,
-          step_10_temp: 0.0
+          step_5_temp: 0.0
         })
 
       refute changeset.valid?
 
-      assert %{step_2_fans: [msg]} = errors_on(changeset)
-      assert msg =~ "must have at least 3 fans"
+      assert %{step_2_extra_fans: [msg]} = errors_on(changeset)
+      assert msg =~ "must be at least"
     end
 
-    test "allows increasing fan count in higher temperature steps" do
+    test "allows increasing extra_fans count in higher temperature steps" do
       changeset =
         %Config{}
         |> Config.changeset(%{
+          failsafe_fans_count: 2,
           step_1_temp: 24.0,
-          step_1_fans: "fan_1",
+          step_1_extra_fans: 2,
           step_2_temp: 28.0,
-          step_2_fans: "fan_1, fan_2",
+          step_2_extra_fans: 4,
           step_3_temp: 32.0,
-          step_3_fans: "fan_1, fan_2, fan_3",
+          step_3_extra_fans: 6,
           step_4_temp: 0.0,
-          step_5_temp: 0.0,
-          step_6_temp: 0.0,
-          step_7_temp: 0.0,
-          step_8_temp: 0.0,
-          step_9_temp: 0.0,
-          step_10_temp: 0.0
+          step_5_temp: 0.0
         })
 
       assert changeset.valid?
     end
 
-    test "allows same fan count in consecutive steps" do
+    test "allows same extra_fans count in consecutive steps" do
       changeset =
         %Config{}
         |> Config.changeset(%{
+          failsafe_fans_count: 2,
           step_1_temp: 24.0,
-          step_1_fans: "fan_1, fan_2",
+          step_1_extra_fans: 4,
           step_2_temp: 28.0,
-          step_2_fans: "fan_1, fan_2",
+          step_2_extra_fans: 4,
           step_3_temp: 0.0,
           step_4_temp: 0.0,
-          step_5_temp: 0.0,
-          step_6_temp: 0.0,
-          step_7_temp: 0.0,
-          step_8_temp: 0.0,
-          step_9_temp: 0.0,
-          step_10_temp: 0.0
+          step_5_temp: 0.0
         })
 
       assert changeset.valid?
@@ -208,17 +177,12 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
         %Config{}
         |> Config.changeset(%{
           step_1_temp: 24.0,
-          step_1_fans: "fan_1, fan_2",
+          step_1_extra_fans: 2,
           step_2_temp: 0.0,
           step_3_temp: 30.0,
-          step_3_fans: "fan_1, fan_2, fan_3",
+          step_3_extra_fans: 4,
           step_4_temp: 0.0,
-          step_5_temp: 0.0,
-          step_6_temp: 0.0,
-          step_7_temp: 0.0,
-          step_8_temp: 0.0,
-          step_9_temp: 0.0,
-          step_10_temp: 0.0
+          step_5_temp: 0.0
         })
 
       refute changeset.valid?
@@ -233,15 +197,10 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
         |> Config.changeset(%{
           step_1_temp: 0.0,
           step_2_temp: 26.0,
-          step_2_fans: "fan_1, fan_2",
+          step_2_extra_fans: 4,
           step_3_temp: 0.0,
           step_4_temp: 0.0,
-          step_5_temp: 0.0,
-          step_6_temp: 0.0,
-          step_7_temp: 0.0,
-          step_8_temp: 0.0,
-          step_9_temp: 0.0,
-          step_10_temp: 0.0
+          step_5_temp: 0.0
         })
 
       refute changeset.valid?
@@ -254,19 +213,15 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
       changeset =
         %Config{}
         |> Config.changeset(%{
+          failsafe_fans_count: 2,
           step_1_temp: 24.0,
-          step_1_fans: "fan_1",
+          step_1_extra_fans: 2,
           step_2_temp: 26.0,
-          step_2_fans: "fan_1, fan_2",
+          step_2_extra_fans: 4,
           step_3_temp: 28.0,
-          step_3_fans: "fan_1, fan_2, fan_3",
+          step_3_extra_fans: 6,
           step_4_temp: 0.0,
-          step_5_temp: 0.0,
-          step_6_temp: 0.0,
-          step_7_temp: 0.0,
-          step_8_temp: 0.0,
-          step_9_temp: 0.0,
-          step_10_temp: 0.0
+          step_5_temp: 0.0
         })
 
       assert changeset.valid?
@@ -277,22 +232,17 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
         %Config{}
         |> Config.changeset(%{
           step_1_temp: 24.0,
-          step_1_fans: "fan_1",
+          step_1_extra_fans: 2,
           step_2_temp: 24.0,
-          step_2_fans: "fan_1, fan_2",
+          step_2_extra_fans: 4,
           step_3_temp: 0.0,
           step_4_temp: 0.0,
-          step_5_temp: 0.0,
-          step_6_temp: 0.0,
-          step_7_temp: 0.0,
-          step_8_temp: 0.0,
-          step_9_temp: 0.0,
-          step_10_temp: 0.0
+          step_5_temp: 0.0
         })
 
       refute changeset.valid?
       assert %{step_2_temp: [msg]} = errors_on(changeset)
-      assert msg =~ "must be greater than 24.0°C"
+      assert msg =~ "must be greater than 24.0C"
     end
 
     test "rejects decreasing temperatures in active steps" do
@@ -301,42 +251,33 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
         %Config{}
         |> Config.changeset(%{
           step_1_temp: 28.0,
-          step_1_fans: "fan_1, fan_2",
+          step_1_extra_fans: 2,
           step_2_temp: 24.0,
-          step_2_fans: "fan_1, fan_2, fan_3",
+          step_2_extra_fans: 4,
           step_3_temp: 0.0,
           step_4_temp: 0.0,
-          step_5_temp: 0.0,
-          step_6_temp: 0.0,
-          step_7_temp: 0.0,
-          step_8_temp: 0.0,
-          step_9_temp: 0.0,
-          step_10_temp: 0.0
+          step_5_temp: 0.0
         })
 
       refute changeset.valid?
-      # Error is on step_2 because its temp must be > step_1's temp (28°C)
+      # Error is on step_2 because its temp must be > step_1's temp (28C)
       assert %{step_2_temp: [msg]} = errors_on(changeset)
-      assert msg =~ "must be greater than 28.0°C"
+      assert msg =~ "must be greater than 28.0C"
     end
 
     test "allows strictly ascending temperatures" do
       changeset =
         %Config{}
         |> Config.changeset(%{
+          failsafe_fans_count: 2,
           step_1_temp: 24.0,
-          step_1_fans: "fan_1",
+          step_1_extra_fans: 2,
           step_2_temp: 26.0,
-          step_2_fans: "fan_1, fan_2",
+          step_2_extra_fans: 4,
           step_3_temp: 28.0,
-          step_3_fans: "fan_1, fan_2, fan_3",
+          step_3_extra_fans: 6,
           step_4_temp: 0.0,
-          step_5_temp: 0.0,
-          step_6_temp: 0.0,
-          step_7_temp: 0.0,
-          step_8_temp: 0.0,
-          step_9_temp: 0.0,
-          step_10_temp: 0.0
+          step_5_temp: 0.0
         })
 
       assert changeset.valid?
@@ -345,11 +286,11 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
 
   describe "parse_order/1" do
     test "parses comma-separated string into list" do
-      assert Config.parse_order("fan_1,fan_2,fan_3") == ["fan_1", "fan_2", "fan_3"]
+      assert Config.parse_order("pump_1,pump_2,pump_3") == ["pump_1", "pump_2", "pump_3"]
     end
 
     test "trims whitespace from items" do
-      assert Config.parse_order("fan_1, fan_2 , fan_3") == ["fan_1", "fan_2", "fan_3"]
+      assert Config.parse_order("pump_1, pump_2 , pump_3") == ["pump_1", "pump_2", "pump_3"]
     end
 
     test "handles empty string" do
@@ -361,11 +302,11 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
     end
 
     test "rejects empty items after split" do
-      assert Config.parse_order("fan_1,,fan_2,") == ["fan_1", "fan_2"]
+      assert Config.parse_order("pump_1,,pump_2,") == ["pump_1", "pump_2"]
     end
 
     test "handles single item" do
-      assert Config.parse_order("fan_1") == ["fan_1"]
+      assert Config.parse_order("pump_1") == ["pump_1"]
     end
   end
 
@@ -373,10 +314,10 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
     test "returns only steps with temp > 0" do
       config = %Config{
         step_1_temp: 24.0,
-        step_1_fans: "fan_1",
+        step_1_extra_fans: 2,
         step_1_pumps: "",
         step_2_temp: 0.0,
-        step_2_fans: "",
+        step_2_extra_fans: 0,
         step_2_pumps: ""
       }
 
@@ -388,17 +329,12 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
     test "sorts steps by temperature" do
       config = %Config{
         step_1_temp: 30.0,
-        step_1_fans: "fan_1",
+        step_1_extra_fans: 2,
         step_2_temp: 24.0,
-        step_2_fans: "fan_2",
+        step_2_extra_fans: 4,
         step_3_temp: 0.0,
         step_4_temp: 0.0,
-        step_5_temp: 0.0,
-        step_6_temp: 0.0,
-        step_7_temp: 0.0,
-        step_8_temp: 0.0,
-        step_9_temp: 0.0,
-        step_10_temp: 0.0
+        step_5_temp: 0.0
       }
 
       steps = Config.get_active_steps(config)
@@ -406,24 +342,19 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
       assert temps == Enum.sort(temps)
     end
 
-    test "parses fan and pump strings" do
+    test "includes extra_fans count and parses pump strings" do
       config = %Config{
         step_1_temp: 24.0,
-        step_1_fans: "fan_1, fan_2",
+        step_1_extra_fans: 3,
         step_1_pumps: "pump_1",
         step_2_temp: 0.0,
         step_3_temp: 0.0,
         step_4_temp: 0.0,
-        step_5_temp: 0.0,
-        step_6_temp: 0.0,
-        step_7_temp: 0.0,
-        step_8_temp: 0.0,
-        step_9_temp: 0.0,
-        step_10_temp: 0.0
+        step_5_temp: 0.0
       }
 
       [step] = Config.get_active_steps(config)
-      assert step.fans == ["fan_1", "fan_2"]
+      assert step.extra_fans == 3
       assert step.pumps == ["pump_1"]
     end
   end
@@ -432,17 +363,12 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
     setup do
       config = %Config{
         step_1_temp: 24.0,
-        step_1_fans: "fan_1",
+        step_1_extra_fans: 2,
         step_2_temp: 28.0,
-        step_2_fans: "fan_1, fan_2",
+        step_2_extra_fans: 4,
         step_3_temp: 0.0,
         step_4_temp: 0.0,
-        step_5_temp: 0.0,
-        step_6_temp: 0.0,
-        step_7_temp: 0.0,
-        step_8_temp: 0.0,
-        step_9_temp: 0.0,
-        step_10_temp: 0.0
+        step_5_temp: 0.0
       }
 
       %{config: config}
@@ -455,6 +381,7 @@ defmodule PouCon.Automation.Environment.Schemas.ConfigTest do
     test "returns step when temp matches threshold exactly", %{config: config} do
       step = Config.find_step_for_temp(config, 24.0)
       assert step.temp == 24.0
+      assert step.extra_fans == 2
     end
 
     test "returns highest step that temp exceeds", %{config: config} do

@@ -33,51 +33,54 @@ defmodule PouCon.Automation.Environment.Configs do
   end
 
   @doc """
-  Get the equipment to control based on current temperature and humidity.
-  Returns {fans_list, pumps_list} where each is a list of equipment names.
-  Filters out equipment in MANUAL mode.
+  Get the target number of extra auto fans for the current temperature.
+  Returns integer count (how many AUTO fans should be on beyond failsafe).
 
   Temperature control:
-  - If temperature >= step threshold: use that step's fans
-  - If temperature < step 1 threshold: keep step 1 fans running (minimum ventilation)
-
-  Humidity overrides:
-  - If humidity >= hum_max: all pumps stop (returns empty pump list)
-  - If humidity <= hum_min: all configured pumps run (returns all pumps from all steps)
-  - Otherwise: pumps from step configuration
+  - If temperature >= step threshold: use that step's extra_fans count
+  - If temperature < step 1 threshold: return 0 (only failsafe fans running)
   """
-  def get_equipment_for_conditions(%Config{} = config, current_temp, current_humidity)
-      when is_number(current_temp) do
-    # Get step-based fans (temperature controls fans)
-    # Fall back to step 1 when temp is below all thresholds (keep minimum ventilation)
-    fans =
-      case Config.find_step_for_temp(config, current_temp) do
-        nil ->
-          # Temp below all thresholds - use step 1 if available
-          case get_step_1(config) do
-            nil -> []
-            step_1 -> filter_auto_mode_fans(step_1.fans)
-          end
-
-        step ->
-          filter_auto_mode_fans(step.fans)
-      end
-
-    # Determine pumps based on humidity overrides
-    pumps = determine_pumps(config, current_temp, current_humidity)
-
-    {fans, pumps}
-  end
-
-  # When temperature is nil (no data), fall back to step 1 for minimum ventilation
-  def get_equipment_for_conditions(%Config{} = config, nil = _temp, _humidity) do
-    case get_step_1(config) do
-      nil -> {[], []}
-      step_1 -> {filter_auto_mode_fans(step_1.fans), filter_auto_mode_pumps(step_1.pumps)}
+  def get_extra_fans_for_temp(%Config{} = config, current_temp) when is_number(current_temp) do
+    case Config.find_step_for_temp(config, current_temp) do
+      nil -> 0
+      step -> step.extra_fans
     end
   end
 
-  def get_equipment_for_conditions(_config, _temp, _humidity), do: {[], []}
+  def get_extra_fans_for_temp(_config, _temp), do: 0
+
+  @doc """
+  Get the pumps to control based on current temperature and humidity.
+  Returns list of pump names.
+  Filters out equipment in MANUAL mode.
+
+  Humidity overrides:
+  - If humidity >= hum_max: all pumps stop (returns empty list)
+  - If humidity <= hum_min: all configured pumps run (returns all pumps from all steps)
+  - Otherwise: pumps from step configuration
+  """
+  def get_pumps_for_conditions(%Config{} = config, current_temp, current_humidity)
+      when is_number(current_temp) do
+    determine_pumps(config, current_temp, current_humidity)
+  end
+
+  # When temperature is nil (no data), fall back to step 1 pumps
+  def get_pumps_for_conditions(%Config{} = config, nil = _temp, current_humidity) do
+    # With no temp data, just use humidity override logic with step 1 pumps
+    case get_step_1(config) do
+      nil ->
+        []
+
+      step_1 ->
+        case humidity_override_status(config, current_humidity) do
+          :force_all_off -> []
+          :force_all_on -> get_all_configured_pumps(config) |> filter_auto_mode_pumps()
+          :normal -> filter_auto_mode_pumps(step_1.pumps)
+        end
+    end
+  end
+
+  def get_pumps_for_conditions(_config, _temp, _humidity), do: []
 
   # Get step 1 configuration if it's active (temp > 0)
   defp get_step_1(config) do
@@ -152,23 +155,6 @@ defmodule PouCon.Automation.Environment.Configs do
   end
 
   def humidity_override_status(_config, _humidity), do: :normal
-
-  defp filter_auto_mode_fans(fan_names) do
-    alias PouCon.Equipment.Controllers.Fan
-
-    Enum.filter(fan_names, fn name ->
-      try do
-        case Fan.status(name) do
-          %{mode: :auto} -> true
-          _ -> false
-        end
-      rescue
-        _ -> false
-      catch
-        :exit, _ -> false
-      end
-    end)
-  end
 
   defp filter_auto_mode_pumps(pump_names) do
     alias PouCon.Equipment.Controllers.Pump

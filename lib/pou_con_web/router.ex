@@ -110,7 +110,10 @@ defmodule PouConWeb.Router do
 
     # Public LiveView routes with default hook for current_role assignment
     live_session :public,
-      on_mount: [{PouConWeb.AuthHooks, :default}] do
+      on_mount: [
+        {PouConWeb.AuthHooks, :default},
+        {PouConWeb.AuthHooks, :check_failsafe_status}
+      ] do
       # Dashboard is now the root page - accessible without login
       live("/", Live.Dashboard.Index, :index)
       live("/dashboard", Live.Dashboard.Index, :index)
@@ -157,7 +160,8 @@ defmodule PouConWeb.Router do
     live_session :ensure_is_admin,
       on_mount: [
         {PouConWeb.AuthHooks, :ensure_is_admin},
-        {PouConWeb.AuthHooks, :check_system_time}
+        {PouConWeb.AuthHooks, :check_system_time},
+        {PouConWeb.AuthHooks, :check_failsafe_status}
       ] do
       # Admin settings
       live("/settings", Live.Auth.AdminSettings)

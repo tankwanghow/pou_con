@@ -61,6 +61,29 @@ defmodule PouConWeb.AuthHooks do
     {:cont, socket}
   end
 
+  def on_mount(:check_failsafe_status, _params, _session, socket) do
+    # Subscribe to failsafe status updates for real-time banner
+    if Phoenix.LiveView.connected?(socket) do
+      Phoenix.PubSub.subscribe(PouCon.PubSub, "failsafe_status")
+    end
+
+    # Get current failsafe status
+    failsafe_status = get_failsafe_status()
+
+    socket =
+      socket
+      |> assign(:failsafe_status, failsafe_status)
+      |> attach_hook(:failsafe_status_hook, :handle_info, fn
+        {:failsafe_status, status}, socket ->
+          {:halt, assign(socket, :failsafe_status, status)}
+
+        _msg, socket ->
+          {:cont, socket}
+      end)
+
+    {:cont, socket}
+  end
+
   # Helper to get current path for return_to redirect
   defp get_return_to(socket) do
     case get_connect_info(socket, :uri) do
@@ -81,6 +104,21 @@ defmodule PouConWeb.AuthHooks do
       rescue
         # If validator not running, assume time is valid
         _ -> true
+      end
+    end
+  end
+
+  # Helper to get failsafe status safely
+  defp get_failsafe_status do
+    # Skip check in test environment
+    if @env == :test do
+      %{valid: true, expected: 0, actual: 0, fans: []}
+    else
+      try do
+        PouCon.Automation.Environment.FailsafeValidator.status()
+      rescue
+        # If validator not running, assume valid
+        _ -> %{valid: true, expected: 0, actual: 0, fans: []}
       end
     end
   end

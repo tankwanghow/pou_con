@@ -39,6 +39,14 @@ defmodule PouConWeb.Layouts do
     default: nil,
     doc: "the current user role"
 
+  attr :failsafe_status, :map,
+    default: nil,
+    doc: "the current failsafe validation status"
+
+  attr :system_time_valid, :boolean,
+    default: true,
+    doc: "whether system time is valid"
+
   slot :inner_block, required: true
 
   def app(assigns) do
@@ -212,6 +220,43 @@ defmodule PouConWeb.Layouts do
           <% end %>
         </div>
       </nav>
+    </div>
+
+    <!-- System Time Invalid Banner -->
+    <div
+      :if={@system_time_valid == false}
+      class="mx-4 mt-1 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 bg-orange-600 text-white border-2 border-orange-800 animate-pulse"
+    >
+      <span class="text-2xl">🕐</span>
+      <div class="flex-1 text-center">
+        <div class="font-bold">SYSTEM TIME INVALID</div>
+        <div class="text-sm font-normal">
+          Schedules and logging may not work correctly
+        </div>
+        <.link href="/admin/system_time" class="text-yellow-200 underline text-sm">
+          Fix Now
+        </.link>
+      </div>
+      <span class="text-2xl">🕐</span>
+    </div>
+
+    <!-- Failsafe/Auto Fan Alert Banner -->
+    <div
+      :if={@failsafe_status && @failsafe_status.valid == false}
+      class="mx-4 mt-1 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 bg-red-600 text-white border-2 border-red-800 animate-pulse"
+    >
+      <span class="text-2xl">⚠️</span>
+      <div class="flex-1 text-center">
+        <div class="font-bold">FAN CONFIGURATION ERROR</div>
+        <div class="text-sm font-normal">
+          Failsafe: {@failsafe_status.actual} of {@failsafe_status.expected} min |
+          Auto: {Map.get(@failsafe_status, :auto_available, 0)} of {Map.get(@failsafe_status, :auto_required, 0)} needed
+        </div>
+        <.link href="/admin/environment/control" class="text-yellow-200 underline text-sm">
+          Fix Now
+        </.link>
+      </div>
+      <span class="text-2xl">⚠️</span>
     </div>
 
     <main class="px-4 sm:px-6 lg:px-8">

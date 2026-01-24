@@ -252,7 +252,10 @@ defmodule Mix.Tasks.Backup do
         unit: d.unit,
         value_type: d.value_type,
         min_valid: d.min_valid,
-        max_valid: d.max_valid
+        max_valid: d.max_valid,
+        log_interval: d.log_interval,
+        color_zones: d.color_zones,
+        byte_order: d.byte_order
       }
     )
     |> Repo.all()
@@ -312,36 +315,24 @@ defmodule Mix.Tasks.Backup do
         hum_max: c.hum_max,
         enabled: c.enabled,
         environment_poll_interval_ms: c.environment_poll_interval_ms,
+        # Failsafe fans (manual mode, always running)
+        failsafe_fans_count: c.failsafe_fans_count,
+        # Step 1-5: temp threshold, extra fans count, pump names
         step_1_temp: c.step_1_temp,
-        step_1_fans: c.step_1_fans,
+        step_1_extra_fans: c.step_1_extra_fans,
         step_1_pumps: c.step_1_pumps,
         step_2_temp: c.step_2_temp,
-        step_2_fans: c.step_2_fans,
+        step_2_extra_fans: c.step_2_extra_fans,
         step_2_pumps: c.step_2_pumps,
         step_3_temp: c.step_3_temp,
-        step_3_fans: c.step_3_fans,
+        step_3_extra_fans: c.step_3_extra_fans,
         step_3_pumps: c.step_3_pumps,
         step_4_temp: c.step_4_temp,
-        step_4_fans: c.step_4_fans,
+        step_4_extra_fans: c.step_4_extra_fans,
         step_4_pumps: c.step_4_pumps,
         step_5_temp: c.step_5_temp,
-        step_5_fans: c.step_5_fans,
-        step_5_pumps: c.step_5_pumps,
-        step_6_temp: c.step_6_temp,
-        step_6_fans: c.step_6_fans,
-        step_6_pumps: c.step_6_pumps,
-        step_7_temp: c.step_7_temp,
-        step_7_fans: c.step_7_fans,
-        step_7_pumps: c.step_7_pumps,
-        step_8_temp: c.step_8_temp,
-        step_8_fans: c.step_8_fans,
-        step_8_pumps: c.step_8_pumps,
-        step_9_temp: c.step_9_temp,
-        step_9_fans: c.step_9_fans,
-        step_9_pumps: c.step_9_pumps,
-        step_10_temp: c.step_10_temp,
-        step_10_fans: c.step_10_fans,
-        step_10_pumps: c.step_10_pumps
+        step_5_extra_fans: c.step_5_extra_fans,
+        step_5_pumps: c.step_5_pumps
       }
     )
     |> Repo.one()

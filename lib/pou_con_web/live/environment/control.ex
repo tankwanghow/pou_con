@@ -3,17 +3,20 @@ defmodule PouConWeb.Live.Environment.Control do
 
   alias PouCon.Automation.Environment.Configs
   alias PouCon.Automation.Environment.Schemas.Config
+  alias PouCon.Automation.Environment.FailsafeValidator
 
-  @pubsub_topic "data_point_data"
+  @failsafe_topic "failsafe_status"
 
   @impl true
   def mount(_params, _session, socket) do
-    if connected?(socket), do: Phoenix.PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(PouCon.PubSub, @failsafe_topic)
+    end
 
     config = Configs.get_config()
     fans = list_equipment("fan")
     pumps = list_equipment("pump")
-    average_sensors = list_equipment("average_sensor")
+    failsafe_status = get_failsafe_status()
 
     socket =
       socket
@@ -21,55 +24,51 @@ defmodule PouConWeb.Live.Environment.Control do
       |> assign(:form, to_form(Config.changeset(config, %{}), as: :config))
       |> assign(:fans, fans)
       |> assign(:pumps, pumps)
-      |> assign(:average_sensors, average_sensors)
-      |> assign(:current_step, 1)
+      |> assign(:failsafe_status, failsafe_status)
 
-    {:ok, fetch_average_sensor_status(socket)}
+    {:ok, socket}
   end
 
   @impl true
-  def handle_info(:data_refreshed, socket) do
-    # Refresh equipment mode status along with sensor readings
-    socket =
-      socket
-      |> assign(:fans, list_equipment("fan"))
-      |> assign(:pumps, list_equipment("pump"))
-      |> fetch_average_sensor_status()
-
-    {:noreply, socket}
+  def handle_info({:failsafe_status, status}, socket) do
+    {:noreply, assign(socket, :failsafe_status, status)}
   end
 
-  defp fetch_average_sensor_status(socket) do
-    equipment_with_status =
-      socket.assigns.average_sensors
-      |> Enum.map(fn eq ->
-        status =
-          try do
-            PouCon.Equipment.Controllers.AverageSensor.status(eq.name)
-          rescue
-            _ -> %{error: :not_running, title: eq.title}
-          catch
-            :exit, _ -> %{error: :not_running, title: eq.title}
-          end
+  defp get_failsafe_status do
+    try do
+      FailsafeValidator.status()
+    rescue
+      _ -> default_failsafe_status()
+    catch
+      :exit, _ -> default_failsafe_status()
+    end
+  end
 
-        Map.put(eq, :status, status)
-      end)
-
-    assign(socket, :average_sensors_with_status, equipment_with_status)
+  defp default_failsafe_status do
+    %{
+      valid: true,
+      expected: 0,
+      actual: 0,
+      fans: [],
+      auto_valid: true,
+      auto_required: 0,
+      auto_available: 0,
+      auto_fans: [],
+      config_valid: true,
+      total_fans: 0,
+      max_possible_auto: 0
+    }
   end
 
   @impl true
   def handle_event("validate", params, socket) do
-    config_params = process_step_checkboxes(params["config"] || %{}, params)
+    config_params = process_step_params(params["config"] || %{}, params)
 
     changeset =
       socket.assigns.config
       |> Config.changeset(config_params)
       |> Map.put(:action, :validate)
 
-    # Manually merge params into config to ensure empty strings are applied
-    # (Ecto changeset doesn't always register empty string as a change)
-    # Only allow known schema fields, ignore Phoenix internal params
     updated_config =
       config_params
       |> Map.new(fn {key, value} ->
@@ -86,10 +85,12 @@ defmodule PouConWeb.Live.Environment.Control do
 
   @impl true
   def handle_event("save", params, socket) do
-    config_params = process_step_checkboxes(params["config"] || %{}, params)
+    config_params = process_step_params(params["config"] || %{}, params)
 
     case Configs.update_config(config_params) do
       {:ok, config} ->
+        FailsafeValidator.check_now()
+
         {:noreply,
          socket
          |> assign(:config, config)
@@ -102,12 +103,6 @@ defmodule PouConWeb.Live.Environment.Control do
          |> assign(:form, to_form(changeset, as: :config))
          |> put_flash(:error, "Failed to save. Please fix the errors and try again.")}
     end
-  end
-
-  @impl true
-  def handle_event("select_step" <> step_str, _params, socket) do
-    step = String.to_integer(step_str)
-    {:noreply, assign(socket, :current_step, step)}
   end
 
   defp list_equipment(type) do
@@ -144,28 +139,19 @@ defmodule PouConWeb.Live.Environment.Control do
 
   defp get_equipment_mode(_, _), do: :auto
 
-  defp process_step_checkboxes(config, all_params) do
-    Enum.reduce(1..10, config, fn n, acc ->
-      fans_prefix = "step_#{n}_fans"
+  defp process_step_params(config, all_params) do
+    Enum.reduce(1..5, config, fn n, acc ->
       pumps_prefix = "step_#{n}_pumps"
 
-      # Only process steps that are actually rendered in the form
-      # (detected by hidden marker input "rendered_step_N")
       if step_is_rendered?(all_params, n) do
-        fans = get_selected(all_params, fans_prefix)
         pumps = get_selected(all_params, pumps_prefix)
-
-        acc
-        |> Map.put(fans_prefix, fans)
-        |> Map.put(pumps_prefix, pumps)
+        Map.put(acc, pumps_prefix, pumps)
       else
-        # Step not rendered - preserve existing config values
         acc
       end
     end)
   end
 
-  # Check if a step was rendered by looking for its hidden marker
   defp step_is_rendered?(params, step_num) do
     Map.get(params, "rendered_step_#{step_num}") == "true"
   end
@@ -186,294 +172,194 @@ defmodule PouConWeb.Live.Environment.Control do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_role={@current_role}>
-      <div class="max-w-6xl mx-auto">
-        <div class="flex justify-between items-center bg-blue-200 p-4 rounded-2xl">
-          <p class="text-gray-700">
-            <span class="font-medium">Temp 0°C to skip a step.</span>
-            Steps are evaluated in ascending temp order.
-            <span class="inline-flex items-center gap-1 ml-2">
-              <span class="text-[10px] bg-amber-500 text-white px-1 rounded font-bold">PANEL</span>
-              <span class="text-sm">= panel switch not in AUTO</span>
-            </span>
-          </p>
-          <.dashboard_link />
-        </div>
-
-        <div
-          :if={length(@average_sensors_with_status) > 0}
-          class="mt-2 bg-white shadow-md rounded-xl border border-gray-200 px-4 py-2 flex flex-wrap items-center gap-4 font-mono"
-        >
-          <%= for eq <- @average_sensors_with_status do %>
-            <.avg_reading label={eq.status[:title] || eq.name} status={eq.status} />
-          <% end %>
-        </div>
-
-        <%= if @flash["info"] do %>
-          <div class="bg-green-100 border border-green-400 text-green-800 px-4 py-3 rounded-xl mt-2 flex items-center justify-between animate-pulse">
-            <div class="flex items-center gap-2">
-              <span class="text-2xl">✅</span>
-              <span class="font-bold">{@flash["info"]}</span>
-            </div>
-            <button
-              type="button"
-              phx-click="lv:clear-flash"
-              phx-value-key="info"
-              class="text-green-600 hover:text-green-800 font-bold text-xl"
-            >
-              &times;
-            </button>
-          </div>
-        <% end %>
-
-        <%= if @flash["error"] do %>
-          <div class="bg-red-100 border border-red-400 text-red-800 px-4 py-3 rounded-xl mt-2 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="text-2xl">❌</span>
-              <span class="font-bold">{@flash["error"]}</span>
-            </div>
-            <button
-              type="button"
-              phx-click="lv:clear-flash"
-              phx-value-key="error"
-              class="text-red-600 hover:text-red-800 font-bold text-xl"
-            >
-              &times;
-            </button>
-          </div>
-        <% end %>
-
+    <Layouts.app flash={@flash} current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+      <div class="max-w-6xl mx-auto px-1">
         <.form for={@form} phx-submit="save" phx-change="validate">
-          <div class="tabs tabs-boxed w-full rounded-xl p-2">
-            <%= for n <- 1..10 do %>
-              <a
-                class={"tab tab-lg bg-green-200 m-0.5 border border-green-600 rounded-xl #{if @current_step == n, do: "tab-active font-bold border-2 bg-green-400", else: ""}"}
-                phx-click={"select_step#{n}"}
-              >
-                <% temp = Map.get(@config, String.to_atom("step_#{n}_temp")) %>
-                <%= if temp > 0 do %>
-                  {temp}°C
-                <% else %>
-                  skipped
-                <% end %>
-              </a>
-            <% end %>
-          </div>
-
-          <% n = @current_step %>
-          <% fan_field = String.to_atom("step_#{n}_fans") %>
-          <% fan_errors = @form[fan_field].errors %>
-          <!-- Hidden marker to indicate which step is being rendered -->
-          <input type="hidden" name={"rendered_step_#{n}"} value="true" />
-          <div class="card bg-base-100 shadow-xl p-4">
-            <div class="grid grid-cols-1 gap-2">
-              <.input
-                field={@form[String.to_atom("step_#{n}_temp")]}
-                type="number"
-                step="0.1"
-                class="input input-lg"
-                label="Target Temperature (°C)"
-                placeholder="e.g. 25.0"
-              />
-              <%= if fan_errors != [] do %>
-                <div class="bg-red-50 border border-red-300 rounded-lg p-3 text-red-700">
-                  <span class="font-bold">Fan Selection Error:</span>
-                  <%= for {msg, _opts} <- fan_errors do %>
-                    <span class="ml-2">{msg}</span>
-                  <% end %>
+          <!-- Failsafe + Global Settings Row -->
+          <div class="flex gap-2 mt-1">
+            <!-- Global Settings -->
+            <div class="w-2/3 bg-base-200 rounded-lg p-2">
+              <div class="grid grid-cols-4 gap-2 items-end">
+                <.input
+                  field={@form[:failsafe_fans_count]}
+                  type="number"
+                  min="1"
+                  label="Failsafe Fans"
+                />
+                <.input field={@form[:hum_min]} type="number" step="0.1" label="Humidity Min %" />
+                <.input field={@form[:hum_max]} type="number" step="0.1" label="Humidity Max %" />
+                <.input
+                  field={@form[:enabled]}
+                  type="checkbox"
+                  class="checkbox checkbox-lg checkbox-success"
+                  label="Enable Automation"
+                />
+              </div>
+              <div class="grid grid-cols-3 gap-2 items-end mt-1">
+                <.input
+                  field={@form[:stagger_delay_seconds]}
+                  type="number"
+                  label="Stagger Delay (sec)"
+                />
+                <.input
+                  field={@form[:delay_between_step_seconds]}
+                  type="number"
+                  label="Step Delay (sec)"
+                />
+                <.input
+                  field={@form[:environment_poll_interval_ms]}
+                  type="number"
+                  label="Poll Interval (ms)"
+                />
+              </div>
+            </div>
+            <!-- Fan Status -->
+            <div class="w-1/3 space-y-2">
+              <!-- Failsafe Fans -->
+              <% failsafe_ok = @failsafe_status.actual >= @failsafe_status.expected %>
+              <div class={["p-2 rounded-lg border-2", if(failsafe_ok, do: "bg-green-50 border-green-400", else: "bg-red-50 border-red-400 animate-pulse")]}>
+                <div class="flex items-center gap-2">
+                  <span class="text-xl">{if failsafe_ok, do: "✅", else: "⚠️"}</span>
+                  <div class="flex-1">
+                    <div class="font-bold">Failsafe Fans <span class="font-normal text-sm text-gray-500">(MANUAL+ON)</span></div>
+                    <div class={["font-mono", if(failsafe_ok, do: "text-green-700", else: "text-red-700")]}>
+                      {@failsafe_status.actual} of {@failsafe_status.expected} min
+                      <span :if={length(@failsafe_status.fans) > 0} class="text-gray-600 text-sm ml-2">
+                        {Enum.join(@failsafe_status.fans, ", ")}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              <% end %>
-              <div class="flex flex-wrap gap-2 font-mono">
-                <% selected_fans =
-                  String.split(Map.get(@config, String.to_atom(~s/step_#{n}_fans/)) || "", ", ")
-                  |> Enum.map(&String.trim/1)
-                  |> Enum.filter(&(&1 != "")) %>
-                <%= for fan <- @fans do %>
-                  <% is_selected = fan.name in selected_fans %>
-                  <% is_manual = fan.mode == :manual %>
-                  <label class={[
-                    "btn btn-outline relative",
-                    is_manual && "btn-disabled opacity-50 cursor-not-allowed",
-                    !is_manual && is_selected && "btn-active btn-info font-bold",
-                    !is_manual && !is_selected && "btn-info font-thin"
-                  ]}>
-                    <.input
-                      type="checkbox"
-                      name={"step_#{n}_fans_#{fan.name}"}
-                      checked={is_selected}
-                      class="hidden"
-                    />
-                    <span>{fan.title}</span>
-                    <span
-                      :if={is_manual}
-                      class="absolute -top-2 -right-2 text-[10px] bg-amber-500 text-white px-1 rounded font-bold"
-                    >
-                      PANEL
-                    </span>
-                  </label>
-                <% end %>
-                <% selected_pumps =
-                  String.split(Map.get(@config, String.to_atom(~s/step_#{n}_pumps/)) || "", ", ")
-                  |> Enum.map(&String.trim/1)
-                  |> Enum.filter(&(&1 != "")) %>
-                <%= for pump <- @pumps do %>
-                  <% is_selected = pump.name in selected_pumps %>
-                  <% is_manual = pump.mode == :manual %>
-                  <label class={[
-                    "btn btn-outline relative",
-                    is_manual && "btn-disabled opacity-50 cursor-not-allowed",
-                    !is_manual && is_selected && "btn-active btn-success font-bold",
-                    !is_manual && !is_selected && "btn-success font-medium"
-                  ]}>
-                    <.input
-                      type="checkbox"
-                      name={"step_#{n}_pumps_#{pump.name}"}
-                      checked={is_selected}
-                      class="hidden"
-                    />
-                    <span>{pump.title}</span>
-                    <span
-                      :if={is_manual}
-                      class="absolute -top-2 -right-2 text-[10px] bg-amber-500 text-white px-1 rounded font-bold"
-                    >
-                      PANEL
-                    </span>
-                  </label>
-                <% end %>
+              </div>
+              <!-- Auto Fans -->
+              <% auto_ok = Map.get(@failsafe_status, :auto_valid, true) %>
+              <% config_ok = Map.get(@failsafe_status, :config_valid, true) %>
+              <% auto_available = Map.get(@failsafe_status, :auto_available, 0) %>
+              <% auto_required = Map.get(@failsafe_status, :auto_required, 0) %>
+              <% auto_fans = Map.get(@failsafe_status, :auto_fans, []) %>
+              <% total_fans = Map.get(@failsafe_status, :total_fans, 0) %>
+              <% max_possible = Map.get(@failsafe_status, :max_possible_auto, 0) %>
+              <% all_ok = auto_ok and config_ok %>
+              <div class={["p-2 rounded-lg border-2", if(all_ok, do: "bg-green-50 border-green-400", else: "bg-red-50 border-red-400 animate-pulse")]}>
+                <div class="flex items-center gap-2">
+                  <span class="text-xl">{if all_ok, do: "✅", else: "⚠️"}</span>
+                  <div class="flex-1">
+                    <div class="font-bold">Auto Fans <span class="font-normal text-sm text-gray-500">(for highest step)</span></div>
+                    <div class={["font-mono text-sm", if(all_ok, do: "text-green-700", else: "text-red-700")]}>
+                      Need {auto_required}, have {auto_available} in AUTO
+                      <span :if={!config_ok} class="text-red-700 font-bold"> (max possible: {max_possible})</span>
+                    </div>
+                    <div :if={length(auto_fans) > 0} class="text-gray-600 text-sm font-mono">
+                      {Enum.join(auto_fans, ", ")}
+                    </div>
+                    <div :if={!config_ok} class="text-red-700 text-xs mt-1">
+                      Config error: {total_fans} total fans - {@failsafe_status.expected} failsafe = {max_possible} max auto
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+          
+    <!-- All 5 Steps -->
+          <div class="space-y-1 mt-2">
+            <%= for n <- 1..5 do %>
+              <% extra_fans_field = String.to_atom("step_#{n}_extra_fans") %>
+              <% extra_fans_errors = @form[extra_fans_field].errors %>
+              <% temp_raw = Map.get(@config, String.to_atom("step_#{n}_temp")) %>
+              <% is_active = is_number(temp_raw) and temp_raw > 0 %>
+              <% selected_pumps =
+                String.split(Map.get(@config, String.to_atom("step_#{n}_pumps")) || "", ", ")
+                |> Enum.map(&String.trim/1)
+                |> Enum.filter(&(&1 != "")) %>
+              <% extra_fans_raw = Map.get(@config, String.to_atom("step_#{n}_extra_fans")) || 0 %>
+              <% extra_fans =
+                cond do
+                  is_integer(extra_fans_raw) ->
+                    extra_fans_raw
 
-          <div class="card bg-base-200 shadow-lg p-2 mt-2">
-            <h3 class="text-2xl font-bold mb-2 text-gray-800">Global Settings</h3>
-            <div class="grid grid-cols-2 gap-1">
-              <.input
-                field={@form[:stagger_delay_seconds]}
-                type="number"
-                class="input input-lg"
-                label="Stagger Delay (seconds)"
-                placeholder="30"
-              />
-              <.input
-                field={@form[:delay_between_step_seconds]}
-                type="number"
-                class="input input-lg"
-                label="Delay Between Steps (seconds)"
-                placeholder="300"
-              />
-              <.input
-                field={@form[:hum_min]}
-                type="number"
-                step="0.1"
-                class="input input-lg"
-                label="Humidity Minimum (%)"
-                placeholder="60"
-              />
-              <.input
-                field={@form[:hum_max]}
-                type="number"
-                step="0.1"
-                class="input input-lg"
-                label="Humidity Maximum (%)"
-                placeholder="80"
-              />
-              <.input
-                field={@form[:environment_poll_interval_ms]}
-                type="number"
-                class="input input-lg"
-                label="Poll Interval (ms)"
-                placeholder="5000"
-              />
-            </div>
-            <.input
-              field={@form[:enabled]}
-              type="checkbox"
-              class="checkbox checkbox-lg checkbox-success"
-              label="Enable Environment Automation"
-            />
+                  is_binary(extra_fans_raw) and extra_fans_raw != "" ->
+                    String.to_integer(extra_fans_raw)
+
+                  true ->
+                    0
+                end %>
+              <input type="hidden" name={"rendered_step_#{n}"} value="true" />
+              <div class={[
+                "rounded-lg border-2 px-3 py-2",
+                if(is_active, do: "bg-base-100 border-green-400", else: "bg-gray-50 border-gray-300")
+              ]}>
+                <div class="flex items-center gap-3">
+                  <span class={[
+                    "font-bold px-3 py-1 rounded text-lg text-white",
+                    if(is_active, do: "bg-green-500", else: "bg-gray-400")
+                  ]}>
+                    {n}
+                  </span>
+                  <div class="w-28">
+                    <.input
+                      field={@form[String.to_atom("step_#{n}_temp")]}
+                      type="number"
+                      step="0.1"
+                      class="input input-sm"
+                      label="Temp °C"
+                    />
+                  </div>
+                  <div class="w-28">
+                    <.input
+                      field={@form[String.to_atom("step_#{n}_extra_fans")]}
+                      type="number"
+                      min="0"
+                      class="input input-sm"
+                      label="Auto Fans"
+                    />
+                  </div>
+                  <%= if extra_fans_errors != [] do %>
+                    <span class="text-sm text-red-600">
+                      {for {msg, _} <- extra_fans_errors, do: msg}
+                    </span>
+                  <% end %>
+                  <div class="flex flex-wrap items-center gap-1 font-mono">
+                    <%= for pump <- @pumps do %>
+                      <% is_selected = pump.name in selected_pumps %>
+                      <% is_manual = pump.mode == :manual %>
+                      <label class={[
+                        "btn btn-sm",
+                        is_manual && "btn-disabled opacity-50",
+                        !is_manual && is_selected && "btn-success",
+                        !is_manual && !is_selected && "btn-outline btn-success"
+                      ]}>
+                        <.input
+                          type="checkbox"
+                          name={"step_#{n}_pumps_#{pump.name}"}
+                          checked={is_selected}
+                          class="hidden"
+                        />
+                        {pump.title}
+                      </label>
+                    <% end %>
+                  </div>
+                  <div :if={is_active} class="flex-1 text-right text-sm text-gray-600 italic">
+                    <% pump_titles =
+                      selected_pumps
+                      |> Enum.map(fn name -> Enum.find(@pumps, fn p -> p.name == name end) end)
+                      |> Enum.reject(&is_nil/1)
+                      |> Enum.map(& &1.title)
+                      |> Enum.join(", ") %>
+                    {temp_raw}°C → {@failsafe_status.expected}+{extra_fans} fans{if pump_titles != "",
+                      do: ", #{pump_titles}"}
+                  </div>
+                </div>
+              </div>
+            <% end %>
           </div>
 
-          <.button
-            type="submit"
-            class="w-full btn btn-success text-xl py-8 shadow-2xl hover:shadow-3xl"
-          >
-            💾 Save Configuration
+          <.button type="submit" class="w-full btn btn-success text-xl py-4 mt-2">
+            Save Configuration
           </.button>
         </.form>
       </div>
     </Layouts.app>
     """
   end
-
-  # Compact one-liner display for average sensor readings
-  attr :label, :string, required: true
-  attr :status, :map, required: true
-
-  defp avg_reading(assigns) do
-    alias PouConWeb.Components.Formatters
-
-    status = assigns.status
-    temp = status[:avg_temp]
-    hum = status[:avg_humidity]
-    co2 = status[:avg_co2]
-    nh3 = status[:avg_nh3]
-
-    temp_total = length(status[:temp_sensors] || [])
-    hum_total = length(status[:humidity_sensors] || [])
-    co2_total = length(status[:co2_sensors] || [])
-    nh3_total = length(status[:nh3_sensors] || [])
-
-    temp_count = status[:temp_count] || 0
-    hum_count = status[:humidity_count] || 0
-    co2_count = status[:co2_count] || 0
-    nh3_count = status[:nh3_count] || 0
-
-    assigns =
-      assigns
-      |> assign(:temp, if(temp, do: Formatters.format_temperature(temp), else: "--.-°C"))
-      |> assign(:hum, if(hum, do: Formatters.format_percentage(hum), else: "--.-%"))
-      |> assign(:co2, if(co2, do: "#{round(co2)} ppm", else: "-- ppm"))
-      |> assign(:nh3, if(nh3, do: "#{nh3} ppm", else: "-- ppm"))
-      |> assign(:temp_count, "#{temp_count}/#{temp_total}")
-      |> assign(:hum_count, "#{hum_count}/#{hum_total}")
-      |> assign(:co2_count, "#{co2_count}/#{co2_total}")
-      |> assign(:nh3_count, "#{nh3_count}/#{nh3_total}")
-      |> assign(:has_hum, hum_total > 0)
-      |> assign(:has_co2, co2_total > 0)
-      |> assign(:has_nh3, nh3_total > 0)
-      |> assign(:temp_color, temp_reading_color(temp))
-      |> assign(:hum_color, hum_reading_color(hum))
-
-    ~H"""
-    <div class="flex items-center gap-3 text-sm">
-      <span class="text-gray-500 font-sans">{@label}:</span>
-      <span>
-        <span class={"font-bold text-#{@temp_color}-500"}>{@temp}</span>
-        <span class="text-gray-400 text-xs">({@temp_count})</span>
-      </span>
-      <span :if={@has_hum}>
-        <span class={"text-#{@hum_color}-500"}>{@hum}</span>
-        <span class="text-gray-400 text-xs">({@hum_count})</span>
-      </span>
-      <span :if={@has_co2}>
-        <span class="text-gray-600">{@co2}</span>
-        <span class="text-gray-400 text-xs">({@co2_count})</span>
-      </span>
-      <span :if={@has_nh3}>
-        <span class="text-gray-600">{@nh3}</span>
-        <span class="text-gray-400 text-xs">({@nh3_count})</span>
-      </span>
-    </div>
-    """
-  end
-
-  defp temp_reading_color(nil), do: "gray"
-  defp temp_reading_color(temp) when temp >= 38.0, do: "rose"
-  defp temp_reading_color(temp) when temp > 24.0, do: "green"
-  defp temp_reading_color(_), do: "blue"
-
-  defp hum_reading_color(nil), do: "gray"
-  defp hum_reading_color(hum) when hum >= 90.0, do: "blue"
-  defp hum_reading_color(hum) when hum > 20.0, do: "green"
-  defp hum_reading_color(_), do: "rose"
 end

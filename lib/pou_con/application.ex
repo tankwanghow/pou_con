@@ -149,6 +149,9 @@ defmodule PouCon.Application do
             # Environment auto-control (fans/pumps based on temp/humidity)
             PouCon.Automation.Environment.EnvironmentController,
 
+            # Failsafe fan validator - monitors manual+on fans match config
+            PouCon.Automation.Environment.FailsafeValidator,
+
             # Light scheduler - automated light control based on schedules
             PouCon.Automation.Lighting.LightScheduler,
 

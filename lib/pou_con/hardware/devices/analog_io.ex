@@ -202,7 +202,7 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
   # Modbus Implementation
   # ------------------------------------------------------------------ #
 
-  defp read_modbus_register(conn, register_type, slave_id, register, data_type, byte_order \\ "high_low") do
+  defp read_modbus_register(conn, register_type, slave_id, register, data_type, byte_order) do
     {cmd, _count} = modbus_read_params(register_type, data_type, slave_id, register)
 
     case PouCon.Utils.Modbus.request(conn, cmd) do
@@ -221,7 +221,7 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
     {{cmd_atom, slave_id, register, count}, count}
   end
 
-  defp write_modbus_register(conn, slave_id, register, value, data_type, byte_order \\ "high_low") do
+  defp write_modbus_register(conn, slave_id, register, value, data_type, byte_order) do
     encoded = encode_modbus_value(value, data_type, byte_order)
 
     case encoded do
