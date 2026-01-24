@@ -1,6 +1,6 @@
 # PouCon User Manual
 
-**Version 1.0**
+**Version 1.1**
 
 A comprehensive guide to operating the PouCon Poultry Farm Automation System.
 
@@ -22,6 +22,7 @@ A comprehensive guide to operating the PouCon Poultry Farm Automation System.
 12. [Reports & Logs](#reports-amp-logs)
 13. [System Administration](#system-administration)
 14. [Troubleshooting](#troubleshooting)
+15. [On-Screen Keyboard](#on-screen-keyboard)
 
 ---
 
@@ -29,7 +30,7 @@ A comprehensive guide to operating the PouCon Poultry Farm Automation System.
 
 PouCon is an industrial automation and control system designed specifically for poultry farms. It provides real-time monitoring and control of farm equipment including:
 
-- **Climate Control**: Fans, pumps, temperature and humidity sensors
+- **Climate Control**: Fans, pumps, temperature, humidity, CO2, and NH3 sensors
 - **Poultry Operations**: Feeding systems, egg collection, lighting
 - **Waste Management**: Dung/manure removal systems
 - **Safety Systems**: Alarms, sirens, interlocks, power monitoring
@@ -96,9 +97,6 @@ The sidebar is organized into sections:
 #### Navigation (Public)
 - **Dashboard** - Main overview of all equipment
 
-#### Reports (Public)
-- **Reports** - Equipment events, sensor data, daily summaries
-
 #### Control & Schedules (Admin Only)
 - **Environment** - Temperature/humidity automation settings
 - **Lighting** - Light on/off schedules
@@ -112,9 +110,15 @@ The sidebar is organized into sections:
 - **Interlocks** - Safety interlock rules
 - **Alarm Rules** - Alarm condition configuration
 - **Ports** - Communication port settings
-- **Data Points** - Modbus register configuration
+- **Data Points** - Data point configuration for hardware I/O
 - **Equipment** - Equipment definitions
 - **Simulation** - Device simulation (development only)
+
+#### System (Admin Only)
+- **Reports** - Equipment events, sensor data, daily summaries
+- **Backup & Restore** - Database backup and restore functions
+- **System Management** - System utilities and maintenance
+- **Screen Saver** - Configure screen saver settings
 
 ### Dashboard Link
 
@@ -202,12 +206,36 @@ Displays all ventilation fans with:
 
 Displays cooling/water pumps with similar controls to fans.
 
-### Temperature & Humidity (`/temp_hum`)
+### Temperature Sensors (`/temp`)
 
-Displays all temperature and humidity sensors with:
+Displays all temperature sensors with:
 - Current temperature reading (°C)
+- Sensor status (online/offline)
+
+### Humidity Sensors (`/hum`)
+
+Displays all humidity sensors with:
 - Current humidity reading (%)
-- Average temperature and humidity across all sensors
+- Sensor status (online/offline)
+
+### CO2 Sensors (`/co2`)
+
+Displays carbon dioxide sensors with:
+- Current CO2 reading (ppm)
+- Sensor status (online/offline)
+
+### NH3 Sensors (`/nh3`)
+
+Displays ammonia sensors with:
+- Current NH3 reading (ppm)
+- Sensor status (online/offline)
+
+### Average Sensors (`/averages`)
+
+Displays calculated average values from multiple sensors:
+- Aggregated temperature averages
+- Aggregated humidity averages
+- Configurable sensor groupings
 
 ### Lighting Page (`/lighting`)
 
@@ -284,7 +312,11 @@ The Operations Tasks system helps track recurring farm maintenance activities.
 ### Accessing Tasks
 
 1. Log in with admin or user credentials
-2. Navigate to **Operations Tasks** from the sidebar or dashboard
+2. Access Operations Tasks by:
+   - Clicking the **Tasks Summary** card on the dashboard, or
+   - Navigating directly to `/operations/tasks`
+
+Note: Operations Tasks is accessible to both admin and user roles, but is not listed in the sidebar menu. Admin users can configure task templates via **Tasks** in the sidebar.
 
 ### Task Summary
 
@@ -590,7 +622,8 @@ View historical data, equipment events, and sensor readings.
 
 ### Accessing Reports
 
-Navigate to **Reports** from the sidebar (accessible to all users).
+1. Log in as admin
+2. Navigate to **Reports** from the sidebar (under the System section)
 
 ### Report Types
 
@@ -714,7 +747,15 @@ Configure communication ports for hardware devices.
 
 ### Data Points (`/admin/data_points`)
 
-Configure Modbus register mappings for reading/writing device values.
+Configure data point mappings for reading/writing hardware values. Data points define the connection between equipment and physical I/O:
+
+- **Name**: Unique identifier for the data point
+- **Port**: Which communication port to use
+- **Address**: Device/slave address on the bus
+- **Register**: Register number or memory location
+- **Type**: Data type (coil, input, holding register, etc.)
+
+Data points are protocol-agnostic and work with Modbus RTU, Siemens S7, or Virtual protocols.
 
 ### Equipment (`/admin/equipment`)
 
@@ -735,6 +776,9 @@ Define equipment with their associated data points.
 | `dung_exit` | Vertical exit |
 | `temp_sensor` | Temperature sensor |
 | `humidity_sensor` | Humidity sensor |
+| `co2_sensor` | Carbon dioxide sensor |
+| `nh3_sensor` | Ammonia sensor |
+| `average_sensor` | Calculated average from multiple sensors |
 | `water_meter` | Water flow meter |
 | `power_meter` | Power meter |
 | `siren` | Alarm siren |
@@ -771,6 +815,42 @@ Configure recurring operations tasks.
 ### System Time (`/admin/system_time`)
 
 View and set system time (for embedded devices without network time).
+
+### Backup & Restore (`/admin/backup`)
+
+Manage database backups:
+
+#### Creating a Backup
+1. Click **Create Backup**
+2. The system creates a timestamped backup file
+3. Download the backup for off-site storage
+
+#### Restoring from Backup
+1. Select a backup file to upload
+2. Click **Restore**
+3. Confirm the restore operation
+
+**Warning**: Restoring a backup will overwrite all current data.
+
+### System Management (`/admin/system`)
+
+System utilities and maintenance functions:
+- View system information
+- Restart services
+- Clear caches
+- View system logs
+
+### Screen Saver (`/admin/screensaver`)
+
+Configure the screen saver for kiosk deployments:
+
+| Setting | Description |
+|---------|-------------|
+| **Enable** | Turn screen saver on/off |
+| **Timeout** | Minutes of inactivity before activation |
+| **Type** | Screen saver style (blank, clock, etc.) |
+
+The screen saver helps prevent screen burn-in on displays running 24/7.
 
 ---
 
@@ -829,11 +909,70 @@ View and set system time (for embedded devices without network time).
 
 ---
 
-## Keyboard Shortcuts
+## On-Screen Keyboard
 
-PouCon supports on-screen keyboard for touch devices. When using a touchscreen:
-- Tap on input fields to show the keyboard
-- Use the virtual keyboard for data entry
+PouCon includes a built-in on-screen keyboard for touchscreen devices, eliminating the need for external system keyboards.
+
+### Keyboard Toggle Button
+
+A floating button appears in the **bottom-right corner** of every page:
+
+| Button | Mode | Behavior |
+|--------|------|----------|
+| **⌨A** (blue) | Auto | Keyboard shows when you tap an input field, hides when you tap away |
+| **⌨S** (green) | Always Show | Keyboard remains visible at all times |
+| **⌨H** (gray) | Always Hide | Keyboard never appears (use when physical keyboard is connected) |
+
+**To change modes**: Click/tap the toggle button to cycle through: Auto → Always Show → Always Hide → Auto
+
+The selected mode is saved and persists across page reloads and browser sessions.
+
+### Keyboard Layout
+
+The on-screen keyboard includes:
+
+| Key | Function |
+|-----|----------|
+| **⇧** (Shift) | Toggle uppercase letters and symbols |
+| **⌫** (Backspace) | Delete character before cursor |
+| **Tab ⇥** | Move to the next input field |
+| **Space** | Insert space character |
+
+### Using the Keyboard
+
+1. **Auto Mode** (Default):
+   - Tap any text input field to show the keyboard
+   - The keyboard appears at the bottom center of the screen
+   - Tap outside input fields to hide the keyboard
+
+2. **Always Show Mode**:
+   - Useful for data entry tasks with multiple fields
+   - Keyboard stays visible even when no field is focused
+   - Switch to this mode when filling forms
+
+3. **Always Hide Mode**:
+   - Use when a physical USB/Bluetooth keyboard is connected
+   - Prevents accidental keyboard popup on touch
+
+### Tips for Touch Devices
+
+- The keyboard automatically scrolls the focused input field into view
+- Use the **Tab** key to quickly move through form fields
+- The keyboard takes up 50% of screen width for comfortable typing
+- Body content adjusts to prevent the keyboard from covering inputs
+
+### Raspberry Pi Kiosk Mode
+
+When running PouCon in fullscreen/kiosk mode on Raspberry Pi:
+- **Disable the system on-screen keyboard** (Onboard) to avoid conflicts
+- Use PouCon's built-in keyboard instead
+- The web-based keyboard always appears above page content
+
+To disable Raspbian's Onboard keyboard:
+```bash
+mkdir -p ~/.config/autostart
+echo -e "[Desktop Entry]\nHidden=true" > ~/.config/autostart/onboard-autostart.desktop
+```
 
 ---
 

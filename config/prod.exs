@@ -14,5 +14,10 @@ config :pou_con, PouConWeb.Endpoint,
 # Do not print debug messages in production
 config :logger, level: :info
 
+# Use local Tailwind binary to avoid download issues during Docker builds
+# Download from: https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.7/tailwindcss-linux-arm64
+# Save to: assets/vendor/bin/tailwindcss-linux-arm64
+config :tailwind, path: Path.expand("../assets/vendor/bin/tailwindcss-linux-arm64", __DIR__)
+
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.

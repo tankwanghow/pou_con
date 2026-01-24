@@ -84,19 +84,20 @@ Hooks.SimpleKeyboard = {
             'q w e r t y u i o p [ ]',
             'a s d f g h j k l ; \'',
             '{shift} z x c v b n m , .',
-            '{space} {bksp}'
+            '{tab} {space} {bksp}'
           ],
           shift: [
             '! @ # $ % ^ & * ( ) _ +',
             'Q W E R T Y U I O P { }',
             'A S D F G H J K L : "',
             '{shift} Z X C V B N M < > ?',
-            '{space} {bksp}'
+            '{tab} {space} {bksp}'
           ]
         },
         display: {
           "{bksp}": "⌫",
-          "{shift}": "⇧"
+          "{shift}": "⇧",
+          "{tab}": "Tab ⇥"
         },
         useMouseEvents: true,          // Enable mouse event handling for desktop
         preventMouseDownDefault: true, // Prevent default mousedown to keep input focus
@@ -133,6 +134,21 @@ Hooks.SimpleKeyboard = {
             // Optional: Push event for form submission
             // this.pushEvent("submit_form", {});
           }
+
+          // Handle tab key - move to next focusable input
+          if (button === '{tab}') {
+            const activeEl = window.keyboardInputs[window.keyboard.options.inputName];
+            if (activeEl) {
+              // Get all focusable inputs with SimpleKeyboard hook
+              const allInputs = Array.from(document.querySelectorAll('[phx-hook="SimpleKeyboard"]'));
+              const currentIndex = allInputs.indexOf(activeEl);
+              const nextIndex = (currentIndex + 1) % allInputs.length;
+              const nextInput = allInputs[nextIndex];
+              if (nextInput) {
+                nextInput.focus();
+              }
+            }
+          }
         },
         // Additional options as required
       });
@@ -154,37 +170,31 @@ Hooks.SimpleKeyboard = {
       window.keyboard.setOptions({ inputName: this.inputName });
       window.keyboard.setInput(inputElement.value);
 
-      if (keyboardContainer.style.display !== "block") {
-        keyboardContainer.style.display = "block";
-
-        // Set fixed positioning at bottom, centered with 50% width
-        keyboardContainer.style.position = "fixed";
-        keyboardContainer.style.bottom = "0px";
-        keyboardContainer.style.width = "50vw";
-        keyboardContainer.style.left = "50%";
-        keyboardContainer.style.transform = "translateX(-50%)"; // Center horizontally
-
-        // Adjust body padding to prevent overlap
-        const keyboardHeight = keyboardContainer.offsetHeight;
-        document.body.style.paddingBottom = `${keyboardHeight}px`;
+      // Only auto-show in "auto" mode (always_show is handled globally, always_hide stays hidden)
+      if (window.keyboardMode === "auto" && keyboardContainer.style.display !== "block") {
+        showKeyboard(keyboardContainer);
       }
 
-      // Scroll input into view above keyboard
-      const viewportHeight = window.innerHeight;
-      const inputRect = inputElement.getBoundingClientRect();
-      const desiredScroll = window.scrollY + inputRect.top - (viewportHeight - keyboardContainer.offsetHeight - 20); // 20px padding for spacing
-      window.scrollTo({ top: desiredScroll, behavior: "smooth" });
+      // Scroll input into view above keyboard (if keyboard is visible)
+      if (keyboardContainer.style.display === "block") {
+        const viewportHeight = window.innerHeight;
+        const inputRect = inputElement.getBoundingClientRect();
+        const desiredScroll = window.scrollY + inputRect.top - (viewportHeight - keyboardContainer.offsetHeight - 20);
+        window.scrollTo({ top: desiredScroll, behavior: "smooth" });
+      }
     });
 
-    // Hide keyboard on blur only if focus is not on another hooked input or the keyboard
+    // Hide keyboard on blur only in "auto" mode
     inputElement.addEventListener("blur", event => {
+      // Only auto-hide in "auto" mode
+      if (window.keyboardMode !== "auto") return;
+
       const relatedTarget = event.relatedTarget;
       if (relatedTarget && (relatedTarget.closest('.simple-keyboard') || relatedTarget.getAttribute('phx-hook') === 'SimpleKeyboard')) {
         return; // Do not hide if switching to another input or interacting with keyboard
       }
 
-      keyboardContainer.style.display = "none";
-      document.body.style.paddingBottom = this.originalPaddingBottom;
+      hideKeyboard(keyboardContainer);
     });
 
     // Handle server updates
@@ -231,6 +241,73 @@ liveSocket.connect()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
 // >> liveSocket.disableLatencySim()
 window.liveSocket = liveSocket
+
+// Keyboard mode management: "auto" | "always_show" | "always_hide"
+window.keyboardMode = localStorage.getItem("keyboardMode") || "auto";
+
+function setKeyboardMode(mode) {
+  window.keyboardMode = mode;
+  localStorage.setItem("keyboardMode", mode);
+
+  const keyboardContainer = document.querySelector(".simple-keyboard");
+  const toggleBtn = document.getElementById("keyboard-toggle");
+
+  if (!keyboardContainer) return;
+
+  // Update button appearance
+  if (toggleBtn) {
+    const labels = { auto: "A", always_show: "S", always_hide: "H" };
+    const colors = { auto: "bg-blue-600 hover:bg-blue-700", always_show: "bg-green-600 hover:bg-green-700", always_hide: "bg-gray-600 hover:bg-gray-700" };
+    const titles = { auto: "Auto (click to change)", always_show: "Always Show (click to change)", always_hide: "Always Hide (click to change)" };
+
+    toggleBtn.textContent = `⌨${labels[mode]}`;
+    toggleBtn.title = titles[mode];
+    toggleBtn.className = `fixed bottom-4 right-4 z-50 w-14 h-12 ${colors[mode]} text-white rounded-full shadow-lg flex items-center justify-center text-lg font-bold transition-colors`;
+  }
+
+  // Apply mode
+  if (mode === "always_show") {
+    showKeyboard(keyboardContainer);
+  } else if (mode === "always_hide") {
+    hideKeyboard(keyboardContainer);
+  }
+  // "auto" mode is handled by focus/blur events
+}
+
+function showKeyboard(keyboardContainer) {
+  keyboardContainer.style.display = "block";
+  keyboardContainer.style.position = "fixed";
+  keyboardContainer.style.bottom = "0px";
+  keyboardContainer.style.width = "50vw";
+  keyboardContainer.style.left = "50%";
+  keyboardContainer.style.transform = "translateX(-50%)";
+
+  const keyboardHeight = keyboardContainer.offsetHeight;
+  document.body.style.paddingBottom = `${keyboardHeight}px`;
+}
+
+function hideKeyboard(keyboardContainer) {
+  keyboardContainer.style.display = "none";
+  document.body.style.paddingBottom = "0px";
+}
+
+// Keyboard toggle button - cycles through modes
+document.addEventListener("DOMContentLoaded", () => {
+  const toggleBtn = document.getElementById("keyboard-toggle");
+
+  if (toggleBtn) {
+    // Initialize display
+    setKeyboardMode(window.keyboardMode);
+
+    toggleBtn.addEventListener("click", () => {
+      // Cycle: auto -> always_show -> always_hide -> auto
+      const modes = ["auto", "always_show", "always_hide"];
+      const currentIndex = modes.indexOf(window.keyboardMode);
+      const nextMode = modes[(currentIndex + 1) % modes.length];
+      setKeyboardMode(nextMode);
+    });
+  }
+});
 
 // The lines below enable quality of life phoenix_live_reload
 // development features:

@@ -46,6 +46,8 @@ config :esbuild,
   ]
 
 # Configure tailwind (the version is required)
+# In prod, use local ARM64 binary to avoid download issues during Docker builds
+# In dev/test, let it download the appropriate binary for your platform
 config :tailwind,
   version: "4.1.7",
   pou_con: [

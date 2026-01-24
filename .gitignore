@@ -44,6 +44,8 @@ npm-debug.log
 
 /output/
 *.tar.gz
+/assets/vendor/bin/tailwindcss-linux-arm64
+
 
 priv/house_id
 priv/ssl
