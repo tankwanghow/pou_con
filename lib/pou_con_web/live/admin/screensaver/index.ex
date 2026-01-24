@@ -51,6 +51,18 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
                   <%= if @settings.dpms_enabled, do: "Enabled", else: "Disabled" %>
                 </span>
               </div>
+              <%= if @settings[:has_backlight] do %>
+                <div>
+                  <span class="font-medium">Backlight:</span>
+                  <span class="ml-2">{@settings[:backlight_level] || 0} / {@settings[:backlight_max] || 5}</span>
+                </div>
+                <div>
+                  <span class="font-medium">Device:</span>
+                  <span class="ml-2 px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-xs">
+                    reTerminal DM
+                  </span>
+                </div>
+              <% end %>
             </div>
           <% else %>
             <div class="p-3 bg-gray-100 border border-gray-300 rounded">
@@ -158,6 +170,54 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
           </p>
         </div>
 
+        <%!-- Backlight Control (reTerminal DM) --%>
+        <%= if @settings && @settings[:has_backlight] do %>
+          <div class="p-4 border rounded-lg bg-purple-50 border-purple-200">
+            <h3 class="text-lg font-semibold mb-3">
+              Backlight Control
+              <span class="text-sm font-normal text-purple-600 ml-2">(reTerminal DM)</span>
+            </h3>
+
+            <div class="mb-4">
+              <div class="flex items-center gap-2 text-sm">
+                <span class="font-medium">Current Level:</span>
+                <span class="px-2 py-0.5 bg-purple-100 rounded font-mono">
+                  {@settings[:backlight_level] || 0} / {@settings[:backlight_max] || 5}
+                </span>
+                <span class={[
+                  "px-2 py-0.5 rounded text-xs",
+                  if(@settings[:backlight_on], do: "bg-green-100 text-green-800", else: "bg-gray-100 text-gray-800")
+                ]}>
+                  <%= if @settings[:backlight_on], do: "ON", else: "OFF" %>
+                </span>
+              </div>
+            </div>
+
+            <div class="flex gap-2 flex-wrap">
+              <%= for level <- 0..(@settings[:backlight_max] || 5) do %>
+                <button
+                  type="button"
+                  phx-click="set_backlight"
+                  phx-value-level={level}
+                  class={[
+                    "px-4 py-2 rounded border-2 font-medium transition-colors",
+                    if(@settings[:backlight_level] == level,
+                      do: "border-purple-500 bg-purple-100 text-purple-800",
+                      else: "border-gray-200 bg-white hover:border-purple-300"
+                    )
+                  ]}
+                >
+                  <%= if level == 0, do: "Off", else: level %>
+                </button>
+              <% end %>
+            </div>
+
+            <p class="text-xs text-purple-600 mt-3">
+              Direct backlight control provides more reliable screen blanking on reTerminal DM devices.
+            </p>
+          </div>
+        <% end %>
+
         <%!-- Info --%>
         <div class="p-4 bg-white border border-gray-200 rounded-lg text-sm">
           <h3 class="font-semibold mb-2">About Screen Blanking</h3>
@@ -168,13 +228,25 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
             <li>Settings persist across reboots via X11 autostart configuration</li>
           </ul>
 
+          <%= if @settings && @settings[:has_backlight] do %>
+            <div class="mt-4 p-3 bg-purple-50 border border-purple-200 rounded">
+              <p class="font-medium text-purple-800">reTerminal DM Detected</p>
+              <p class="text-xs text-purple-600 mt-1">
+                This device supports direct backlight control which provides more reliable
+                screen blanking than DPMS. The Blank/Wake buttons use backlight control
+                on this device.
+              </p>
+            </div>
+          <% end %>
+
           <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
             <p class="font-medium text-blue-800">Deployment Setup</p>
             <p class="text-xs text-blue-600 mt-1">
-              For settings to persist across reboots, run during deployment:
+              Screen saver is configured automatically during deployment.
+              Run the deployment script to set up persistence:
             </p>
             <code class="block mt-1 bg-gray-900 text-green-400 px-2 py-1 rounded font-mono text-xs">
-              sudo bash setup_screensaver.sh
+              ./scripts/deploy_to_cm4.sh &lt;device-ip&gt;
             </code>
           </div>
         </div>
@@ -266,6 +338,25 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
 
       {:error, reason} ->
         {:noreply, socket |> put_flash(:error, "Failed to wake screen: #{reason}")}
+    end
+  end
+
+  @impl true
+  def handle_event("set_backlight", %{"level" => level}, socket) do
+    level = String.to_integer(level)
+
+    case Screensaver.set_backlight(level) do
+      :ok ->
+        settings = fetch_settings()
+        label = if level == 0, do: "off", else: "#{level}"
+
+        {:noreply,
+         socket
+         |> assign(:settings, settings)
+         |> put_flash(:info, "Backlight set to #{label}")}
+
+      {:error, reason} ->
+        {:noreply, socket |> put_flash(:error, "Failed to set backlight: #{reason}")}
     end
   end
 

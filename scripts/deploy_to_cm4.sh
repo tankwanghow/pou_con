@@ -148,6 +148,14 @@ deploy_to_cm4() {
         echo "Configuring screen saver (3 minute idle timeout)..."
         IDLE_SECONDS=180
 
+        # Detect if this is a reTerminal DM (has lcd_backlight)
+        if [ -f /sys/class/backlight/lcd_backlight/brightness ]; then
+            echo "Detected reTerminal DM (lcd_backlight present)"
+            IS_RETERMINAL=true
+        else
+            IS_RETERMINAL=false
+        fi
+
         # Configure X11 screen blanking via LXDE autostart
         sudo mkdir -p /etc/xdg/lxsession/LXDE-pi
         sudo tee /etc/xdg/lxsession/LXDE-pi/autostart > /dev/null << EOF
@@ -155,22 +163,42 @@ deploy_to_cm4() {
 @pcmanfm --desktop --profile LXDE-pi
 @xset s ${IDLE_SECONDS} ${IDLE_SECONDS}
 @xset dpms ${IDLE_SECONDS} ${IDLE_SECONDS} ${IDLE_SECONDS}
+@xset +dpms
 EOF
 
-        # Configure lightdm for login screen
+        # Configure lightdm for reTerminal DM compatibility
+        # Uses -s 0 -dpms to avoid wake-up issues on reTerminal displays
+        # DPMS timeout is controlled via runtime xset commands instead
         if [ -d /etc/lightdm ]; then
             sudo mkdir -p /etc/lightdm/lightdm.conf.d
             sudo tee /etc/lightdm/lightdm.conf.d/screensaver.conf > /dev/null << EOF
 [SeatDefaults]
-xserver-command=X -s ${IDLE_SECONDS} -dpms
+xserver-command=X -s 0 -dpms
 EOF
+            echo "Configured lightdm for reliable DPMS wake-up"
+        fi
+
+        # Also update main lightdm.conf if it exists (for reTerminal DM)
+        if [ -f /etc/lightdm/lightdm.conf ]; then
+            if grep -q "^#xserver-command=X" /etc/lightdm/lightdm.conf; then
+                sudo sed -i 's/^#xserver-command=X.*/xserver-command=X -s 0 -dpms/' /etc/lightdm/lightdm.conf
+                echo "Updated /etc/lightdm/lightdm.conf for DPMS compatibility"
+            fi
         fi
 
         # Apply immediately if X is running
         export DISPLAY=:0
         xset s ${IDLE_SECONDS} ${IDLE_SECONDS} 2>/dev/null || true
         xset dpms ${IDLE_SECONDS} ${IDLE_SECONDS} ${IDLE_SECONDS} 2>/dev/null || true
+        xset +dpms 2>/dev/null || true
         echo "Screen saver configured for ${IDLE_SECONDS} seconds"
+
+        # For reTerminal DM, ensure backlight is at max
+        if [ "$IS_RETERMINAL" = true ]; then
+            MAX_BRIGHT=$(cat /sys/class/backlight/lcd_backlight/max_brightness)
+            echo $MAX_BRIGHT | sudo tee /sys/class/backlight/lcd_backlight/brightness > /dev/null
+            echo "Set reTerminal DM backlight to maximum ($MAX_BRIGHT)"
+        fi
 
         echo "Deployment complete!"
 
