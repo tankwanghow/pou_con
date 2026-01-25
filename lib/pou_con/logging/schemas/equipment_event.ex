@@ -38,7 +38,8 @@ defmodule PouCon.Logging.Schemas.EquipmentEvent do
       "mode_change",
       "alarm_triggered",
       "alarm_cleared",
-      "alarm_muted"
+      "alarm_muted",
+      "startup"
     ])
     |> validate_inclusion(:mode, ["auto", "manual"])
     |> validate_inclusion(:triggered_by, [

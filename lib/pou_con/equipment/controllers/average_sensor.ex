@@ -49,7 +49,7 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
 
   alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
   alias PouCon.Equipment.DataPoints
-  alias PouCon.Logging.DataPointLogger
+  alias PouCon.Logging.{DataPointLogger, EquipmentLogger}
 
   @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
 
@@ -291,6 +291,29 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
 
     # Determine error state (only check configured sensor types)
     error = determine_error_state(state, valid_temps, valid_hums, valid_co2s, valid_nh3s)
+
+    # Log error transitions
+    if error != state.error do
+      case error do
+        nil ->
+          Logger.info("[#{state.name}] AverageSensor error CLEARED")
+
+          EquipmentLogger.log_event(%{
+            equipment_name: state.name,
+            event_type: "error_cleared",
+            from_value: Atom.to_string(state.error || :unknown),
+            to_value: "ok",
+            mode: "auto",
+            triggered_by: "system"
+          })
+
+        err ->
+          error_str = Atom.to_string(err)
+          Logger.error("[#{state.name}] AverageSensor ERROR: #{error_str}")
+
+          EquipmentLogger.log_error(state.name, "auto", error_str, "reading")
+      end
+    end
 
     %State{
       state

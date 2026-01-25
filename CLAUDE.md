@@ -390,6 +390,20 @@ All equipment controllers follow a 4-location integration pattern (see `LOGGING_
 - Estimated 105 KB/day with 43 equipment items
 - Safe for SD card deployment with automatic cleanup
 
+**System Startup Logging:**
+
+The system logs a "startup" event on every application start (via `EquipmentLogger.log_system_startup/0`).
+This enables power failure detection by comparing timestamps:
+
+- **Equipment name**: "SYSTEM" (pseudo-equipment for system-level events)
+- **Event type**: "startup"
+- **How to detect outages**: Query events and look for gaps between timestamps. If the last event before startup was 4 hours ago, the system was offline for 4 hours.
+
+Example query to find system restarts:
+```elixir
+EquipmentLogger.query_events(equipment_name: "SYSTEM", event_type: "startup")
+```
+
 ## Domain Directory Structure
 
 The codebase follows domain-driven organization:
@@ -531,6 +545,61 @@ Database tables:
 - `alarm_rules` - Groups conditions that trigger a siren
 - `alarm_conditions` - Individual conditions within a rule
 
+### Fail-Safe Siren Wiring (Power Failure Protection)
+
+For critical safety alarms that must sound during power failure, use **Normally Closed (NC) relay wiring** with a battery-powered siren. This is a hardware-based fail-safe - when power fails, the software cannot help.
+
+**How It Works:**
+```
+NORMAL OPERATION (Power OK, No Alarm):
+  Relay coil ENERGIZED → NC contact OPEN → Siren OFF
+
+ALARM ACTIVE (Software triggers alarm):
+  Relay coil DE-ENERGIZED → NC contact CLOSED → Siren ON (battery power)
+
+POWER FAILURE:
+  Relay coil DE-ENERGIZED → NC contact CLOSED → Siren ON (battery power)
+```
+
+**Wiring Diagram:**
+```
+24V Power ──── [Relay Coil] ──── Digital Output (Waveshare)
+                    │
+              [NC Contact]
+                    │
+Battery (+) ───────●─────────── Siren (+)
+                                    │
+Battery (-) ──────────────────── Siren (-)
+```
+
+**Software Configuration:**
+```yaml
+# Power-fail siren with NC (fail-safe) wiring
+name: power_fail_siren
+type: siren
+on_off_coil: WS-11-O-08
+auto_manual: VT-SIREN-MODE
+inverted: true   # Coil ON = Siren OFF, Coil OFF = Siren ON
+```
+
+With `inverted: true`:
+- `turn_on()` → coil OFF → NC closes → siren sounds
+- `turn_off()` → coil ON → NC opens → siren silent
+- Power failure → coil OFF → NC closes → **siren sounds automatically**
+
+**Multiple Alarm Sources:** Wire additional NC contacts in parallel to trigger the same siren:
+```
+Battery ──┬── [NC: Power-fail relay] ──┬── Siren
+          ├── [NC: High-temp alarm]  ──┤
+          └── [NC: Critical fault]  ───┘
+```
+
+**Important Considerations:**
+- Use dedicated relay output for power-fail siren
+- Size battery for required siren duration (30 min - 2 hours typical)
+- Consider physical silence button for acknowledged outages
+- Test fail-safe behavior periodically by disconnecting power
+
 ### Auto/Manual Mode
 
 Most controllers support two modes:
@@ -538,6 +607,13 @@ Most controllers support two modes:
 - **Auto**: Schedulers and auto-control can operate equipment
 
 Mode is stored in controller state and affects logging (logged as "auto" or "manual" mode).
+
+**Auto-Off on Mode Switch**: When switching from MANUAL to AUTO mode, equipment is automatically turned off (`commanded_on: false`). This is a safety feature that:
+1. Gives automation a "clean slate" to control equipment based on its logic
+2. Prevents unexpected behavior from equipment running in an unknown state
+3. Ensures automation controllers (EnvironmentController, Schedulers) start from a predictable state
+
+This behavior is implemented in all controllable equipment: Fan, Pump, Light, Siren, Egg, FeedIn, and BinaryController-based equipment.
 
 ### PubSub Topics
 

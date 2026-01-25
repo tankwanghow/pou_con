@@ -225,7 +225,7 @@ defmodule PouConWeb.Layouts do
     <!-- System Time Invalid Banner -->
     <div
       :if={@system_time_valid == false}
-      class="mx-4 mt-1 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 bg-orange-600 text-white border-2 border-orange-800 animate-pulse"
+      class="mx-auto w-1/2 mt-1 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 bg-orange-600 text-white border-2 border-orange-800 animate-pulse"
     >
       <span class="text-2xl">🕐</span>
       <div class="flex-1 text-center">
@@ -243,7 +243,7 @@ defmodule PouConWeb.Layouts do
     <!-- Failsafe/Auto Fan Alert Banner -->
     <div
       :if={@failsafe_status && @failsafe_status.valid == false}
-      class="mx-4 mt-1 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 bg-red-600 text-white border-2 border-red-800 animate-pulse"
+      class="mx-auto mt-1 px-3 py-2 w-1/2 rounded-lg font-semibold flex items-center gap-2 bg-red-600 text-white border-2 border-red-800 animate-pulse"
     >
       <span class="text-2xl">⚠️</span>
       <div class="flex-1 text-center">

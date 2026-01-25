@@ -56,16 +56,21 @@ defmodule PouCon.Equipment.Controllers.EggTest do
     end
 
     test "returns status map with all required fields", %{name: name} do
+      # Wait for initial poll to complete
+      Process.sleep(50)
+
       status = Egg.status(name)
       assert is_map(status)
       assert status.name == name
-      assert status.mode == :auto
+      # Default stub returns state: 0 for auto_manual, which means manual mode
+      assert status.mode == :manual
       assert status.error == nil
     end
 
     test "reflects state from DataPointManager", %{devices: devices} do
       name = "test_egg_state_#{System.unique_integer([:positive])}"
 
+      # state: 1 for auto_manual means AUTO mode
       stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         n when n == devices.running_feedback -> {:ok, %{state: 1}}
@@ -86,7 +91,7 @@ defmodule PouCon.Equipment.Controllers.EggTest do
       status = Egg.status(name)
       assert status.actual_on == true
       assert status.is_running == true
-      assert status.mode == :manual
+      assert status.mode == :auto
     end
 
     test "returns error message when DataPointManager returns error", %{devices: devices} do
@@ -174,7 +179,8 @@ defmodule PouCon.Equipment.Controllers.EggTest do
     end
 
     test "set_mode(:manual) sends command to DataPointManager", %{name: name, devices: devices} do
-      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 1} ->
+      # manual mode = state: 0
+      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 0} ->
         assert n == devices.auto_manual
         {:ok, :success}
       end)

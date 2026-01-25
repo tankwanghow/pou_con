@@ -318,7 +318,8 @@ defmodule PouCon.Equipment.Controllers.FanTest do
       ]
 
       {:ok, _pid} = Fan.start(opts)
-      Process.sleep(50)
+      # Error debouncing requires 3 consecutive polls (3 x 500ms = 1500ms)
+      Process.sleep(1600)
 
       status = Fan.status(name)
       assert status.error == :on_but_not_running
@@ -348,7 +349,8 @@ defmodule PouCon.Equipment.Controllers.FanTest do
       ]
 
       {:ok, _pid} = Fan.start(opts)
-      Process.sleep(50)
+      # Error debouncing requires 3 consecutive polls (3 x 500ms = 1500ms)
+      Process.sleep(1600)
 
       status = Fan.status(name)
       assert status.error == :off_but_running

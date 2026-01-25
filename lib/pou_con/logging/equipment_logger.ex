@@ -85,6 +85,31 @@ defmodule PouCon.Logging.EquipmentLogger do
   end
 
   @doc """
+  Log system startup event.
+
+  Records when the system starts (or restarts), useful for detecting power failures.
+  By comparing timestamps between the last event and startup, operators can determine
+  how long the system was offline.
+
+  ## Examples
+
+      log_system_startup()
+      # Logs: SYSTEM startup event with timestamp
+  """
+  def log_system_startup do
+    Logger.info("System startup - logging startup event")
+
+    log_event(%{
+      equipment_name: "SYSTEM",
+      event_type: "startup",
+      from_value: "off",
+      to_value: "running",
+      mode: "auto",
+      triggered_by: "system"
+    })
+  end
+
+  @doc """
   Generic log event function. Writes async to avoid blocking.
   IMPORTANT: Logging is paused if system time is invalid (detected on startup).
   """

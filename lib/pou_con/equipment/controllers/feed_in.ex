@@ -131,23 +131,35 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   @impl GenServer
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
-    auto_manual = opts[:auto_manual] || raise("Missing :auto_manual")
-    is_virtual = DataPoints.is_virtual?(auto_manual)
 
-    state = %State{
-      name: name,
-      title: opts[:title] || name,
-      filling_coil: opts[:filling_coil] || raise("Missing :filling_coil"),
-      running_feedback: opts[:running_feedback] || raise("Missing :running_feedback"),
-      auto_manual: auto_manual,
-      full_switch: opts[:full_switch] || raise("Missing :full_switch"),
-      trip: opts[:trip],
-      is_auto_manual_virtual_di: is_virtual,
-      inverted: opts[:inverted] == true,
-      poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
-    }
+    with {:ok, auto_manual} <- fetch_required(opts, :auto_manual),
+         {:ok, filling_coil} <- fetch_required(opts, :filling_coil),
+         {:ok, running_feedback} <- fetch_required(opts, :running_feedback),
+         {:ok, full_switch} <- fetch_required(opts, :full_switch) do
+      is_virtual = DataPoints.is_virtual?(auto_manual)
 
-    {:ok, state, {:continue, :initial_poll}}
+      state = %State{
+        name: name,
+        title: opts[:title] || name,
+        filling_coil: filling_coil,
+        running_feedback: running_feedback,
+        auto_manual: auto_manual,
+        full_switch: full_switch,
+        trip: opts[:trip],
+        is_auto_manual_virtual_di: is_virtual,
+        inverted: opts[:inverted] == true,
+        poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
+      }
+
+      {:ok, state, {:continue, :initial_poll}}
+    end
+  end
+
+  defp fetch_required(opts, key) do
+    case Keyword.fetch(opts, key) do
+      {:ok, value} when not is_nil(value) -> {:ok, value}
+      _ -> {:stop, {:missing_config, key}}
+    end
   end
 
   @impl GenServer

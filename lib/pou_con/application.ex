@@ -125,6 +125,13 @@ defmodule PouCon.Application do
             # Task supervisor for async logging writes
             {Task.Supervisor, name: PouCon.TaskSupervisor},
 
+            # Log system startup to track restarts and power failures
+            # Timestamps between events reveal outage duration
+            Supervisor.child_spec(
+              {Task, fn -> PouCon.Logging.EquipmentLogger.log_system_startup() end},
+              id: :log_system_startup
+            ),
+
             # ——————————————————————————————————————————
             # CRITICAL: InterlockController must start BEFORE EquipmentLoader
             # Equipment controllers check interlocks during sync_and_update
@@ -132,7 +139,10 @@ defmodule PouCon.Application do
             PouCon.Automation.Interlock.InterlockController,
 
             # Load and start all equipment controllers
-            {Task, fn -> PouCon.Equipment.EquipmentLoader.load_and_start_controllers() end},
+            Supervisor.child_spec(
+              {Task, fn -> PouCon.Equipment.EquipmentLoader.load_and_start_controllers() end},
+              id: :equipment_loader
+            ),
 
             # Periodic UI refresh broadcaster (1 second interval)
             PouCon.Equipment.StatusBroadcaster,

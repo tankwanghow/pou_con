@@ -64,6 +64,9 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
     end
 
     test "returns status map with all required fields", %{name: name} do
+      # Wait for initial poll to complete
+      Process.sleep(50)
+
       status = Pump.status(name)
 
       assert is_map(status)
@@ -71,7 +74,8 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
       assert status.commanded_on == false
       assert status.actual_on == false
       assert status.is_running == false
-      assert status.mode == :auto
+      # Default stub returns state: 0 for auto_manual, which means manual mode
+      assert status.mode == :manual
       assert status.error == nil
     end
 
@@ -79,10 +83,11 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
       name = "test_pump_state_#{System.unique_integer([:positive])}"
 
       # Stub specific values for this test
+      # mode_state == 1 means AUTO mode, mode_state == 0 means MANUAL
       stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
         n when n == devices.running_feedback -> {:ok, %{state: 1}}
-        # Manual
+        # Auto mode (state: 1 = auto)
         n when n == devices.auto_manual -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
@@ -100,7 +105,7 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
       status = Pump.status(name)
       assert status.actual_on == true
       assert status.is_running == true
-      assert status.mode == :manual
+      assert status.mode == :auto
     end
 
     test "returns error message when DataPointManager returns error", %{devices: devices} do
@@ -200,7 +205,8 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
     end
 
     test "set_mode(:manual) sends command to DataPointManager", %{name: name, devices: devices} do
-      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 1} ->
+      # manual mode = state: 0
+      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 0} ->
         assert n == devices.auto_manual
         {:ok, :success}
       end)
@@ -210,7 +216,8 @@ defmodule PouCon.Equipment.Controllers.PumpTest do
     end
 
     test "set_mode(:auto) sends command to DataPointManager", %{name: name, devices: devices} do
-      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 0} ->
+      # auto mode = state: 1
+      expect(DataPointManagerMock, :command, fn n, :set_state, %{state: 1} ->
         assert n == devices.auto_manual
         {:ok, :success}
       end)

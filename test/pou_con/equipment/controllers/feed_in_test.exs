@@ -20,12 +20,13 @@ defmodule PouCon.Equipment.Controllers.FeedInTest do
     }
 
     # Default: bucket is full (state: 1) so AUTO mode doesn't try to auto-fill
+    # auto_manual state: 1 = AUTO mode
     stub(DataPointManagerMock, :read_direct, fn
       name ->
-        if String.starts_with?(name, "full_") do
-          {:ok, %{state: 1}}
-        else
-          {:ok, %{state: 0}}
+        cond do
+          String.starts_with?(name, "full_") -> {:ok, %{state: 1}}
+          String.starts_with?(name, "am_") -> {:ok, %{state: 1}}
+          true -> {:ok, %{state: 0}}
         end
     end)
 
@@ -82,8 +83,8 @@ defmodule PouCon.Equipment.Controllers.FeedInTest do
         n when n == devices.full_switch -> {:ok, %{state: 1}}
         n when n == devices.filling_coil -> {:ok, %{state: 1}}
         n when n == devices.running_feedback -> {:ok, %{state: 1}}
-        # Manual
-        n when n == devices.auto_manual -> {:ok, %{state: 1}}
+        # Manual mode: state 0 = manual, state 1 = auto
+        n when n == devices.auto_manual -> {:ok, %{state: 0}}
         _ -> {:ok, %{state: 0}}
       end)
 

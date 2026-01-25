@@ -136,28 +136,43 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   @impl GenServer
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
-    auto_manual = opts[:auto_manual] || raise("Missing :auto_manual")
 
-    # Check if auto_manual data point is virtual (software-controlled mode)
-    is_auto_manual_virtual_di = DataPoints.is_virtual?(auto_manual)
+    with {:ok, auto_manual} <- fetch_required(opts, :auto_manual),
+         {:ok, to_back_limit} <- fetch_required(opts, :to_back_limit),
+         {:ok, to_front_limit} <- fetch_required(opts, :to_front_limit),
+         {:ok, fwd_feedback} <- fetch_required(opts, :fwd_feedback),
+         {:ok, rev_feedback} <- fetch_required(opts, :rev_feedback),
+         {:ok, front_limit} <- fetch_required(opts, :front_limit),
+         {:ok, back_limit} <- fetch_required(opts, :back_limit),
+         {:ok, pulse_sensor} <- fetch_required(opts, :pulse_sensor) do
+      # Check if auto_manual data point is virtual (software-controlled mode)
+      is_auto_manual_virtual_di = DataPoints.is_virtual?(auto_manual)
 
-    state = %State{
-      name: name,
-      title: opts[:title] || name,
-      to_back_limit: opts[:to_back_limit] || raise("Missing :to_back_limit"),
-      to_front_limit: opts[:to_front_limit] || raise("Missing :to_front_limit"),
-      fwd_feedback: opts[:fwd_feedback] || raise("Missing :fwd_feedback"),
-      rev_feedback: opts[:rev_feedback] || raise("Missing :rev_feedback"),
-      front_limit: opts[:front_limit] || raise("Missing :front_limit"),
-      back_limit: opts[:back_limit] || raise("Missing :back_limit"),
-      pulse_sensor: opts[:pulse_sensor] || raise("Missing :pulse_sensor"),
-      auto_manual: auto_manual,
-      trip: opts[:trip],
-      is_auto_manual_virtual_di: is_auto_manual_virtual_di,
-      poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
-    }
+      state = %State{
+        name: name,
+        title: opts[:title] || name,
+        to_back_limit: to_back_limit,
+        to_front_limit: to_front_limit,
+        fwd_feedback: fwd_feedback,
+        rev_feedback: rev_feedback,
+        front_limit: front_limit,
+        back_limit: back_limit,
+        pulse_sensor: pulse_sensor,
+        auto_manual: auto_manual,
+        trip: opts[:trip],
+        is_auto_manual_virtual_di: is_auto_manual_virtual_di,
+        poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
+      }
 
-    {:ok, state, {:continue, :initial_poll}}
+      {:ok, state, {:continue, :initial_poll}}
+    end
+  end
+
+  defp fetch_required(opts, key) do
+    case Keyword.fetch(opts, key) do
+      {:ok, value} when not is_nil(value) -> {:ok, value}
+      _ -> {:stop, {:missing_config, key}}
+    end
   end
 
   @impl GenServer

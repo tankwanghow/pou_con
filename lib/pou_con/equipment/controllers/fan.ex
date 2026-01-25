@@ -141,26 +141,36 @@ defmodule PouCon.Equipment.Controllers.Fan do
   @impl GenServer
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
-    auto_manual = opts[:auto_manual] || raise("Missing :auto_manual")
 
-    # Check if auto_manual data point is virtual (software-controlled mode)
-    is_auto_manual_virtual_di = DataPoints.is_virtual?(auto_manual)
+    with {:ok, auto_manual} <- fetch_required(opts, :auto_manual),
+         {:ok, on_off_coil} <- fetch_required(opts, :on_off_coil),
+         {:ok, running_feedback} <- fetch_required(opts, :running_feedback) do
+      # Check if auto_manual data point is virtual (software-controlled mode)
+      is_auto_manual_virtual_di = DataPoints.is_virtual?(auto_manual)
 
-    state = %State{
-      name: name,
-      title: opts[:title] || name,
-      on_off_coil: opts[:on_off_coil] || raise("Missing :on_off_coil"),
-      running_feedback: opts[:running_feedback] || raise("Missing :running_feedback"),
-      auto_manual: auto_manual,
-      trip: opts[:trip],
-      current_input: opts[:current_input],
-      is_auto_manual_virtual_di: is_auto_manual_virtual_di,
-      inverted: opts[:inverted] == true,
-      poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
-    }
+      state = %State{
+        name: name,
+        title: opts[:title] || name,
+        on_off_coil: on_off_coil,
+        running_feedback: running_feedback,
+        auto_manual: auto_manual,
+        trip: opts[:trip],
+        current_input: opts[:current_input],
+        is_auto_manual_virtual_di: is_auto_manual_virtual_di,
+        inverted: opts[:inverted] == true,
+        poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
+      }
 
-    # No PubSub subscription - we poll ourselves
-    {:ok, state, {:continue, :initial_poll}}
+      # No PubSub subscription - we poll ourselves
+      {:ok, state, {:continue, :initial_poll}}
+    end
+  end
+
+  defp fetch_required(opts, key) do
+    case Keyword.fetch(opts, key) do
+      {:ok, value} when not is_nil(value) -> {:ok, value}
+      _ -> {:stop, {:missing_config, key}}
+    end
   end
 
   @impl GenServer
@@ -197,7 +207,10 @@ defmodule PouCon.Equipment.Controllers.Fan do
           EquipmentLogger.log_mode_change(state.name, state.mode, mode, "user")
         end
 
-        {:noreply, poll_and_update(%{state | mode: mode})}
+        new_state = %{state | mode: mode}
+        # Turn off when switching to AUTO mode (clean state for automation)
+        new_state = if mode == :auto, do: %{new_state | commanded_on: false}, else: new_state
+        {:noreply, sync_coil(new_state)}
 
       {:error, reason} ->
         Logger.error("[#{state.name}] Failed to set mode: #{inspect(reason)}")

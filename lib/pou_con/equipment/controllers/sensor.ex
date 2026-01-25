@@ -70,6 +70,7 @@ defmodule PouCon.Equipment.Controllers.Sensor do
   require Logger
 
   alias PouCon.Equipment.Controllers.Helpers.BinaryEquipmentHelpers, as: Helpers
+  alias PouCon.Logging.EquipmentLogger
 
   @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
 
@@ -131,20 +132,20 @@ defmodule PouCon.Equipment.Controllers.Sensor do
     field_keys = opts |> Keyword.drop(@reserved_keys) |> Keyword.keys()
 
     if Enum.empty?(field_keys) do
-      raise "No data points configured for sensor #{name}"
+      {:stop, {:missing_config, :data_points, "No data points configured for sensor #{name}"}}
+    else
+      state = %State{
+        name: name,
+        title: opts[:title] || name,
+        data_points: data_points,
+        field_keys: field_keys,
+        poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
+      }
+
+      Logger.info("[#{name}] Starting Sensor with #{length(field_keys)} data points: #{inspect(field_keys)}")
+
+      {:ok, state, {:continue, :initial_poll}}
     end
-
-    state = %State{
-      name: name,
-      title: opts[:title] || name,
-      data_points: data_points,
-      field_keys: field_keys,
-      poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
-    }
-
-    Logger.info("[#{name}] Starting Sensor with #{length(field_keys)} data points: #{inspect(field_keys)}")
-
-    {:ok, state, {:continue, :initial_poll}}
   end
 
   @impl GenServer
@@ -198,8 +199,22 @@ defmodule PouCon.Equipment.Controllers.Sensor do
     # Log only when error actually changes
     if new_error != state.error do
       case new_error do
-        nil -> Logger.info("[#{state.name}] Sensor error CLEARED")
-        :timeout -> Logger.error("[#{state.name}] SENSOR TIMEOUT")
+        nil ->
+          Logger.info("[#{state.name}] Sensor error CLEARED")
+
+          EquipmentLogger.log_event(%{
+            equipment_name: state.name,
+            event_type: "error_cleared",
+            from_value: "timeout",
+            to_value: "ok",
+            mode: "auto",
+            triggered_by: "system"
+          })
+
+        :timeout ->
+          Logger.error("[#{state.name}] SENSOR TIMEOUT")
+
+          EquipmentLogger.log_error(state.name, "auto", "timeout", "reading")
       end
     end
 

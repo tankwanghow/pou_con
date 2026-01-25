@@ -72,16 +72,22 @@ defmodule PouCon.Equipment.Controllers.PowerIndicator do
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
 
-    state = %State{
-      name: name,
-      title: opts[:title] || name,
-      indicator: opts[:indicator] || raise("Missing :indicator"),
-      is_on: false,
-      error: nil,
-      poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
-    }
+    case Keyword.fetch(opts, :indicator) do
+      {:ok, indicator} ->
+        state = %State{
+          name: name,
+          title: opts[:title] || name,
+          indicator: indicator,
+          is_on: false,
+          error: nil,
+          poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
+        }
 
-    {:ok, state, {:continue, :initial_poll}}
+        {:ok, state, {:continue, :initial_poll}}
+
+      :error ->
+        {:stop, {:missing_config, :indicator}}
+    end
   end
 
   @impl GenServer

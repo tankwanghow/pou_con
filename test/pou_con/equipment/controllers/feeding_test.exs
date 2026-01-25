@@ -23,7 +23,14 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
       auto_manual: "am_#{id}"
     }
 
-    stub(DataPointManagerMock, :read_direct, fn _name -> {:ok, %{state: 0}} end)
+    # auto_manual state: 1 = AUTO mode, everything else 0
+    stub(DataPointManagerMock, :read_direct, fn name ->
+      if String.starts_with?(name, "am_") do
+        {:ok, %{state: 1}}
+      else
+        {:ok, %{state: 0}}
+      end
+    end)
     stub(DataPointManagerMock, :command, fn _name, _cmd, _params -> {:ok, :success} end)
 
     %{devices: device_names}
@@ -87,8 +94,8 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
         n when n == devices.back_limit -> {:ok, %{state: 0}}
         # Moving
         n when n == devices.pulse_sensor -> {:ok, %{state: 1}}
-        # Manual
-        n when n == devices.auto_manual -> {:ok, %{state: 1}}
+        # Manual mode: state 0 = manual, state 1 = auto
+        n when n == devices.auto_manual -> {:ok, %{state: 0}}
         _ -> {:ok, %{state: 0}}
       end)
 
