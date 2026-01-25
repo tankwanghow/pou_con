@@ -16,7 +16,12 @@ defmodule PouConWeb.Live.Admin.System.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+    <Layouts.app
+      flash={@flash}
+      current_role={@current_role}
+      failsafe_status={assigns[:failsafe_status]}
+      system_time_valid={assigns[:system_time_valid]}
+    >
       <.header>
         System Management
         <:actions>
@@ -26,7 +31,7 @@ defmodule PouConWeb.Live.Admin.System.Index do
 
       <div class="mt-6 space-y-6">
         <%!-- System Status --%>
-        <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div class="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
           <h3 class="text-lg font-semibold mb-3">System Status</h3>
 
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -48,16 +53,16 @@ defmodule PouConWeb.Live.Admin.System.Index do
         </div>
 
         <%!-- Reload Configuration --%>
-        <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+        <div class="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
           <h3 class="text-lg font-semibold mb-2">Reload Configuration</h3>
-          <p class="text-sm text-gray-600 mb-4">
+          <p class="text-sm text-base-content/70 mb-4">
             Reloads all configuration-dependent services without restarting the web server.
             Use this after restoring a backup or making configuration changes.
           </p>
 
           <div class="mb-4 text-sm">
             <strong>What gets reloaded:</strong>
-            <ul class="list-disc list-inside mt-1 text-gray-600">
+            <ul class="list-disc list-inside mt-1 text-base-content/70">
               <li>Data Points - Register mappings and port configurations</li>
               <li>Equipment Controllers - All fans, pumps, sensors, etc.</li>
               <li>Interlock Rules - Safety chain enforcement</li>
@@ -73,36 +78,82 @@ defmodule PouConWeb.Live.Admin.System.Index do
                 phx-click="reload_config"
                 class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
                 </svg>
                 Reload Configuration
               </button>
-
             <% :reloading -> %>
-              <div class="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded">
-                <svg class="animate-spin h-5 w-5 text-yellow-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              <div class="flex items-center gap-3 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded">
+                <svg
+                  class="animate-spin h-5 w-5 text-yellow-600"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                  >
+                  </circle>
+                  <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  >
+                  </path>
                 </svg>
                 <span class="text-yellow-800">Reloading configuration...</span>
               </div>
-
             <% :reload_success -> %>
-              <div class="p-4 bg-green-100 border border-green-400 rounded-lg">
+              <div class="p-4 bg-green-500/20 border border-green-500/40 rounded-lg">
                 <div class="flex items-center gap-2">
-                  <svg class="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  <svg
+                    class="h-5 w-5 text-green-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                   <span class="text-green-800 font-medium">Configuration reloaded successfully</span>
                 </div>
               </div>
-
             <% :reload_error -> %>
-              <div class="p-4 bg-red-100 border border-red-400 rounded-lg">
+              <div class="p-4 bg-red-500/20 border border-red-500/40 rounded-lg">
                 <div class="flex items-center gap-2 mb-2">
-                  <svg class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    class="h-5 w-5 text-red-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                   <span class="text-red-800 font-medium">Reload completed with errors</span>
                 </div>
@@ -119,16 +170,17 @@ defmodule PouConWeb.Live.Admin.System.Index do
         </div>
 
         <%!-- Application Restart --%>
-        <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+        <div class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
           <h3 class="text-lg font-semibold mb-2">Application Restart</h3>
-          <p class="text-sm text-gray-600 mb-4">
+          <p class="text-sm text-base-content/70 mb-4">
             Fully stops and restarts the OTP application. The web interface will be
             temporarily unavailable during restart.
           </p>
 
-          <div class="p-3 bg-amber-100 border border-amber-400 rounded mb-4">
+          <div class="p-3 bg-amber-500/20 border border-amber-500/40 rounded mb-4">
             <p class="text-sm text-amber-800">
-              <strong>Use this when:</strong> Port configurations changed (serial ports, IP addresses),
+              <strong>Use this when:</strong>
+              Port configurations changed (serial ports, IP addresses),
               or when reload doesn't fully apply changes.
             </p>
           </div>
@@ -140,21 +192,50 @@ defmodule PouConWeb.Live.Admin.System.Index do
                 phx-click="restart_app"
                 class="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
                 </svg>
                 Restart Application
               </button>
-
             <% :restarting -> %>
-              <div class="flex items-center gap-3 p-4 bg-amber-100 border border-amber-400 rounded">
-                <svg class="animate-spin h-5 w-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              <div class="flex items-center gap-3 p-4 bg-amber-500/20 border border-amber-500/40 rounded">
+                <svg
+                  class="animate-spin h-5 w-5 text-amber-600"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                  >
+                  </circle>
+                  <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  >
+                  </path>
                 </svg>
-                <span class="text-amber-800">Restarting application... Page will refresh automatically.</span>
+                <span class="text-amber-800">
+                  Restarting application... Page will refresh automatically.
+                </span>
               </div>
-
             <% _ -> %>
               <button
                 type="button"
@@ -167,14 +248,14 @@ defmodule PouConWeb.Live.Admin.System.Index do
         </div>
 
         <%!-- Service Restart (Production) --%>
-        <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+        <div class="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
           <h3 class="text-lg font-semibold mb-2">Service Restart (Production)</h3>
-          <p class="text-sm text-gray-600 mb-4">
+          <p class="text-sm text-base-content/70 mb-4">
             Restarts the entire system service via systemd. This is the most reliable
             restart method for production deployments on Raspberry Pi.
           </p>
 
-          <div class="p-3 bg-red-100 border border-red-400 rounded mb-4">
+          <div class="p-3 bg-red-500/20 border border-red-500/40 rounded mb-4">
             <p class="text-sm text-red-800">
               <strong>Warning:</strong> This will immediately terminate the current session.
               The service will restart automatically via systemd.
@@ -186,13 +267,24 @@ defmodule PouConWeb.Live.Admin.System.Index do
             phx-click="restart_service"
             class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 mr-2"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
             </svg>
             Restart Service
           </button>
 
-          <div class="mt-4 text-sm text-gray-600">
+          <div class="mt-4 text-sm text-base-content/70">
             <strong>Manual command:</strong>
             <div class="bg-gray-900 text-green-400 p-2 rounded font-mono text-xs mt-1">
               sudo systemctl restart pou_con
@@ -201,9 +293,9 @@ defmodule PouConWeb.Live.Admin.System.Index do
         </div>
 
         <%!-- IEx Commands Reference --%>
-        <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+        <div class="p-4 bg-base-200 border border-base-300 rounded-lg">
           <h3 class="text-lg font-semibold mb-4">IEx Commands Reference</h3>
-          <p class="text-sm text-gray-600 mb-4">
+          <p class="text-sm text-base-content/70 mb-4">
             For advanced users, these functions can be called directly from an IEx session.
           </p>
 
@@ -255,11 +347,11 @@ defmodule PouConWeb.Live.Admin.System.Index do
 
   defp stat_card(assigns) do
     ~H"""
-    <div class="bg-white p-3 rounded border text-center">
-      <div class="text-2xl font-bold text-blue-600">
-        <%= if @type == "text", do: @value, else: @value %>
+    <div class="bg-base-100 p-3 rounded border border-base-300 text-center">
+      <div class="text-2xl font-bold text-blue-500">
+        {if @type == "text", do: @value, else: @value}
       </div>
-      <div class="text-xs text-gray-500">{@label}</div>
+      <div class="text-xs text-base-content/60">{@label}</div>
     </div>
     """
   end
@@ -331,7 +423,10 @@ defmodule PouConWeb.Live.Admin.System.Index do
       :ok ->
         {:noreply,
          socket
-         |> put_flash(:info, "Service restart initiated. Page will reconnect when service is back.")}
+         |> put_flash(
+           :info,
+           "Service restart initiated. Page will reconnect when service is back."
+         )}
 
       {:error, :not_systemd} ->
         {:noreply,

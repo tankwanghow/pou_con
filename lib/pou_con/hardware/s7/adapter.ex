@@ -222,16 +222,12 @@ defmodule PouCon.Hardware.S7.Adapter do
           do_connect(state.client_pid, state.ip, state.rack, state.slot)
         catch
           :exit, :port_timed_out ->
-            Logger.warning(
-              "[S7.Adapter] Connection to #{state.ip} timed out (C port blocked)"
-            )
+            Logger.warning("[S7.Adapter] Connection to #{state.ip} timed out (C port blocked)")
 
             {:error, :port_timed_out}
 
           :exit, reason ->
-            Logger.warning(
-              "[S7.Adapter] Connection to #{state.ip} exited: #{inspect(reason)}"
-            )
+            Logger.warning("[S7.Adapter] Connection to #{state.ip} exited: #{inspect(reason)}")
 
             {:error, {:exit, reason}}
         end
@@ -266,7 +262,12 @@ defmodule PouCon.Hardware.S7.Adapter do
           end
 
           {:noreply,
-           %{state | connection_state: :disconnected, retry_count: new_retry_count, connected: false}}
+           %{
+             state
+             | connection_state: :disconnected,
+               retry_count: new_retry_count,
+               connected: false
+           }}
       end
     end
   end
@@ -342,7 +343,15 @@ defmodule PouCon.Hardware.S7.Adapter do
         Logger.info("[S7.Adapter] Connected to #{ip}")
 
         {:reply, :ok,
-         %{state | ip: ip, rack: rack, slot: slot, connected: true, connection_state: :connected, retry_count: 0}}
+         %{
+           state
+           | ip: ip,
+             rack: rack,
+             slot: slot,
+             connected: true,
+             connection_state: :connected,
+             retry_count: 0
+         }}
 
       {:error, _} = err ->
         {:reply, err, state}

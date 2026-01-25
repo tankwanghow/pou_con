@@ -266,7 +266,9 @@ defmodule PouCon.Equipment.Controllers.Fan do
   end
 
   # AUTO mode: sync commanded state with hardware
-  defp sync_coil(%State{commanded_on: cmd, actual_on: act, on_off_coil: coil, inverted: inv} = state)
+  defp sync_coil(
+         %State{commanded_on: cmd, actual_on: act, on_off_coil: coil, inverted: inv} = state
+       )
        when cmd != act do
     Logger.info("[#{state.name}] #{if cmd, do: "Turning ON", else: "Turning OFF"} fan")
 

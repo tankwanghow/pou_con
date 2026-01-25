@@ -415,7 +415,9 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
     end
   end
 
-  defp sync_coil(%State{commanded_on: cmd, actual_on: act, filling_coil: coil, inverted: inv} = state)
+  defp sync_coil(
+         %State{commanded_on: cmd, actual_on: act, filling_coil: coil, inverted: inv} = state
+       )
        when is_boolean(cmd) and is_boolean(act) and cmd != act do
     Logger.info("[#{state.name}] #{if cmd, do: "Starting", else: "Stopping"} filling")
 

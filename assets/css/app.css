@@ -321,6 +321,49 @@ li.hg-candidate-box-list-item:active {
   max-width: none;
 }
 
+/* Dark theme overrides for simple-keyboard */
+[data-theme="dark"] .hg-theme-default {
+  background-color: #1f2937;
+}
+
+[data-theme="dark"] .hg-theme-default .hg-button {
+  background: #374151;
+  border-bottom-color: #4b5563;
+  color: #f3f4f6;
+  box-shadow: 0 0 3px -1px rgba(0, 0, 0, .5);
+}
+
+[data-theme="dark"] .hg-theme-default .hg-button.hg-activeButton {
+  background: #4b5563;
+}
+
+[data-theme="dark"] .hg-theme-default .hg-button.hg-selectedButton {
+  background: rgba(59, 130, 246, 0.6);
+  color: #fff;
+}
+
+[data-theme="dark"] .hg-candidate-box {
+  background: #1f2937;
+  border-bottom-color: #4b5563;
+}
+
+[data-theme="dark"] li.hg-candidate-box-list-item:hover {
+  background: rgba(255, 255, 255, .1);
+}
+
+[data-theme="dark"] li.hg-candidate-box-list-item:active {
+  background: rgba(255, 255, 255, .2);
+}
+
+[data-theme="dark"] .hg-candidate-box-next,
+[data-theme="dark"] .hg-candidate-box-prev {
+  color: #9ca3af;
+}
+
+[data-theme="dark"] .hg-candidate-box-btn-active {
+  color: #e5e7eb;
+}
+
 /* assets/css/app.css (or any CSS file processed by Tailwind) */
 @theme {
   /* Reverse spin: clockwise */

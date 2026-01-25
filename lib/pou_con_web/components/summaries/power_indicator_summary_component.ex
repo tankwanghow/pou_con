@@ -31,7 +31,7 @@ defmodule PouConWeb.Components.Summaries.PowerIndicatorSummaryComponent do
     <div
       phx-click="go_to_power_indicators"
       phx-target={@myself}
-      class="bg-white shadow-md rounded-xl border border-gray-200 overflow-hidden transition-all cursor-pointer hover:shadow-lg"
+      class="bg-base-100 shadow-md rounded-xl border border-base-300 overflow-hidden transition-all cursor-pointer hover:shadow-lg"
     >
       <div class="flex flex-wrap">
         <%= for eq <- @equipments do %>

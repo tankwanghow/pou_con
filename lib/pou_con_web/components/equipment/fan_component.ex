@@ -90,7 +90,7 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
   defp current_display(assigns) do
     ~H"""
     <div class="flex items-center justify-center gap-1 text-sm font-mono">
-      <span class="text-gray-500">I:</span>
+      <span class="text-base-content/60">I:</span>
       <span class="text-blue-600 font-semibold">{@current}</span>
     </div>
     """

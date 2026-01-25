@@ -282,7 +282,8 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       humidity_override = Configs.humidity_override_status(config, state.avg_humidity)
 
       # Get target pumps
-      target_pump_list = Configs.get_pumps_for_conditions(config, state.avg_temp, state.avg_humidity)
+      target_pump_list =
+        Configs.get_pumps_for_conditions(config, state.avg_temp, state.avg_humidity)
 
       # Check stagger delay
       delay_ms = (config.stagger_delay_seconds || 5) * 1000

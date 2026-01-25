@@ -64,7 +64,7 @@ defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
   defp meter_row(assigns) do
     ~H"""
     <div class={["flex justify-between items-baseline text-lg font-mono", @bold && "font-bold"]}>
-      <span class="text-gray-400 uppercase tracking-wide text-sm">{@label}</span>
+      <span class="text-base-content/60 uppercase tracking-wide text-sm">{@label}</span>
       <span class={Shared.text_color(@color)}>{@value}</span>
     </div>
     """
@@ -157,7 +157,8 @@ defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
       label = format_label(key)
       formatted = format_value(key, value)
       color = get_value_color(key, value, key_thresholds)
-      bold = idx == 0  # First row is bold (primary value)
+      # First row is bold (primary value)
+      bold = idx == 0
       {label, formatted, color, bold}
     end)
   end
@@ -175,6 +176,7 @@ defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
   # Format value based on key name hints
   defp format_value(key, value) when is_number(value) do
     key_str = Atom.to_string(key)
+
     cond do
       String.contains?(key_str, "voltage") -> "#{Float.round(value * 1.0, 1)} V"
       String.contains?(key_str, "current") -> "#{Float.round(value * 1.0, 2)} A"
@@ -186,6 +188,7 @@ defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
       true -> "#{Float.round(value * 1.0, 2)}"
     end
   end
+
   defp format_value(_key, value), do: "#{value}"
 
   # No thresholds configured = neutral dark green color (no color coding)
@@ -195,11 +198,14 @@ defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
   defp get_value_color(_key, value, thresholds) when is_number(value) do
     Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
   end
+
   defp get_value_color(_key, _value, _thresholds), do: "gray"
 
   defp get_main_color(nil, _thresholds), do: "gray"
+
   defp get_main_color(value, thresholds) when is_number(value) do
     Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
   end
+
   defp get_main_color(_, _), do: @no_threshold_color
 end

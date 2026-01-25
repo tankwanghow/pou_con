@@ -20,7 +20,12 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+    <Layouts.app
+      flash={@flash}
+      current_role={@current_role}
+      failsafe_status={assigns[:failsafe_status]}
+      system_time_valid={assigns[:system_time_valid]}
+    >
       <.header>
         Screen Saver Settings
         <:actions>
@@ -46,30 +51,35 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
                 <span class="font-medium">DPMS:</span>
                 <span class={[
                   "ml-2 px-2 py-0.5 rounded text-xs",
-                  if(@settings.dpms_enabled, do: "bg-green-100 text-green-800", else: "bg-gray-100 text-gray-800")
+                  if(@settings.dpms_enabled,
+                    do: "bg-green-500/20 text-green-500",
+                    else: "bg-base-300 text-base-content"
+                  )
                 ]}>
-                  <%= if @settings.dpms_enabled, do: "Enabled", else: "Disabled" %>
+                  {if @settings.dpms_enabled, do: "Enabled", else: "Disabled"}
                 </span>
               </div>
               <%= if @settings[:has_backlight] do %>
                 <div>
                   <span class="font-medium">Backlight:</span>
-                  <span class="ml-2">{@settings[:backlight_level] || 0} / {@settings[:backlight_max] || 5}</span>
+                  <span class="ml-2">
+                    {@settings[:backlight_level] || 0} / {@settings[:backlight_max] || 5}
+                  </span>
                 </div>
                 <div>
                   <span class="font-medium">Device:</span>
-                  <span class="ml-2 px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-xs">
+                  <span class="ml-2 px-2 py-0.5 bg-purple-500/20 text-purple-500 rounded text-xs">
                     reTerminal DM
                   </span>
                 </div>
               <% end %>
             </div>
           <% else %>
-            <div class="p-3 bg-gray-100 border border-gray-300 rounded">
+            <div class="p-3 bg-base-200 border border-base-300 rounded">
               <p class="text-gray-700 text-sm font-medium">
                 No display detected
               </p>
-              <p class="text-gray-500 text-xs mt-1">
+              <p class="text-base-content/60 text-xs mt-1">
                 Screen saver controls are only available on the deployed Raspberry Pi with a connected display.
                 In development mode without X11, these settings have no effect.
               </p>
@@ -78,9 +88,15 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
         </div>
 
         <%!-- Quick Presets --%>
-        <div class={["p-4 border rounded-lg", if(@settings, do: "bg-blue-50 border-blue-200", else: "bg-gray-50 border-gray-200 opacity-60")]}>
+        <div class={[
+          "p-4 border rounded-lg",
+          if(@settings,
+            do: "bg-blue-500/10 border-blue-500/30",
+            else: "bg-base-200 border-base-300 opacity-60"
+          )
+        ]}>
           <h3 class="text-lg font-semibold mb-3">Quick Presets</h3>
-          <p class="text-sm text-gray-600 mb-4">
+          <p class="text-sm text-base-content/70 mb-4">
             Select a preset timeout for screen blanking after idle time.
           </p>
 
@@ -94,14 +110,15 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
                 class={[
                   "p-3 rounded-lg border-2 text-center transition-colors",
                   if(@settings && @settings.timeout_seconds == seconds,
-                    do: "border-blue-500 bg-blue-100 text-blue-800",
-                    else: "border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50 disabled:hover:border-gray-200 disabled:hover:bg-white disabled:cursor-not-allowed"
+                    do: "border-blue-500 bg-blue-500/20 text-blue-500",
+                    else:
+                      "border-base-300 bg-base-100 hover:border-blue-300 hover:bg-blue-50 disabled:hover:border-gray-200 disabled:hover:bg-white disabled:cursor-not-allowed"
                   )
                 ]}
               >
                 <div class="font-medium">{label}</div>
                 <%= if seconds > 0 do %>
-                  <div class="text-xs text-gray-500">{seconds}s</div>
+                  <div class="text-xs text-base-content/60">{seconds}s</div>
                 <% end %>
               </button>
             <% end %>
@@ -109,7 +126,13 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
         </div>
 
         <%!-- Custom Timeout --%>
-        <div class={["p-4 border rounded-lg", if(@settings, do: "bg-gray-50 border-gray-200", else: "bg-gray-50 border-gray-200 opacity-60")]}>
+        <div class={[
+          "p-4 border rounded-lg",
+          if(@settings,
+            do: "bg-base-200 border-base-300",
+            else: "bg-base-200 border-base-300 opacity-60"
+          )
+        ]}>
           <h3 class="text-lg font-semibold mb-3">Custom Timeout</h3>
 
           <.form for={@form} phx-submit="set_custom_timeout" class="flex gap-4 items-end">
@@ -129,14 +152,20 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
             </div>
           </.form>
 
-          <p class="text-xs text-gray-500 mt-2">
+          <p class="text-xs text-base-content/60 mt-2">
             Enter 0 to disable screen blanking (screen always on).
             Maximum 3600 seconds (1 hour).
           </p>
         </div>
 
         <%!-- Manual Controls --%>
-        <div class={["p-4 border rounded-lg", if(@settings, do: "bg-amber-50 border-amber-200", else: "bg-gray-50 border-gray-200 opacity-60")]}>
+        <div class={[
+          "p-4 border rounded-lg",
+          if(@settings,
+            do: "bg-amber-500/10 border-amber-500/30",
+            else: "bg-base-200 border-base-300 opacity-60"
+          )
+        ]}>
           <h3 class="text-lg font-semibold mb-3">Manual Controls</h3>
 
           <div class="flex gap-4">
@@ -146,8 +175,19 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
               disabled={is_nil(@settings)}
               class="inline-flex items-center px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                />
               </svg>
               Blank Screen Now
             </button>
@@ -158,21 +198,32 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
               disabled={is_nil(@settings)}
               class="inline-flex items-center px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                />
               </svg>
               Wake Screen Now
             </button>
           </div>
 
-          <p class="text-xs text-gray-600 mt-3">
+          <p class="text-xs text-base-content/70 mt-3">
             Touch the screen or move the mouse to wake from blank state.
           </p>
         </div>
 
         <%!-- Backlight Control (reTerminal DM) --%>
         <%= if @settings && @settings[:has_backlight] do %>
-          <div class="p-4 border rounded-lg bg-purple-50 border-purple-200">
+          <div class="p-4 border rounded-lg bg-purple-500/10 border-purple-500/30">
             <h3 class="text-lg font-semibold mb-3">
               Backlight Control
               <span class="text-sm font-normal text-purple-600 ml-2">(reTerminal DM)</span>
@@ -186,9 +237,12 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
                 </span>
                 <span class={[
                   "px-2 py-0.5 rounded text-xs",
-                  if(@settings[:backlight_on], do: "bg-green-100 text-green-800", else: "bg-gray-100 text-gray-800")
+                  if(@settings[:backlight_on],
+                    do: "bg-green-500/20 text-green-500",
+                    else: "bg-base-300 text-base-content"
+                  )
                 ]}>
-                  <%= if @settings[:backlight_on], do: "ON", else: "OFF" %>
+                  {if @settings[:backlight_on], do: "ON", else: "OFF"}
                 </span>
               </div>
             </div>
@@ -202,12 +256,12 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
                   class={[
                     "px-4 py-2 rounded border-2 font-medium transition-colors",
                     if(@settings[:backlight_level] == level,
-                      do: "border-purple-500 bg-purple-100 text-purple-800",
-                      else: "border-gray-200 bg-white hover:border-purple-300"
+                      do: "border-purple-500 bg-purple-500/20 text-purple-500",
+                      else: "border-base-300 bg-base-100 hover:border-purple-300"
                     )
                   ]}
                 >
-                  <%= if level == 0, do: "Off", else: level %>
+                  {if level == 0, do: "Off", else: level}
                 </button>
               <% end %>
             </div>
@@ -219,9 +273,9 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
         <% end %>
 
         <%!-- Info --%>
-        <div class="p-4 bg-white border border-gray-200 rounded-lg text-sm">
+        <div class="p-4 bg-base-100 border border-base-300 rounded-lg text-sm">
           <h3 class="font-semibold mb-2">About Screen Blanking</h3>
-          <ul class="list-disc list-inside space-y-1 text-gray-600">
+          <ul class="list-disc list-inside space-y-1 text-base-content/70">
             <li>Screen blanking turns off the display after a period of inactivity</li>
             <li>Uses DPMS (Display Power Management) to signal the monitor</li>
             <li>Helps extend display lifespan and reduce power consumption</li>
@@ -229,7 +283,7 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
           </ul>
 
           <%= if @settings && @settings[:has_backlight] do %>
-            <div class="mt-4 p-3 bg-purple-50 border border-purple-200 rounded">
+            <div class="mt-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded">
               <p class="font-medium text-purple-800">reTerminal DM Detected</p>
               <p class="text-xs text-purple-600 mt-1">
                 This device supports direct backlight control which provides more reliable
@@ -239,7 +293,7 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
             </div>
           <% end %>
 
-          <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+          <div class="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded">
             <p class="font-medium text-blue-800">Deployment Setup</p>
             <p class="text-xs text-blue-600 mt-1">
               Screen saver is configured automatically during deployment.
@@ -384,9 +438,9 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
     "#{hours} hour#{if hours == 1, do: "", else: "s"}"
   end
 
-  defp status_color(nil), do: "bg-gray-50 border-gray-300"
+  defp status_color(nil), do: "bg-base-200 border-base-300"
 
-  defp status_color(%{timeout_seconds: 0}), do: "bg-yellow-50 border-yellow-300"
+  defp status_color(%{timeout_seconds: 0}), do: "bg-yellow-500/10 border-yellow-500/30"
 
-  defp status_color(_), do: "bg-green-50 border-green-300"
+  defp status_color(_), do: "bg-green-500/10 border-green-500/30"
 end

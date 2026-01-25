@@ -61,7 +61,15 @@ defmodule PouCon.Equipment.EquipmentLoader do
               PouCon.Equipment.Controllers.AverageSensor
 
             # All sensor and meter types use the generic Sensor controller
-            t when t in ["temp_sensor", "humidity_sensor", "co2_sensor", "nh3_sensor", "water_meter", "power_meter"] ->
+            t
+            when t in [
+                   "temp_sensor",
+                   "humidity_sensor",
+                   "co2_sensor",
+                   "nh3_sensor",
+                   "water_meter",
+                   "power_meter"
+                 ] ->
               PouCon.Equipment.Controllers.Sensor
 
             _ ->

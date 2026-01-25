@@ -60,8 +60,7 @@ defmodule PouCon.Hardware.Modbus.SimulatedAdapter do
     #   water_meters: %{slave_id => %{cumulative_flow: float, flow_rate: float, temperature: float, last_update: timestamp}}
     #   power_meters: %{slave_id => %{energy_import: float, last_update: timestamp}}
     # }
-    {:ok,
-     %{slaves: %{}, offline: MapSet.new(), water_meters: %{}, power_meters: %{}}}
+    {:ok, %{slaves: %{}, offline: MapSet.new(), water_meters: %{}, power_meters: %{}}}
   end
 
   @impl true

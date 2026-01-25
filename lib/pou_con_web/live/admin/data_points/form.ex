@@ -23,7 +23,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
 
   defp tab_navigation(assigns) do
     ~H"""
-    <div class="border-b border-gray-200 mt-4">
+    <div class="border-b border-base-300 mt-4">
       <nav class="-mb-px flex gap-4" aria-label="Tabs">
         <%= for tab <- @tabs do %>
           <button
@@ -35,7 +35,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
               @active_tab == tab &&
                 "border-blue-500 text-blue-600",
               @active_tab != tab &&
-                "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                "border-transparent text-base-content/60 hover:text-base-content hover:border-base-300"
             ]}
           >
             {tab_label(tab)}
@@ -56,7 +56,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
 
   defp zone_preview(%{zones: []} = assigns) do
     ~H"""
-    <div class="mt-2 p-2 bg-white rounded border border-gray-200 text-xs text-gray-400 italic">
+    <div class="mt-2 p-2 bg-base-100 rounded border border-base-300 text-xs text-base-content/50 italic">
       No color zones defined - values will display in gray
     </div>
     """
@@ -64,8 +64,8 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
 
   defp zone_preview(assigns) do
     ~H"""
-    <div class="mt-2 p-2 bg-white rounded border border-gray-200">
-      <div class="text-xs font-medium text-gray-600 mb-2">Preview:</div>
+    <div class="mt-2 p-2 bg-base-100 rounded border border-base-300">
+      <div class="text-xs font-medium text-base-content/70 mb-2">Preview:</div>
       <div class="flex flex-wrap gap-1 text-xs font-mono">
         <%= for zone <- @zones do %>
           <span class={["px-2 py-1 rounded", color_class(zone["color"])]}>
@@ -82,7 +82,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
   defp color_class("blue"), do: "bg-blue-500 text-white"
   defp color_class("purple"), do: "bg-purple-500 text-white"
   defp color_class("red"), do: "bg-red-500 text-white"
-  defp color_class(_), do: "bg-gray-300 text-gray-600"
+  defp color_class(_), do: "bg-base-300 text-base-content/70"
 
   # ============================================================================
   # Render
@@ -91,7 +91,12 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+    <Layouts.app
+      flash={@flash}
+      current_role={@current_role}
+      failsafe_status={assigns[:failsafe_status]}
+      system_time_valid={assigns[:system_time_valid]}
+    >
       <div class="mx-auto w-2xl">
         <.header>
           {@page_title}
@@ -129,12 +134,12 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
             </div>
           </div>
 
-          <p class="text-xs text-gray-500 mb-2">
+          <p class="text-xs text-base-content/60 mb-2">
             Digital: read_digital_input, read_digital_output, write_digital_output |
             Analog: read_analog_input, read_analog_output, write_analog_output
           </p>
 
-          <%!-- Conversion Section --%>
+          <%!-- Conversion Section
           <div class="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
             <div class="flex items-center gap-2 mb-2">
               <.icon name="hero-calculator" class="w-5 h-5 text-gray-600" />
@@ -183,7 +188,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
                 <.input field={@form[:max_valid]} type="number" step="any" label="Max Valid" />
               </div>
             </div>
-          </div>
+          </div> --%>
 
           <.input field={@form[:description]} type="text" label="Description" />
 
@@ -194,152 +199,164 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
 
             <%!-- Tab Content --%>
             <div class="mt-4">
-            <%!-- Conversion Tab --%>
-            <div :if={@active_tab == :conversion} class="space-y-4">
-              <p class="text-sm text-gray-600">
-                Formula: <code class="bg-gray-100 px-1 rounded">converted = (raw × scale_factor) + offset</code>
-              </p>
+              <%!-- Conversion Tab --%>
+              <div :if={@active_tab == :conversion} class="space-y-4">
+                <p class="text-sm text-base-content/70">
+                  Formula:
+                  <code class="bg-base-200 px-1 rounded">
+                    converted = (raw × scale_factor) + offset
+                  </code>
+                </p>
 
-              <div class="flex gap-1">
-                <div class="w-1/4">
+                <div class="flex gap-1">
+                  <div class="w-1/4">
+                    <.input
+                      field={@form[:value_type]}
+                      type="text"
+                      label="Data Type"
+                      placeholder="int16, uint16, float32"
+                    />
+                  </div>
+                  <div class="w-1/4">
+                    <.input
+                      field={@form[:scale_factor]}
+                      type="number"
+                      step="any"
+                      label="Scale Factor"
+                    />
+                  </div>
+                  <div class="w-1/4">
+                    <.input field={@form[:offset]} type="number" step="any" label="Offset" />
+                  </div>
+                  <div class="w-1/4">
+                    <.input field={@form[:unit]} type="text" label="Unit" placeholder="°C, %, bar" />
+                  </div>
+                </div>
+
+                <div class="flex gap-1">
+                  <div class="w-1/2">
+                    <.input field={@form[:min_valid]} type="number" step="any" label="Min Valid" />
+                  </div>
+                  <div class="w-1/2">
+                    <.input field={@form[:max_valid]} type="number" step="any" label="Max Valid" />
+                  </div>
+                </div>
+
+                <p class="text-xs text-base-content/60">
+                  Values outside Min/Max Valid range will be marked as invalid.
+                </p>
+              </div>
+
+              <%!-- Color Zones Tab --%>
+              <div :if={@active_tab == :color_zones} class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <p class="text-sm text-base-content/70">
+                    Define value ranges and their display colors. Values outside all zones display as gray.
+                  </p>
+                  <button
+                    :if={length(@color_zones) < 5}
+                    type="button"
+                    phx-click="add_zone"
+                    class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    + Add Zone
+                  </button>
+                </div>
+
+                <%!-- Zone List --%>
+                <div class="space-y-2">
+                  <%= for {zone, idx} <- Enum.with_index(@color_zones) do %>
+                    <div class="flex gap-3 items-end bg-base-200 p-3 rounded-lg border border-base-300">
+                      <div class="w-1/4">
+                        <label class="block text-xs font-medium text-base-content/60 mb-1">From</label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={zone["from"]}
+                          phx-blur="update_zone"
+                          phx-value-idx={idx}
+                          phx-value-field="from"
+                          class="w-full px-3 py-2 text-sm border border-base-300 rounded-md bg-base-100 text-base-content focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      <div class="w-1/4">
+                        <label class="block text-xs font-medium text-base-content/60 mb-1">To</label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={zone["to"]}
+                          phx-blur="update_zone"
+                          phx-value-idx={idx}
+                          phx-value-field="to"
+                          class="w-full px-3 py-2 text-sm border border-base-300 rounded-md bg-base-100 text-base-content focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      <div class="w-1/4">
+                        <label class="block text-xs font-medium text-base-content/60 mb-1">Color</label>
+                        <select
+                          phx-change="update_zone"
+                          phx-value-idx={idx}
+                          phx-value-field="color"
+                          name={"zone_color_#{idx}"}
+                          class="w-full px-3 py-2 text-sm border border-base-300 rounded-md bg-base-100 text-base-content focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <%= for color <- @valid_colors do %>
+                            <option value={color} selected={zone["color"] == color}>
+                              {String.capitalize(color)}
+                            </option>
+                          <% end %>
+                        </select>
+                      </div>
+                      <div class="w-1/8">
+                        <button
+                          type="button"
+                          phx-click="remove_zone"
+                          phx-value-idx={idx}
+                          class="px-3 py-2 text-sm bg-red-500 text-white rounded-md hover:bg-red-600"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+
+                <%!-- Hidden field for form submission --%>
+                <input
+                  type="hidden"
+                  name="data_point[color_zones]"
+                  value={Jason.encode!(@color_zones)}
+                />
+
+                <%!-- Live Preview --%>
+                <.zone_preview zones={@color_zones} />
+              </div>
+
+              <%!-- Logging Tab --%>
+              <div :if={@active_tab == :logging} class="space-y-4">
+                <p class="text-sm text-base-content/70">
+                  Configure how often this data point's value is logged to the database.
+                </p>
+
+                <div class="w-1/3">
                   <.input
-                    field={@form[:value_type]}
-                    type="text"
-                    label="Data Type"
-                    placeholder="int16, uint16, float32"
+                    field={@form[:log_interval]}
+                    type="number"
+                    label="Log Interval (seconds)"
+                    placeholder="Empty = on change"
+                    min="0"
                   />
                 </div>
-                <div class="w-1/4">
-                  <.input field={@form[:scale_factor]} type="number" step="any" label="Scale Factor" />
-                </div>
-                <div class="w-1/4">
-                  <.input field={@form[:offset]} type="number" step="any" label="Offset" />
-                </div>
-                <div class="w-1/4">
-                  <.input field={@form[:unit]} type="text" label="Unit" placeholder="°C, %, bar" />
-                </div>
-              </div>
 
-              <div class="flex gap-1">
-                <div class="w-1/2">
-                  <.input field={@form[:min_valid]} type="number" step="any" label="Min Valid" />
-                </div>
-                <div class="w-1/2">
-                  <.input field={@form[:max_valid]} type="number" step="any" label="Max Valid" />
-                </div>
-              </div>
-
-              <p class="text-xs text-gray-500">
-                Values outside Min/Max Valid range will be marked as invalid.
-              </p>
-            </div>
-
-            <%!-- Color Zones Tab --%>
-            <div :if={@active_tab == :color_zones} class="space-y-4">
-              <div class="flex items-center justify-between">
-                <p class="text-sm text-gray-600">
-                  Define value ranges and their display colors. Values outside all zones display as gray.
-                </p>
-                <button
-                  :if={length(@color_zones) < 5}
-                  type="button"
-                  phx-click="add_zone"
-                  class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  + Add Zone
-                </button>
-              </div>
-
-              <%!-- Zone List --%>
-              <div class="space-y-2">
-                <%= for {zone, idx} <- Enum.with_index(@color_zones) do %>
-                  <div class="flex gap-3 items-end bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    <div class="w-1/4">
-                      <label class="block text-xs font-medium text-gray-500 mb-1">From</label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={zone["from"]}
-                        phx-blur="update_zone"
-                        phx-value-idx={idx}
-                        phx-value-field="from"
-                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div class="w-1/4">
-                      <label class="block text-xs font-medium text-gray-500 mb-1">To</label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={zone["to"]}
-                        phx-blur="update_zone"
-                        phx-value-idx={idx}
-                        phx-value-field="to"
-                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div class="w-1/4">
-                      <label class="block text-xs font-medium text-gray-500 mb-1">Color</label>
-                      <select
-                        phx-change="update_zone"
-                        phx-value-idx={idx}
-                        phx-value-field="color"
-                        name={"zone_color_#{idx}"}
-                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <%= for color <- @valid_colors do %>
-                          <option value={color} selected={zone["color"] == color}>
-                            {String.capitalize(color)}
-                          </option>
-                        <% end %>
-                      </select>
-                    </div>
-                    <div class="w-1/8">
-                      <button
-                        type="button"
-                        phx-click="remove_zone"
-                        phx-value-idx={idx}
-                        class="px-3 py-2 text-sm bg-red-500 text-white rounded-md hover:bg-red-600"
-                      >
-                        Remove
-                      </button>
-                    </div>
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <div class="text-sm text-blue-800 space-y-1">
+                    <div><strong>Empty</strong> = Log whenever the value changes</div>
+                    <div><strong>0</strong> = No logging (disabled)</div>
+                    <div><strong>> 0</strong> = Log at fixed interval (in seconds)</div>
                   </div>
-                <% end %>
-              </div>
-
-              <%!-- Hidden field for form submission --%>
-              <input type="hidden" name="data_point[color_zones]" value={Jason.encode!(@color_zones)} />
-
-              <%!-- Live Preview --%>
-              <.zone_preview zones={@color_zones} />
-            </div>
-
-            <%!-- Logging Tab --%>
-            <div :if={@active_tab == :logging} class="space-y-4">
-              <p class="text-sm text-gray-600">
-                Configure how often this data point's value is logged to the database.
-              </p>
-
-              <div class="w-1/3">
-                <.input
-                  field={@form[:log_interval]}
-                  type="number"
-                  label="Log Interval (seconds)"
-                  placeholder="Empty = on change"
-                  min="0"
-                />
-              </div>
-
-              <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <div class="text-sm text-blue-800 space-y-1">
-                  <div><strong>Empty</strong> = Log whenever the value changes</div>
-                  <div><strong>0</strong> = No logging (disabled)</div>
-                  <div><strong>> 0</strong> = Log at fixed interval (in seconds)</div>
                 </div>
               </div>
             </div>
-          </div>
           <% end %>
 
           <footer class="mt-6">

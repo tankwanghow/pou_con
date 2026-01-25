@@ -11,6 +11,7 @@ defmodule PouConWeb.Components.Equipment.TempComponent do
   @impl true
   def update(assigns, socket) do
     equipment = assigns[:equipment]
+
     status =
       if equipment do
         equipment.status
@@ -31,22 +32,22 @@ defmodule PouConWeb.Components.Equipment.TempComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class={"bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-56 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
-      <div class="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
+    <div class={"bg-base-100 shadow-sm rounded-xl border border-base-300 overflow-hidden w-56 transition-colors duration-300 " <> if(@display.is_error, do: "border-red-300 ring-1 ring-red-100", else: "")}>
+      <div class="flex items-center justify-between px-4 py-3 bg-base-200 border-b border-base-300">
         <div class="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0">
           <div class={"h-3 w-3 flex-shrink-0 rounded-full bg-#{@display.main_color}-500 " <> if(!@display.is_error, do: "animate-pulse", else: "")}>
           </div>
           <.link
             :if={@equipment_id}
             navigate={~p"/admin/equipment/#{@equipment_id}/edit"}
-            class="font-bold text-gray-700 text-lg truncate hover:text-blue-600 hover:underline"
+            class="font-bold text-base-content text-lg truncate hover:text-blue-600 hover:underline"
             title="Edit equipment settings"
           >
             {@equipment.title || "Temp Sensor"}
           </.link>
           <span
             :if={!@equipment_id}
-            class="font-bold text-gray-700 text-lg truncate"
+            class="font-bold text-base-content text-lg truncate"
             title={@equipment.title || "Temp Sensor"}
           >
             {@equipment.title || "Temp Sensor"}
@@ -72,7 +73,7 @@ defmodule PouConWeb.Components.Equipment.TempComponent do
               {@display.temp}
             </span>
           </div>
-          <div class="text-xs text-gray-400 uppercase tracking-wide text-center">
+          <div class="text-xs text-base-content/60 uppercase tracking-wide text-center">
             Temperature
           </div>
         </div>

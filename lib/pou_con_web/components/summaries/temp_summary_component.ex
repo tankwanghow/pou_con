@@ -30,7 +30,7 @@ defmodule PouConWeb.Components.Summaries.TempSummaryComponent do
     <div
       phx-click="navigate"
       phx-target={@myself}
-      class="bg-white shadow-md rounded-xl border border-gray-200 transition-all cursor-pointer hover:shadow-lg"
+      class="bg-base-100 shadow-md rounded-xl border border-base-300 transition-all cursor-pointer hover:shadow-lg"
     >
       <div class="flex flex-wrap">
         <.sensor_item :for={sensor <- @sensors} sensor={sensor} />
@@ -96,6 +96,7 @@ defmodule PouConWeb.Components.Summaries.TempSummaryComponent do
 
     if is_number(temp) do
       color = get_color(temp, temp_thresh)
+
       %{
         title: status[:title] || "Temp",
         color: color,
@@ -113,6 +114,7 @@ defmodule PouConWeb.Components.Summaries.TempSummaryComponent do
 
   # Get color using thresholds if available, otherwise use slate
   defp get_color(nil, _thresholds), do: "gray"
+
   defp get_color(value, thresholds) do
     Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
   end

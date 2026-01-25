@@ -538,7 +538,9 @@ defmodule PouCon.Hardware.DataPointManager do
             {:reply, {:ok, :reconnected}, new_state}
 
           {:error, reason} ->
-            Logger.error("[DataPointManager] Failed to reconnect port #{device_path}: #{inspect(reason)}")
+            Logger.error(
+              "[DataPointManager] Failed to reconnect port #{device_path}: #{inspect(reason)}"
+            )
 
             new_port = %RuntimePort{
               port
@@ -726,9 +728,7 @@ defmodule PouCon.Hardware.DataPointManager do
     # Find the port that this monitor belongs to
     case Enum.find(state.ports, fn {_path, port} -> port.monitor_ref == ref end) do
       {device_path, port} ->
-        Logger.warning(
-          "[DataPointManager] Port #{device_path} disconnected: #{inspect(reason)}"
-        )
+        Logger.warning("[DataPointManager] Port #{device_path} disconnected: #{inspect(reason)}")
 
         # Mark port as disconnected - DO NOT auto-reconnect
         # Operator must manually reconnect via UI
@@ -1067,12 +1067,14 @@ defmodule PouCon.Hardware.DataPointManager do
   # Parse color_zones JSON string into list of zone maps
   defp parse_color_zones(nil), do: []
   defp parse_color_zones(""), do: []
+
   defp parse_color_zones(json) when is_binary(json) do
     case Jason.decode(json) do
       {:ok, zones} when is_list(zones) -> zones
       _ -> []
     end
   end
+
   defp parse_color_zones(zones) when is_list(zones), do: zones
   defp parse_color_zones(_), do: []
 

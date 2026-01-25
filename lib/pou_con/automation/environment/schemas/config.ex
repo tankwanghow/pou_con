@@ -89,9 +89,7 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
 
   defp validate_step_extra_fans(changeset) do
     Enum.reduce(1..5, changeset, fn n, cs ->
-      validate_number(cs, String.to_atom("step_#{n}_extra_fans"),
-        greater_than_or_equal_to: 0
-      )
+      validate_number(cs, String.to_atom("step_#{n}_extra_fans"), greater_than_or_equal_to: 0)
     end)
   end
 

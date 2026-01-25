@@ -6,7 +6,12 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+    <Layouts.app
+      flash={@flash}
+      current_role={@current_role}
+      failsafe_status={assigns[:failsafe_status]}
+      system_time_valid={assigns[:system_time_valid]}
+    >
       <.header>
         Listing Equipment
         <:actions>
@@ -20,7 +25,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
                 phx-debounce="300"
                 value={@filter}
                 placeholder="Search by name, title or type..."
-                class="flex-1 px-3 py-1 text-sm border border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                class="flex-1 px-3 py-1 text-sm border border-base-300 rounded-lg bg-base-100 text-base-content focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </form>
             <.btn_link
@@ -34,7 +39,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
         </:actions>
       </.header>
 
-      <div class="text-xs font-medium flex flex-row text-center bg-green-200 border-b border-t border-green-400 py-1">
+      <div class="text-xs font-medium flex flex-row text-center bg-green-500/20 text-green-600 dark:text-green-400 border-b border-t border-green-500/30 py-1">
         <.sort_link
           field={:name}
           label="Name"
@@ -77,7 +82,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
         <%= for {id, equipment} <- @streams.equipment do %>
           <div
             id={id}
-            class={"text-xs flex flex-row text-center border-b py-2 #{if not equipment.active, do: "bg-gray-100 text-gray-400"}"}
+            class={"text-xs flex flex-row text-center border-b py-2 #{if not equipment.active, do: "bg-base-200 text-base-content/50"}"}
           >
             <div class="w-[15%]">{equipment.name}</div>
             <div class="w-[15%]">{equipment.title}</div>
@@ -87,13 +92,13 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
               <button
                 :if={!@readonly}
                 phx-click={JS.push("toggle_active", value: %{id: equipment.id})}
-                class={"px-2 py-0.5 rounded text-xs font-medium #{if equipment.active, do: "bg-green-100 text-green-700 hover:bg-green-200", else: "bg-gray-200 text-gray-500 hover:bg-gray-300"}"}
+                class={"px-2 py-0.5 rounded text-xs font-medium #{if equipment.active, do: "bg-green-500/20 text-green-500 hover:bg-green-500/30", else: "bg-base-300 text-base-content/60 hover:bg-base-200"}"}
               >
                 {if equipment.active, do: "Yes", else: "No"}
               </button>
               <span
                 :if={@readonly}
-                class={"px-2 py-0.5 rounded text-xs #{if equipment.active, do: "bg-green-100 text-green-700", else: "bg-gray-200 text-gray-500"}"}
+                class={"px-2 py-0.5 rounded text-xs #{if equipment.active, do: "bg-green-500/20 text-green-500", else: "bg-base-300 text-base-content/60"}"}
               >
                 {if equipment.active, do: "Yes", else: "No"}
               </span>
@@ -101,27 +106,27 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
             <div :if={!@readonly} class="w-[17%] flex justify-center gap-2">
               <.link
                 navigate={~p"/admin/equipment/#{equipment.id}/edit"}
-                class="p-2 border-1 rounded-xl border-blue-600 bg-blue-200"
+                class="p-2 border-1 rounded-xl border-blue-500/30 bg-blue-500/20"
                 title="Edit"
               >
-                <.icon name="hero-pencil-square" class="text-blue-600 w-5 h-5" />
+                <.icon name="hero-pencil-square" class="text-blue-500 w-5 h-5" />
               </.link>
 
               <.link
                 phx-click={JS.push("copy", value: %{id: equipment.id})}
-                class="p-2 border-1 rounded-xl border-green-600 bg-green-200"
+                class="p-2 border-1 rounded-xl border-green-500/30 bg-green-500/20"
                 title="Copy"
               >
-                <.icon name="hero-document-duplicate" class="text-green-600 w-5 h-5" />
+                <.icon name="hero-document-duplicate" class="text-green-500 w-5 h-5" />
               </.link>
 
               <.link
                 phx-click={JS.push("delete", value: %{id: equipment.id}) |> hide("##{equipment.id}")}
                 data-confirm="Are you sure?"
-                class="p-2 border-1 rounded-xl border-rose-600 bg-rose-200"
+                class="p-2 border-1 rounded-xl border-rose-500/30 bg-rose-500/20"
                 title="Delete"
               >
-                <.icon name="hero-trash" class="text-rose-600 w-5 h-5" />
+                <.icon name="hero-trash" class="text-rose-500 w-5 h-5" />
               </.link>
             </div>
           </div>
@@ -138,7 +143,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
       class={@width}
       phx-click="sort"
       phx-value-field={@field}
-      class="cursor-pointer select-none hover:bg-green-300 transition-colors"
+      class="cursor-pointer select-none hover:bg-green-500/30 transition-colors"
     >
       {@label}
       <%= if @sort_field == @field do %>

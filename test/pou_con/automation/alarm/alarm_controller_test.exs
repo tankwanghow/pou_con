@@ -15,6 +15,7 @@ defmodule PouCon.Automation.Alarm.AlarmControllerTest do
       nil ->
         # Only start if not already running
         {:ok, _} = Phoenix.PubSub.Supervisor.start_link(name: PouCon.PubSub)
+
       _pid ->
         :ok
     end
@@ -184,7 +185,8 @@ defmodule PouCon.Automation.Alarm.AlarmControllerTest do
       assert evaluate_threshold("below", 25.0, 30.0) == true
       assert evaluate_threshold("below", 35.0, 30.0) == false
       assert evaluate_threshold("equals", 30.0, 30.0) == true
-      assert evaluate_threshold("equals", 30.05, 30.0) == true  # Within 0.1 tolerance
+      # Within 0.1 tolerance
+      assert evaluate_threshold("equals", 30.05, 30.0) == true
       assert evaluate_threshold("equals", 30.2, 30.0) == false
     end
 

@@ -6,7 +6,12 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+    <Layouts.app
+      flash={@flash}
+      current_role={@current_role}
+      failsafe_status={assigns[:failsafe_status]}
+      system_time_valid={assigns[:system_time_valid]}
+    >
       <.header>
         Listing Data Points
         <:actions>
@@ -20,7 +25,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
                 phx-debounce="300"
                 value={@filter}
                 placeholder="Search by name or type..."
-                class="flex-1 px-3 py-1 text-sm border border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                class="flex-1 px-3 py-1 text-sm border border-base-300 rounded-lg bg-base-100 text-base-content focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </form>
             <.btn_link
@@ -34,7 +39,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
         </:actions>
       </.header>
 
-      <div class="text-xs font-medium flex flex-row text-center bg-green-200 border-b border-t border-green-400 py-1">
+      <div class="text-xs font-medium flex flex-row text-center bg-green-500/20 text-green-600 dark:text-green-400 border-b border-t border-green-500/30 py-1">
         <.sort_link
           field={:name}
           label="Name"
@@ -94,18 +99,18 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
             <div :if={!@readonly} class="w-[16%] flex justify-center gap-2">
               <.link
                 navigate={~p"/admin/data_points/#{data_point.id}/edit"}
-                class="p-2 border-1 rounded-xl border-blue-600 bg-blue-200"
+                class="p-2 border-1 rounded-xl border-blue-500/30 bg-blue-500/20"
                 title="Edit"
               >
-                <.icon name="hero-pencil-square" class="text-blue-600 w-5 h-5" />
+                <.icon name="hero-pencil-square" class="text-blue-500 w-5 h-5" />
               </.link>
 
               <.link
                 phx-click={JS.push("copy", value: %{id: data_point.id})}
-                class="p-2 border-1 rounded-xl border-green-600 bg-green-200"
+                class="p-2 border-1 rounded-xl border-green-500/30 bg-green-500/20"
                 title="Copy"
               >
-                <.icon name="hero-document-duplicate" class="text-green-600 w-5 h-5" />
+                <.icon name="hero-document-duplicate" class="text-green-500 w-5 h-5" />
               </.link>
 
               <.link
@@ -113,10 +118,10 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
                   JS.push("delete", value: %{id: data_point.id}) |> hide("##{data_point.id}")
                 }
                 data-confirm="Are you sure?"
-                class="p-2 border-1 rounded-xl border-rose-600 bg-rose-200"
+                class="p-2 border-1 rounded-xl border-rose-500/30 bg-rose-500/20"
                 title="Delete"
               >
-                <.icon name="hero-trash" class="text-rose-600 w-5 h-5" />
+                <.icon name="hero-trash" class="text-rose-500 w-5 h-5" />
               </.link>
             </div>
           </div>
@@ -133,7 +138,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
       class={@width}
       phx-click="sort"
       phx-value-field={@field}
-      class="cursor-pointer select-none hover:bg-green-300 transition-colors"
+      class="cursor-pointer select-none hover:bg-green-500/30 transition-colors"
     >
       {@label}
       <%= if @sort_field == @field do %>

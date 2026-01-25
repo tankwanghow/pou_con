@@ -58,7 +58,12 @@ defmodule PouConWeb.Live.Admin.Alarm.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+    <Layouts.app
+      flash={@flash}
+      current_role={@current_role}
+      failsafe_status={assigns[:failsafe_status]}
+      system_time_valid={assigns[:system_time_valid]}
+    >
       <.header>
         Alarm Rules
         <:subtitle>
@@ -75,7 +80,7 @@ defmodule PouConWeb.Live.Admin.Alarm.Index do
         </:actions>
       </.header>
 
-      <div class="text-xs font-medium flex flex-row text-center bg-red-200 border-b border-t border-red-400 py-1">
+      <div class="text-xs font-medium flex flex-row text-center bg-red-500/20 text-red-600 dark:text-red-400 border-b border-t border-red-500/30 py-1">
         <div class="w-[8%]">Enabled</div>
         <div class="w-[18%]">Name</div>
         <div class="w-[18%]">Sirens</div>
@@ -92,7 +97,7 @@ defmodule PouConWeb.Live.Admin.Alarm.Index do
             id={id}
             class={[
               "text-xs flex flex-row text-center border-b py-2 items-center",
-              if(!rule.enabled, do: "opacity-50 bg-gray-100", else: "")
+              if(!rule.enabled, do: "opacity-50 bg-base-200", else: "")
             ]}
           >
             <div class="w-[8%]">
@@ -108,7 +113,7 @@ defmodule PouConWeb.Live.Admin.Alarm.Index do
               <span
                 :if={@readonly}
                 class={"px-2 py-1 rounded text-xs " <>
-                  if(rule.enabled, do: "bg-green-200 text-green-700", else: "bg-gray-200 text-gray-600")}
+                  if(rule.enabled, do: "bg-green-500/20 text-green-500", else: "bg-base-300 text-base-content/60")}
               >
                 {if rule.enabled, do: "ON", else: "OFF"}
               </span>
@@ -119,61 +124,61 @@ defmodule PouConWeb.Live.Admin.Alarm.Index do
             <div class="w-[18%] text-left px-1">
               <div class="flex flex-wrap gap-0.5 justify-center">
                 <%= for siren_name <- rule.siren_names || [] do %>
-                  <span class="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[10px]">
+                  <span class="px-1.5 py-0.5 bg-red-500/20 text-red-500 rounded text-[10px]">
                     {siren_name}
                   </span>
                 <% end %>
                 <%= if Enum.empty?(rule.siren_names || []) do %>
-                  <span class="text-gray-400 italic">None</span>
+                  <span class="text-base-content/40 italic">None</span>
                 <% end %>
               </div>
             </div>
 
             <div class="w-[8%]">
               <span class={"px-1.5 py-0.5 rounded text-[10px] font-bold " <>
-                if(rule.logic == "all", do: "bg-purple-200 text-purple-700", else: "bg-blue-200 text-blue-700")}>
+                if(rule.logic == "all", do: "bg-purple-500/20 text-purple-500", else: "bg-blue-500/20 text-blue-500")}>
                 {String.upcase(rule.logic)}
               </span>
             </div>
 
             <div class="w-[8%]">
               <span class={"px-1.5 py-0.5 rounded text-[10px] " <>
-                if(rule.auto_clear, do: "bg-green-100 text-green-700", else: "bg-amber-100 text-amber-700")}>
+                if(rule.auto_clear, do: "bg-green-500/20 text-green-500", else: "bg-amber-500/20 text-amber-500")}>
                 {if rule.auto_clear, do: "Auto", else: "Manual"}
               </span>
             </div>
 
             <div class="w-[8%]">
-              <span class="text-[10px] text-gray-600">{rule.max_mute_minutes}m</span>
+              <span class="text-[10px] text-base-content/70">{rule.max_mute_minutes}m</span>
             </div>
 
             <div class="w-[22%] text-left px-1">
               <%= for cond <- rule.conditions || [] do %>
-                <div class="text-[10px] text-gray-600 truncate" title={condition_description(cond)}>
+                <div class="text-[10px] text-base-content/70 truncate" title={condition_description(cond)}>
                   {condition_description(cond)}
                 </div>
               <% end %>
               <%= if Enum.empty?(rule.conditions || []) do %>
-                <span class="text-gray-400 italic text-[10px]">No conditions</span>
+                <span class="text-base-content/40 italic text-[10px]">No conditions</span>
               <% end %>
             </div>
 
             <div :if={!@readonly} class="w-[10%] flex justify-center gap-1">
               <.link
                 navigate={~p"/admin/alarm/#{rule.id}/edit"}
-                class="p-1.5 border-1 rounded-lg border-blue-600 bg-blue-200"
+                class="p-1.5 border-1 rounded-lg border-blue-500/30 bg-blue-500/20"
                 title="Edit"
               >
-                <.icon name="hero-pencil-square" class="text-blue-600 w-4 h-4" />
+                <.icon name="hero-pencil-square" class="text-blue-500 w-4 h-4" />
               </.link>
 
               <.link
                 phx-click={JS.push("delete", value: %{id: rule.id})}
                 data-confirm="Delete this alarm rule?"
-                class="p-1.5 border-1 rounded-lg border-rose-600 bg-rose-200"
+                class="p-1.5 border-1 rounded-lg border-rose-500/30 bg-rose-500/20"
                 title="Delete"
               >
-                <.icon name="hero-trash" class="text-rose-600 w-4 h-4" />
+                <.icon name="hero-trash" class="text-rose-500 w-4 h-4" />
               </.link>
             </div>
           </div>

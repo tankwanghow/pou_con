@@ -29,7 +29,14 @@ defmodule PouCon.Logging.Schemas.EquipmentEvent do
       :metadata,
       :inserted_at
     ])
-    |> validate_required([:house_id, :equipment_name, :event_type, :to_value, :mode, :triggered_by])
+    |> validate_required([
+      :house_id,
+      :equipment_name,
+      :event_type,
+      :to_value,
+      :mode,
+      :triggered_by
+    ])
     |> validate_inclusion(:event_type, [
       "start",
       "stop",

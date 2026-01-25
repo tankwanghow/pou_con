@@ -25,6 +25,37 @@ import { LiveSocket } from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 import Keyboard from "../vendor/simple-keyboard.min"
 
+// ============================================
+// Theme Management
+// ============================================
+const THEME_KEY = "pou_con_theme";
+
+function getSystemTheme() {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme) {
+  const resolved = theme === "system" ? getSystemTheme() : theme;
+  document.documentElement.setAttribute("data-theme", resolved);
+  localStorage.setItem(THEME_KEY, theme);
+}
+
+// Apply saved theme immediately (prevent flash)
+const savedTheme = localStorage.getItem(THEME_KEY) || "system";
+applyTheme(savedTheme);
+
+// Listen for theme toggle events from LiveView
+window.addEventListener("phx:set-theme", (e) => {
+  applyTheme(e.target.dataset.phxTheme);
+});
+
+// Listen for system theme changes when in "system" mode
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (localStorage.getItem(THEME_KEY) === "system") {
+    applyTheme("system");
+  }
+});
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 
 let Hooks = {}

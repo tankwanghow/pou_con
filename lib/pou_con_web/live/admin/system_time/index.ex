@@ -6,7 +6,12 @@ defmodule PouConWeb.Live.Admin.SystemTime.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+    <Layouts.app
+      flash={@flash}
+      current_role={@current_role}
+      failsafe_status={assigns[:failsafe_status]}
+      system_time_valid={assigns[:system_time_valid]}
+    >
       <.header>
         System Time Configuration
         <:actions>
@@ -19,8 +24,8 @@ defmodule PouConWeb.Live.Admin.SystemTime.Index do
         <div class={[
           "p-4 rounded-lg border-2",
           if(@validation_state.time_valid?,
-            do: "bg-green-50 border-green-500",
-            else: "bg-red-50 border-red-500"
+            do: "bg-green-500/10 border-green-500",
+            else: "bg-red-500/10 border-red-500"
           )
         ]}>
           <h3 class="text-lg font-semibold mb-2">
@@ -43,7 +48,7 @@ defmodule PouConWeb.Live.Admin.SystemTime.Index do
           </div>
 
           <%= if !@validation_state.time_valid? do %>
-            <div class="mt-4 p-3 bg-yellow-100 border border-yellow-400 rounded">
+            <div class="mt-4 p-3 bg-yellow-500/20 border border-yellow-500/40 rounded">
               <p class="font-semibold">Action Required:</p>
               <p class="text-sm mt-1">
                 The system detected that the last logged event is in the future compared to
@@ -58,10 +63,10 @@ defmodule PouConWeb.Live.Admin.SystemTime.Index do
         </div>
 
         <%!-- Time Update Form --%>
-        <div class="p-4 bg-blue-50 border border-blue-300 rounded-lg">
+        <div class="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
           <h3 class="text-lg font-semibold mb-4">Manual Time Setting (Primary Method)</h3>
 
-          <div class="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded text-sm">
+          <div class="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded text-sm">
             <p class="font-semibold">⚠️ For Offline Deployments:</p>
             <p class="mt-1">
               Since most installations have no internet, use this manual method to set the correct time.
@@ -90,7 +95,7 @@ defmodule PouConWeb.Live.Admin.SystemTime.Index do
               </button>
             </div>
 
-            <div class="mt-4 p-3 bg-white border border-gray-300 rounded text-sm">
+            <div class="mt-4 p-3 bg-base-100 border border-base-300 rounded text-sm">
               <p class="font-semibold mb-2">Current Device Time:</p>
               <div class="text-2xl font-mono mb-2">{format_datetime(@current_time)}</div>
               <.button type="button" phx-click="refresh_time">Refresh Time</.button>
@@ -106,38 +111,38 @@ defmodule PouConWeb.Live.Admin.SystemTime.Index do
               <.button phx-click="mark_corrected" class="w-full bg-green-600 hover:bg-green-700">
                 ✓ Time is Correct - Resume Logging
               </.button>
-              <p class="text-xs text-gray-600 mt-2 text-center">
+              <p class="text-xs text-base-content/70 mt-2 text-center">
                 Click this after setting the time to re-validate and resume logging
               </p>
             </div>
           <% end %>
 
-          <div class="mt-4 p-3 bg-white border border-gray-300 rounded text-sm">
+          <div class="mt-4 p-3 bg-base-100 border border-base-300 rounded text-sm">
             <p class="font-semibold">Manual Steps (if web form doesn't work):</p>
-            <p class="text-xs text-gray-600 mb-2">
+            <p class="text-xs text-base-content/70 mb-2">
               The web form requires sudo permissions. If not configured, use SSH method:
             </p>
             <ol class="list-decimal list-inside space-y-1 mt-2 text-xs">
               <li>
                 SSH into the device:
-                <code class="bg-gray-200 px-1 font-mono">ssh pi@192.168.x.x</code>
+                <code class="bg-base-300 px-1 font-mono">ssh pi@192.168.x.x</code>
               </li>
               <li>
                 Set time:
-                <code class="bg-gray-200 px-1 font-mono">sudo date -s "2025-12-09 14:30:00"</code>
+                <code class="bg-base-300 px-1 font-mono">sudo date -s "2025-12-09 14:30:00"</code>
               </li>
               <li>
                 Sync hardware clock:
-                <code class="bg-gray-200 px-1 font-mono">sudo hwclock --systohc</code>
+                <code class="bg-base-300 px-1 font-mono">sudo hwclock --systohc</code>
               </li>
               <li>Return here and click "Resume Logging"</li>
             </ol>
-            <div class="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
+            <div class="mt-3 p-2 bg-blue-500/10 border border-blue-500/30 rounded">
               <p class="text-xs font-semibold">First-time setup (run once):</p>
-              <code class="text-xs bg-gray-200 px-1 font-mono block mt-1">
+              <code class="text-xs bg-base-300 px-1 font-mono block mt-1">
                 sudo bash setup_sudo.sh
               </code>
-              <p class="text-xs text-gray-600 mt-1">
+              <p class="text-xs text-base-content/70 mt-1">
                 This enables the web form by configuring passwordless sudo for time commands.
               </p>
             </div>
@@ -145,10 +150,10 @@ defmodule PouConWeb.Live.Admin.SystemTime.Index do
         </div>
 
         <%!-- NTP Sync Status (Optional - Requires Internet) --%>
-        <div class="p-4 bg-gray-50 border border-gray-300 rounded-lg opacity-75">
+        <div class="p-4 bg-base-200 border border-base-300 rounded-lg opacity-75">
           <h3 class="text-lg font-semibold mb-2">NTP Auto-Sync (Optional - Requires Internet)</h3>
 
-          <div class="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+          <div class="mb-3 p-2 bg-blue-500/10 border border-blue-500/30 rounded text-xs">
             <p class="font-semibold">Internet Connection Required</p>
             <p class="mt-1">
               This feature only works if the device has internet access. Most installations
@@ -159,7 +164,7 @@ defmodule PouConWeb.Live.Admin.SystemTime.Index do
           <%= if @ntp_status do %>
             <pre class="text-xs bg-white p-3 rounded border overflow-x-auto font-mono"><%= @ntp_status %></pre>
           <% else %>
-            <p class="text-sm text-gray-600">Click "Check NTP Status" to view</p>
+            <p class="text-sm text-base-content/70">Click "Check NTP Status" to view</p>
           <% end %>
           <div class="mt-2 flex gap-2">
             <.button phx-click="check_ntp">Check NTP Status</.button>

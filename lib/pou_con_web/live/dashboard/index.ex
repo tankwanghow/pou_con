@@ -151,7 +151,13 @@ defmodule PouConWeb.Live.Dashboard.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-4/5" current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+    <Layouts.app
+      flash={@flash}
+      class="xs:w-full lg:w-3/4 xl:w-4/5"
+      current_role={@current_role}
+      failsafe_status={assigns[:failsafe_status]}
+      system_time_valid={assigns[:system_time_valid]}
+    >
       <div class="flex flex-wrap items-center gap-1 mb-1 justify-center items-center">
         <%!-- Flock Summary --%>
 

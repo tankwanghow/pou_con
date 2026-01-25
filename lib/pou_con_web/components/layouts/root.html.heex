@@ -1,6 +1,15 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
   <head>
+    <script>
+      (function() {
+        const theme = localStorage.getItem("pou_con_theme") || "system";
+        const resolved = theme === "system"
+          ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+          : theme;
+        document.documentElement.setAttribute("data-theme", resolved);
+      })();
+    </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
@@ -12,13 +21,13 @@
     </script>
   </head>
 
-  <body class="mb-5">
+  <body class="mb-5 bg-base-100 text-base-content">
     <!-- Header with House ID + Live Local Time -->
     <div class="flex flex-col items-center mt-2 mb-2">
       <!-- House ID (links to dashboard) -->
       <a
         href="/dashboard"
-        class="inline-block font-mono font-bold text-4xl border-4 rounded-xl bg-yellow-200 px-2 py-1 shadow-md hover:bg-yellow-300 transition-colors"
+        class="inline-block font-mono font-bold text-4xl border-4 border-primary/50 rounded-xl bg-primary text-primary-content px-2 py-1 shadow-md hover:bg-primary/80 transition-colors"
       >
         {PouCon.Auth.get_house_id()}
       </a>
@@ -30,7 +39,7 @@
           "flex mt-1 px-3 py-1 rounded-lg font-semibold items-center",
           if(assigns[:system_time_valid] == false,
             do: "bg-red-600 text-white border-2 border-red-800",
-            else: "bg-gray-200 border-2 border-gray-800"
+            else: "bg-base-200 border-2 border-base-content"
           )
         ]}
       >
@@ -56,14 +65,13 @@
 
         <span :if={assigns[:system_time_valid] == false} class="text-2xl">⚠️</span>
       </div>
-
     </div>
 
     {@inner_content}
 
     <div class="simple-keyboard"></div>
-
-    <!-- Keyboard toggle button (bottom-right corner) - cycles through Auto/Show/Hide modes -->
+    
+<!-- Keyboard toggle button (bottom-right corner) - cycles through Auto/Show/Hide modes -->
     <button
       id="keyboard-toggle"
       type="button"

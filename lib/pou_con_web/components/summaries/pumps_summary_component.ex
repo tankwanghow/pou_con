@@ -29,7 +29,7 @@ defmodule PouConWeb.Components.Summaries.PumpsSummaryComponent do
     <div
       phx-click="navigate"
       phx-target={@myself}
-      class="bg-white shadow-md rounded-xl border border-gray-200 transition-all cursor-pointer hover:shadow-lg"
+      class="bg-base-100 shadow-md rounded-xl border border-base-300 transition-all cursor-pointer hover:shadow-lg"
     >
       <div class="flex flex-wrap">
         <.pump_item :for={eq <- @pumps} eq={eq} />

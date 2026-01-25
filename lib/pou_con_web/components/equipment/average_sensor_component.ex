@@ -43,10 +43,34 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
           </div>
 
           <div class="flex-1 flex flex-col justify-center">
-            <.sensor_row label="Temp" value={@display.temp} range={@display.temp_range} color={@display.temp_color} bold={true} />
-            <.sensor_row :if={@display.has_hum} label="Hum" value={@display.hum} range={@display.hum_range} color={@display.hum_color} />
-            <.sensor_row :if={@display.has_co2} label="CO₂" value={@display.co2} range={@display.co2_range} color={@display.co2_color} />
-            <.sensor_row :if={@display.has_nh3} label="NH₃" value={@display.nh3} range={@display.nh3_range} color={@display.nh3_color} />
+            <.sensor_row
+              label="Temp"
+              value={@display.temp}
+              range={@display.temp_range}
+              color={@display.temp_color}
+              bold={true}
+            />
+            <.sensor_row
+              :if={@display.has_hum}
+              label="Hum"
+              value={@display.hum}
+              range={@display.hum_range}
+              color={@display.hum_color}
+            />
+            <.sensor_row
+              :if={@display.has_co2}
+              label="CO₂"
+              value={@display.co2}
+              range={@display.co2_range}
+              color={@display.co2_color}
+            />
+            <.sensor_row
+              :if={@display.has_nh3}
+              label="NH₃"
+              value={@display.nh3}
+              range={@display.nh3_range}
+              color={@display.nh3_color}
+            />
             <.count_row counts={@display.counts} />
           </div>
         </div>
@@ -68,10 +92,10 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
   defp sensor_row(assigns) do
     ~H"""
     <div class={["flex justify-between items-baseline text-lg font-mono", @bold && "font-bold"]}>
-      <span class="text-gray-400 uppercase tracking-wide text-sm">{@label}</span>
+      <span class="text-base-content/60 uppercase tracking-wide text-sm">{@label}</span>
       <div class="flex items-baseline gap-1">
         <span class={"text-#{@color}-500"}>{@value}</span>
-        <span :if={@range} class="text-gray-400 text-xs">{@range}</span>
+        <span :if={@range} class="text-base-content/60 text-xs">{@range}</span>
       </div>
     </div>
     """
@@ -81,7 +105,7 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
 
   defp count_row(assigns) do
     ~H"""
-    <div class="flex justify-between items-baseline text-xs font-mono text-gray-400 mt-1">
+    <div class="flex justify-between items-baseline text-xs font-mono text-base-content/60 mt-1">
       <span>Sensors</span>
       <span>
         <%= for {label, count, total} <- @counts do %>
@@ -206,9 +230,11 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
 
   defp get_color_with_threshold(nil, _thresholds, _error), do: "gray"
   defp get_color_with_threshold(_value, _thresholds, :partial_data), do: "amber"
+
   defp get_color_with_threshold(value, thresholds, _error) when is_number(value) do
     Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
   end
+
   defp get_color_with_threshold(_, _, _), do: @no_threshold_color
 
   defp format_temp(nil), do: "--.-°C"

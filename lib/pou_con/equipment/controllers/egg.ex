@@ -423,7 +423,12 @@ defmodule PouCon.Equipment.Controllers.Egg do
         false
       end
 
-    final_state = %State{new_state | error: error, error_count: error_count, interlocked: interlocked}
+    final_state = %State{
+      new_state
+      | error: error,
+        error_count: error_count,
+        interlocked: interlocked
+    }
 
     # In MANUAL mode with switch, sync coil ONLY when switch position changes
     if final_state.mode == :manual and switch_changed and

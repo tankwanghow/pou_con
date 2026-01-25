@@ -401,7 +401,7 @@ defmodule PouConWeb.CoreComponents do
     <.link
       navigate={@to}
       replace={true}
-      class="inline-flex items-center gap-2 px-4 py-2 bg-gray-300 hover:bg-gray-300 font-medium rounded-md transition"
+      class="inline-flex items-center gap-2 px-4 py-2 bg-base-300 hover:bg-base-200 font-medium rounded-md transition"
     >
       {@label}
     </.link>
@@ -412,7 +412,7 @@ defmodule PouConWeb.CoreComponents do
     ~H"""
     <.link
       href="/dashboard"
-      class="ml-2 border-1 border-blue-500 bg-blue-200 font-medium px-2 py-1 rounded"
+      class="ml-2 border border-blue-500/30 bg-blue-500/20 text-blue-500 font-medium px-2 py-1 rounded hover:bg-blue-500/30 transition-colors"
     >
       <.icon name="hero-home-solid" />
     </.link>
@@ -427,7 +427,7 @@ defmodule PouConWeb.CoreComponents do
     ~H"""
     <.link
       href={@to}
-      class={"ml-2 border-1 border-#{@color}-500 bg-#{@color}-200 font-medium px-2 py-1 rounded"}
+      class={"ml-2 border border-#{@color}-500/30 bg-#{@color}-500/20 text-#{@color}-500 font-medium px-2 py-1 rounded hover:bg-#{@color}-500/30 transition-colors"}
     >
       {@label}
     </.link>
@@ -441,15 +441,15 @@ defmodule PouConWeb.CoreComponents do
   # used dynamically in your templates.
   def color_classes(color) do
     case color do
-      "green" -> "bg-green-500 border-green-500 text-green-500 text-green-700"
-      "rose" -> "bg-rose-500 border-rose-500 text-rose-500 text-rose-700"
-      "violet" -> "bg-violet-500 border-violet-500 text-violet-500 text-violet-700"
-      "gray" -> "bg-gray-500 border-gray-500 text-gray-500 text-gray-700"
-      "blue" -> "bg-blue-500 border-blue-500 text-blue-500 text-blue-700"
-      "amber" -> "bg-amber-500 border-amber-500 text-amber-500 text-amber-700"
-      "yellow" -> "bg-yellow-500 border-yellow-500 text-yellow-500 text-yellow-700"
-      "pink" -> "bg-pink-500 border-pink-500 text-pink-500 text-pink-700"
-      _ -> "bg-gray-500 border-gray-500 text-gray-700"
+      "green" -> "bg-green-500 bg-green-500/20 bg-green-500/30 border-green-500 border-green-500/30 text-green-500 text-green-700"
+      "rose" -> "bg-rose-500 bg-rose-500/20 bg-rose-500/30 border-rose-500 border-rose-500/30 text-rose-500 text-rose-700"
+      "violet" -> "bg-violet-500 bg-violet-500/20 bg-violet-500/30 border-violet-500 border-violet-500/30 text-violet-500 text-violet-700"
+      "gray" -> "bg-gray-500 bg-gray-500/20 bg-gray-500/30 border-gray-500 border-gray-500/30 text-gray-500 text-gray-700"
+      "blue" -> "bg-blue-500 bg-blue-500/20 bg-blue-500/30 border-blue-500 border-blue-500/30 text-blue-500 text-blue-700"
+      "amber" -> "bg-amber-500 bg-amber-500/20 bg-amber-500/30 border-amber-500 border-amber-500/30 text-amber-500 text-amber-700"
+      "yellow" -> "bg-yellow-500 bg-yellow-500/20 bg-yellow-500/30 border-yellow-500 border-yellow-500/30 text-yellow-500 text-yellow-700"
+      "pink" -> "bg-pink-500 bg-pink-500/20 bg-pink-500/30 border-pink-500 border-pink-500/30 text-pink-500 text-pink-700"
+      _ -> "bg-gray-500 bg-gray-500/20 bg-gray-500/30 border-gray-500 border-gray-500/30 text-gray-700"
     end
   end
 

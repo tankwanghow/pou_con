@@ -17,36 +17,37 @@ defmodule PouConWeb.Live.Auth.Setup do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex items-center justify-center bg-gray-50">
-      <div class="max-w-md w-full">
-        <h2 class="text-center text-3xl font-extrabold text-gray-900">
-          Initial Admin Setup
-        </h2>
-
-        <.form for={@form} phx-submit="create_admin" class="mt-8 space-y-6">
-          <%= if @error do %>
-            <div class="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">{@error}</div>
-          <% end %>
-
-          <.input field={@form[:password]} type="password" label="Admin Password" required />
-          <.input
-            field={@form[:password_confirmation]}
-            type="password"
-            label="Confirm Password"
-            required
-          />
-          <div class="flex gap-3">
-            <.dashboard_link />
-            <button
-              type="submit"
-              class="w-[70%] bg-green-600 hover:bg-green-700 text-white py-2 rounded-md"
-            >
-              Create Admin Account
-            </button>
+    <Layouts.app
+      flash={@flash}
+      class="xs:w-full sm:w-3/4 md:w-1/3 lg:w-1/4"
+      current_role={@current_role}
+    >
+    <h2 class="text-2xl font-bold mb-6">Initial Administrator Setup</h2>
+      <.form for={@form} phx-submit="create_admin" class="mt-8 space-y-6">
+        <%= if @error do %>
+          <div class="bg-red-500/10 border border-red-500/30 text-red-500 px-4 py-3 rounded">
+            {@error}
           </div>
-        </.form>
-      </div>
-    </div>
+        <% end %>
+
+        <.input field={@form[:password]} type="password" label="Admin Password" required />
+        <.input
+          field={@form[:password_confirmation]}
+          type="password"
+          label="Confirm Password"
+          required
+        />
+        <div class="flex gap-3">
+          <.dashboard_link />
+          <button
+            type="submit"
+            class="w-[70%] bg-green-600 hover:bg-green-700 text-white py-2 rounded-md"
+          >
+            Create Admin Account
+          </button>
+        </div>
+      </.form>
+    </Layouts.app>
     """
   end
 

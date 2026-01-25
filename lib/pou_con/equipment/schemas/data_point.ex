@@ -136,23 +136,34 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
 
   defp validate_color_zones(changeset) do
     case get_change(changeset, :color_zones) do
-      nil -> changeset
-      "" -> changeset
+      nil ->
+        changeset
+
+      "" ->
+        changeset
+
       json when is_binary(json) ->
         case Jason.decode(json) do
           {:ok, zones} when is_list(zones) ->
             if valid_zones?(zones) do
               changeset
             else
-              add_error(changeset, :color_zones,
-                "must be a list of zones with 'from', 'to' (numbers) and 'color' (#{Enum.join(@valid_zone_colors, ", ")})")
+              add_error(
+                changeset,
+                :color_zones,
+                "must be a list of zones with 'from', 'to' (numbers) and 'color' (#{Enum.join(@valid_zone_colors, ", ")})"
+              )
             end
+
           {:ok, _} ->
             add_error(changeset, :color_zones, "must be a JSON array of zones")
+
           {:error, _} ->
             add_error(changeset, :color_zones, "must be valid JSON")
         end
-      _ -> changeset
+
+      _ ->
+        changeset
     end
   end
 
@@ -164,6 +175,7 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
        when is_number(from) and is_number(to) and is_binary(color) do
     color in @valid_zone_colors and from < to
   end
+
   defp valid_zone?(_), do: false
 
   @doc """
@@ -172,12 +184,14 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
   """
   def parse_color_zones(nil), do: []
   def parse_color_zones(""), do: []
+
   def parse_color_zones(json) when is_binary(json) do
     case Jason.decode(json) do
       {:ok, zones} when is_list(zones) -> zones
       _ -> []
     end
   end
+
   def parse_color_zones(_), do: []
 
   @doc """
@@ -188,10 +202,12 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
     Enum.find_value(zones, "gray", fn zone ->
       from = zone["from"]
       to = zone["to"]
+
       if is_number(from) and is_number(to) and value >= from and value < to do
         zone["color"]
       end
     end)
   end
+
   def color_for_value(_, _), do: "gray"
 end

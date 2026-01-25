@@ -6,7 +6,12 @@ defmodule PouConWeb.Live.Admin.Interlock.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+    <Layouts.app
+      flash={@flash}
+      current_role={@current_role}
+      failsafe_status={assigns[:failsafe_status]}
+      system_time_valid={assigns[:system_time_valid]}
+    >
       <.header>
         Equipment Interlock Rules
         <:subtitle>
@@ -23,7 +28,7 @@ defmodule PouConWeb.Live.Admin.Interlock.Index do
         </:actions>
       </.header>
 
-      <div class="text-xs font-medium flex flex-row text-center bg-green-200 border-b border-t border-green-400 py-1">
+      <div class="text-xs font-medium flex flex-row text-center bg-green-500/20 text-green-600 dark:text-green-400 border-b border-t border-green-500/30 py-1">
         <div class="w-[25%]">Upstream Equipment</div>
         <div class="w-[25%]">Downstream Equipment</div>
         <div class="w-[15%]">Enabled</div>
@@ -38,48 +43,48 @@ defmodule PouConWeb.Live.Admin.Interlock.Index do
               <div class="font-semibold">
                 {rule.upstream_equipment.title || rule.upstream_equipment.name}
               </div>
-              <div class="text-gray-500">{rule.upstream_equipment.type}</div>
+              <div class="text-base-content/60">{rule.upstream_equipment.type}</div>
             </div>
             <div class="w-[25%]">
               <div class="font-semibold">
                 {rule.downstream_equipment.title || rule.downstream_equipment.name}
               </div>
-              <div class="text-gray-500">{rule.downstream_equipment.type}</div>
+              <div class="text-base-content/60">{rule.downstream_equipment.type}</div>
             </div>
             <div class="w-[15%]">
               <span
                 :if={!@readonly}
                 phx-click={JS.push("toggle_enabled", value: %{id: rule.id})}
-                class={"cursor-pointer px-3 py-2 rounded-lg text-sm font-medium #{if rule.enabled, do: "bg-green-200 text-green-700", else: "bg-gray-200 text-gray-700"}"}
+                class={"cursor-pointer px-3 py-2 rounded-lg text-sm font-medium #{if rule.enabled, do: "bg-green-500/20 text-green-500", else: "bg-base-300 text-base-content"}"}
               >
                 {if rule.enabled, do: "ON", else: "OFF"}
               </span>
               <span
                 :if={@readonly}
-                class={"px-3 py-2 rounded-lg text-sm font-medium #{if rule.enabled, do: "bg-green-200 text-green-700", else: "bg-gray-200 text-gray-700"}"}
+                class={"px-3 py-2 rounded-lg text-sm font-medium #{if rule.enabled, do: "bg-green-500/20 text-green-500", else: "bg-base-300 text-base-content"}"}
               >
                 {if rule.enabled, do: "ON", else: "OFF"}
               </span>
             </div>
-            <div class="w-[20%] text-gray-600">
+            <div class="w-[20%] text-base-content/70">
               {Calendar.strftime(rule.inserted_at, "%Y-%m-%d %H:%M")}
             </div>
             <div :if={!@readonly} class="w-[15%] flex justify-center gap-2">
               <.link
                 navigate={~p"/admin/interlock/#{rule.id}/edit"}
-                class="p-2 border-1 rounded-xl border-blue-600 bg-blue-200"
+                class="p-2 border-1 rounded-xl border-blue-500/30 bg-blue-500/20"
                 title="Edit"
               >
-                <.icon name="hero-pencil-square" class="text-blue-600 w-5 h-5" />
+                <.icon name="hero-pencil-square" class="text-blue-500 w-5 h-5" />
               </.link>
 
               <.link
                 phx-click={JS.push("delete", value: %{id: rule.id}) |> hide("##{rule.id}")}
                 data-confirm="Are you sure you want to delete this interlock rule?"
-                class="p-2 border-1 rounded-xl border-rose-600 bg-rose-200"
+                class="p-2 border-1 rounded-xl border-rose-500/30 bg-rose-500/20"
                 title="Delete"
               >
-                <.icon name="hero-trash" class="text-rose-600 w-5 h-5" />
+                <.icon name="hero-trash" class="text-rose-500 w-5 h-5" />
               </.link>
             </div>
           </div>

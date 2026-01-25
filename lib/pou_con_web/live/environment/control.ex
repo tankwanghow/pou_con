@@ -172,7 +172,12 @@ defmodule PouConWeb.Live.Environment.Control do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+    <Layouts.app
+      flash={@flash}
+      current_role={@current_role}
+      failsafe_status={assigns[:failsafe_status]}
+      system_time_valid={assigns[:system_time_valid]}
+    >
       <div class="max-w-6xl mx-auto px-1">
         <.form for={@form} phx-submit="save" phx-change="validate">
           <!-- Failsafe + Global Settings Row -->
@@ -217,14 +222,29 @@ defmodule PouConWeb.Live.Environment.Control do
             <div class="w-1/3 space-y-2">
               <!-- Failsafe Fans -->
               <% failsafe_ok = @failsafe_status.actual >= @failsafe_status.expected %>
-              <div class={["p-2 rounded-lg border-2", if(failsafe_ok, do: "bg-green-50 border-green-400", else: "bg-red-50 border-red-400 animate-pulse")]}>
+              <div class={[
+                "p-2 rounded-lg border-2",
+                if(failsafe_ok,
+                  do: "bg-green-50 border-green-400",
+                  else: "bg-red-50 border-red-400 animate-pulse"
+                )
+              ]}>
                 <div class="flex items-center gap-2">
                   <span class="text-xl">{if failsafe_ok, do: "✅", else: "⚠️"}</span>
                   <div class="flex-1">
-                    <div class="font-bold">Failsafe Fans <span class="font-normal text-sm text-gray-500">(MANUAL+ON)</span></div>
-                    <div class={["font-mono", if(failsafe_ok, do: "text-green-700", else: "text-red-700")]}>
+                    <div class="font-bold">
+                      Failsafe Fans
+                      <span class="font-normal text-sm text-base-content/60">(MANUAL+ON)</span>
+                    </div>
+                    <div class={[
+                      "font-mono",
+                      if(failsafe_ok, do: "text-green-700", else: "text-red-700")
+                    ]}>
                       {@failsafe_status.actual} of {@failsafe_status.expected} min
-                      <span :if={length(@failsafe_status.fans) > 0} class="text-gray-600 text-sm ml-2">
+                      <span
+                        :if={length(@failsafe_status.fans) > 0}
+                        class="text-base-content/70 text-sm ml-2"
+                      >
                         {Enum.join(@failsafe_status.fans, ", ")}
                       </span>
                     </div>
@@ -240,16 +260,30 @@ defmodule PouConWeb.Live.Environment.Control do
               <% total_fans = Map.get(@failsafe_status, :total_fans, 0) %>
               <% max_possible = Map.get(@failsafe_status, :max_possible_auto, 0) %>
               <% all_ok = auto_ok and config_ok %>
-              <div class={["p-2 rounded-lg border-2", if(all_ok, do: "bg-green-50 border-green-400", else: "bg-red-50 border-red-400 animate-pulse")]}>
+              <div class={[
+                "p-2 rounded-lg border-2",
+                if(all_ok,
+                  do: "bg-green-50 border-green-400",
+                  else: "bg-red-50 border-red-400 animate-pulse"
+                )
+              ]}>
                 <div class="flex items-center gap-2">
                   <span class="text-xl">{if all_ok, do: "✅", else: "⚠️"}</span>
                   <div class="flex-1">
-                    <div class="font-bold">Auto Fans <span class="font-normal text-sm text-gray-500">(for highest step)</span></div>
-                    <div class={["font-mono text-sm", if(all_ok, do: "text-green-700", else: "text-red-700")]}>
-                      Need {auto_required}, have {auto_available} in AUTO
-                      <span :if={!config_ok} class="text-red-700 font-bold"> (max possible: {max_possible})</span>
+                    <div class="font-bold">
+                      Auto Fans
+                      <span class="font-normal text-sm text-base-content/60">(for highest step)</span>
                     </div>
-                    <div :if={length(auto_fans) > 0} class="text-gray-600 text-sm font-mono">
+                    <div class={[
+                      "font-mono text-sm",
+                      if(all_ok, do: "text-green-700", else: "text-red-700")
+                    ]}>
+                      Need {auto_required}, have {auto_available} in AUTO
+                      <span :if={!config_ok} class="text-red-700 font-bold">
+                        (max possible: {max_possible})
+                      </span>
+                    </div>
+                    <div :if={length(auto_fans) > 0} class="text-base-content/70 text-sm font-mono">
                       {Enum.join(auto_fans, ", ")}
                     </div>
                     <div :if={!config_ok} class="text-red-700 text-xs mt-1">
@@ -287,7 +321,7 @@ defmodule PouConWeb.Live.Environment.Control do
               <input type="hidden" name={"rendered_step_#{n}"} value="true" />
               <div class={[
                 "rounded-lg border-2 px-3 py-2",
-                if(is_active, do: "bg-base-100 border-green-400", else: "bg-gray-50 border-gray-300")
+                if(is_active, do: "bg-base-100 border-green-400", else: "bg-base-200 border-base-300")
               ]}>
                 <div class="flex items-center gap-3">
                   <span class={[
@@ -339,7 +373,7 @@ defmodule PouConWeb.Live.Environment.Control do
                       </label>
                     <% end %>
                   </div>
-                  <div :if={is_active} class="flex-1 text-right text-sm text-gray-600 italic">
+                  <div :if={is_active} class="flex-1 text-right text-sm text-base-content/70 italic">
                     <% pump_titles =
                       selected_pumps
                       |> Enum.map(fn name -> Enum.find(@pumps, fn p -> p.name == name end) end)

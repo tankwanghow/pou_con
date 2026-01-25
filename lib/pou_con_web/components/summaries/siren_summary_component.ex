@@ -31,7 +31,7 @@ defmodule PouConWeb.Components.Summaries.SirenSummaryComponent do
     <div
       phx-click="go_to_sirens"
       phx-target={@myself}
-      class="bg-white shadow-md rounded-xl border border-gray-200 overflow-hidden transition-all"
+      class="bg-base-100 shadow-md rounded-xl border border-base-300 overflow-hidden transition-all"
     >
       <div class="flex flex-wrap">
         <%= for eq <- @equipments do %>

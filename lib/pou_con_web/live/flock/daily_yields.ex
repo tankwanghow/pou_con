@@ -37,7 +37,13 @@ defmodule PouConWeb.Live.Flock.DailyYields do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-4/5" current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+    <Layouts.app
+      flash={@flash}
+      class="xs:w-full lg:w-3/4 xl:w-4/5"
+      current_role={@current_role}
+      failsafe_status={assigns[:failsafe_status]}
+      system_time_valid={assigns[:system_time_valid]}
+    >
       <.header>
         Daily Yields: {@flock.name}
         <:actions>
@@ -47,7 +53,7 @@ defmodule PouConWeb.Live.Flock.DailyYields do
       </.header>
       
     <!-- Header Row -->
-      <div class="text-xs font-medium flex flex-row text-center bg-amber-200 border-b border-t border-amber-400 py-2">
+      <div class="text-xs font-medium flex flex-row text-center bg-amber-500/20 text-amber-600 dark:text-amber-400 border-b border-t border-amber-500/30 py-2">
         <div class="w-[18%]">Date</div>
         <div class="w-[12%]">Age (wks)</div>
         <div class="w-[18%]">Current Qty</div>
@@ -58,12 +64,12 @@ defmodule PouConWeb.Live.Flock.DailyYields do
       
     <!-- Data Rows -->
       <div :if={length(@yields) > 0}>
-        <div class="text-xs text-gray-400 mb-1 text-right">
+        <div class="text-xs text-base-content/50 mb-1 text-right">
           Showing {length(@yields)} of {@total_yields} days
         </div>
         <div class="max-h-[70vh] overflow-y-auto">
           <%= for yield <- @yields do %>
-            <div class="text-sm flex flex-row text-center border-b border-gray-600 py-2 hover:bg-gray-700">
+            <div class="text-sm flex flex-row text-center border-b border-base-300 py-2 hover:bg-base-200">
               <div class="w-[18%]">{format_date(yield.log_date)}</div>
               <div class="w-[12%]">{yield.age_weeks}w</div>
               <div class="w-[18%] text-emerald-400">{format_number(yield.current_quantity)}</div>
@@ -77,13 +83,13 @@ defmodule PouConWeb.Live.Flock.DailyYields do
         <button
           :if={length(@yields) < @total_yields}
           phx-click="load_more"
-          class="w-full mt-3 py-3 px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium text-sm"
+          class="w-full mt-3 py-3 px-4 bg-base-300 hover:bg-base-200 text-base-content rounded-lg font-medium text-sm"
         >
           Load More ({@total_yields - length(@yields)} remaining)
         </button>
       </div>
 
-      <div :if={length(@yields) == 0} class="text-center py-8 text-gray-500">
+      <div :if={length(@yields) == 0} class="text-center py-8 text-base-content/60">
         No daily yield data available. Add flock logs to see yield statistics.
       </div>
     </Layouts.app>

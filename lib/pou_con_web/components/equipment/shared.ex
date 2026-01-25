@@ -26,7 +26,7 @@ defmodule PouConWeb.Components.Equipment.Shared do
   def equipment_card(assigns) do
     ~H"""
     <div class={[
-      "bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden w-80 transition-colors duration-300",
+      "bg-base-100 shadow-sm rounded-xl border border-base-300 overflow-hidden w-80 transition-colors duration-300",
       @is_error && "border-red-300 ring-1 ring-red-100"
     ]}>
       {render_slot(@inner_block)}
@@ -59,18 +59,20 @@ defmodule PouConWeb.Components.Equipment.Shared do
 
   def equipment_header(assigns) do
     ~H"""
-    <div class="flex items-center justify-between px-4 py-4 bg-gray-50 border-b border-gray-100">
+    <div class="flex items-center justify-between px-4 py-4 bg-base-200 border-b border-base-300">
       <div class="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
         <.status_dot color={@color} is_running={@is_running} />
         <.link
           :if={@equipment_id}
           navigate={~p"/admin/equipment/#{@equipment_id}/edit"}
-          class="font-bold text-gray-700 text-xl truncate hover:text-blue-600 hover:underline"
+          class="font-bold text-base-content text-xl truncate hover:text-blue-600 hover:underline"
           title="Edit equipment settings"
         >
           {@title}
         </.link>
-        <span :if={!@equipment_id} class="font-bold text-gray-700 text-xl truncate">{@title}</span>
+        <span :if={!@equipment_id} class="font-bold text-base-content text-xl truncate">
+          {@title}
+        </span>
         <span
           :if={@inverted}
           class="px-1 py-0.5 text-xs font-medium bg-orange-100 text-orange-600 rounded"
@@ -152,7 +154,7 @@ defmodule PouConWeb.Components.Equipment.Shared do
 
   def mode_toggle(assigns) do
     ~H"""
-    <div class="flex bg-gray-200 rounded p-1 flex-shrink-0 ml-2">
+    <div class="flex bg-base-300 rounded p-1 flex-shrink-0 ml-2">
       <button
         phx-click="set_mode"
         phx-value-mode="auto"
@@ -160,8 +162,8 @@ defmodule PouConWeb.Components.Equipment.Shared do
         disabled={@is_offline}
         class={[
           "px-3 py-1 rounded text-base font-bold uppercase transition-all focus:outline-none",
-          @mode == :auto && "bg-white text-indigo-600 shadow-sm",
-          @mode != :auto && "text-gray-500 hover:text-gray-700"
+          @mode == :auto && "bg-base-100 text-indigo-600 shadow-sm",
+          @mode != :auto && "text-base-content/60 hover:text-base-content"
         ]}
       >
         Auto
@@ -173,8 +175,8 @@ defmodule PouConWeb.Components.Equipment.Shared do
         disabled={@is_offline}
         class={[
           "px-3 py-1 rounded text-base font-bold uppercase transition-all focus:outline-none",
-          @mode == :manual && "bg-white text-gray-800 shadow-sm",
-          @mode != :manual && "text-gray-500 hover:text-gray-700"
+          @mode == :manual && "bg-base-100 text-base-content shadow-sm",
+          @mode != :manual && "text-base-content/60 hover:text-base-content"
         ]}
       >
         Man
@@ -193,7 +195,7 @@ defmodule PouConWeb.Components.Equipment.Shared do
   def manual_only_badge(assigns) do
     ~H"""
     <div class="flex-shrink-0 ml-1">
-      <span class="px-2 py-1 rounded text-lg font-bold uppercase bg-gray-100 text-gray-400 border border-gray-200">
+      <span class="px-2 py-1 rounded text-lg font-bold uppercase bg-base-200 text-base-content/60 border border-base-300">
         Manual Only
       </span>
     </div>
@@ -233,7 +235,7 @@ defmodule PouConWeb.Components.Equipment.Shared do
   """
   def offline_button(assigns) do
     ~H"""
-    <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
+    <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-base-content/60 bg-base-200 border border-base-300 cursor-not-allowed uppercase">
       Offline
     </div>
     """
@@ -255,7 +257,7 @@ defmodule PouConWeb.Components.Equipment.Shared do
   """
   def system_button(assigns) do
     ~H"""
-    <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed uppercase">
+    <div class="w-full py-4 px-2 rounded font-bold text-lg text-center text-base-content/60 bg-base-200 border border-base-300 cursor-not-allowed uppercase">
       System
     </div>
     """

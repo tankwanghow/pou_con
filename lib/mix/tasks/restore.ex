@@ -115,7 +115,11 @@ defmodule Mix.Tasks.Restore do
       {:ok, result} ->
         IO.puts("")
         IO.puts("Restore completed successfully!")
-        IO.puts("  Restored #{result.total_records} records across #{length(result.restored_tables)} tables.")
+
+        IO.puts(
+          "  Restored #{result.total_records} records across #{length(result.restored_tables)} tables."
+        )
+
         IO.puts("")
         IO.puts("IMPORTANT: Restart the application to apply changes:")
         IO.puts("  systemctl restart pou_con  (production)")

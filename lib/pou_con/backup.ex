@@ -39,7 +39,8 @@ defmodule PouCon.Backup do
         {:error, "Invalid backup: missing backup_version"}
 
       backup.metadata.backup_version not in @supported_versions ->
-        {:error, "Unsupported backup version: #{backup.metadata.backup_version}. Supported: #{inspect(@supported_versions)}"}
+        {:error,
+         "Unsupported backup version: #{backup.metadata.backup_version}. Supported: #{inspect(@supported_versions)}"}
 
       true ->
         :ok

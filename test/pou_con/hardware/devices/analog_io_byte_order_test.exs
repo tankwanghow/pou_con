@@ -11,7 +11,7 @@ defmodule PouCon.Hardware.Devices.AnalogIOByteOrderTest do
       values = [1, 57920]
 
       # Using default/explicit high_low
-      assert AnalogIO.decode_modbus_value(values, :uint32, "high_low") == 123456
+      assert AnalogIO.decode_modbus_value(values, :uint32, "high_low") == 123_456
     end
 
     test "decodes uint32 with low_high byte order (DIJIANG meter)" do
@@ -22,28 +22,28 @@ defmodule PouCon.Hardware.Devices.AnalogIOByteOrderTest do
       values = [57920, 1]
 
       # Using low_high for DIJIANG
-      assert AnalogIO.decode_modbus_value(values, :uint32, "low_high") == 123456
+      assert AnalogIO.decode_modbus_value(values, :uint32, "low_high") == 123_456
     end
 
     test "decodes int32 with high_low byte order" do
       # Positive number
       values = [1, 57920]
-      assert AnalogIO.decode_modbus_value(values, :int32, "high_low") == 123456
+      assert AnalogIO.decode_modbus_value(values, :int32, "high_low") == 123_456
 
       # Negative number: -123456
       # Two's complement: 0xFFFE1DC0 = [0xFFFE, 0x1DC0] = [65534, 7616]
       values_neg = [65534, 7616]
-      assert AnalogIO.decode_modbus_value(values_neg, :int32, "high_low") == -123456
+      assert AnalogIO.decode_modbus_value(values_neg, :int32, "high_low") == -123_456
     end
 
     test "decodes int32 with low_high byte order" do
       # Positive number (DIJIANG low-high)
       values = [57920, 1]
-      assert AnalogIO.decode_modbus_value(values, :int32, "low_high") == 123456
+      assert AnalogIO.decode_modbus_value(values, :int32, "low_high") == 123_456
 
       # Negative number in low-high order
       values_neg = [7616, 65534]
-      assert AnalogIO.decode_modbus_value(values_neg, :int32, "low_high") == -123456
+      assert AnalogIO.decode_modbus_value(values_neg, :int32, "low_high") == -123_456
     end
 
     test "decodes float32 with high_low byte order" do
@@ -85,29 +85,29 @@ defmodule PouCon.Hardware.Devices.AnalogIOByteOrderTest do
     test "encodes uint32 with high_low byte order" do
       # 123456 = 0x0001E240
       # High-low: [0x0001, 0xE240] = [1, 57920]
-      assert AnalogIO.encode_modbus_value(123456, :uint32, "high_low") == [1, 57920]
+      assert AnalogIO.encode_modbus_value(123_456, :uint32, "high_low") == [1, 57920]
     end
 
     test "encodes uint32 with low_high byte order (DIJIANG)" do
       # 123456 = 0x0001E240
       # Low-high: [0xE240, 0x0001] = [57920, 1]
-      assert AnalogIO.encode_modbus_value(123456, :uint32, "low_high") == [57920, 1]
+      assert AnalogIO.encode_modbus_value(123_456, :uint32, "low_high") == [57920, 1]
     end
 
     test "encodes int32 with high_low byte order" do
       # Positive
-      assert AnalogIO.encode_modbus_value(123456, :int32, "high_low") == [1, 57920]
+      assert AnalogIO.encode_modbus_value(123_456, :int32, "high_low") == [1, 57920]
 
       # Negative: -123456 = 0xFFFE1DC0
-      assert AnalogIO.encode_modbus_value(-123456, :int32, "high_low") == [65534, 7616]
+      assert AnalogIO.encode_modbus_value(-123_456, :int32, "high_low") == [65534, 7616]
     end
 
     test "encodes int32 with low_high byte order" do
       # Positive
-      assert AnalogIO.encode_modbus_value(123456, :int32, "low_high") == [57920, 1]
+      assert AnalogIO.encode_modbus_value(123_456, :int32, "low_high") == [57920, 1]
 
       # Negative
-      assert AnalogIO.encode_modbus_value(-123456, :int32, "low_high") == [7616, 65534]
+      assert AnalogIO.encode_modbus_value(-123_456, :int32, "low_high") == [7616, 65534]
     end
 
     test "encodes float32 with high_low byte order" do
@@ -143,7 +143,7 @@ defmodule PouCon.Hardware.Devices.AnalogIOByteOrderTest do
       modbus_response = [57920, 1]
       decoded = AnalogIO.decode_modbus_value(modbus_response, :uint32, "low_high")
 
-      assert decoded == 123456
+      assert decoded == 123_456
     end
 
     test "instantaneous flow PV = 1234.5 LPM (with decimal point = 1)" do

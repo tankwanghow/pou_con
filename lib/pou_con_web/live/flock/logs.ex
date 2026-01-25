@@ -149,7 +149,13 @@ defmodule PouConWeb.Live.Flock.Logs do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-4/5" current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+    <Layouts.app
+      flash={@flash}
+      class="xs:w-full lg:w-3/4 xl:w-4/5"
+      current_role={@current_role}
+      failsafe_status={assigns[:failsafe_status]}
+      system_time_valid={assigns[:system_time_valid]}
+    >
       <.header>
         <:actions>
           <.btn_link to={~p"/flock/#{@flock.id}/daily-yields"} label="Daily Yields" color="amber" />
@@ -165,58 +171,58 @@ defmodule PouConWeb.Live.Flock.Logs do
         This flock is no longer active. Logs are read-only.
       </div>
 
-      <div class="bg-white shadow-md rounded-xl border border-gray-200 overflow-hidden mb-4">
+      <div class="bg-base-100 shadow-md rounded-xl border border-base-300 overflow-hidden mb-4">
         <div class="grid grid-cols-5 gap-1 p-2 text-center">
-          <div class="bg-slate-100 rounded p-1">
-            <div class="text-slate-700 font-bold">{@flock.name}</div>
-            <div class="text-slate-500 text-xs">{@flock.breed || "-"}</div>
+          <div class="bg-slate-500/20 rounded p-1">
+            <div class="text-slate-600 dark:text-slate-300 font-bold">{@flock.name}</div>
+            <div class="text-slate-500 dark:text-slate-400 text-xs">{@flock.breed || "-"}</div>
           </div>
 
-          <div class="bg-slate-100 rounded p-1">
-            <div class="text-slate-700 font-bold">{format_date(@flock.date_of_birth)}</div>
-            <div class="text-slate-500 text-xs">DOB</div>
+          <div class="bg-slate-500/20 rounded p-1">
+            <div class="text-slate-600 dark:text-slate-300 font-bold">{format_date(@flock.date_of_birth)}</div>
+            <div class="text-slate-500 dark:text-slate-400 text-xs">DOB</div>
           </div>
 
-          <div class="bg-slate-100 rounded p-1">
-            <div class="text-slate-700 font-bold">{div(@summary.age_days, 7)}w</div>
-            <div class="text-slate-500 text-xs">Age</div>
+          <div class="bg-slate-500/20 rounded p-1">
+            <div class="text-slate-600 dark:text-slate-300 font-bold">{div(@summary.age_days, 7)}w</div>
+            <div class="text-slate-500 dark:text-slate-400 text-xs">Age</div>
           </div>
 
-          <div class="bg-slate-100 rounded p-1">
-            <div class="text-slate-700 font-bold">{format_date(@flock.inserted_at) || "-"}</div>
-            <div class="text-slate-500 text-xs">Entry</div>
+          <div class="bg-slate-500/20 rounded p-1">
+            <div class="text-slate-600 dark:text-slate-300 font-bold">{format_date(@flock.inserted_at) || "-"}</div>
+            <div class="text-slate-500 dark:text-slate-400 text-xs">Entry</div>
           </div>
 
-          <div class="bg-cyan-50 rounded p-1">
-            <div class="text-cyan-700 font-bold">{format_number(@summary.initial_quantity)}</div>
-            <div class="text-cyan-600 text-xs">Initial</div>
+          <div class="bg-cyan-500/20 rounded p-1">
+            <div class="text-cyan-600 dark:text-cyan-400 font-bold">{format_number(@summary.initial_quantity)}</div>
+            <div class="text-cyan-500 text-xs">Initial</div>
           </div>
 
-          <div class="bg-rose-50 rounded p-1">
-            <div class="text-rose-600 font-bold">{format_number(@summary.total_deaths)}</div>
+          <div class="bg-rose-500/20 rounded p-1">
+            <div class="text-rose-600 dark:text-rose-400 font-bold">{format_number(@summary.total_deaths)}</div>
             <div class="text-rose-500 text-xs">Deaths</div>
           </div>
 
-          <div class="bg-cyan-50 rounded p-1">
-            <div class="text-cyan-700 font-bold">{format_number(@summary.current_quantity)}</div>
-            <div class="text-cyan-600 text-xs">Alive</div>
+          <div class="bg-cyan-500/20 rounded p-1">
+            <div class="text-cyan-600 dark:text-cyan-400 font-bold">{format_number(@summary.current_quantity)}</div>
+            <div class="text-cyan-500 text-xs">Alive</div>
           </div>
 
-          <div class="bg-amber-50 rounded p-1">
-            <div class="text-amber-700 font-bold">{format_number(@summary.today_eggs)}</div>
-            <div class="text-amber-600 text-xs">Today Eggs</div>
+          <div class="bg-amber-500/20 rounded p-1">
+            <div class="text-amber-600 dark:text-amber-400 font-bold">{format_number(@summary.today_eggs)}</div>
+            <div class="text-amber-500 text-xs">Today Eggs</div>
           </div>
 
-          <div class="bg-emerald-100 rounded p-1">
-            <div class="text-emerald-700 font-bold">
+          <div class="bg-emerald-500/20 rounded p-1">
+            <div class="text-emerald-600 dark:text-emerald-400 font-bold">
               {format_yield(@summary.today_eggs, @summary.current_quantity)}
             </div>
-            <div class="text-emerald-600 text-xs">Today Yield</div>
+            <div class="text-emerald-500 text-xs">Today Yield</div>
           </div>
 
-          <div class="bg-amber-50 rounded p-1">
-            <div class="text-amber-700 font-bold">{format_number(@summary.total_eggs)}</div>
-            <div class="text-amber-600 text-xs">Total Eggs</div>
+          <div class="bg-amber-500/20 rounded p-1">
+            <div class="text-amber-600 dark:text-amber-400 font-bold">{format_number(@summary.total_eggs)}</div>
+            <div class="text-amber-500 text-xs">Total Eggs</div>
           </div>
         </div>
       </div>
@@ -265,7 +271,7 @@ defmodule PouConWeb.Live.Flock.Logs do
                   <.button
                     type="button"
                     phx-click="cancel_edit"
-                    class="text-rose-400 bg-rose-200 hover:bg-rose-800 py-1 px-2 rounded"
+                    class="text-rose-500 bg-rose-500/20 hover:bg-rose-500/30 py-1 px-2 rounded"
                   >
                     Cancel
                   </.button>
@@ -279,18 +285,18 @@ defmodule PouConWeb.Live.Flock.Logs do
         <div class={if @flock.active, do: "", else: "lg:col-span-2"}>
           <h2 class="text-lg font-semibold mb-2">
             {if @flock.active, do: "Recent Logs", else: "Log History"}
-            <span class="text-sm font-normal text-gray-400">
+            <span class="text-sm font-normal text-base-content/50">
               ({length(@logs)} of {@total_logs})
             </span>
           </h2>
           <%= if Enum.empty?(@logs) do %>
-            <p class="text-gray-400 text-sm italic">No logs recorded.</p>
+            <p class="text-base-content/50 text-sm italic">No logs recorded.</p>
           <% else %>
             <div class="max-h-96 overflow-y-auto">
               <%= for log <- @logs do %>
-                <div class="py-2 px-3 rounded-lg border bg-gray-800 border-gray-600 text-sm">
+                <div class="py-2 px-3 rounded-lg border bg-base-200 border-base-300 text-sm">
                   <div class="flex items-center justify-between">
-                    <div class="font-semibold text-gray-200">{log.log_date}</div>
+                    <div class="font-semibold text-base-content">{log.log_date}</div>
 
                     <div class="font-bold text-rose-400">{format_number(log.deaths)}</div>
                     <div class="text-amber-400">{format_number(log.eggs)}</div>
@@ -322,7 +328,7 @@ defmodule PouConWeb.Live.Flock.Logs do
             <button
               :if={length(@logs) < @total_logs}
               phx-click="load_more"
-              class="w-full mt-3 py-3 px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium text-sm"
+              class="w-full mt-3 py-3 px-4 bg-base-300 hover:bg-base-200 text-base-content rounded-lg font-medium text-sm"
             >
               Load More ({@total_logs - length(@logs)} remaining)
             </button>

@@ -35,7 +35,7 @@ defmodule PouConWeb.Live.Auth.AdminSettings do
 
       <.form for={@form} phx-submit="save" class="space-y-6">
         <%= if @error do %>
-          <div class="bg-red-50 text-red-700 p-3 rounded">{@error}</div>
+          <div class="bg-red-500/10 border border-red-500/30 text-red-500 p-3 rounded">{@error}</div>
         <% end %>
 
         <div>
@@ -58,7 +58,7 @@ defmodule PouConWeb.Live.Auth.AdminSettings do
             field={@form[:house_id]}
             placeholder="e.g., H1, HOUSE_A, FARM_1"
           />
-          <p class="text-sm text-gray-500 mt-1">
+          <p class="text-sm text-base-content/60 mt-1">
             Identifies this installation (stored uppercase)
           </p>
         </div>

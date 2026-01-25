@@ -31,6 +31,7 @@ defmodule PouCon.Equipment.Controllers.FeedingTest do
         {:ok, %{state: 0}}
       end
     end)
+
     stub(DataPointManagerMock, :command, fn _name, _cmd, _params -> {:ok, :success} end)
 
     %{devices: device_names}

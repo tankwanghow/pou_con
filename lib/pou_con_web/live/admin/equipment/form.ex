@@ -61,12 +61,15 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
     assigns = assign(assigns, :parsed, parsed)
 
     ~H"""
-    <div :if={@parsed != []} class="font-sans -mt-2 mb-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-      <div class="text-xs text-gray-500 uppercase mb-2 font-medium">Data Points (Live)</div>
+    <div
+      :if={@parsed != []}
+      class="font-sans -mt-2 mb-2 p-3 bg-base-200 rounded-lg border border-base-300"
+    >
+      <div class="text-xs text-base-content/60 uppercase mb-2 font-medium">Data Points (Live)</div>
       <div class="space-y-1">
         <%= for {key, values} <- @parsed do %>
           <div class="flex items-center gap-2 text-sm">
-            <span class="text-gray-600 font-medium w-40 truncate" title={to_string(key)}>
+            <span class="text-base-content/70 font-medium w-40 truncate" title={to_string(key)}>
               {key}:
             </span>
             <div class="flex flex-wrap gap-1 items-center">
@@ -87,7 +90,10 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
                     {format_cached_value(cached)}
                   </span>
                 <% else %>
-                  <span class="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs font-mono" title="Data point not found">
+                  <span
+                    class="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs font-mono"
+                    title="Data point not found"
+                  >
                     {value} ⚠
                   </span>
                 <% end %>
@@ -100,7 +106,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
     """
   end
 
-  defp value_status_class(nil), do: "bg-gray-200 text-gray-500"
+  defp value_status_class(nil), do: "bg-base-200 text-base-content/60"
   defp value_status_class({:error, _}), do: "bg-red-200 text-red-700"
   defp value_status_class(_), do: "bg-green-100 text-green-700"
 
@@ -112,12 +118,14 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
   defp format_cached_value(%{state: 0}), do: "OFF (0)"
   defp format_cached_value(%{value: v, unit: u}) when not is_nil(u), do: "#{v} #{u}"
   defp format_cached_value(%{value: v}), do: "#{v}"
+
   defp format_cached_value(%{temperature: t, humidity: h}) do
     parts = []
     parts = if t, do: ["#{t}°C" | parts], else: parts
     parts = if h, do: ["#{h}%" | parts], else: parts
     Enum.reverse(parts) |> Enum.join(" / ")
   end
+
   defp format_cached_value(map) when is_map(map), do: inspect(map, limit: 3)
 
   defp parse_data_point_tree(nil), do: []
@@ -136,7 +144,10 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
 
           values =
             if String.contains?(value_str, ",") do
-              value_str |> String.split(",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
+              value_str
+              |> String.split(",")
+              |> Enum.map(&String.trim/1)
+              |> Enum.reject(&(&1 == ""))
             else
               [value_str]
             end
@@ -159,7 +170,12 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+    <Layouts.app
+      flash={@flash}
+      current_role={@current_role}
+      failsafe_status={assigns[:failsafe_status]}
+      system_time_valid={assigns[:system_time_valid]}
+    >
       <.header>
         {@page_title}
       </.header>
@@ -189,7 +205,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
           <% optional = if type, do: optional_keys_for_type(type), else: [] %>
           <% is_generic = type && is_generic_sensor_type?(type) %>
           <%= if is_generic do %>
-            <div class="font-sans mb-2 -mt-2 text-sm text-gray-500">
+            <div class="font-sans mb-2 -mt-2 text-sm text-base-content/60">
               Any key: data_point_name pairs (e.g., temperature: temp_dp_1)
             </div>
           <% else %>
@@ -197,14 +213,14 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
               <div class="font-sans mb-2 -mt-2 text-sm">
                 <%= if required != [] do %>
                   <div>
-                    <span class="text-gray-600">Required:</span>
-                    <span class="text-gray-400">{Enum.join(required, ", ")}</span>
+                    <span class="text-base-content/70">Required:</span>
+                    <span class="text-base-content/50">{Enum.join(required, ", ")}</span>
                   </div>
                 <% end %>
                 <%= if optional != [] do %>
                   <div>
-                    <span class="text-gray-600">Optional:</span>
-                    <span class="text-gray-400">{Enum.join(optional, ", ")}</span>
+                    <span class="text-base-content/70">Optional:</span>
+                    <span class="text-base-content/50">{Enum.join(optional, ", ")}</span>
                   </div>
                 <% end %>
               </div>
@@ -226,9 +242,13 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
                     <span class="font-medium">{group}:</span>
                     <%= case error do %>
                       <% {:not_found, names} -> %>
-                        <span class="text-red-600">Data points not found: {Enum.join(names, ", ")}</span>
+                        <span class="text-red-600">
+                          Data points not found: {Enum.join(names, ", ")}
+                        </span>
                       <% {:mismatched, names} -> %>
-                        <span class="text-red-600">Mismatched zones in: {Enum.join(names, ", ")}</span>
+                        <span class="text-red-600">
+                          Mismatched zones in: {Enum.join(names, ", ")}
+                        </span>
                     <% end %>
                   </li>
                 <% end %>
@@ -328,7 +348,8 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
   def handle_event("save", %{"equipment" => equipment_params}, socket) do
     # Prevent save if there are color_zones validation errors
     if socket.assigns.color_zones_errors != [] do
-      {:noreply, put_flash(socket, :error, "Cannot save: color zones must match within each sensor group")}
+      {:noreply,
+       put_flash(socket, :error, "Cannot save: color zones must match within each sensor group")}
     else
       save_equipment(socket, socket.assigns.live_action, equipment_params)
     end

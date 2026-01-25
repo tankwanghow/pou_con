@@ -47,7 +47,15 @@ defmodule PouCon.Logging.Schemas.DataPointLog do
   @doc false
   def changeset(log, attrs) do
     log
-    |> cast(attrs, [:house_id, :data_point_name, :value, :raw_value, :unit, :triggered_by, :inserted_at])
+    |> cast(attrs, [
+      :house_id,
+      :data_point_name,
+      :value,
+      :raw_value,
+      :unit,
+      :triggered_by,
+      :inserted_at
+    ])
     |> validate_required([:house_id, :data_point_name, :inserted_at])
   end
 end

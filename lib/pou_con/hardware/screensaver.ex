@@ -30,7 +30,8 @@ defmodule PouCon.Hardware.Screensaver do
     env = [{"DISPLAY", @display}]
 
     with :ok <- run_xset(["s", to_string(seconds), to_string(seconds)], env),
-         :ok <- run_xset(["dpms", to_string(seconds), to_string(seconds), to_string(seconds)], env) do
+         :ok <-
+           run_xset(["dpms", to_string(seconds), to_string(seconds), to_string(seconds)], env) do
       # Enable DPMS if timeout > 0, disable if 0
       if seconds > 0 do
         run_xset(["dpms"], env)
@@ -58,7 +59,8 @@ defmodule PouCon.Hardware.Screensaver do
         # Even if X11 fails, try to get backlight info
         case get_backlight_info() do
           %{has_backlight: true} = info ->
-            {:ok, Map.merge(%{timeout_seconds: nil, dpms_enabled: false, dpms_standby: nil}, info)}
+            {:ok,
+             Map.merge(%{timeout_seconds: nil, dpms_enabled: false, dpms_standby: nil}, info)}
 
           _ ->
             {:error, error}
@@ -153,15 +155,17 @@ defmodule PouCon.Hardware.Screensaver do
 
   defp get_backlight_info do
     if has_backlight_control?() do
-      current = case get_backlight() do
-        {:ok, level} -> level
-        _ -> nil
-      end
+      current =
+        case get_backlight() do
+          {:ok, level} -> level
+          _ -> nil
+        end
 
-      max = case get_max_brightness() do
-        {:ok, level} -> level
-        _ -> nil
-      end
+      max =
+        case get_max_brightness() do
+          {:ok, level} -> level
+          _ -> nil
+        end
 
       %{
         has_backlight: true,

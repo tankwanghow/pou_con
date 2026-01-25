@@ -328,7 +328,9 @@ defmodule PouCon.Equipment.Controllers.BinaryController do
 
               new_state = %{state | mode: mode}
               # Turn off when switching to AUTO mode (clean state)
-              new_state = if mode == :auto, do: %{new_state | commanded_on: false}, else: new_state
+              new_state =
+                if mode == :auto, do: %{new_state | commanded_on: false}, else: new_state
+
               {:noreply, poll_and_update(new_state)}
 
             {:error, reason} ->
@@ -406,7 +408,9 @@ defmodule PouCon.Equipment.Controllers.BinaryController do
       end
 
       defp sync_coil(%{commanded_on: cmd, actual_on: act} = state) when cmd != act do
-        Logger.info("[#{state.name}] #{if cmd, do: "Turning ON", else: "Turning OFF"} #{@equipment_type}")
+        Logger.info(
+          "[#{state.name}] #{if cmd, do: "Turning ON", else: "Turning OFF"} #{@equipment_type}"
+        )
 
         # Log if in MANUAL mode (automation controllers handle auto mode logging)
         if state.mode == :manual do
@@ -482,7 +486,8 @@ defmodule PouCon.Equipment.Controllers.BinaryController do
 
         essential_results = [coil_res, fb_res, mode_res, trip_res]
 
-        {new_state, temp_error} = parse_poll_results(state, coil_res, fb_res, mode_res, trip_res, essential_results)
+        {new_state, temp_error} =
+          parse_poll_results(state, coil_res, fb_res, mode_res, trip_res, essential_results)
 
         # Error detection and debouncing
         raw_error = detect_raw_error(new_state, temp_error)
@@ -660,15 +665,13 @@ defmodule PouCon.Equipment.Controllers.BinaryController do
       end
 
       # Allow modules to override specific functions
-      defoverridable [
-        init: 1,
-        handle_cast: 2,
-        handle_call: 3,
-        handle_info: 2,
-        build_status_reply: 1,
-        sync_coil: 1,
-        poll_and_update: 1
-      ]
+      defoverridable init: 1,
+                     handle_cast: 2,
+                     handle_call: 3,
+                     handle_info: 2,
+                     build_status_reply: 1,
+                     sync_coil: 1,
+                     poll_and_update: 1
     end
   end
 end

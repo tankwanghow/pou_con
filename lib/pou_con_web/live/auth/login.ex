@@ -23,44 +23,38 @@ defmodule PouConWeb.Live.Auth.Login do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex items-center justify-center bg-gray-50 px-4">
-      <div class="max-w-md w-full space-y-8">
-        <div>
-          <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign In
-          </h2>
-          <p class="mt-2 text-center text-sm text-gray-600">
-            Enter your assigned password to continue
-          </p>
-        </div>
-
-        <.form for={@form} phx-submit="login" class="mt-8 space-y-6">
-          <%= if @error do %>
-            <div class="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
-              {@error}
-            </div>
-          <% end %>
-
-          <.input
-            field={@form[:password]}
-            type="password"
-            label="Password"
-            required
-            placeholder="Enter your password"
-            autocomplete="current-password"
-          />
-          <div class="flex gap-3">
-            <.dashboard_link />
-            <button
-              type="submit"
-              class="w-[70%] justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Sign In
-            </button>
+    <Layouts.app
+      flash={@flash}
+      class="xs:w-full sm:w-3/4 md:w-1/3 lg:w-1/4"
+      current_role={@current_role}
+    >
+    <h2 class="text-2xl font-bold mb-6">Login</h2>
+      <.form for={@form} phx-submit="login" class="mt-8 space-y-6">
+        <%= if @error do %>
+          <div class="bg-red-500/10 border border-red-500/30 text-red-500 px-4 py-3 rounded-md text-sm">
+            {@error}
           </div>
-        </.form>
-      </div>
-    </div>
+        <% end %>
+
+        <.input
+          field={@form[:password]}
+          type="password"
+          label="Password"
+          required
+          placeholder="Enter your password"
+          autocomplete="current-password"
+        />
+        <div class="flex gap-3">
+          <.dashboard_link />
+          <button
+            type="submit"
+            class="w-[70%] justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            Sign In
+          </button>
+        </div>
+      </.form>
+    </Layouts.app>
     """
   end
 

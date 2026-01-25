@@ -129,7 +129,14 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
   - `{:set_value, %{value: number}}` - Command tuple
   - `data_type_or_opts` - Data type for encoding (atom or map)
   """
-  def write_analog_output(conn, protocol, slave_id, register, command, data_type_or_opts \\ :uint16)
+  def write_analog_output(
+        conn,
+        protocol,
+        slave_id,
+        register,
+        command,
+        data_type_or_opts \\ :uint16
+      )
 
   def write_analog_output(
         conn,

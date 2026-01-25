@@ -30,7 +30,7 @@ defmodule PouConWeb.Components.Summaries.WaterMeterSummaryComponent do
     <div
       phx-click="navigate"
       phx-target={@myself}
-      class="bg-white shadow-md rounded-xl border border-gray-200 transition-all cursor-pointer hover:shadow-lg"
+      class="bg-base-100 shadow-md rounded-xl border border-base-300 transition-all cursor-pointer hover:shadow-lg"
     >
       <div class="flex flex-wrap">
         <.water_meter_item :for={eq <- @water_meters} eq={eq} />
@@ -50,10 +50,16 @@ defmodule PouConWeb.Components.Summaries.WaterMeterSummaryComponent do
       <div class="flex items-center gap-1">
         <WaterMeterComponent.water_meter_icon class={"w-9 h-15 #{Shared.text_color(@eq.main_color)}"} />
         <div class="flex flex-col space-y-0.5">
-          <span :if={@eq.has_cumulative} class={[Shared.text_color(@eq.main_color), "text-xs font-mono font-bold"]}>
+          <span
+            :if={@eq.has_cumulative}
+            class={[Shared.text_color(@eq.main_color), "text-xs font-mono font-bold"]}
+          >
             {@eq.cumulative}
           </span>
-          <span :if={@eq.has_flow_rate} class={[Shared.text_color(@eq.main_color), "text-xs font-mono font-bold"]}>
+          <span
+            :if={@eq.has_flow_rate}
+            class={[Shared.text_color(@eq.main_color), "text-xs font-mono font-bold"]}
+          >
             {@eq.flow_rate}
           </span>
         </div>

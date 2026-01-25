@@ -31,7 +31,7 @@ defmodule PouConWeb.Components.Summaries.AverageSensorSummaryComponent do
     <div
       phx-click="navigate"
       phx-target={@myself}
-      class="bg-white shadow-md rounded-xl border border-gray-200 transition-all cursor-pointer hover:shadow-lg"
+      class="bg-base-100 shadow-md rounded-xl border border-base-300 transition-all cursor-pointer hover:shadow-lg"
     >
       <div class="flex flex-wrap">
         <.sensor_item :for={sensor <- @sensors} sensor={sensor} />
@@ -55,7 +55,7 @@ defmodule PouConWeb.Components.Summaries.AverageSensorSummaryComponent do
             <span class={[Shared.text_color(@sensor.temp_color), "text-sm font-mono font-bold"]}>
               {@sensor.temp}
             </span>
-            <span :if={@sensor.temp_range} class="text-gray-400 text-xs font-mono">
+            <span :if={@sensor.temp_range} class="text-base-content/60 text-xs font-mono">
               {@sensor.temp_range}
             </span>
           </div>
@@ -63,7 +63,7 @@ defmodule PouConWeb.Components.Summaries.AverageSensorSummaryComponent do
             <span class={[Shared.text_color(@sensor.hum_color), "text-xs font-mono"]}>
               {@sensor.hum}
             </span>
-            <span :if={@sensor.hum_range} class="text-gray-400 text-xs font-mono">
+            <span :if={@sensor.hum_range} class="text-base-content/60 text-xs font-mono">
               {@sensor.hum_range}
             </span>
           </div>
@@ -71,7 +71,7 @@ defmodule PouConWeb.Components.Summaries.AverageSensorSummaryComponent do
             <span class={[Shared.text_color(@sensor.co2_color), "text-xs font-mono"]}>
               {@sensor.co2}
             </span>
-            <span :if={@sensor.co2_range} class="text-gray-400 text-xs font-mono">
+            <span :if={@sensor.co2_range} class="text-base-content/60 text-xs font-mono">
               {@sensor.co2_range}
             </span>
           </div>
@@ -79,7 +79,7 @@ defmodule PouConWeb.Components.Summaries.AverageSensorSummaryComponent do
             <span class={[Shared.text_color(@sensor.nh3_color), "text-xs font-mono"]}>
               {@sensor.nh3}
             </span>
-            <span :if={@sensor.nh3_range} class="text-gray-400 text-xs font-mono">
+            <span :if={@sensor.nh3_range} class="text-base-content/60 text-xs font-mono">
               {@sensor.nh3_range}
             </span>
           </div>
@@ -175,6 +175,7 @@ defmodule PouConWeb.Components.Summaries.AverageSensorSummaryComponent do
 
   # Get color using thresholds if available, otherwise use slate
   defp get_color(nil, _thresholds), do: "gray"
+
   defp get_color(value, thresholds) do
     Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
   end

@@ -32,7 +32,7 @@ defmodule PouConWeb.Components.Summaries.PowerMeterSummaryComponent do
     <div
       phx-click="navigate"
       phx-target={@myself}
-      class="bg-white shadow-md rounded-xl border border-gray-200 transition-all cursor-pointer hover:shadow-lg"
+      class="bg-base-100 shadow-md rounded-xl border border-base-300 transition-all cursor-pointer hover:shadow-lg"
     >
       <div class="flex flex-wrap">
         <.power_meter_item :for={meter <- @power_meters} meter={meter} />
@@ -53,15 +53,20 @@ defmodule PouConWeb.Components.Summaries.PowerMeterSummaryComponent do
       <div class="flex items-center gap-1">
         <PowerMeterComponent.power_meter_icon class={"w-8 h-8 #{Shared.text_color(@meter.main_color)}"} />
         <div class="flex flex-col space-y-0.5">
-          <span :if={@meter.has_power_total} class={[Shared.text_color(@meter.main_color), "text-xs font-mono font-bold"]}>
+          <span
+            :if={@meter.has_power_total}
+            class={[Shared.text_color(@meter.main_color), "text-xs font-mono font-bold"]}
+          >
             {@meter.power_total_display} kW
           </span>
-          <span :if={@meter.has_energy_import} class="text-xs font-mono text-gray-500">
+          <span :if={@meter.has_energy_import} class="text-xs font-mono text-base-content/60">
             {@meter.energy_import_display} kWh
           </span>
           <div :if={@meter.has_power_max or @meter.has_power_min} class="flex gap-1 text-xs font-mono">
             <span :if={@meter.has_power_max} class="text-rose-500">{@meter.power_max_display}</span>
-            <span :if={@meter.has_power_max and @meter.has_power_min} class="text-gray-400">/</span>
+            <span :if={@meter.has_power_max and @meter.has_power_min} class="text-base-content/60">
+              /
+            </span>
             <span :if={@meter.has_power_min} class="text-sky-500">{@meter.power_min_display}</span>
           </div>
         </div>
@@ -72,8 +77,8 @@ defmodule PouConWeb.Components.Summaries.PowerMeterSummaryComponent do
 
   defp totals_panel(assigns) do
     ~H"""
-    <div class="px-3 py-2 flex flex-col gap-1 justify-center border-l border-gray-100">
-      <div class="text-xs text-gray-500 uppercase font-medium">Total</div>
+    <div class="px-3 py-2 flex flex-col gap-1 justify-center border-l border-base-200">
+      <div class="text-xs text-base-content/60 uppercase font-medium">Total</div>
       <div class="flex flex-col space-y-0.5">
         <span class={[Shared.text_color(@totals.power_color), "text-sm font-mono font-bold"]}>
           {@totals.power_total} kW
@@ -83,7 +88,7 @@ defmodule PouConWeb.Components.Summaries.PowerMeterSummaryComponent do
         </span>
         <div class="flex gap-1 text-xs font-mono">
           <span class="text-rose-500" title="Peak">{@totals.power_max}</span>
-          <span class="text-gray-400">/</span>
+          <span class="text-base-content/60">/</span>
           <span class="text-sky-500" title="Base">{@totals.power_min}</span>
         </div>
       </div>

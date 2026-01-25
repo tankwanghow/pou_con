@@ -77,11 +77,12 @@ defmodule Mix.Tasks.Backup do
     if full_backup, do: IO.puts("  Mode: Full (config + logs)")
     if since, do: IO.puts("  Since: #{DateTime.to_iso8601(since)}")
 
-    backup_data = build_backup(%{
-      include_flocks: include_flocks,
-      include_logs: full_backup,
-      since: since
-    })
+    backup_data =
+      build_backup(%{
+        include_flocks: include_flocks,
+        include_logs: full_backup,
+        since: since
+      })
 
     house_id = backup_data.metadata.house_id || "unknown"
     date = Date.to_iso8601(Date.utc_today())
@@ -102,6 +103,7 @@ defmodule Mix.Tasks.Backup do
   end
 
   defp parse_since(nil), do: nil
+
   defp parse_since(date_str) do
     case Date.from_iso8601(date_str) do
       {:ok, date} ->
@@ -109,7 +111,9 @@ defmodule Mix.Tasks.Backup do
 
       {:error, _} ->
         case DateTime.from_iso8601(date_str) do
-          {:ok, dt, _} -> dt
+          {:ok, dt, _} ->
+            dt
+
           {:error, _} ->
             IO.puts("Warning: Invalid --since date format, ignoring")
             nil
@@ -131,9 +135,19 @@ defmodule Mix.Tasks.Backup do
   end
 
   defp count_config_tables(backup) do
-    config_keys = [:ports, :data_points, :equipment, :interlock_rules,
-                   :light_schedules, :egg_collection_schedules, :feeding_schedules,
-                   :alarm_rules, :task_categories, :task_templates]
+    config_keys = [
+      :ports,
+      :data_points,
+      :equipment,
+      :interlock_rules,
+      :light_schedules,
+      :egg_collection_schedules,
+      :feeding_schedules,
+      :alarm_rules,
+      :task_categories,
+      :task_templates
+    ]
+
     Enum.count(config_keys, &Map.has_key?(backup, &1))
   end
 
@@ -171,11 +185,12 @@ defmodule Mix.Tasks.Backup do
     }
 
     # Optionally include flocks
-    backup = if include_flocks do
-      Map.put(backup, :flocks, export_flocks())
-    else
-      backup
-    end
+    backup =
+      if include_flocks do
+        Map.put(backup, :flocks, export_flocks())
+      else
+        backup
+      end
 
     # Optionally include logging data
     if include_logs do
@@ -466,130 +481,140 @@ defmodule Mix.Tasks.Backup do
   # ===== Logging Data Export Functions =====
 
   defp export_equipment_events(since) do
-    query = from(e in "equipment_events",
-      select: %{
-        id: e.id,
-        house_id: e.house_id,
-        equipment_name: e.equipment_name,
-        event_type: e.event_type,
-        from_value: e.from_value,
-        to_value: e.to_value,
-        mode: e.mode,
-        triggered_by: e.triggered_by,
-        metadata: e.metadata,
-        inserted_at: e.inserted_at
-      },
-      order_by: [asc: e.inserted_at]
-    )
+    query =
+      from(e in "equipment_events",
+        select: %{
+          id: e.id,
+          house_id: e.house_id,
+          equipment_name: e.equipment_name,
+          event_type: e.event_type,
+          from_value: e.from_value,
+          to_value: e.to_value,
+          mode: e.mode,
+          triggered_by: e.triggered_by,
+          metadata: e.metadata,
+          inserted_at: e.inserted_at
+        },
+        order_by: [asc: e.inserted_at]
+      )
 
-    query = if since do
-      where(query, [e], e.inserted_at >= ^since)
-    else
-      query
-    end
+    query =
+      if since do
+        where(query, [e], e.inserted_at >= ^since)
+      else
+        query
+      end
 
     Repo.all(query)
   end
 
   defp export_data_point_logs(since) do
-    query = from(l in "data_point_logs",
-      select: %{
-        id: l.id,
-        house_id: l.house_id,
-        data_point_name: l.data_point_name,
-        value: l.value,
-        raw_value: l.raw_value,
-        unit: l.unit,
-        triggered_by: l.triggered_by,
-        inserted_at: l.inserted_at
-      },
-      order_by: [asc: l.inserted_at]
-    )
+    query =
+      from(l in "data_point_logs",
+        select: %{
+          id: l.id,
+          house_id: l.house_id,
+          data_point_name: l.data_point_name,
+          value: l.value,
+          raw_value: l.raw_value,
+          unit: l.unit,
+          triggered_by: l.triggered_by,
+          inserted_at: l.inserted_at
+        },
+        order_by: [asc: l.inserted_at]
+      )
 
-    query = if since do
-      where(query, [l], l.inserted_at >= ^since)
-    else
-      query
-    end
+    query =
+      if since do
+        where(query, [l], l.inserted_at >= ^since)
+      else
+        query
+      end
 
     Repo.all(query)
   end
 
   defp export_daily_summaries(since) do
-    query = from(d in "daily_summaries",
-      select: %{
-        id: d.id,
-        house_id: d.house_id,
-        date: d.date,
-        equipment_name: d.equipment_name,
-        equipment_type: d.equipment_type,
-        avg_temperature: d.avg_temperature,
-        min_temperature: d.min_temperature,
-        max_temperature: d.max_temperature,
-        avg_humidity: d.avg_humidity,
-        min_humidity: d.min_humidity,
-        max_humidity: d.max_humidity,
-        total_runtime_minutes: d.total_runtime_minutes,
-        total_cycles: d.total_cycles,
-        error_count: d.error_count,
-        state_change_count: d.state_change_count
-      },
-      order_by: [asc: d.date]
-    )
+    query =
+      from(d in "daily_summaries",
+        select: %{
+          id: d.id,
+          house_id: d.house_id,
+          date: d.date,
+          equipment_name: d.equipment_name,
+          equipment_type: d.equipment_type,
+          avg_temperature: d.avg_temperature,
+          min_temperature: d.min_temperature,
+          max_temperature: d.max_temperature,
+          avg_humidity: d.avg_humidity,
+          min_humidity: d.min_humidity,
+          max_humidity: d.max_humidity,
+          total_runtime_minutes: d.total_runtime_minutes,
+          total_cycles: d.total_cycles,
+          error_count: d.error_count,
+          state_change_count: d.state_change_count
+        },
+        order_by: [asc: d.date]
+      )
 
-    query = if since do
-      since_date = DateTime.to_date(since)
-      where(query, [d], d.date >= ^since_date)
-    else
-      query
-    end
+    query =
+      if since do
+        since_date = DateTime.to_date(since)
+        where(query, [d], d.date >= ^since_date)
+      else
+        query
+      end
 
     Repo.all(query)
   end
 
   defp export_flock_logs(since) do
-    query = from(f in "flock_logs",
-      select: %{
-        id: f.id,
-        house_id: f.house_id,
-        flock_id: f.flock_id,
-        log_date: f.log_date,
-        deaths: f.deaths,
-        eggs: f.eggs,
-        notes: f.notes
-      },
-      order_by: [asc: f.log_date]
-    )
+    query =
+      from(f in "flock_logs",
+        select: %{
+          id: f.id,
+          house_id: f.house_id,
+          flock_id: f.flock_id,
+          log_date: f.log_date,
+          deaths: f.deaths,
+          eggs: f.eggs,
+          notes: f.notes
+        },
+        order_by: [asc: f.log_date]
+      )
 
-    query = if since do
-      since_date = DateTime.to_date(since)
-      where(query, [f], f.log_date >= ^since_date)
-    else
-      query
-    end
+    query =
+      if since do
+        since_date = DateTime.to_date(since)
+        where(query, [f], f.log_date >= ^since_date)
+      else
+        query
+      end
 
     Repo.all(query)
   end
 
   defp export_task_completions(since) do
-    query = from(c in "task_completions",
-      select: %{
-        id: c.id,
-        house_id: c.house_id,
-        task_template_id: c.task_template_id,
-        completed_at: c.completed_at,
-        completed_by: c.completed_by,
-        notes: c.notes,
-        duration_minutes: c.duration_minutes
-      },
-      order_by: [asc: c.completed_at]
-    )
+    query =
+      from(c in "task_completions",
+        select: %{
+          id: c.id,
+          house_id: c.house_id,
+          task_template_id: c.task_template_id,
+          completed_at: c.completed_at,
+          completed_by: c.completed_by,
+          notes: c.notes,
+          duration_minutes: c.duration_minutes
+        },
+        order_by: [asc: c.completed_at]
+      )
 
-    query = if since do
-      where(query, [c], c.completed_at >= ^since)
-    else
-      query
-    end
+    query =
+      if since do
+        where(query, [c], c.completed_at >= ^since)
+      else
+        query
+      end
 
     Repo.all(query)
   end

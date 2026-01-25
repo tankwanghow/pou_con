@@ -36,11 +36,12 @@ defmodule PouConWeb.API.BackupController do
     include_flocks = params["include_flocks"] == "true" || full_backup
     since = parse_since(params["since"])
 
-    backup_data = Mix.Tasks.Backup.build_backup(%{
-      include_flocks: include_flocks,
-      include_logs: full_backup,
-      since: since
-    })
+    backup_data =
+      Mix.Tasks.Backup.build_backup(%{
+        include_flocks: include_flocks,
+        include_logs: full_backup,
+        since: since
+      })
 
     house_id = backup_data.metadata.house_id || "unknown"
     date = Date.to_iso8601(Date.utc_today())
@@ -54,6 +55,7 @@ defmodule PouConWeb.API.BackupController do
   end
 
   defp parse_since(nil), do: nil
+
   defp parse_since(date_str) do
     case Date.from_iso8601(date_str) do
       {:ok, date} ->

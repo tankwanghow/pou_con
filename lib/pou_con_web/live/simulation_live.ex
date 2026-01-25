@@ -214,7 +214,13 @@ defmodule PouConWeb.SimulationLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} class="xs:w-full lg:w-3/4 xl:w-4/5" current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+    <Layouts.app
+      flash={@flash}
+      class="xs:w-full lg:w-3/4 xl:w-4/5"
+      current_role={@current_role}
+      failsafe_status={assigns[:failsafe_status]}
+      system_time_valid={assigns[:system_time_valid]}
+    >
       <%!-- Port Control Section --%>
       <div class="mb-6 p-4 bg-gray-900 rounded-lg border border-gray-700">
         <h2 class="text-lg font-bold text-white mb-3">Port Control (Simulate Disconnection)</h2>
@@ -504,7 +510,11 @@ defmodule PouConWeb.SimulationLive do
   # Check if data point is digital I/O (DI, DO, VDI, VDO)
   defp is_digital_io?(data_point) do
     data_point.type in ["digital_input", "switch", "flag", "DO", "DI", "virtual_digital_output"] or
-      data_point.read_fn in [:read_digital_input, :read_digital_output, :read_virtual_digital_output]
+      data_point.read_fn in [
+        :read_digital_input,
+        :read_digital_output,
+        :read_virtual_digital_output
+      ]
   end
 
   # Generate placeholder text based on data point type (only for analog)

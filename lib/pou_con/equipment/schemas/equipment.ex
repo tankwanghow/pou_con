@@ -136,7 +136,12 @@ defmodule PouCon.Equipment.Schemas.Equipment do
 
       if invalid != [] do
         keys = Enum.map(invalid, fn {k, _v} -> k end)
-        add_error(changeset, :data_point_tree, "invalid (non-string or empty) values for keys: #{inspect(keys)}")
+
+        add_error(
+          changeset,
+          :data_point_tree,
+          "invalid (non-string or empty) values for keys: #{inspect(keys)}"
+        )
       else
         changeset
       end

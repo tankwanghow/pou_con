@@ -68,7 +68,12 @@ defmodule PouConWeb.Live.Admin.Tasks.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_role={@current_role} failsafe_status={assigns[:failsafe_status]} system_time_valid={assigns[:system_time_valid]}>
+    <Layouts.app
+      flash={@flash}
+      current_role={@current_role}
+      failsafe_status={assigns[:failsafe_status]}
+      system_time_valid={assigns[:system_time_valid]}
+    >
       <.header>
         Task Templates
         <:subtitle>Configure recurring maintenance and operational tasks</:subtitle>
@@ -77,7 +82,7 @@ defmodule PouConWeb.Live.Admin.Tasks.Index do
             <form phx-change="filter_category">
               <select
                 name="category"
-                class="px-3 py-1 text-sm border border-gray-400 rounded-lg"
+                class="px-3 py-1 text-sm border border-base-300 rounded-lg bg-base-100 text-base-content"
               >
                 <option value="">All Categories</option>
                 <%= for cat <- @categories do %>
@@ -92,7 +97,7 @@ defmodule PouConWeb.Live.Admin.Tasks.Index do
       </.header>
       
     <!-- Header Row -->
-      <div class="text-xs font-medium flex flex-row text-center bg-cyan-200 border-b border-t border-cyan-400 py-2">
+      <div class="text-xs font-medium flex flex-row text-center bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border-b border-t border-cyan-500/30 py-2">
         <div class="w-[5%]">En</div>
         <div class="w-[30%] text-left pl-2">Task Name</div>
         <div class="w-[15%]">Category</div>
@@ -102,14 +107,14 @@ defmodule PouConWeb.Live.Admin.Tasks.Index do
       </div>
 
       <%= if Enum.empty?(@templates) do %>
-        <div class="text-center py-8 text-gray-500">
+        <div class="text-center py-8 text-base-content/60">
           No task templates configured. Click "New Task" to create one.
         </div>
       <% else %>
         <%= for template <- @templates do %>
           <div class={[
             "text-sm flex flex-row text-center border-b py-2 items-center",
-            if(!template.enabled, do: "opacity-50 bg-gray-100", else: "")
+            if(!template.enabled, do: "opacity-50 bg-base-200", else: "")
           ]}>
             <div class="w-[5%]">
               <button
@@ -132,7 +137,7 @@ defmodule PouConWeb.Live.Admin.Tasks.Index do
 
             <div class="w-[30%] text-left pl-2">
               <div class="font-medium">{template.name}</div>
-              <div :if={template.description} class="text-xs text-gray-500 truncate">
+              <div :if={template.description} class="text-xs text-base-content/60 truncate">
                 {template.description}
               </div>
             </div>
@@ -140,11 +145,11 @@ defmodule PouConWeb.Live.Admin.Tasks.Index do
             <div class="w-[15%]">
               <span
                 :if={template.category}
-                class={"px-2 py-0.5 rounded text-xs bg-#{template.category.color}-200 text-#{template.category.color}-700"}
+                class={"px-2 py-0.5 rounded text-xs bg-#{template.category.color}-500/20 text-#{template.category.color}-500"}
               >
                 {template.category.name}
               </span>
-              <span :if={!template.category} class="text-gray-400">-</span>
+              <span :if={!template.category} class="text-base-content/40">-</span>
             </div>
 
             <div class="w-[15%] text-xs">
@@ -188,9 +193,9 @@ defmodule PouConWeb.Live.Admin.Tasks.Index do
     """
   end
 
-  defp priority_badge("low"), do: "px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-600"
-  defp priority_badge("normal"), do: "px-2 py-0.5 rounded text-xs bg-blue-200 text-blue-700"
-  defp priority_badge("high"), do: "px-2 py-0.5 rounded text-xs bg-amber-200 text-amber-700"
-  defp priority_badge("urgent"), do: "px-2 py-0.5 rounded text-xs bg-rose-200 text-rose-700"
-  defp priority_badge(_), do: "px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-600"
+  defp priority_badge("low"), do: "px-2 py-0.5 rounded text-xs bg-base-300 text-base-content/60"
+  defp priority_badge("normal"), do: "px-2 py-0.5 rounded text-xs bg-blue-500/20 text-blue-500"
+  defp priority_badge("high"), do: "px-2 py-0.5 rounded text-xs bg-amber-500/20 text-amber-500"
+  defp priority_badge("urgent"), do: "px-2 py-0.5 rounded text-xs bg-rose-500/20 text-rose-500"
+  defp priority_badge(_), do: "px-2 py-0.5 rounded text-xs bg-base-300 text-base-content/60"
 end

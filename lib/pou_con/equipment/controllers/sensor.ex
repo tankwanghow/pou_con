@@ -142,7 +142,9 @@ defmodule PouCon.Equipment.Controllers.Sensor do
         poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
       }
 
-      Logger.info("[#{name}] Starting Sensor with #{length(field_keys)} data points: #{inspect(field_keys)}")
+      Logger.info(
+        "[#{name}] Starting Sensor with #{length(field_keys)} data points: #{inspect(field_keys)}"
+      )
 
       {:ok, state, {:continue, :initial_poll}}
     end
