@@ -20,6 +20,13 @@ DOCKERFILE="Dockerfile.arm"
 if [ "$1" = "--bullseye" ]; then
     TARGET_OS="bullseye"
     DOCKERFILE="Dockerfile.arm.bullseye"
+elif [ -n "$1" ]; then
+    echo "ERROR: Unknown option '$1'"
+    echo ""
+    echo "Usage: $0 [--bullseye]"
+    echo "  --bullseye  Build for Debian 11 (Bullseye) - for reTerminal DM"
+    echo "  (default)   Build for Debian 12 (Bookworm)"
+    exit 1
 fi
 
 echo "=== PouCon ARM Build Script ==="

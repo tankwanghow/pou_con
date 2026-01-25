@@ -22,6 +22,13 @@ BUILD_FLAG=""
 if [ "$1" = "--bullseye" ]; then
     TARGET_OS="bullseye"
     BUILD_FLAG="--bullseye"
+elif [ -n "$1" ]; then
+    echo "ERROR: Unknown option '$1'"
+    echo ""
+    echo "Usage: $0 [--bullseye]"
+    echo "  --bullseye  Build for Debian 11 (Bullseye) - for reTerminal DM"
+    echo "  (default)   Build for Debian 12 (Bookworm)"
+    exit 1
 fi
 
 echo "=== PouCon Complete Build Process ==="
