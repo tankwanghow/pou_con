@@ -181,18 +181,22 @@ sudo chmod 600 "$SSL_DIR/server.key"
 sudo chmod 644 "$SSL_DIR/server.crt"
 sudo chmod 644 "$SSL_DIR/ca.crt"
 
-# Check if pou_con user exists (created by deploy script)
-if id "pou_con" &>/dev/null; then
+# Service user for pou_con (same as in deploy script)
+SERVICE_USER="pou_con"
+
+# Check if service user exists (created by deploy script)
+if id "$SERVICE_USER" &>/dev/null; then
     # Key must be readable by pou_con service
-    sudo chown pou_con:pou_con "$SSL_DIR/server.key"
+    sudo chown "$SERVICE_USER:$SERVICE_USER" "$SSL_DIR/server.key"
     sudo chown root:root "$SSL_DIR/server.crt"
     sudo chown root:root "$SSL_DIR/ca.crt"
-    echo "SSL key ownership set to pou_con user"
+    echo "SSL key ownership set to $SERVICE_USER user"
 else
     # pou_con user doesn't exist yet, will be created by deploy
     sudo chown -R root:root "$SSL_DIR"
-    echo -e "${YELLOW}Note: pou_con user not found. Run deploy script, then:${NC}"
-    echo "  sudo chown pou_con:pou_con $SSL_DIR/server.key"
+    echo -e "${YELLOW}Note: $SERVICE_USER user not found. Run deploy script first, then re-run this script.${NC}"
+    echo -e "${YELLOW}Or manually fix permissions after deploy:${NC}"
+    echo "  sudo chown $SERVICE_USER:$SERVICE_USER $SSL_DIR/server.key"
 fi
 
 # Cleanup

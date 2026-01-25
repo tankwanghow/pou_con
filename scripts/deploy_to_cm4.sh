@@ -104,8 +104,19 @@ deploy_to_cm4() {
     ssh "${REMOTE_USER}@${CM4_IP}" bash << 'ENDSSH'
         set -e
 
+        # Service user - all pou_con files and processes run as this user
+        SERVICE_USER="pou_con"
+
         echo "Stopping service if running..."
         sudo systemctl stop pou_con 2>/dev/null || true
+
+        echo "Creating service user if needed..."
+        if ! id "$SERVICE_USER" &>/dev/null; then
+            sudo useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
+            # Add to dialout group for serial port access (Modbus RTU)
+            sudo usermod -aG dialout "$SERVICE_USER"
+            echo "Created system user: $SERVICE_USER"
+        fi
 
         echo "Backing up current installation..."
         if [ -d /opt/pou_con ]; then
@@ -116,28 +127,35 @@ deploy_to_cm4() {
         echo "Extracting release..."
         sudo mkdir -p /opt/pou_con
         sudo tar -xzf /tmp/pou_con_release_arm.tar.gz -C /opt/pou_con
-        sudo chown -R pi:pi /opt/pou_con
+        sudo chown -R "$SERVICE_USER:$SERVICE_USER" /opt/pou_con
 
         echo "Restoring data and config..."
         if [ -d /tmp/pou_con_data_backup ]; then
             sudo cp -r /tmp/pou_con_data_backup /opt/pou_con/data
-            sudo chown -R pi:pi /opt/pou_con/data
+            sudo chown -R "$SERVICE_USER:$SERVICE_USER" /opt/pou_con/data
         else
-            mkdir -p /opt/pou_con/data
+            sudo mkdir -p /opt/pou_con/data
+            sudo chown "$SERVICE_USER:$SERVICE_USER" /opt/pou_con/data
         fi
 
         if [ -f /tmp/pou_con_env_backup ]; then
             sudo cp /tmp/pou_con_env_backup /opt/pou_con/.env
-            sudo chown pi:pi /opt/pou_con/.env
+            sudo chown "$SERVICE_USER:$SERVICE_USER" /opt/pou_con/.env
+        fi
+
+        echo "Fixing SSL key permissions..."
+        if [ -f /etc/pou_con/ssl/server.key ]; then
+            sudo chown "$SERVICE_USER:$SERVICE_USER" /etc/pou_con/ssl/server.key
+            echo "SSL key ownership set to $SERVICE_USER"
         fi
 
         echo "Running migrations..."
         cd /opt/pou_con
         if [ -f .env ]; then
-            export $(cat .env | xargs)
-            ./bin/pou_con eval "PouCon.Release.migrate()" || echo "Migration failed or no new migrations"
+            # Run migrations as the service user
+            sudo -u "$SERVICE_USER" bash -c 'export $(cat /opt/pou_con/.env | xargs) && /opt/pou_con/bin/pou_con eval "PouCon.Release.migrate()"' || echo "Migration failed or no new migrations"
             echo "Running seeds..."
-            ./bin/pou_con eval "PouCon.Release.seed()" || echo "Seeding failed or already seeded"
+            sudo -u "$SERVICE_USER" bash -c 'export $(cat /opt/pou_con/.env | xargs) && /opt/pou_con/bin/pou_con eval "PouCon.Release.seed()"' || echo "Seeding failed or already seeded"
         else
             echo "WARNING: No .env file found. Skipping migrations."
         fi
