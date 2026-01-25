@@ -70,6 +70,9 @@ COPY priv priv
 COPY lib lib
 COPY assets assets
 
+# Ensure vendor binaries are executable (permissions can be lost during COPY)
+RUN chmod +x assets/vendor/bin/* 2>/dev/null || true
+
 # Compile assets and application
 RUN mix assets.deploy
 RUN mix compile
