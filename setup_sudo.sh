@@ -41,6 +41,9 @@ pou_con ALL=(ALL) NOPASSWD: /usr/sbin/reboot
 pou_con ALL=(ALL) NOPASSWD: /usr/sbin/shutdown
 pou_con ALL=(ALL) NOPASSWD: /usr/bin/systemctl reboot
 pou_con ALL=(ALL) NOPASSWD: /usr/bin/systemctl poweroff
+
+# Screen timeout management (Wayland/labwc)
+pou_con ALL=(ALL) NOPASSWD: /opt/pou_con/scripts/set_screen_timeout.sh
 EOF
 
 # Set correct permissions (required for sudoers files)

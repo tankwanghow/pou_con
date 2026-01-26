@@ -41,11 +41,13 @@ defmodule PouCon.Hardware.Screensaver do
     "backlight"
   ]
 
+  @screen_timeout_script "/opt/pou_con/scripts/set_screen_timeout.sh"
+
   @doc """
   Sets the idle timeout before screen blanks.
 
-  NOTE: This only works on X11 systems. On Wayland (Bookworm default),
-  this will return an error. Use OS-level configuration instead.
+  On Wayland (Bookworm), uses set_screen_timeout.sh to configure swayidle.
+  On X11, uses DPMS settings.
 
   ## Examples
 
@@ -57,22 +59,38 @@ defmodule PouCon.Hardware.Screensaver do
   """
   @spec set_idle_timeout(non_neg_integer()) :: :ok | {:error, String.t()}
   def set_idle_timeout(seconds) when is_integer(seconds) and seconds >= 0 do
-    # Check if we're on Wayland
-    if is_wayland?() do
-      {:error,
-       "Screen timeout cannot be set from the app on Wayland (Bookworm). " <>
-         "Use 'sudo raspi-config' → Display Options → Screen Blanking to configure timeout."}
-    else
-      # Try X11 DPMS
-      case try_x11_timeout(seconds) do
-        :ok ->
-          :ok
+    cond do
+      # On Wayland, use the screen timeout script
+      is_wayland?() and File.exists?(@screen_timeout_script) ->
+        set_wayland_timeout(seconds)
 
-        {:error, reason} ->
-          {:error,
-           "Failed to set timeout: #{reason}. " <>
-             "On Wayland systems, use 'sudo raspi-config' → Display Options → Screen Blanking."}
-      end
+      is_wayland?() ->
+        {:error,
+         "Screen timeout script not found. " <>
+           "Run 'sudo bash setup_sudo.sh' or use 'sudo raspi-config' to configure."}
+
+      # On X11, use DPMS
+      true ->
+        case try_x11_timeout(seconds) do
+          :ok -> :ok
+          {:error, reason} -> {:error, "Failed to set timeout: #{reason}"}
+        end
+    end
+  end
+
+  defp set_wayland_timeout(seconds) do
+    case System.cmd("sudo", [@screen_timeout_script, to_string(seconds)],
+           stderr_to_stdout: true
+         ) do
+      {_output, 0} ->
+        :ok
+
+      {error, _} ->
+        if String.contains?(error, "password") do
+          {:error, "Sudo not configured. Run: sudo bash setup_sudo.sh"}
+        else
+          {:error, "Failed to set timeout: #{String.trim(error)}"}
+        end
     end
   end
 
@@ -84,11 +102,13 @@ defmodule PouCon.Hardware.Screensaver do
   def get_settings do
     backlight_info = get_backlight_info()
     wayland = is_wayland?()
+    script_available = File.exists?(@screen_timeout_script)
 
     base_settings = %{
       is_wayland: wayland,
       display_server: if(wayland, do: "Wayland (labwc)", else: detect_display_server()),
-      timeout_configurable: not wayland
+      timeout_configurable: not wayland or script_available,
+      timeout_script_available: script_available
     }
 
     if wayland do

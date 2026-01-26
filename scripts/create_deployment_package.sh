@@ -538,6 +538,14 @@ if [ -f "scripts/verify_revpi_hardware.sh" ]; then
     echo "  ✓ RevPi hardware verification script included"
 fi
 
+# Copy screen timeout script
+if [ -f "scripts/set_screen_timeout.sh" ]; then
+    mkdir -p "$PACKAGE_DIR/pou_con/scripts"
+    cp scripts/set_screen_timeout.sh "$PACKAGE_DIR/pou_con/scripts/"
+    chmod +x "$PACKAGE_DIR/pou_con/scripts/set_screen_timeout.sh"
+    echo "  ✓ Screen timeout script included"
+fi
+
 if [ -f "scripts/revpi_first_setup.sh" ]; then
     cp scripts/revpi_first_setup.sh "$PACKAGE_DIR/"
     chmod +x "$PACKAGE_DIR/revpi_first_setup.sh"

@@ -1,6 +1,6 @@
 defmodule PouConWeb.Live.Admin.Screensaver.Index do
   @moduledoc """
-  Admin page for configuring screen blanking/screensaver timeout.
+  Admin page for configuring screen blanking timeout.
   """
 
   use PouConWeb, :live_view
@@ -57,61 +57,22 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
                     else: "bg-orange-500/20 text-orange-500"
                   )
                 ]}>
-                  {if @settings[:timeout_configurable], do: "Available", else: "OS Config Only"}
+                  {if @settings[:timeout_configurable], do: "Available", else: "Not Configured"}
                 </span>
               </div>
-              <%= if not @settings[:is_wayland] do %>
-                <div>
-                  <span class="font-medium">Idle Timeout:</span>
-                  <span class="ml-2">{format_timeout(@settings[:timeout_seconds])}</span>
-                </div>
-                <div>
-                  <span class="font-medium">DPMS:</span>
-                  <span class={[
-                    "ml-2 px-2 py-0.5 rounded text-xs",
-                    if(@settings[:dpms_enabled],
-                      do: "bg-green-500/20 text-green-500",
-                      else: "bg-base-300 text-base-content"
-                    )
-                  ]}>
-                    {if @settings[:dpms_enabled], do: "Enabled", else: "Disabled"}
-                  </span>
-                </div>
-              <% end %>
-              <%= if @settings[:has_backlight] do %>
-                <div>
-                  <span class="font-medium">Backlight:</span>
-                  <span class="ml-2">
-                    {@settings[:backlight_level] || 0} / {@settings[:backlight_max] || 5}
-                  </span>
-                </div>
-                <div>
-                  <span class="font-medium">Device:</span>
-                  <span class="ml-2 px-2 py-0.5 bg-purple-500/20 text-purple-500 rounded text-xs">
-                    {@settings[:backlight_device] || "Unknown"}
-                  </span>
-                </div>
-                <div class="col-span-2">
-                  <span class="font-medium">Path:</span>
-                  <span class="ml-2 text-xs font-mono text-base-content/60">
-                    {@settings[:backlight_path]}
-                  </span>
-                </div>
-              <% end %>
             </div>
 
-            <%= if @settings[:is_wayland] do %>
+            <%= if @settings[:is_wayland] and not @settings[:timeout_configurable] do %>
               <div class="mt-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded">
-                <p class="font-medium text-orange-700">Wayland Detected (Bookworm)</p>
+                <p class="font-medium text-orange-700">Setup Required</p>
                 <p class="text-xs text-orange-600 mt-1">
-                  Screen timeout cannot be set from the app on Wayland.
-                  To configure idle timeout, run on the Pi:
+                  Screen timeout control requires setup. Run on the Pi:
                 </p>
                 <code class="block mt-2 bg-gray-900 text-green-400 px-2 py-1 rounded font-mono text-xs">
-                  sudo raspi-config
+                  sudo bash /opt/pou_con/setup_sudo.sh
                 </code>
-                <p class="text-xs text-orange-600 mt-1">
-                  Then navigate to: Display Options → Screen Blanking
+                <p class="text-xs text-orange-600 mt-2">
+                  Then refresh this page.
                 </p>
               </div>
             <% end %>
@@ -121,35 +82,24 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
                 No display detected
               </p>
               <p class="text-base-content/60 text-xs mt-1">
-                Screen saver controls are only available on the deployed Raspberry Pi with a connected display.
-                In development mode, these settings have no effect.
+                Screen saver controls are only available on the deployed Raspberry Pi.
               </p>
             </div>
           <% end %>
         </div>
 
         <%!-- Quick Presets --%>
-        <% timeout_disabled = is_nil(@settings) or @settings[:is_wayland] %>
+        <% timeout_disabled = is_nil(@settings) or not @settings[:timeout_configurable] %>
         <div class={[
           "p-4 border rounded-lg",
-          cond do
-            is_nil(@settings) -> "bg-base-200 border-base-300 opacity-60"
-            @settings[:is_wayland] -> "bg-base-200 border-base-300 opacity-60"
-            true -> "bg-blue-500/10 border-blue-500/30"
-          end
+          if(timeout_disabled,
+            do: "bg-base-200 border-base-300 opacity-60",
+            else: "bg-blue-500/10 border-blue-500/30"
+          )
         ]}>
-          <h3 class="text-lg font-semibold mb-3">
-            Quick Presets
-            <%= if @settings && @settings[:is_wayland] do %>
-              <span class="text-sm font-normal text-orange-500 ml-2">(Not available on Wayland)</span>
-            <% end %>
-          </h3>
+          <h3 class="text-lg font-semibold mb-3">Screen Timeout</h3>
           <p class="text-sm text-base-content/70 mb-4">
-            <%= if @settings && @settings[:is_wayland] do %>
-              Timeout presets require X11. On Wayland, use <code class="bg-base-300 px-1 rounded">sudo raspi-config</code> instead.
-            <% else %>
-              Select a preset timeout for screen blanking after idle time.
-            <% end %>
+            Select how long the screen stays on after no activity.
           </p>
 
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -161,11 +111,9 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
                 disabled={timeout_disabled}
                 class={[
                   "p-3 rounded-lg border-2 text-center transition-colors",
-                  if(@settings && @settings[:timeout_seconds] == seconds,
-                    do: "border-blue-500 bg-blue-500/20 text-blue-500",
-                    else:
-                      "border-base-300 bg-base-100 hover:border-blue-300 hover:bg-blue-50 disabled:hover:border-gray-200 disabled:hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                  )
+                  "border-base-300 bg-base-100 hover:border-blue-300 hover:bg-blue-50",
+                  "disabled:hover:border-base-300 disabled:hover:bg-base-100",
+                  "disabled:cursor-not-allowed disabled:opacity-50"
                 ]}
               >
                 <div class="font-medium">{label}</div>
@@ -185,12 +133,7 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
             else: "bg-base-200 border-base-300"
           )
         ]}>
-          <h3 class="text-lg font-semibold mb-3">
-            Custom Timeout
-            <%= if @settings && @settings[:is_wayland] do %>
-              <span class="text-sm font-normal text-orange-500 ml-2">(Not available on Wayland)</span>
-            <% end %>
-          </h3>
+          <h3 class="text-lg font-semibold mb-3">Custom Timeout</h3>
 
           <.form for={@form} phx-submit="set_custom_timeout" class="flex gap-4 items-end">
             <div class="flex-1">
@@ -210,167 +153,20 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
           </.form>
 
           <p class="text-xs text-base-content/60 mt-2">
-            <%= if @settings && @settings[:is_wayland] do %>
-              On Wayland, configure timeout via raspi-config or systemd timers.
-            <% else %>
-              Enter 0 to disable screen blanking (screen always on).
-              Maximum 3600 seconds (1 hour).
-            <% end %>
+            Enter 0 to disable screen blanking (screen always on).
+            Maximum 3600 seconds (1 hour).
           </p>
         </div>
-
-        <%!-- Manual Controls --%>
-        <div class={[
-          "p-4 border rounded-lg",
-          if(@settings,
-            do: "bg-amber-500/10 border-amber-500/30",
-            else: "bg-base-200 border-base-300 opacity-60"
-          )
-        ]}>
-          <h3 class="text-lg font-semibold mb-3">Manual Controls</h3>
-
-          <div class="flex gap-4">
-            <button
-              type="button"
-              phx-click="blank_now"
-              disabled={is_nil(@settings)}
-              class="inline-flex items-center px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                />
-              </svg>
-              Blank Screen Now
-            </button>
-
-            <button
-              type="button"
-              phx-click="wake_now"
-              disabled={is_nil(@settings)}
-              class="inline-flex items-center px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-                />
-              </svg>
-              Wake Screen Now
-            </button>
-          </div>
-
-          <p class="text-xs text-base-content/70 mt-3">
-            Touch the screen or move the mouse to wake from blank state.
-          </p>
-        </div>
-
-        <%!-- Backlight Control --%>
-        <%= if @settings && @settings[:has_backlight] do %>
-          <div class="p-4 border rounded-lg bg-purple-500/10 border-purple-500/30">
-            <h3 class="text-lg font-semibold mb-3">
-              Backlight Control
-              <span class="text-sm font-normal text-purple-600 ml-2">
-                ({@settings[:backlight_device]})
-              </span>
-            </h3>
-
-            <div class="mb-4">
-              <div class="flex items-center gap-2 text-sm">
-                <span class="font-medium">Current Level:</span>
-                <span class="px-2 py-0.5 bg-purple-100 rounded font-mono">
-                  {@settings[:backlight_level] || 0} / {@settings[:backlight_max] || 5}
-                </span>
-                <span class={[
-                  "px-2 py-0.5 rounded text-xs",
-                  if(@settings[:backlight_on],
-                    do: "bg-green-500/20 text-green-500",
-                    else: "bg-base-300 text-base-content"
-                  )
-                ]}>
-                  {if @settings[:backlight_on], do: "ON", else: "OFF"}
-                </span>
-              </div>
-            </div>
-
-            <div class="flex gap-2 flex-wrap">
-              <%= for level <- 0..(@settings[:backlight_max] || 5) do %>
-                <button
-                  type="button"
-                  phx-click="set_backlight"
-                  phx-value-level={level}
-                  class={[
-                    "px-4 py-2 rounded border-2 font-medium transition-colors",
-                    if(@settings[:backlight_level] == level,
-                      do: "border-purple-500 bg-purple-500/20 text-purple-500",
-                      else: "border-base-300 bg-base-100 hover:border-purple-300"
-                    )
-                  ]}
-                >
-                  {if level == 0, do: "Off", else: level}
-                </button>
-              <% end %>
-            </div>
-
-            <p class="text-xs text-purple-600 mt-3">
-              Direct backlight control provides more reliable screen blanking on reTerminal DM devices.
-            </p>
-          </div>
-        <% end %>
 
         <%!-- Info --%>
         <div class="p-4 bg-base-100 border border-base-300 rounded-lg text-sm">
           <h3 class="font-semibold mb-2">About Screen Blanking</h3>
           <ul class="list-disc list-inside space-y-1 text-base-content/70">
             <li>Screen blanking turns off the display after a period of inactivity</li>
-            <li>Uses DPMS (Display Power Management) to signal the monitor</li>
+            <li>Touch the screen to wake it up</li>
             <li>Helps extend display lifespan and reduce power consumption</li>
-            <li>Settings persist across reboots via X11 autostart configuration</li>
+            <li>Settings persist across reboots</li>
           </ul>
-
-          <%= if @settings && @settings[:has_backlight] do %>
-            <div class="mt-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded">
-              <p class="font-medium text-purple-800">
-                Backlight Device: {@settings[:backlight_device]}
-              </p>
-              <p class="text-xs text-purple-600 mt-1">
-                This device supports direct backlight control which provides more reliable
-                screen blanking than DPMS. The Blank/Wake buttons use backlight control
-                on this device.
-              </p>
-              <p class="text-xs font-mono text-purple-500 mt-1">
-                Path: {@settings[:backlight_path]}
-              </p>
-            </div>
-          <% end %>
-
-          <div class="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded">
-            <p class="font-medium text-blue-800">Deployment Setup</p>
-            <p class="text-xs text-blue-600 mt-1">
-              Screen saver is configured automatically during deployment.
-              Run the deployment script to set up persistence:
-            </p>
-            <code class="block mt-1 bg-gray-900 text-green-400 px-2 py-1 rounded font-mono text-xs">
-              ./scripts/deploy_to_cm4.sh &lt;device-ip&gt;
-            </code>
-          </div>
         </div>
       </div>
     </Layouts.app>
@@ -405,7 +201,7 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
       {:error, reason} ->
         {:noreply,
          socket
-         |> put_flash(:error, "Failed to set timeout: #{reason}")}
+         |> put_flash(:error, reason)}
     end
   end
 
@@ -426,7 +222,7 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
           {:error, reason} ->
             {:noreply,
              socket
-             |> put_flash(:error, "Failed to set timeout: #{reason}")}
+             |> put_flash(:error, reason)}
         end
 
       {_, _} ->
@@ -441,53 +237,11 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
     end
   end
 
-  @impl true
-  def handle_event("blank_now", _params, socket) do
-    case Screensaver.blank_now() do
-      :ok ->
-        {:noreply, socket |> put_flash(:info, "Screen blanked")}
-
-      {:error, reason} ->
-        {:noreply, socket |> put_flash(:error, "Failed to blank screen: #{reason}")}
-    end
-  end
-
-  @impl true
-  def handle_event("wake_now", _params, socket) do
-    case Screensaver.wake_now() do
-      :ok ->
-        {:noreply, socket |> put_flash(:info, "Screen woken")}
-
-      {:error, reason} ->
-        {:noreply, socket |> put_flash(:error, "Failed to wake screen: #{reason}")}
-    end
-  end
-
-  @impl true
-  def handle_event("set_backlight", %{"level" => level}, socket) do
-    level = String.to_integer(level)
-
-    case Screensaver.set_backlight(level) do
-      :ok ->
-        settings = fetch_settings()
-        label = if level == 0, do: "off", else: "#{level}"
-
-        {:noreply,
-         socket
-         |> assign(:settings, settings)
-         |> put_flash(:info, "Backlight set to #{label}")}
-
-      {:error, reason} ->
-        {:noreply, socket |> put_flash(:error, "Failed to set backlight: #{reason}")}
-    end
-  end
-
   defp fetch_settings do
     {:ok, settings} = Screensaver.get_settings()
     settings
   end
 
-  defp format_timeout(nil), do: "Unknown"
   defp format_timeout(0), do: "Never (always on)"
 
   defp format_timeout(seconds) when seconds < 60 do
@@ -505,8 +259,6 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
   end
 
   defp status_color(nil), do: "bg-base-200 border-base-300"
-
-  defp status_color(%{timeout_seconds: 0}), do: "bg-yellow-500/10 border-yellow-500/30"
-
+  defp status_color(%{timeout_configurable: false}), do: "bg-orange-500/10 border-orange-500/30"
   defp status_color(_), do: "bg-green-500/10 border-green-500/30"
 end
