@@ -62,7 +62,13 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
                 <div>
                   <span class="font-medium">Device:</span>
                   <span class="ml-2 px-2 py-0.5 bg-purple-500/20 text-purple-500 rounded text-xs">
-                    reTerminal DM
+                    {@settings[:backlight_device] || "Unknown"}
+                  </span>
+                </div>
+                <div class="col-span-2">
+                  <span class="font-medium">Path:</span>
+                  <span class="ml-2 text-xs font-mono text-base-content/60">
+                    {@settings[:backlight_path]}
                   </span>
                 </div>
               <% end %>
@@ -214,12 +220,14 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
           </p>
         </div>
 
-        <%!-- Backlight Control (reTerminal DM) --%>
+        <%!-- Backlight Control --%>
         <%= if @settings && @settings[:has_backlight] do %>
           <div class="p-4 border rounded-lg bg-purple-500/10 border-purple-500/30">
             <h3 class="text-lg font-semibold mb-3">
               Backlight Control
-              <span class="text-sm font-normal text-purple-600 ml-2">(reTerminal DM)</span>
+              <span class="text-sm font-normal text-purple-600 ml-2">
+                ({@settings[:backlight_device]})
+              </span>
             </h3>
 
             <div class="mb-4">
@@ -277,11 +285,16 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
 
           <%= if @settings && @settings[:has_backlight] do %>
             <div class="mt-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded">
-              <p class="font-medium text-purple-800">reTerminal DM Detected</p>
+              <p class="font-medium text-purple-800">
+                Backlight Device: {@settings[:backlight_device]}
+              </p>
               <p class="text-xs text-purple-600 mt-1">
                 This device supports direct backlight control which provides more reliable
                 screen blanking than DPMS. The Blank/Wake buttons use backlight control
                 on this device.
+              </p>
+              <p class="text-xs font-mono text-purple-500 mt-1">
+                Path: {@settings[:backlight_path]}
               </p>
             </div>
           <% end %>

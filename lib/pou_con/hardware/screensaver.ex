@@ -8,11 +8,27 @@ defmodule PouCon.Hardware.Screensaver do
 
   For reTerminal DM devices, backlight control is preferred as DPMS has known
   wake-up issues on that hardware.
+
+  ## Backlight Path Discovery
+
+  The backlight path varies by OS version and hardware:
+  - Bullseye: `/sys/class/backlight/lcd_backlight/`
+  - Bookworm: `/sys/class/backlight/10-0045/` (DSI displays)
+  - reTerminal DM: May use either depending on driver version
+
+  This module automatically discovers the correct backlight path.
   """
 
   @display ":0"
-  @backlight_path "/sys/class/backlight/lcd_backlight/brightness"
-  @backlight_max_path "/sys/class/backlight/lcd_backlight/max_brightness"
+  @backlight_base_path "/sys/class/backlight"
+
+  # Known backlight directory names (checked in order of preference)
+  @known_backlight_dirs [
+    "lcd_backlight",
+    "10-0045",
+    "rpi_backlight",
+    "backlight"
+  ]
 
   @doc """
   Sets the idle timeout before screen blanks.
@@ -96,7 +112,7 @@ defmodule PouCon.Hardware.Screensaver do
 
   @doc """
   Sets backlight brightness directly (0-5 on reTerminal DM, or percentage 0-100).
-  Only works on devices with /sys/class/backlight/lcd_backlight.
+  Only works on devices with a discoverable backlight in /sys/class/backlight/.
   """
   @spec set_backlight(non_neg_integer() | :max) :: :ok | {:error, String.t()}
   def set_backlight(:max) do
@@ -107,9 +123,17 @@ defmodule PouCon.Hardware.Screensaver do
   end
 
   def set_backlight(level) when is_integer(level) and level >= 0 do
-    case File.write(@backlight_path, to_string(level)) do
-      :ok -> :ok
-      {:error, reason} -> {:error, "Failed to set backlight: #{inspect(reason)}"}
+    case get_backlight_path() do
+      {:ok, path} ->
+        brightness_path = Path.join(path, "brightness")
+
+        case File.write(brightness_path, to_string(level)) do
+          :ok -> :ok
+          {:error, reason} -> {:error, "Failed to set backlight: #{inspect(reason)}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -118,15 +142,23 @@ defmodule PouCon.Hardware.Screensaver do
   """
   @spec get_backlight() :: {:ok, non_neg_integer()} | {:error, String.t()}
   def get_backlight do
-    case File.read(@backlight_path) do
-      {:ok, content} ->
-        case Integer.parse(String.trim(content)) do
-          {level, _} -> {:ok, level}
-          :error -> {:error, "Invalid brightness value"}
+    case get_backlight_path() do
+      {:ok, path} ->
+        brightness_path = Path.join(path, "brightness")
+
+        case File.read(brightness_path) do
+          {:ok, content} ->
+            case Integer.parse(String.trim(content)) do
+              {level, _} -> {:ok, level}
+              :error -> {:error, "Invalid brightness value"}
+            end
+
+          {:error, reason} ->
+            {:error, "Failed to read backlight: #{inspect(reason)}"}
         end
 
       {:error, reason} ->
-        {:error, "Failed to read backlight: #{inspect(reason)}"}
+        {:error, reason}
     end
   end
 
@@ -135,46 +167,126 @@ defmodule PouCon.Hardware.Screensaver do
   """
   @spec has_backlight_control?() :: boolean()
   def has_backlight_control? do
-    File.exists?(@backlight_path) and File.exists?(@backlight_max_path)
+    case get_backlight_path() do
+      {:ok, _} -> true
+      {:error, _} -> false
+    end
+  end
+
+  @doc """
+  Returns the discovered backlight directory path, or an error if none found.
+  Searches known backlight directory names and falls back to any available.
+  """
+  @spec get_backlight_path() :: {:ok, String.t()} | {:error, String.t()}
+  def get_backlight_path do
+    # First, try known directory names in order of preference
+    known_path =
+      Enum.find_value(@known_backlight_dirs, fn dir ->
+        path = Path.join(@backlight_base_path, dir)
+
+        if File.exists?(Path.join(path, "brightness")) and
+             File.exists?(Path.join(path, "max_brightness")) do
+          path
+        else
+          nil
+        end
+      end)
+
+    if known_path do
+      {:ok, known_path}
+    else
+      # Fall back to scanning for any backlight device
+      case File.ls(@backlight_base_path) do
+        {:ok, entries} ->
+          found =
+            Enum.find_value(entries, fn entry ->
+              path = Path.join(@backlight_base_path, entry)
+
+              if File.exists?(Path.join(path, "brightness")) and
+                   File.exists?(Path.join(path, "max_brightness")) do
+                path
+              else
+                nil
+              end
+            end)
+
+          if found do
+            {:ok, found}
+          else
+            {:error, "No backlight device found in #{@backlight_base_path}"}
+          end
+
+        {:error, :enoent} ->
+          {:error, "Backlight directory not found: #{@backlight_base_path}"}
+
+        {:error, reason} ->
+          {:error, "Failed to scan backlight directory: #{inspect(reason)}"}
+      end
+    end
+  end
+
+  @doc """
+  Returns the name of the discovered backlight device (for display purposes).
+  """
+  @spec get_backlight_device_name() :: String.t() | nil
+  def get_backlight_device_name do
+    case get_backlight_path() do
+      {:ok, path} -> Path.basename(path)
+      {:error, _} -> nil
+    end
   end
 
   # Private functions
 
   defp get_max_brightness do
-    case File.read(@backlight_max_path) do
-      {:ok, content} ->
-        case Integer.parse(String.trim(content)) do
-          {max, _} -> {:ok, max}
-          :error -> {:error, "Invalid max brightness value"}
+    case get_backlight_path() do
+      {:ok, path} ->
+        max_path = Path.join(path, "max_brightness")
+
+        case File.read(max_path) do
+          {:ok, content} ->
+            case Integer.parse(String.trim(content)) do
+              {max, _} -> {:ok, max}
+              :error -> {:error, "Invalid max brightness value"}
+            end
+
+          {:error, reason} ->
+            {:error, "Failed to read max brightness: #{inspect(reason)}"}
         end
 
       {:error, reason} ->
-        {:error, "Failed to read max brightness: #{inspect(reason)}"}
+        {:error, reason}
     end
   end
 
   defp get_backlight_info do
-    if has_backlight_control?() do
-      current =
-        case get_backlight() do
-          {:ok, level} -> level
-          _ -> nil
-        end
+    case get_backlight_path() do
+      {:ok, path} ->
+        current =
+          case get_backlight() do
+            {:ok, level} -> level
+            _ -> nil
+          end
 
-      max =
-        case get_max_brightness() do
-          {:ok, level} -> level
-          _ -> nil
-        end
+        max =
+          case get_max_brightness() do
+            {:ok, level} -> level
+            _ -> nil
+          end
 
-      %{
-        has_backlight: true,
-        backlight_level: current,
-        backlight_max: max,
-        backlight_on: current != nil and current > 0
-      }
-    else
-      %{has_backlight: false}
+        device_name = Path.basename(path)
+
+        %{
+          has_backlight: true,
+          backlight_level: current,
+          backlight_max: max,
+          backlight_on: current != nil and current > 0,
+          backlight_device: device_name,
+          backlight_path: path
+        }
+
+      {:error, _} ->
+        %{has_backlight: false}
     end
   end
 
