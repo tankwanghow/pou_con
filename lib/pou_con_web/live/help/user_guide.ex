@@ -57,13 +57,6 @@ defmodule PouConWeb.Live.Help.UserGuide do
       failsafe_status={assigns[:failsafe_status]}
       system_time_valid={assigns[:system_time_valid]}
     >
-      <.header>
-        User Guide
-        <:actions>
-          <.dashboard_link />
-        </:actions>
-      </.header>
-
       <div id="user-guide-content" class="bg-white rounded-xl shadow-lg p-6 mt-4">
         <style>
           #user-guide-content h1 {

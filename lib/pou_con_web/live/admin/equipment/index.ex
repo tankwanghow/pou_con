@@ -34,7 +34,6 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
               label="New Equipment"
               color="amber"
             />
-            <.dashboard_link />
           </div>
         </:actions>
       </.header>

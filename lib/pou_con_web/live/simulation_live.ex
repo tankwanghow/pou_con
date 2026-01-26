@@ -276,7 +276,6 @@ defmodule PouConWeb.SimulationLive do
             value={@search}
           />
         </div>
-        <.dashboard_link />
       </div>
 
       <div class="flex mb-1 justify-between items-center bg-black p-2 rounded select-none">

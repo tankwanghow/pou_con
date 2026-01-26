@@ -139,13 +139,6 @@ defmodule PouConWeb.Live.EggCollection.Index do
       failsafe_status={assigns[:failsafe_status]}
       system_time_valid={assigns[:system_time_valid]}
     >
-      <.header>
-        Egg Collection
-        <:actions>
-          <.dashboard_link />
-        </:actions>
-      </.header>
-      
     <!-- Egg Collection Equipment -->
       <div class="flex flex-wrap gap-1 justify-center">
         <%= for eq <- Enum.filter(@equipment, &(&1.type == "egg")) |> Enum.sort_by(& &1.title) do %>

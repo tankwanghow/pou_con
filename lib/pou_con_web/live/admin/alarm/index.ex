@@ -76,7 +76,6 @@ defmodule PouConWeb.Live.Admin.Alarm.Index do
             label="New Alarm Rule"
             color="amber"
           />
-          <.dashboard_link />
         </:actions>
       </.header>
 

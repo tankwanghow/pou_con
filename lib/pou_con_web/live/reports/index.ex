@@ -163,13 +163,6 @@ defmodule PouConWeb.Live.Reports.Index do
       failsafe_status={assigns[:failsafe_status]}
       system_time_valid={assigns[:system_time_valid]}
     >
-      <.header>
-        Equipment Reports & Logs
-        <:actions>
-          <.dashboard_link />
-        </:actions>
-      </.header>
-
       <div class="flex gap-2 mb-4">
         <button
           phx-click="change_view"

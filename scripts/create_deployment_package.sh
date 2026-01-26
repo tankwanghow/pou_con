@@ -565,6 +565,21 @@ if [ -f "setup_sudo.sh" ]; then
     chmod +x "$PACKAGE_DIR/setup_sudo.sh"
 fi
 
+# Copy user documentation
+echo "Including user documentation..."
+if [ -f "docs/USER_MANUAL.md" ]; then
+    cp docs/USER_MANUAL.md "$PACKAGE_DIR/"
+    echo "  ✓ User manual included"
+fi
+if [ -f "docs/DEPLOYMENT_MANUAL.md" ]; then
+    cp docs/DEPLOYMENT_MANUAL.md "$PACKAGE_DIR/"
+    echo "  ✓ Deployment manual included"
+fi
+if [ -f "docs/REVPI_DEPLOYMENT_GUIDE.md" ]; then
+    cp docs/REVPI_DEPLOYMENT_GUIDE.md "$PACKAGE_DIR/"
+    echo "  ✓ RevPi deployment guide included"
+fi
+
 # Create README
 cat > "$PACKAGE_DIR/README.txt" << 'EOF'
 PouCon Deployment Package
@@ -585,6 +600,9 @@ Contents:
   - setup_kiosk.sh             : Optional touchscreen kiosk mode setup
   - verify_revpi_hardware.sh   : RevPi hardware verification (optional)
   - revpi_first_setup.sh       : RevPi first-time setup (optional)
+  - USER_MANUAL.md             : Complete operator guide
+  - DEPLOYMENT_MANUAL.md       : Detailed deployment instructions
+  - REVPI_DEPLOYMENT_GUIDE.md  : RevPi Connect 5 specific guide
   - README.txt                 : This file
 
 Requirements:
@@ -672,9 +690,11 @@ Touchscreen Kiosk Mode (Optional):
   - Pi will boot to fullscreen PouCon interface
   - See TOUCHSCREEN_KIOSK_SETUP.md for details
 
-Support:
-  See DEPLOYMENT_GUIDE.md, CROSS_PLATFORM_BUILD.md, and TOUCHSCREEN_KIOSK_SETUP.md
-  for detailed documentation
+Documentation:
+  The following guides are included in this package:
+  - USER_MANUAL.md           : Complete operator guide for daily use
+  - DEPLOYMENT_MANUAL.md     : Detailed deployment and setup instructions
+  - REVPI_DEPLOYMENT_GUIDE.md: RevPi Connect 5 specific deployment guide
 EOF
 
 # Package everything

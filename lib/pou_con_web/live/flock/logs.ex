@@ -159,10 +159,9 @@ defmodule PouConWeb.Live.Flock.Logs do
       <.header>
         <:actions>
           <.btn_link to={~p"/flock/#{@flock.id}/daily-yields"} label="Daily Yields" color="amber" />
-          <.dashboard_link />
         </:actions>
       </.header>
-      
+
     <!-- Inactive flock warning -->
       <div
         :if={!@flock.active}
@@ -226,7 +225,7 @@ defmodule PouConWeb.Live.Flock.Logs do
           </div>
         </div>
       </div>
-      
+
     <!-- Log Form and List -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Log Form (only for active flocks) -->
@@ -243,25 +242,25 @@ defmodule PouConWeb.Live.Flock.Logs do
                 <label class="block text-sm font-medium">Date</label>
                 <.input type="date" field={@form[:log_date]} required />
               </div>
-              
+
     <!-- Deaths -->
               <div>
                 <label class="block text-sm font-medium">Deaths</label>
                 <.input type="number" field={@form[:deaths]} min="0" required />
               </div>
-              
+
     <!-- Eggs -->
               <div>
                 <label class="block text-sm font-medium">Eggs Produced</label>
                 <.input type="number" field={@form[:eggs]} min="0" required />
               </div>
-              
+
     <!-- Notes -->
               <div class="col-span-2">
                 <label class="block text-sm font-medium">Notes (optional)</label>
                 <.input type="textarea" field={@form[:notes]} rows="2" />
               </div>
-              
+
     <!-- Buttons -->
               <div class="col-span-2 flex gap-2 items-center">
                 <.button type="submit">
@@ -280,7 +279,7 @@ defmodule PouConWeb.Live.Flock.Logs do
             </div>
           </.form>
         </div>
-        
+
     <!-- Log List -->
         <div class={if @flock.active, do: "", else: "lg:col-span-2"}>
           <h2 class="text-lg font-semibold mb-2">

@@ -17,7 +17,6 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
         Listing Ports
         <:actions>
           <.btn_link :if={!@readonly} to={~p"/admin/ports/new"} label="New Port" color="amber" />
-          <.dashboard_link />
         </:actions>
       </.header>
 

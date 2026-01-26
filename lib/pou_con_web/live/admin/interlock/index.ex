@@ -24,7 +24,6 @@ defmodule PouConWeb.Live.Admin.Interlock.Index do
             label="New Rule"
             color="amber"
           />
-          <.dashboard_link />
         </:actions>
       </.header>
 

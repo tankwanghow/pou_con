@@ -138,13 +138,6 @@ defmodule PouConWeb.Live.PowerMeters.Index do
       failsafe_status={assigns[:failsafe_status]}
       system_time_valid={assigns[:system_time_valid]}
     >
-      <.header>
-        Power Meters
-        <:actions>
-          <.dashboard_link />
-        </:actions>
-      </.header>
-
       <div class="bg-white shadow-sm rounded-xl border border-gray-200 p-4 mb-6">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div>

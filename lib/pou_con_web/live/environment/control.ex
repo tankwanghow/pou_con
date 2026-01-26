@@ -301,7 +301,16 @@ defmodule PouConWeb.Live.Environment.Control do
               <% extra_fans_field = String.to_atom("step_#{n}_extra_fans") %>
               <% extra_fans_errors = @form[extra_fans_field].errors %>
               <% temp_raw = Map.get(@config, String.to_atom("step_#{n}_temp")) %>
-              <% is_active = is_number(temp_raw) and temp_raw > 0 %>
+              <% {temp_value, is_active} =
+                cond do
+                  is_number(temp_raw) and temp_raw > 0 -> {temp_raw, true}
+                  is_binary(temp_raw) and temp_raw != "" ->
+                    case Float.parse(temp_raw) do
+                      {num, _} when num > 0 -> {num, true}
+                      _ -> {0, false}
+                    end
+                  true -> {0, false}
+                end %>
               <% selected_pumps =
                 String.split(Map.get(@config, String.to_atom("step_#{n}_pumps")) || "", ", ")
                 |> Enum.map(&String.trim/1)
@@ -380,7 +389,7 @@ defmodule PouConWeb.Live.Environment.Control do
                       |> Enum.reject(&is_nil/1)
                       |> Enum.map(& &1.title)
                       |> Enum.join(", ") %>
-                    {temp_raw}°C → {@failsafe_status.expected}+{extra_fans} fans{if pump_titles != "",
+                    {temp_value}°C → {@failsafe_status.expected}+{extra_fans} fans{if pump_titles != "",
                       do: ", #{pump_titles}"}
                   </div>
                 </div>

@@ -26,13 +26,6 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
       failsafe_status={assigns[:failsafe_status]}
       system_time_valid={assigns[:system_time_valid]}
     >
-      <.header>
-        Screen Saver Settings
-        <:actions>
-          <.dashboard_link />
-        </:actions>
-      </.header>
-
       <div class="mt-6 space-y-6">
         <%!-- Current Status --%>
         <div class={[

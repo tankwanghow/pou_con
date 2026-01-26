@@ -108,13 +108,6 @@ defmodule PouConWeb.Live.PowerIndicators.Index do
       failsafe_status={assigns[:failsafe_status]}
       system_time_valid={assigns[:system_time_valid]}
     >
-      <.header>
-        Power Status
-        <:actions>
-          <.dashboard_link />
-        </:actions>
-      </.header>
-
       <div>
         <div class="flex flex-wrap gap-4 justify-center">
           <%= for eq <- Enum.filter(@equipment, &(&1.type == "power_indicator")) |> Enum.sort_by(& &1.title) do %>

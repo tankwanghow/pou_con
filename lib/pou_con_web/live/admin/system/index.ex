@@ -22,13 +22,6 @@ defmodule PouConWeb.Live.Admin.System.Index do
       failsafe_status={assigns[:failsafe_status]}
       system_time_valid={assigns[:system_time_valid]}
     >
-      <.header>
-        System Management
-        <:actions>
-          <.dashboard_link />
-        </:actions>
-      </.header>
-
       <div class="mt-6 space-y-6">
         <%!-- System Status --%>
         <div class="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">

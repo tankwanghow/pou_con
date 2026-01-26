@@ -91,11 +91,10 @@ defmodule PouConWeb.Live.Admin.Tasks.Index do
               </select>
             </form>
             <.btn_link :if={!@readonly} to={~p"/admin/tasks/new"} label="New Task" color="amber" />
-            <.dashboard_link />
           </div>
         </:actions>
       </.header>
-      
+
     <!-- Header Row -->
       <div class="text-xs font-medium flex flex-row text-center bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border-b border-t border-cyan-500/30 py-2">
         <div class="w-[5%]">En</div>

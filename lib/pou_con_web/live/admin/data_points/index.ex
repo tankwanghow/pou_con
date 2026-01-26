@@ -34,7 +34,6 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
               label="New Data Point"
               color="amber"
             />
-            <.dashboard_link />
           </div>
         </:actions>
       </.header>

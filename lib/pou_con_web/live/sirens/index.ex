@@ -187,13 +187,6 @@ defmodule PouConWeb.Live.Sirens.Index do
       failsafe_status={assigns[:failsafe_status]}
       system_time_valid={assigns[:system_time_valid]}
     >
-      <.header>
-        Sirens & Alarms
-        <:actions>
-          <.dashboard_link />
-        </:actions>
-      </.header>
-
       <.active_alarms_panel
         alarm_status={@alarm_status}
         alarm_rules={@alarm_rules}

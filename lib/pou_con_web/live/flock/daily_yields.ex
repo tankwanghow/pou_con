@@ -48,10 +48,9 @@ defmodule PouConWeb.Live.Flock.DailyYields do
         Daily Yields: {@flock.name}
         <:actions>
           <.btn_link to={~p"/flock/#{@flock.id}/logs"} label="Back to Logs" />
-          <.dashboard_link />
         </:actions>
       </.header>
-      
+
     <!-- Header Row -->
       <div class="text-xs font-medium flex flex-row text-center bg-amber-500/20 text-amber-600 dark:text-amber-400 border-b border-t border-amber-500/30 py-2">
         <div class="w-[18%]">Date</div>
@@ -61,7 +60,7 @@ defmodule PouConWeb.Live.Flock.DailyYields do
         <div class="w-[18%]">Eggs</div>
         <div class="w-[20%]">Daily Yield %</div>
       </div>
-      
+
     <!-- Data Rows -->
       <div :if={length(@yields) > 0}>
         <div class="text-xs text-base-content/50 mb-1 text-right">

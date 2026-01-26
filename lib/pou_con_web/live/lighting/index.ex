@@ -139,13 +139,6 @@ defmodule PouConWeb.Live.Lighting.Index do
       failsafe_status={assigns[:failsafe_status]}
       system_time_valid={assigns[:system_time_valid]}
     >
-      <.header>
-        Lighting
-        <:actions>
-          <.dashboard_link />
-        </:actions>
-      </.header>
-
       <div class="flex flex-wrap gap-1 justify-center">
         <%= for eq <- Enum.filter(@equipment, &(&1.type == "light")) |> Enum.sort_by(& &1.title) do %>
           <.live_component

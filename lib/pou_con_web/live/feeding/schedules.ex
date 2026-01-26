@@ -120,15 +120,9 @@ defmodule PouConWeb.Live.Feeding.Schedules do
       failsafe_status={assigns[:failsafe_status]}
       system_time_valid={assigns[:system_time_valid]}
     >
-      <.header>
-        Feeding Schedules
-        <:actions>
-          <.dashboard_link />
-        </:actions>
-      </.header>
 
       <div class="p-2">
-        
+
     <!-- Schedule Management -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <!-- Schedule Form -->
@@ -146,7 +140,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                   </label>
                   <.input type="time" field={@form[:move_to_back_limit_time]} />
                 </div>
-                
+
     <!-- Move to Front Limit Time -->
                 <div class="col-span-4">
                   <label class="block text-sm font-medium">
@@ -154,7 +148,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                   </label>
                   <.input type="time" field={@form[:move_to_front_limit_time]} />
                 </div>
-                
+
     <!-- FeedIn Trigger Bucket -->
                 <div class="col-span-8">
                   <label class="block text-sm font-medium">
@@ -167,7 +161,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                     prompt="None - Don't enable FeedIn"
                   />
                 </div>
-                
+
     <!-- Enabled Checkbox -->
                 <div class="flex gap-3">
                   <div class="flex items-center col-span-2">
@@ -176,7 +170,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                       <span class="text-sm">Enabled</span>
                     </label>
                   </div>
-                  
+
     <!-- Buttons -->
                   <div class="flex gap-2 items-center col-span-2">
                     <.button type="submit">
@@ -201,7 +195,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
               Each schedule affects ALL feeding buckets simultaneously. At least one time must be set (Back or Front).
             </div>
           </div>
-          
+
     <!-- Schedule List -->
           <div>
             <h2 class="text-lg font-semibold mb-2">Configured Schedules</h2>

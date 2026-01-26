@@ -108,13 +108,6 @@ defmodule PouConWeb.Live.Operations.Tasks do
       failsafe_status={assigns[:failsafe_status]}
       system_time_valid={assigns[:system_time_valid]}
     >
-      <.header>
-        Operations Tasks
-        <:actions>
-          <.dashboard_link />
-        </:actions>
-      </.header>
-      
     <!-- Summary Bar -->
       <div class="grid grid-cols-4 gap-2 mb-4">
         <div class="bg-rose-500/20 border border-rose-500/30 rounded-lg p-3 text-center">
@@ -134,7 +127,7 @@ defmodule PouConWeb.Live.Operations.Tasks do
           <div class="text-xs text-blue-500/80">Upcoming</div>
         </div>
       </div>
-      
+
     <!-- Filter Tabs -->
       <div class="flex gap-2 mb-4">
         <button
@@ -170,7 +163,7 @@ defmodule PouConWeb.Live.Operations.Tasks do
           All
         </button>
       </div>
-      
+
     <!-- Task List -->
       <div class="space-y-2">
         <%= if Enum.empty?(@tasks) do %>
@@ -204,16 +197,16 @@ defmodule PouConWeb.Live.Operations.Tasks do
                       {TaskTemplate.frequency_label(task)}
                     </span>
                   </div>
-                  
+
     <!-- Task Name -->
                   <h3 class="font-semibold text-lg">{task.name}</h3>
-                  
+
     <!-- Description -->
                   <p :if={task.description} class="text-sm text-base-content/70 mt-1">
                     {task.description}
                   </p>
                 </div>
-                
+
     <!-- Action Button -->
                 <div class="flex flex-wrap gap-3 ml-4 w-[20%]">
                   <%= if task.task_status.status == :completed_today do %>
@@ -246,7 +239,7 @@ defmodule PouConWeb.Live.Operations.Tasks do
           <% end %>
         <% end %>
       </div>
-      
+
     <!-- Completion Modal -->
       <div
         :if={@completing_task}

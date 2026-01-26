@@ -34,7 +34,6 @@ defmodule PouConWeb.Live.Admin.Flock.Index do
               label="New Flock"
               color="amber"
             />
-            <.dashboard_link />
           </div>
         </:actions>
       </.header>
