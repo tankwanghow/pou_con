@@ -329,8 +329,9 @@ chown -R root:root "$POUCON_CONFIG_DIR"
 chmod 755 "$DATA_DIR"
 chmod 755 "$POUCON_CONFIG_DIR"
 
-# Serial port permissions
-usermod -a -G dialout "$SERVICE_USER"
+# Group permissions for hardware access
+usermod -a -G dialout "$SERVICE_USER"  # Serial ports (Modbus RTU)
+usermod -a -G video "$SERVICE_USER"    # Backlight control (screen blanking)
 
 #═══════════════════════════════════════════
 # STEP 8: Allow Privileged Ports

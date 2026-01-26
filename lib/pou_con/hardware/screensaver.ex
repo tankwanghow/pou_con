@@ -1,13 +1,20 @@
 defmodule PouCon.Hardware.Screensaver do
   @moduledoc """
-  Controls screen blanking/screensaver timeout on the Raspberry Pi.
+  Controls screen blanking/screensaver on the Raspberry Pi.
 
-  Supports two control methods:
-  1. X11 DPMS (Display Power Management) - works on most displays
-  2. Direct backlight control - more reliable on reTerminal DM and similar devices
+  ## Control Methods
 
-  For reTerminal DM devices, backlight control is preferred as DPMS has known
-  wake-up issues on that hardware.
+  1. **Direct backlight control** (preferred) - Works on reTerminal DM and displays
+     with sysfs backlight interface. OS and display-server agnostic.
+
+  2. **X11 DPMS** (legacy) - Only works on X11 systems, not Wayland.
+
+  ## Important: Raspberry Pi OS Bookworm uses Wayland
+
+  Bookworm uses Wayland (labwc) by default, not X11. This means:
+  - `xset` commands won't work (they're X11-only)
+  - Screen timeout must be configured at the OS level
+  - Direct backlight control is the only reliable method from the app
 
   ## Backlight Path Discovery
 
@@ -17,9 +24,13 @@ defmodule PouCon.Hardware.Screensaver do
   - reTerminal DM: May use either depending on driver version
 
   This module automatically discovers the correct backlight path.
+
+  ## Configuring Screen Timeout on Bookworm
+
+  For idle-based screen blanking on Wayland, configure via raspi-config or
+  create a systemd timer. The app can only do manual blank/wake via backlight.
   """
 
-  @display ":0"
   @backlight_base_path "/sys/class/backlight"
 
   # Known backlight directory names (checked in order of preference)
@@ -33,6 +44,9 @@ defmodule PouCon.Hardware.Screensaver do
   @doc """
   Sets the idle timeout before screen blanks.
 
+  NOTE: This only works on X11 systems. On Wayland (Bookworm default),
+  this will return an error. Use OS-level configuration instead.
+
   ## Examples
 
       iex> Screensaver.set_idle_timeout(180)  # 3 minutes
@@ -43,70 +57,124 @@ defmodule PouCon.Hardware.Screensaver do
   """
   @spec set_idle_timeout(non_neg_integer()) :: :ok | {:error, String.t()}
   def set_idle_timeout(seconds) when is_integer(seconds) and seconds >= 0 do
-    env = [{"DISPLAY", @display}]
+    # Check if we're on Wayland
+    if is_wayland?() do
+      {:error,
+       "Screen timeout cannot be set from the app on Wayland (Bookworm). " <>
+         "Use 'sudo raspi-config' → Display Options → Screen Blanking to configure timeout."}
+    else
+      # Try X11 DPMS
+      case try_x11_timeout(seconds) do
+        :ok ->
+          :ok
 
-    with :ok <- run_xset(["s", to_string(seconds), to_string(seconds)], env),
-         :ok <-
-           run_xset(["dpms", to_string(seconds), to_string(seconds), to_string(seconds)], env) do
-      # Enable DPMS if timeout > 0, disable if 0
-      if seconds > 0 do
-        run_xset(["dpms"], env)
-      else
-        run_xset(["-dpms"], env)
+        {:error, reason} ->
+          {:error,
+           "Failed to set timeout: #{reason}. " <>
+             "On Wayland systems, use 'sudo raspi-config' → Display Options → Screen Blanking."}
       end
     end
   end
 
   @doc """
   Gets the current screensaver/DPMS settings.
-  Returns a map with timeout info.
+  Returns a map with timeout info and backlight status.
   """
   @spec get_settings() :: {:ok, map()} | {:error, String.t()}
   def get_settings do
-    env = [{"DISPLAY", @display}]
+    backlight_info = get_backlight_info()
+    wayland = is_wayland?()
 
-    case System.cmd("xset", ["q"], env: env, stderr_to_stdout: true) do
-      {output, 0} ->
-        settings = parse_xset_output(output)
-        backlight_info = get_backlight_info()
-        {:ok, Map.merge(settings, backlight_info)}
+    base_settings = %{
+      is_wayland: wayland,
+      display_server: if(wayland, do: "Wayland (labwc)", else: detect_display_server()),
+      timeout_configurable: not wayland
+    }
 
-      {error, _} ->
-        # Even if X11 fails, try to get backlight info
-        case get_backlight_info() do
-          %{has_backlight: true} = info ->
-            {:ok,
-             Map.merge(%{timeout_seconds: nil, dpms_enabled: false, dpms_standby: nil}, info)}
+    if wayland do
+      # On Wayland, we can only report backlight status
+      {:ok, Map.merge(base_settings, backlight_info)}
+    else
+      # Try X11 settings
+      case try_get_x11_settings() do
+        {:ok, x11_settings} ->
+          {:ok, base_settings |> Map.merge(x11_settings) |> Map.merge(backlight_info)}
 
-          _ ->
-            {:error, error}
-        end
+        {:error, _} ->
+          {:ok, Map.merge(base_settings, backlight_info)}
+      end
     end
   end
 
   @doc """
   Immediately blanks the screen.
-  Uses backlight control on reTerminal DM, falls back to DPMS.
+  Uses backlight control (preferred), falls back to X11 DPMS.
   """
   @spec blank_now() :: :ok | {:error, String.t()}
   def blank_now do
-    if has_backlight_control?() do
-      set_backlight(0)
-    else
-      run_xset(["dpms", "force", "off"], [{"DISPLAY", @display}])
+    cond do
+      has_backlight_control?() ->
+        set_backlight(0)
+
+      not is_wayland?() ->
+        try_x11_command(["dpms", "force", "off"])
+
+      true ->
+        {:error, "No screen control available. Backlight not found and X11 not running."}
     end
   end
 
   @doc """
   Immediately wakes the screen.
-  Uses backlight control on reTerminal DM, falls back to DPMS.
+  Uses backlight control (preferred), falls back to X11 DPMS.
   """
   @spec wake_now() :: :ok | {:error, String.t()}
   def wake_now do
-    if has_backlight_control?() do
-      set_backlight(:max)
-    else
-      run_xset(["dpms", "force", "on"], [{"DISPLAY", @display}])
+    cond do
+      has_backlight_control?() ->
+        set_backlight(:max)
+
+      not is_wayland?() ->
+        try_x11_command(["dpms", "force", "on"])
+
+      true ->
+        {:error, "No screen control available. Backlight not found and X11 not running."}
+    end
+  end
+
+  @doc """
+  Checks if the system is running Wayland (common on Bookworm).
+  """
+  @spec is_wayland?() :: boolean()
+  def is_wayland? do
+    # Check for Wayland indicators
+    wayland_display = System.get_env("WAYLAND_DISPLAY")
+    xdg_session = System.get_env("XDG_SESSION_TYPE")
+
+    cond do
+      wayland_display != nil -> true
+      xdg_session == "wayland" -> true
+      # Check if labwc or wayfire is running
+      labwc_running?() -> true
+      true -> false
+    end
+  end
+
+  defp labwc_running? do
+    case System.cmd("pgrep", ["-x", "labwc"], stderr_to_stdout: true) do
+      {_, 0} -> true
+      _ ->
+        case System.cmd("pgrep", ["-x", "wayfire"], stderr_to_stdout: true) do
+          {_, 0} -> true
+          _ -> false
+        end
+    end
+  end
+
+  defp detect_display_server do
+    cond do
+      System.get_env("DISPLAY") != nil -> "X11"
+      true -> "Unknown"
     end
   end
 
@@ -236,7 +304,89 @@ defmodule PouCon.Hardware.Screensaver do
     end
   end
 
-  # Private functions
+  # Private functions - X11 helpers
+
+  defp try_x11_timeout(seconds) do
+    # Try to find a valid DISPLAY and XAUTHORITY
+    case find_x11_display() do
+      {:ok, env} ->
+        with :ok <- run_xset(["s", to_string(seconds), to_string(seconds)], env),
+             :ok <-
+               run_xset(
+                 ["dpms", to_string(seconds), to_string(seconds), to_string(seconds)],
+                 env
+               ) do
+          if seconds > 0 do
+            run_xset(["dpms"], env)
+          else
+            run_xset(["-dpms"], env)
+          end
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp try_get_x11_settings do
+    case find_x11_display() do
+      {:ok, env} ->
+        case System.cmd("xset", ["q"], env: env, stderr_to_stdout: true) do
+          {output, 0} ->
+            {:ok, parse_xset_output(output)}
+
+          {error, _} ->
+            {:error, String.trim(error)}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp try_x11_command(args) do
+    case find_x11_display() do
+      {:ok, env} -> run_xset(args, env)
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp find_x11_display do
+    # Try common X11 display configurations
+    display = System.get_env("DISPLAY") || ":0"
+
+    # Look for XAUTHORITY in common locations
+    xauthority =
+      System.get_env("XAUTHORITY") ||
+        find_xauthority()
+
+    env =
+      [{"DISPLAY", display}] ++
+        if(xauthority, do: [{"XAUTHORITY", xauthority}], else: [])
+
+    # Test if we can actually connect
+    case System.cmd("xset", ["q"], env: env, stderr_to_stdout: true) do
+      {_, 0} ->
+        {:ok, env}
+
+      {error, _} ->
+        {:error, "Cannot connect to X11 display #{display}: #{String.trim(error)}"}
+    end
+  end
+
+  defp find_xauthority do
+    # Common XAUTHORITY locations
+    candidates = [
+      "/home/pi/.Xauthority",
+      "/home/admin/.Xauthority",
+      "/root/.Xauthority",
+      "/run/user/1000/gdm/Xauthority"
+    ]
+
+    Enum.find(candidates, &File.exists?/1)
+  end
+
+  # Private functions - Backlight helpers
 
   defp get_max_brightness do
     case get_backlight_path() do

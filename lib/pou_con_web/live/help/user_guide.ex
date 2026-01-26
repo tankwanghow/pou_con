@@ -1,11 +1,18 @@
 defmodule PouConWeb.Live.Help.UserGuide do
   use PouConWeb, :live_view
 
+  # Embed the markdown at compile time so it's available in releases
   @user_manual_path "docs/USER_MANUAL.md"
+  @external_resource @user_manual_path
+
+  @user_manual_content (case File.read(@user_manual_path) do
+                          {:ok, content} -> content
+                          {:error, _} -> "# User Manual\n\nDocumentation not available."
+                        end)
 
   @impl true
   def mount(_params, _session, socket) do
-    content = load_and_render_markdown()
+    content = render_markdown()
 
     {:ok,
      socket
@@ -13,22 +20,10 @@ defmodule PouConWeb.Live.Help.UserGuide do
      |> assign(:content, content)}
   end
 
-  defp load_and_render_markdown do
-    case File.read(@user_manual_path) do
-      {:ok, markdown} ->
-        case Earmark.as_html(markdown, %Earmark.Options{code_class_prefix: "language-"}) do
-          {:ok, html, _} -> add_heading_ids(html)
-          {:error, _, _} -> "<p>Error rendering documentation.</p>"
-        end
-
-      {:error, _} ->
-        # Try from application priv directory for releases
-        priv_path = :code.priv_dir(:pou_con) |> Path.join("static/docs/USER_MANUAL.html")
-
-        case File.read(priv_path) do
-          {:ok, html} -> html
-          {:error, _} -> "<p>User manual not found.</p>"
-        end
+  defp render_markdown do
+    case Earmark.as_html(@user_manual_content, %Earmark.Options{code_class_prefix: "language-"}) do
+      {:ok, html, _} -> add_heading_ids(html)
+      {:error, _, _} -> "<p>Error rendering documentation.</p>"
     end
   end
 

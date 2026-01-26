@@ -37,21 +37,47 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
           <%= if @settings do %>
             <div class="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span class="font-medium">Idle Timeout:</span>
-                <span class="ml-2">{format_timeout(@settings.timeout_seconds)}</span>
-              </div>
-              <div>
-                <span class="font-medium">DPMS:</span>
+                <span class="font-medium">Display Server:</span>
                 <span class={[
                   "ml-2 px-2 py-0.5 rounded text-xs",
-                  if(@settings.dpms_enabled,
-                    do: "bg-green-500/20 text-green-500",
-                    else: "bg-base-300 text-base-content"
+                  if(@settings[:is_wayland],
+                    do: "bg-blue-500/20 text-blue-500",
+                    else: "bg-gray-500/20 text-gray-500"
                   )
                 ]}>
-                  {if @settings.dpms_enabled, do: "Enabled", else: "Disabled"}
+                  {@settings[:display_server] || "Unknown"}
                 </span>
               </div>
+              <div>
+                <span class="font-medium">Timeout Control:</span>
+                <span class={[
+                  "ml-2 px-2 py-0.5 rounded text-xs",
+                  if(@settings[:timeout_configurable],
+                    do: "bg-green-500/20 text-green-500",
+                    else: "bg-orange-500/20 text-orange-500"
+                  )
+                ]}>
+                  {if @settings[:timeout_configurable], do: "Available", else: "OS Config Only"}
+                </span>
+              </div>
+              <%= if not @settings[:is_wayland] do %>
+                <div>
+                  <span class="font-medium">Idle Timeout:</span>
+                  <span class="ml-2">{format_timeout(@settings[:timeout_seconds])}</span>
+                </div>
+                <div>
+                  <span class="font-medium">DPMS:</span>
+                  <span class={[
+                    "ml-2 px-2 py-0.5 rounded text-xs",
+                    if(@settings[:dpms_enabled],
+                      do: "bg-green-500/20 text-green-500",
+                      else: "bg-base-300 text-base-content"
+                    )
+                  ]}>
+                    {if @settings[:dpms_enabled], do: "Enabled", else: "Disabled"}
+                  </span>
+                </div>
+              <% end %>
               <%= if @settings[:has_backlight] do %>
                 <div>
                   <span class="font-medium">Backlight:</span>
@@ -73,6 +99,22 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
                 </div>
               <% end %>
             </div>
+
+            <%= if @settings[:is_wayland] do %>
+              <div class="mt-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded">
+                <p class="font-medium text-orange-700">Wayland Detected (Bookworm)</p>
+                <p class="text-xs text-orange-600 mt-1">
+                  Screen timeout cannot be set from the app on Wayland.
+                  To configure idle timeout, run on the Pi:
+                </p>
+                <code class="block mt-2 bg-gray-900 text-green-400 px-2 py-1 rounded font-mono text-xs">
+                  sudo raspi-config
+                </code>
+                <p class="text-xs text-orange-600 mt-1">
+                  Then navigate to: Display Options → Screen Blanking
+                </p>
+              </div>
+            <% end %>
           <% else %>
             <div class="p-3 bg-base-200 border border-base-300 rounded">
               <p class="text-gray-700 text-sm font-medium">
@@ -80,23 +122,34 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
               </p>
               <p class="text-base-content/60 text-xs mt-1">
                 Screen saver controls are only available on the deployed Raspberry Pi with a connected display.
-                In development mode without X11, these settings have no effect.
+                In development mode, these settings have no effect.
               </p>
             </div>
           <% end %>
         </div>
 
         <%!-- Quick Presets --%>
+        <% timeout_disabled = is_nil(@settings) or @settings[:is_wayland] %>
         <div class={[
           "p-4 border rounded-lg",
-          if(@settings,
-            do: "bg-blue-500/10 border-blue-500/30",
-            else: "bg-base-200 border-base-300 opacity-60"
-          )
+          cond do
+            is_nil(@settings) -> "bg-base-200 border-base-300 opacity-60"
+            @settings[:is_wayland] -> "bg-base-200 border-base-300 opacity-60"
+            true -> "bg-blue-500/10 border-blue-500/30"
+          end
         ]}>
-          <h3 class="text-lg font-semibold mb-3">Quick Presets</h3>
+          <h3 class="text-lg font-semibold mb-3">
+            Quick Presets
+            <%= if @settings && @settings[:is_wayland] do %>
+              <span class="text-sm font-normal text-orange-500 ml-2">(Not available on Wayland)</span>
+            <% end %>
+          </h3>
           <p class="text-sm text-base-content/70 mb-4">
-            Select a preset timeout for screen blanking after idle time.
+            <%= if @settings && @settings[:is_wayland] do %>
+              Timeout presets require X11. On Wayland, use <code class="bg-base-300 px-1 rounded">sudo raspi-config</code> instead.
+            <% else %>
+              Select a preset timeout for screen blanking after idle time.
+            <% end %>
           </p>
 
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -105,13 +158,13 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
                 type="button"
                 phx-click="set_timeout"
                 phx-value-seconds={seconds}
-                disabled={is_nil(@settings)}
+                disabled={timeout_disabled}
                 class={[
                   "p-3 rounded-lg border-2 text-center transition-colors",
-                  if(@settings && @settings.timeout_seconds == seconds,
+                  if(@settings && @settings[:timeout_seconds] == seconds,
                     do: "border-blue-500 bg-blue-500/20 text-blue-500",
                     else:
-                      "border-base-300 bg-base-100 hover:border-blue-300 hover:bg-blue-50 disabled:hover:border-gray-200 disabled:hover:bg-white disabled:cursor-not-allowed"
+                      "border-base-300 bg-base-100 hover:border-blue-300 hover:bg-blue-50 disabled:hover:border-gray-200 disabled:hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                   )
                 ]}
               >
@@ -127,12 +180,17 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
         <%!-- Custom Timeout --%>
         <div class={[
           "p-4 border rounded-lg",
-          if(@settings,
-            do: "bg-base-200 border-base-300",
-            else: "bg-base-200 border-base-300 opacity-60"
+          if(timeout_disabled,
+            do: "bg-base-200 border-base-300 opacity-60",
+            else: "bg-base-200 border-base-300"
           )
         ]}>
-          <h3 class="text-lg font-semibold mb-3">Custom Timeout</h3>
+          <h3 class="text-lg font-semibold mb-3">
+            Custom Timeout
+            <%= if @settings && @settings[:is_wayland] do %>
+              <span class="text-sm font-normal text-orange-500 ml-2">(Not available on Wayland)</span>
+            <% end %>
+          </h3>
 
           <.form for={@form} phx-submit="set_custom_timeout" class="flex gap-4 items-end">
             <div class="flex-1">
@@ -143,17 +201,21 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
                 min="0"
                 max="3600"
                 placeholder="e.g., 180 for 3 minutes"
-                disabled={is_nil(@settings)}
+                disabled={timeout_disabled}
               />
             </div>
             <div>
-              <.button type="submit" disabled={is_nil(@settings)}>Apply</.button>
+              <.button type="submit" disabled={timeout_disabled}>Apply</.button>
             </div>
           </.form>
 
           <p class="text-xs text-base-content/60 mt-2">
-            Enter 0 to disable screen blanking (screen always on).
-            Maximum 3600 seconds (1 hour).
+            <%= if @settings && @settings[:is_wayland] do %>
+              On Wayland, configure timeout via raspi-config or systemd timers.
+            <% else %>
+              Enter 0 to disable screen blanking (screen always on).
+              Maximum 3600 seconds (1 hour).
+            <% end %>
           </p>
         </div>
 
@@ -421,10 +483,8 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
   end
 
   defp fetch_settings do
-    case Screensaver.get_settings() do
-      {:ok, settings} -> settings
-      {:error, _} -> nil
-    end
+    {:ok, settings} = Screensaver.get_settings()
+    settings
   end
 
   defp format_timeout(nil), do: "Unknown"
