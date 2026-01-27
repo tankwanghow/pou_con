@@ -967,45 +967,47 @@ sudo reboot
 
 ### Manual Setup
 
-**Install packages:**
+**Automated Setup (Recommended):**
 
+Run the included kiosk setup script:
 ```bash
-sudo apt update
-sudo apt install -y chromium-browser unclutter xdotool
+sudo bash /opt/pou_con/scripts/setup_kiosk.sh
 ```
 
-**Create kiosk script:**
+This configures:
+- Chromium in kiosk mode with Wayland support
+- labwc autostart configuration
+- Auto-login
+- Cursor hiding
+
+**Manual Setup:**
+
+If you prefer manual configuration:
 
 ```bash
+# Install Chromium
+sudo apt update
+sudo apt install -y chromium-browser
+
+# Create kiosk script
 mkdir -p ~/.local/bin
 cat > ~/.local/bin/start_kiosk.sh << 'EOF'
 #!/bin/bash
-sleep 10
-unclutter -idle 0.1 -root &
-xset s off -dpms s noblank
 chromium-browser \
+  --ozone-platform=wayland \
   --kiosk \
   --noerrdialogs \
   --disable-infobars \
   --disable-session-crashed-bubble \
   --no-first-run \
   --disable-pinch \
-  http://localhost:4000
+  http://localhost
 EOF
 chmod +x ~/.local/bin/start_kiosk.sh
-```
 
-**Create autostart entry:**
-
-```bash
-mkdir -p ~/.config/autostart
-cat > ~/.config/autostart/poucon-kiosk.desktop << 'EOF'
-[Desktop Entry]
-Type=Application
-Name=PouCon Kiosk
-Exec=/home/pi/.local/bin/start_kiosk.sh
-X-GNOME-Autostart-enabled=true
-EOF
+# Add to labwc autostart
+mkdir -p ~/.config/labwc
+echo "$HOME/.local/bin/start_kiosk.sh &" >> ~/.config/labwc/autostart
 ```
 
 **Enable auto-login:**
@@ -1015,19 +1017,12 @@ sudo raspi-config
 # Select: System Options → Boot → Desktop Autologin
 ```
 
-**Disable screen blanking:**
+**Configure screen timeout:**
 
+Screen blanking is configured via swayidle. Use the web UI (Admin → Screen Saver) or run:
 ```bash
-sudo mkdir -p /etc/X11/xorg.conf.d/
-sudo cat > /etc/X11/xorg.conf.d/10-monitor.conf << 'EOF'
-Section "ServerLayout"
-    Identifier "ServerLayout0"
-    Option "BlankTime" "0"
-    Option "StandbyTime" "0"
-    Option "SuspendTime" "0"
-    Option "OffTime" "0"
-EndSection
-EOF
+sudo /opt/pou_con/scripts/set_screen_timeout.sh 180 pi  # 3 minutes
+# Use 0 for always-on
 ```
 
 ## 7.4 Industrial Panel Setup
@@ -1310,24 +1305,33 @@ sudo journalctl --vacuum-time=7d
 
 **Touch not detected:**
 ```bash
-# Check devices
-xinput list
+# Check input devices
+sudo libinput list-devices | grep -i touch
 ls /dev/input/event*
 
-# Test events
+# Test touch events
+sudo libinput debug-events
+# Or use evtest:
 sudo evtest
 ```
 
-**Touch works in console but not X11:**
+**Touch not working in Wayland:**
 ```bash
-sudo apt install -y xserver-xorg-input-libinput
+# Verify labwc is running
+pgrep labwc
+
+# Check libinput recognizes touchscreen
+sudo libinput list-devices
+
+# Restart display manager
 sudo systemctl restart lightdm
 ```
 
-**Touch calibration off:**
+**Touch calibration issues:**
 ```bash
-sudo apt install xinput-calibrator
-DISPLAY=:0.0 xinput_calibrator
+# On Wayland, touch calibration is handled by libinput
+# Most DSI displays (like reTerminal DM) are pre-calibrated
+# For manual calibration, use wlr-randr or kanshi
 ```
 
 ## 11.7 Build Fails

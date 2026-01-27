@@ -2,11 +2,10 @@
 # One-command build and package for ARM deployment
 # This builds the release AND creates the deployment package
 #
-# Usage:
-#   ./scripts/build_and_package.sh              # Build for Debian 12 (Bookworm)
-#   ./scripts/build_and_package.sh --bullseye   # Build for Debian 11 (Bullseye)
+# Target: Raspberry Pi OS Bookworm (64-bit) with Wayland/labwc
 #
-# Use --bullseye for reTerminal DM or older Raspberry Pi OS installations
+# Usage:
+#   ./scripts/build_and_package.sh
 
 set -e
 
@@ -15,25 +14,9 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$PROJECT_ROOT"
 
-# Parse arguments
-TARGET_OS="bookworm"
-BUILD_FLAG=""
-
-if [ "$1" = "--bullseye" ]; then
-    TARGET_OS="bullseye"
-    BUILD_FLAG="--bullseye"
-elif [ -n "$1" ]; then
-    echo "ERROR: Unknown option '$1'"
-    echo ""
-    echo "Usage: $0 [--bullseye]"
-    echo "  --bullseye  Build for Debian 11 (Bullseye) - for reTerminal DM"
-    echo "  (default)   Build for Debian 12 (Bookworm)"
-    exit 1
-fi
-
 echo "=== PouCon Complete Build Process ==="
 echo ""
-echo "Target OS: Debian $TARGET_OS"
+echo "Target: Raspberry Pi OS Bookworm (64-bit)"
 echo ""
 echo "This will:"
 echo "  1. Build ARM release using Docker (~10-20 minutes)"
@@ -49,8 +32,8 @@ fi
 
 # Step 1: Build ARM release
 echo ""
-echo "=== Step 1: Building ARM Release (Debian $TARGET_OS) ==="
-./scripts/build_arm.sh $BUILD_FLAG
+echo "=== Step 1: Building ARM Release ==="
+./scripts/build_arm.sh
 
 # Step 2: Create deployment package
 echo ""
@@ -60,7 +43,7 @@ echo "=== Step 2: Creating Deployment Package ==="
 echo ""
 echo "=== Complete Build Process Finished! ==="
 echo ""
-echo "Target OS: Debian $TARGET_OS"
+echo "Target: Raspberry Pi OS Bookworm (64-bit)"
 echo ""
 echo "Deployment package is ready:"
 ls -lh pou_con_deployment_*.tar.gz | tail -1

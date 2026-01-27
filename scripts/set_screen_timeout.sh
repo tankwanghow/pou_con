@@ -50,18 +50,38 @@ else
     echo "Screen timeout disabled (always on)"
 fi
 
-# Restart swayidle if running (to apply changes immediately)
+# Stop existing swayidle if running
 if pgrep -u "$DISPLAY_USER" swayidle > /dev/null 2>&1; then
     pkill -u "$DISPLAY_USER" swayidle || true
     sleep 1
-
-    # Start new swayidle if timeout > 0
-    if [ "$TIMEOUT_SECONDS" -gt 0 ]; then
-        sudo -u "$DISPLAY_USER" sh -c "swayidle -w timeout $TIMEOUT_SECONDS 'echo 0 > $BACKLIGHT_PATH' resume 'echo $MAX_BRIGHTNESS > $BACKLIGHT_PATH' &" 2>/dev/null || true
-        echo "swayidle restarted with new timeout"
-    else
-        echo "swayidle stopped (screen always on)"
-    fi
+    echo "Stopped existing swayidle"
 fi
 
-echo "Done. Changes will persist after reboot."
+# Start swayidle if timeout > 0
+# Need to set Wayland environment variables to connect to the compositor
+if [ "$TIMEOUT_SECONDS" -gt 0 ]; then
+    # Find the Wayland display socket
+    XDG_RUNTIME="/run/user/$(id -u "$DISPLAY_USER")"
+    WAYLAND_SOCK=$(ls "$XDG_RUNTIME"/wayland-* 2>/dev/null | head -1 | xargs basename 2>/dev/null || echo "wayland-0")
+
+    if [ -S "$XDG_RUNTIME/$WAYLAND_SOCK" ]; then
+        # Start swayidle with proper Wayland environment
+        sudo -u "$DISPLAY_USER" \
+            WAYLAND_DISPLAY="$WAYLAND_SOCK" \
+            XDG_RUNTIME_DIR="$XDG_RUNTIME" \
+            sh -c "swayidle -w timeout $TIMEOUT_SECONDS 'echo 0 > $BACKLIGHT_PATH' resume 'echo $MAX_BRIGHTNESS > $BACKLIGHT_PATH' &" 2>/dev/null
+
+        if pgrep -u "$DISPLAY_USER" swayidle > /dev/null 2>&1; then
+            echo "swayidle started with ${TIMEOUT_SECONDS}s timeout"
+        else
+            echo "Note: swayidle configured but could not start immediately."
+            echo "      It will start automatically on next login/reboot."
+        fi
+    else
+        echo "Note: Wayland display not found. swayidle will start on next login/reboot."
+    fi
+else
+    echo "Screen timeout disabled (swayidle not running)"
+fi
+
+echo "Done. Configuration saved to $AUTOSTART_FILE"

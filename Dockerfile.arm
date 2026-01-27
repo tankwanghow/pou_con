@@ -69,6 +69,7 @@ RUN mix deps.compile --force
 COPY priv priv
 COPY lib lib
 COPY assets assets
+COPY docs docs
 
 # Ensure vendor binaries are executable (permissions can be lost during COPY)
 RUN chmod +x assets/vendor/bin/* 2>/dev/null || true

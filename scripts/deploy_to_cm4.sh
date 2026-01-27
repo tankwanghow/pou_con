@@ -113,10 +113,14 @@ deploy_to_cm4() {
         echo "Creating service user if needed..."
         if ! id "$SERVICE_USER" &>/dev/null; then
             sudo useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
-            # Add to dialout group for serial port access (Modbus RTU)
-            sudo usermod -aG dialout "$SERVICE_USER"
             echo "Created system user: $SERVICE_USER"
         fi
+
+        # Add to required groups
+        echo "Configuring user groups..."
+        sudo usermod -aG dialout "$SERVICE_USER"  # Serial port access (Modbus RTU)
+        sudo usermod -aG video "$SERVICE_USER"    # Backlight control (screen blanking)
+        echo "Added $SERVICE_USER to dialout and video groups"
 
         echo "Backing up current installation..."
         if [ -d /opt/pou_con ]; then
@@ -163,59 +167,56 @@ deploy_to_cm4() {
         echo "Starting service..."
         sudo systemctl start pou_con 2>/dev/null || echo "Service not configured. Run setup manually."
 
+        # Run setup_sudo.sh if it exists (enables web-based time setting, reboot, screen control)
+        echo "Configuring sudo permissions..."
+        if [ -f /opt/pou_con/setup_sudo.sh ]; then
+            sudo bash /opt/pou_con/setup_sudo.sh
+            echo "Sudo permissions configured"
+        else
+            echo "WARNING: setup_sudo.sh not found. Web-based time/reboot/screen control may not work."
+        fi
+
         echo "Configuring screen saver (3 minute idle timeout)..."
         IDLE_SECONDS=180
 
-        # Detect if this is a reTerminal DM (has lcd_backlight)
-        if [ -f /sys/class/backlight/lcd_backlight/brightness ]; then
-            echo "Detected reTerminal DM (lcd_backlight present)"
-            IS_RETERMINAL=true
-        else
-            IS_RETERMINAL=false
-        fi
-
-        # Configure X11 screen blanking via LXDE autostart
-        sudo mkdir -p /etc/xdg/lxsession/LXDE-pi
-        sudo tee /etc/xdg/lxsession/LXDE-pi/autostart > /dev/null << EOF
-@lxpanel --profile LXDE-pi
-@pcmanfm --desktop --profile LXDE-pi
-@xset s ${IDLE_SECONDS} ${IDLE_SECONDS}
-@xset dpms ${IDLE_SECONDS} ${IDLE_SECONDS} ${IDLE_SECONDS}
-@xset +dpms
-EOF
-
-        # Configure lightdm for reTerminal DM compatibility
-        # Uses -s 0 -dpms to avoid wake-up issues on reTerminal displays
-        # DPMS timeout is controlled via runtime xset commands instead
-        if [ -d /etc/lightdm ]; then
-            sudo mkdir -p /etc/lightdm/lightdm.conf.d
-            sudo tee /etc/lightdm/lightdm.conf.d/screensaver.conf > /dev/null << EOF
-[SeatDefaults]
-xserver-command=X -s 0 -dpms
-EOF
-            echo "Configured lightdm for reliable DPMS wake-up"
-        fi
-
-        # Also update main lightdm.conf if it exists (for reTerminal DM)
-        if [ -f /etc/lightdm/lightdm.conf ]; then
-            if grep -q "^#xserver-command=X" /etc/lightdm/lightdm.conf; then
-                sudo sed -i 's/^#xserver-command=X.*/xserver-command=X -s 0 -dpms/' /etc/lightdm/lightdm.conf
-                echo "Updated /etc/lightdm/lightdm.conf for DPMS compatibility"
+        # Detect backlight device
+        BACKLIGHT_PATH=""
+        for bl in lcd_backlight 10-0045 rpi_backlight backlight; do
+            if [ -f "/sys/class/backlight/$bl/brightness" ]; then
+                BACKLIGHT_PATH="/sys/class/backlight/$bl"
+                echo "Found backlight device: $bl"
+                break
             fi
+        done
+
+        # Configure Wayland (labwc) screen blanking via swayidle
+        echo "Configuring screen blanking for Wayland (labwc)..."
+
+        if [ -f /opt/pou_con/scripts/set_screen_timeout.sh ]; then
+            sudo /opt/pou_con/scripts/set_screen_timeout.sh $IDLE_SECONDS pi
+            echo "Screen timeout configured via set_screen_timeout.sh"
+        elif [ -n "$BACKLIGHT_PATH" ]; then
+            # Manual labwc autostart configuration
+            DISPLAY_USER="pi"
+            AUTOSTART_FILE="/home/$DISPLAY_USER/.config/labwc/autostart"
+            MAX_BRIGHT=$(cat "$BACKLIGHT_PATH/max_brightness" 2>/dev/null || echo "5")
+
+            sudo mkdir -p "$(dirname "$AUTOSTART_FILE")"
+            if [ -f "$AUTOSTART_FILE" ]; then
+                sudo sed -i '/swayidle/d' "$AUTOSTART_FILE"
+            fi
+            echo "swayidle -w timeout $IDLE_SECONDS 'echo 0 > $BACKLIGHT_PATH/brightness' resume 'echo $MAX_BRIGHT > $BACKLIGHT_PATH/brightness' &" | sudo tee -a "$AUTOSTART_FILE" > /dev/null
+            sudo chown "$DISPLAY_USER:$DISPLAY_USER" "$AUTOSTART_FILE"
+            echo "Configured labwc autostart with swayidle"
+        else
+            echo "WARNING: No backlight device found. Screen blanking may not work."
         fi
 
-        # Apply immediately if X is running
-        export DISPLAY=:0
-        xset s ${IDLE_SECONDS} ${IDLE_SECONDS} 2>/dev/null || true
-        xset dpms ${IDLE_SECONDS} ${IDLE_SECONDS} ${IDLE_SECONDS} 2>/dev/null || true
-        xset +dpms 2>/dev/null || true
-        echo "Screen saver configured for ${IDLE_SECONDS} seconds"
-
-        # For reTerminal DM, ensure backlight is at max
-        if [ "$IS_RETERMINAL" = true ]; then
-            MAX_BRIGHT=$(cat /sys/class/backlight/lcd_backlight/max_brightness)
-            echo $MAX_BRIGHT | sudo tee /sys/class/backlight/lcd_backlight/brightness > /dev/null
-            echo "Set reTerminal DM backlight to maximum ($MAX_BRIGHT)"
+        # Ensure backlight is at max
+        if [ -n "$BACKLIGHT_PATH" ]; then
+            MAX_BRIGHT=$(cat "$BACKLIGHT_PATH/max_brightness")
+            echo $MAX_BRIGHT | sudo tee "$BACKLIGHT_PATH/brightness" > /dev/null
+            echo "Set backlight to maximum ($MAX_BRIGHT)"
         fi
 
         echo "Deployment complete!"

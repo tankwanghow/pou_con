@@ -1,6 +1,6 @@
 # PouCon User Manual
 
-**Version 1.1**
+**Version 1.2**
 
 A comprehensive guide to operating the PouCon Poultry Farm Automation System.
 
@@ -83,6 +83,20 @@ After setup, you'll be redirected to the login page.
 
 1. Open the sidebar menu
 2. Click **Logout** at the bottom (only visible when logged in as admin)
+
+### System Permissions (Raspberry Pi Only)
+
+For full functionality on deployed Raspberry Pi devices, run this command once via SSH:
+```bash
+sudo bash /opt/pou_con/setup_sudo.sh
+```
+
+This enables:
+- **System Time**: Set date/time from the web interface (for RTC battery failure recovery)
+- **System Management**: Reboot/shutdown from the web interface
+- **Screen Saver**: Control screen blank timeout on Wayland (Bookworm) systems
+
+Without this setup, these features will show permission errors or "Setup Required" messages.
 
 ---
 
@@ -814,7 +828,38 @@ Configure recurring operations tasks.
 
 ### System Time (`/admin/system_time`)
 
-View and set system time (for embedded devices without network time).
+View and manually set system time for embedded devices. This feature is primarily used when:
+- The RTC (Real-Time Clock) battery has failed and time resets on power loss
+- The device has no network connection for automatic NTP sync
+- Time needs to be corrected after extended power outages
+
+#### Features
+
+| Function | Description |
+|----------|-------------|
+| **Current Time** | Shows system time and whether NTP sync is active |
+| **Set Date/Time** | Manually set the system clock |
+| **Sync to Hardware** | Write system time to the RTC chip |
+| **Enable NTP** | Turn on automatic network time sync |
+
+#### Setup Required
+
+System time management requires sudo permissions. Run once during deployment:
+```bash
+sudo bash /opt/pou_con/setup_sudo.sh
+```
+
+This enables the web interface to run `date`, `hwclock`, and `timedatectl` commands.
+
+#### Why Time Matters
+
+Accurate time is critical for:
+- Equipment event logs (when did the pump start?)
+- Scheduled operations (lighting, feeding, egg collection)
+- Daily summary reports
+- Alarm history timestamps
+
+If the RTC battery fails and power is lost, the system may boot with an incorrect date (often January 1970). Use this page to correct the time before normal operations resume.
 
 ### Backup & Restore (`/admin/backup`)
 
@@ -835,22 +880,84 @@ Manage database backups:
 ### System Management (`/admin/system`)
 
 System utilities and maintenance functions:
-- View system information
-- Restart services
-- Clear caches
-- View system logs
+
+| Function | Description |
+|----------|-------------|
+| **System Info** | View hardware details, OS version, uptime |
+| **Reboot** | Restart the Raspberry Pi |
+| **Shutdown** | Power off the system safely |
+| **Service Status** | Check if PouCon service is running |
+
+#### Setup Required
+
+Reboot and shutdown functions require sudo permissions. Run once during deployment:
+```bash
+sudo bash /opt/pou_con/setup_sudo.sh
+```
+
+This is the same script used for System Time and Screen Saver setup.
 
 ### Screen Saver (`/admin/screensaver`)
 
-Configure the screen saver for kiosk deployments:
+Configure screen blanking timeout to prevent screen burn-in and reduce power consumption on kiosk deployments.
+
+#### How It Works
+
+The screen timeout feature turns off the display after a period of inactivity. Touch the screen to wake it up.
 
 | Setting | Description |
 |---------|-------------|
-| **Enable** | Turn screen saver on/off |
-| **Timeout** | Minutes of inactivity before activation |
-| **Type** | Screen saver style (blank, clock, etc.) |
+| **Timeout Presets** | Quick selection: 1, 3, 5, 10, 15, 30 minutes, or Never |
+| **Custom Timeout** | Enter any value from 0-3600 seconds (0 = always on) |
 
-The screen saver helps prevent screen burn-in on displays running 24/7.
+#### Setup Required
+
+Screen blanking requires the setup script to be run once during deployment:
+```bash
+sudo bash /opt/pou_con/setup_sudo.sh
+```
+
+This configures passwordless sudo for the screen timeout script, which controls swayidle on Wayland (labwc).
+
+#### Backlight Device Paths
+
+Different hardware uses different backlight paths in `/sys/class/backlight/`:
+
+| Device | Backlight Path |
+|--------|---------------|
+| reTerminal DM | `lcd_backlight` or `10-0045` |
+| Official 7" Display | `rpi_backlight` |
+| DSI Displays | `10-0045` |
+
+PouCon automatically discovers the correct backlight path.
+
+#### Troubleshooting Screen Blanking
+
+**"Setup Required" message appears:**
+- Run `sudo bash /opt/pou_con/setup_sudo.sh` on the Raspberry Pi
+- Refresh the page after running the script
+
+**"No display detected" message:**
+- Screen controls only work on deployed Raspberry Pi hardware
+- This is normal when testing on a development machine
+
+**Screen doesn't blank on Wayland:**
+1. Check if labwc is running: `pgrep labwc`
+2. Check if swayidle is running: `pgrep swayidle`
+3. Verify autostart file exists: `cat ~/.config/labwc/autostart`
+4. Test backlight manually: `echo 0 | sudo tee /sys/class/backlight/lcd_backlight/brightness`
+
+**Screen doesn't wake on touch:**
+- Ensure the resume command is configured in swayidle
+- Check max_brightness value: `cat /sys/class/backlight/lcd_backlight/max_brightness`
+- Manually wake: `echo 5 | sudo tee /sys/class/backlight/lcd_backlight/brightness`
+
+#### Technical Details
+
+Screen blanking on Raspberry Pi OS Bookworm (Wayland/labwc) uses:
+- `swayidle` daemon to detect inactivity
+- Direct backlight control via sysfs (`/sys/class/backlight/*/brightness`)
+- Configuration stored in `~/.config/labwc/autostart`
 
 ---
 
