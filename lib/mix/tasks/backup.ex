@@ -18,10 +18,10 @@ defmodule Mix.Tasks.Backup do
 
   ## Options
 
-    --output DIR      Output directory (default: current directory)
-    --full            Include logging data (equipment_events, data_point_logs, etc.)
-    --since DATE      Only include logs since this date (ISO format: YYYY-MM-DD)
-    --include-flocks  Include flock data (included by default with --full)
+    --output DIR         Output directory (default: current directory)
+    --full               Include logging data (equipment_events, data_point_logs, etc.)
+    --since DATE         Only include logs since this date (ISO format: YYYY-MM-DD)
+    --no-include-flocks  Exclude flock data (included by default)
 
   ## Output
 
@@ -52,7 +52,7 @@ defmodule Mix.Tasks.Backup do
 
   @shortdoc "Create backup for Pi replacement or central server sync"
 
-  @backup_version "2.0"
+  @backup_version "2.1"
 
   @impl Mix.Task
   def run(args) do
@@ -71,7 +71,8 @@ defmodule Mix.Tasks.Backup do
     output_dir = opts[:output] || "."
     full_backup = opts[:full] || false
     since = parse_since(opts[:since])
-    include_flocks = opts[:include_flocks] || full_backup
+    # Include flocks by default (can be disabled with --no-include-flocks)
+    include_flocks = Keyword.get(opts, :include_flocks, true)
 
     IO.puts("Creating PouCon backup...")
     if full_backup, do: IO.puts("  Mode: Full (config + logs)")
@@ -156,12 +157,12 @@ defmodule Mix.Tasks.Backup do
   Used by both the mix task and the web API.
 
   Options:
-    - include_flocks: boolean (default false)
+    - include_flocks: boolean (default true)
     - include_logs: boolean (default false)
     - since: DateTime or nil (for incremental log sync)
   """
   def build_backup(opts \\ %{}) do
-    include_flocks = Map.get(opts, :include_flocks, false)
+    include_flocks = Map.get(opts, :include_flocks, true)
     include_logs = Map.get(opts, :include_logs, false)
     since = Map.get(opts, :since)
 
@@ -243,7 +244,9 @@ defmodule Mix.Tasks.Backup do
         ip_address: p.ip_address,
         s7_rack: p.s7_rack,
         s7_slot: p.s7_slot,
-        description: p.description
+        description: p.description,
+        inserted_at: p.inserted_at,
+        updated_at: p.updated_at
       }
     )
     |> Repo.all()
@@ -270,7 +273,9 @@ defmodule Mix.Tasks.Backup do
         max_valid: d.max_valid,
         log_interval: d.log_interval,
         color_zones: d.color_zones,
-        byte_order: d.byte_order
+        byte_order: d.byte_order,
+        inserted_at: d.inserted_at,
+        updated_at: d.updated_at
       }
     )
     |> Repo.all()
@@ -286,7 +291,9 @@ defmodule Mix.Tasks.Backup do
         type: e.type,
         data_point_tree: e.data_point_tree,
         active: e.active,
-        poll_interval_ms: e.poll_interval_ms
+        poll_interval_ms: e.poll_interval_ms,
+        inserted_at: e.inserted_at,
+        updated_at: e.updated_at
       }
     )
     |> Repo.all()
@@ -302,7 +309,9 @@ defmodule Mix.Tasks.Backup do
         id: v.id,
         slave_id: v.slave_id,
         channel: v.channel,
-        state: v.state
+        state: v.state,
+        inserted_at: v.inserted_at,
+        updated_at: v.updated_at
       }
     )
     |> Repo.all()
@@ -314,7 +323,9 @@ defmodule Mix.Tasks.Backup do
         id: i.id,
         upstream_equipment_id: i.upstream_equipment_id,
         downstream_equipment_id: i.downstream_equipment_id,
-        enabled: i.enabled
+        enabled: i.enabled,
+        inserted_at: i.inserted_at,
+        updated_at: i.updated_at
       }
     )
     |> Repo.all()
@@ -347,7 +358,9 @@ defmodule Mix.Tasks.Backup do
         step_4_pumps: c.step_4_pumps,
         step_5_temp: c.step_5_temp,
         step_5_extra_fans: c.step_5_extra_fans,
-        step_5_pumps: c.step_5_pumps
+        step_5_pumps: c.step_5_pumps,
+        inserted_at: c.inserted_at,
+        updated_at: c.updated_at
       }
     )
     |> Repo.one()
@@ -361,7 +374,9 @@ defmodule Mix.Tasks.Backup do
         name: l.name,
         on_time: l.on_time,
         off_time: l.off_time,
-        enabled: l.enabled
+        enabled: l.enabled,
+        inserted_at: l.inserted_at,
+        updated_at: l.updated_at
       }
     )
     |> Repo.all()
@@ -376,7 +391,9 @@ defmodule Mix.Tasks.Backup do
         name: e.name,
         start_time: e.start_time,
         stop_time: e.stop_time,
-        enabled: e.enabled
+        enabled: e.enabled,
+        inserted_at: e.inserted_at,
+        updated_at: e.updated_at
       }
     )
     |> Repo.all()
@@ -390,7 +407,9 @@ defmodule Mix.Tasks.Backup do
         move_to_back_limit_time: f.move_to_back_limit_time,
         move_to_front_limit_time: f.move_to_front_limit_time,
         feedin_front_limit_bucket_id: f.feedin_front_limit_bucket_id,
-        enabled: f.enabled
+        enabled: f.enabled,
+        inserted_at: f.inserted_at,
+        updated_at: f.updated_at
       }
     )
     |> Repo.all()
@@ -406,7 +425,9 @@ defmodule Mix.Tasks.Backup do
         logic: a.logic,
         auto_clear: a.auto_clear,
         enabled: a.enabled,
-        max_mute_minutes: a.max_mute_minutes
+        max_mute_minutes: a.max_mute_minutes,
+        inserted_at: a.inserted_at,
+        updated_at: a.updated_at
       }
     )
     |> Repo.all()
@@ -421,7 +442,9 @@ defmodule Mix.Tasks.Backup do
         source_name: c.source_name,
         condition: c.condition,
         threshold: c.threshold,
-        enabled: c.enabled
+        enabled: c.enabled,
+        inserted_at: c.inserted_at,
+        updated_at: c.updated_at
       }
     )
     |> Repo.all()
@@ -435,7 +458,9 @@ defmodule Mix.Tasks.Backup do
         name: t.name,
         color: t.color,
         icon: t.icon,
-        sort_order: t.sort_order
+        sort_order: t.sort_order,
+        inserted_at: t.inserted_at,
+        updated_at: t.updated_at
       }
     )
     |> Repo.all()
@@ -453,7 +478,9 @@ defmodule Mix.Tasks.Backup do
         time_window: t.time_window,
         priority: t.priority,
         enabled: t.enabled,
-        requires_notes: t.requires_notes
+        requires_notes: t.requires_notes,
+        inserted_at: t.inserted_at,
+        updated_at: t.updated_at
       }
     )
     |> Repo.all()
@@ -469,7 +496,9 @@ defmodule Mix.Tasks.Backup do
         breed: f.breed,
         notes: f.notes,
         active: f.active,
-        sold_date: f.sold_date
+        sold_date: f.sold_date,
+        inserted_at: f.inserted_at,
+        updated_at: f.updated_at
       }
     )
     |> Repo.all()
@@ -552,7 +581,9 @@ defmodule Mix.Tasks.Backup do
           total_runtime_minutes: d.total_runtime_minutes,
           total_cycles: d.total_cycles,
           error_count: d.error_count,
-          state_change_count: d.state_change_count
+          state_change_count: d.state_change_count,
+          inserted_at: d.inserted_at,
+          updated_at: d.updated_at
         },
         order_by: [asc: d.date]
       )
@@ -578,7 +609,9 @@ defmodule Mix.Tasks.Backup do
           log_date: f.log_date,
           deaths: f.deaths,
           eggs: f.eggs,
-          notes: f.notes
+          notes: f.notes,
+          inserted_at: f.inserted_at,
+          updated_at: f.updated_at
         },
         order_by: [asc: f.log_date]
       )
@@ -604,7 +637,9 @@ defmodule Mix.Tasks.Backup do
           completed_at: c.completed_at,
           completed_by: c.completed_by,
           notes: c.notes,
-          duration_minutes: c.duration_minutes
+          duration_minutes: c.duration_minutes,
+          inserted_at: c.inserted_at,
+          updated_at: c.updated_at
         },
         order_by: [asc: c.completed_at]
       )

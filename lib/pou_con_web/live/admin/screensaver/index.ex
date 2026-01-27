@@ -1,11 +1,12 @@
 defmodule PouConWeb.Live.Admin.Screensaver.Index do
   @moduledoc """
-  Admin page for configuring screen blanking timeout.
+  Admin page for configuring screen blanking timeout and click sounds.
   """
 
   use PouConWeb, :live_view
 
   alias PouCon.Hardware.Screensaver
+  alias PouCon.Hardware.BuzzerServer
 
   @preset_options [
     {60, "1 minute"},
@@ -158,13 +159,86 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
           </p>
         </div>
 
+        <%!-- Click Sound Settings --%>
+        <div class={[
+          "p-4 border rounded-lg",
+          if(@buzzer_status.hardware_available,
+            do: "bg-purple-500/10 border-purple-500/30",
+            else: "bg-base-200 border-base-300 opacity-60"
+          )
+        ]}>
+          <h3 class="text-lg font-semibold mb-3">Click Sound Feedback</h3>
+          <p class="text-sm text-base-content/70 mb-4">
+            Play a beep sound when buttons and links are pressed.
+          </p>
+
+          <%= if @buzzer_status.hardware_available do %>
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="font-medium">Click Sounds</span>
+                <span class={[
+                  "ml-2 px-2 py-0.5 rounded text-xs",
+                  if(@buzzer_status.enabled,
+                    do: "bg-green-500/20 text-green-500",
+                    else: "bg-gray-500/20 text-gray-500"
+                  )
+                ]}>
+                  {if @buzzer_status.enabled, do: "Enabled", else: "Disabled"}
+                </span>
+              </div>
+
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  phx-click="test_buzzer"
+                  data-no-beep="true"
+                  class="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm"
+                >
+                  Test Beep
+                </button>
+                <button
+                  type="button"
+                  phx-click="toggle_buzzer"
+                  data-no-beep="true"
+                  class={[
+                    "px-4 py-2 rounded text-sm font-medium transition-colors",
+                    if(@buzzer_status.enabled,
+                      do: "bg-gray-600 text-white hover:bg-gray-700",
+                      else: "bg-green-600 text-white hover:bg-green-700"
+                    )
+                  ]}
+                >
+                  {if @buzzer_status.enabled, do: "Disable", else: "Enable"}
+                </button>
+              </div>
+            </div>
+
+            <%= if not @buzzer_status.hardware_writable do %>
+              <div class="mt-3 p-2 bg-orange-500/10 border border-orange-500/30 rounded text-xs">
+                <span class="text-orange-600">
+                  Buzzer detected but not writable. Run setup script:
+                </span>
+                <code class="block mt-1 bg-gray-900 text-green-400 px-2 py-1 rounded font-mono">
+                  sudo bash /opt/pou_con/setup_sudo.sh
+                </code>
+              </div>
+            <% end %>
+          <% else %>
+            <div class="p-3 bg-base-200 border border-base-300 rounded">
+              <p class="text-base-content/70 text-sm">
+                No hardware buzzer detected. This feature is only available on reTerminal DM.
+              </p>
+            </div>
+          <% end %>
+        </div>
+
         <%!-- Info --%>
         <div class="p-4 bg-base-100 border border-base-300 rounded-lg text-sm">
-          <h3 class="font-semibold mb-2">About Screen Blanking</h3>
+          <h3 class="font-semibold mb-2">About Display Settings</h3>
           <ul class="list-disc list-inside space-y-1 text-base-content/70">
             <li>Screen blanking turns off the display after a period of inactivity</li>
             <li>Touch the screen to wake it up</li>
-            <li>Helps extend display lifespan and reduce power consumption</li>
+            <li>Click sounds provide audible feedback on touchscreen interactions</li>
             <li>Settings persist across reboots</li>
           </ul>
         </div>
@@ -176,11 +250,13 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
   @impl true
   def mount(_params, _session, socket) do
     settings = fetch_settings()
+    buzzer_status = BuzzerServer.get_status()
 
     {:ok,
      socket
-     |> assign(:page_title, "Screen Saver")
+     |> assign(:page_title, "Display Settings")
      |> assign(:settings, settings)
+     |> assign(:buzzer_status, buzzer_status)
      |> assign(:preset_options, @preset_options)
      |> assign(:form, to_form(%{"seconds" => ""}))}
   end
@@ -235,6 +311,24 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
          socket
          |> put_flash(:error, "Please enter a valid number")}
     end
+  end
+
+  @impl true
+  def handle_event("toggle_buzzer", _params, socket) do
+    new_state = not socket.assigns.buzzer_status.enabled
+    BuzzerServer.set_enabled(new_state)
+    buzzer_status = BuzzerServer.get_status()
+
+    {:noreply,
+     socket
+     |> assign(:buzzer_status, buzzer_status)
+     |> put_flash(:info, "Click sounds #{if new_state, do: "enabled", else: "disabled"}")}
+  end
+
+  @impl true
+  def handle_event("test_buzzer", _params, socket) do
+    PouCon.Hardware.Buzzer.beep()
+    {:noreply, socket}
   end
 
   defp fetch_settings do

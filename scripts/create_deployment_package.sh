@@ -292,19 +292,10 @@ if [ ! -f server.crt ] || [ ! -s server.crt ]; then
     exit 1
 fi
 
-# Install certificates
+# Install certificates (permissions set later in Step 7 after recursive chown)
 cp server.key "$SSL_DIR/server.key"
 cp server.crt "$SSL_DIR/server.crt"
 cp "$SCRIPT_DIR/ca.crt" "$SSL_DIR/ca.crt"
-
-# Set ownership so pou_con user can read the key
-chown "$SERVICE_USER:$SERVICE_USER" "$SSL_DIR/server.key"
-chown "$SERVICE_USER:$SERVICE_USER" "$SSL_DIR/server.crt"
-chown root:root "$SSL_DIR/ca.crt"
-
-chmod 600 "$SSL_DIR/server.key"
-chmod 644 "$SSL_DIR/server.crt"
-chmod 644 "$SSL_DIR/ca.crt"
 
 # Cleanup
 cd "$SCRIPT_DIR"
@@ -328,6 +319,13 @@ chown -R "$SERVICE_USER:$SERVICE_USER" /var/log/pou_con
 chown -R root:root "$POUCON_CONFIG_DIR"
 chmod 755 "$DATA_DIR"
 chmod 755 "$POUCON_CONFIG_DIR"
+
+# SSL key must be readable by pou_con service (set AFTER recursive chown above)
+chown "$SERVICE_USER:$SERVICE_USER" "$SSL_DIR/server.key"
+chmod 600 "$SSL_DIR/server.key"
+chmod 644 "$SSL_DIR/server.crt"
+chmod 644 "$SSL_DIR/ca.crt"
+echo "   ✓ SSL key ownership set to $SERVICE_USER"
 
 # Group permissions for hardware access
 usermod -a -G dialout "$SERVICE_USER"  # Serial ports (Modbus RTU)

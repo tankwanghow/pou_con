@@ -45,7 +45,7 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
           </p>
 
           <div class="mb-3 text-sm">
-            <strong>Includes:</strong> Ports, data points, equipment, schedules, alarms, tasks
+            <strong>Includes:</strong> Ports, data points, equipment, environment config, light/egg/feeding schedules, alarms, tasks, flocks
           </div>
 
           <a
@@ -202,8 +202,11 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
             <.stat_card label="Equipment" value={@counts.equipment} />
             <.stat_card label="Interlock Rules" value={@counts.interlock_rules} />
             <.stat_card label="Light Schedules" value={@counts.light_schedules} />
+            <.stat_card label="Egg Schedules" value={@counts.egg_schedules} />
+            <.stat_card label="Feeding Schedules" value={@counts.feeding_schedules} />
             <.stat_card label="Alarm Rules" value={@counts.alarm_rules} />
             <.stat_card label="Task Templates" value={@counts.task_templates} />
+            <.stat_card label="Env Config" value={@counts.environment_config} />
           </div>
 
           <h4 class="font-medium mb-2 text-sm text-base-content">Logging Data (last 30 days)</h4>
@@ -804,8 +807,11 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
       equipment: count_table("equipment"),
       interlock_rules: count_table("interlock_rules"),
       light_schedules: count_table("light_schedules"),
+      egg_schedules: count_table("egg_collection_schedules"),
+      feeding_schedules: count_table("feeding_schedules"),
       alarm_rules: count_table("alarm_rules"),
       task_templates: count_table("task_templates"),
+      environment_config: count_table("environment_control_config"),
       # Logging counts (last 30 days)
       equipment_events: count_logs("equipment_events", "inserted_at", thirty_days_ago),
       data_point_logs: count_logs("data_point_logs", "inserted_at", thirty_days_ago),

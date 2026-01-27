@@ -33,7 +33,8 @@ defmodule PouConWeb.API.BackupController do
   """
   def download(conn, params) do
     full_backup = params["full"] == "true"
-    include_flocks = params["include_flocks"] == "true" || full_backup
+    # Include flocks by default (can be disabled with include_flocks=false)
+    include_flocks = params["include_flocks"] != "false"
     since = parse_since(params["since"])
 
     backup_data =

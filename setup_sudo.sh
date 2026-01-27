@@ -1,11 +1,12 @@
 #!/bin/bash
 # Setup passwordless sudo for pou_con service user
-# This enables web-based system time management and screen control
+# This enables web-based system time management, screen control, and buzzer access
 
 set -e
 
 SERVICE_USER="pou_con"
 SUDOERS_FILE="/etc/sudoers.d/pou_con"
+UDEV_RULES_FILE="/etc/udev/rules.d/99-pou_con.rules"
 
 echo "=== PouCon Sudo Configuration ==="
 echo ""
@@ -23,7 +24,7 @@ if ! id "$SERVICE_USER" &>/dev/null; then
     exit 1
 fi
 
-echo "Configuring passwordless sudo for $SERVICE_USER..."
+echo "1. Configuring passwordless sudo for $SERVICE_USER..."
 
 # Create sudoers file with specific command permissions
 cat > "$SUDOERS_FILE" << 'EOF'
@@ -60,16 +61,73 @@ else
 fi
 
 echo ""
+echo "2. Configuring udev rules for hardware access..."
+
+# Create udev rules for buzzer and backlight access
+cat > "$UDEV_RULES_FILE" << EOF
+# PouCon hardware access rules
+# Allows pou_con user (via video group) to control buzzer and backlight
+
+# reTerminal DM buzzer LED - allow video group to write
+SUBSYSTEM=="leds", KERNEL=="usr-buzzer", ACTION=="add", RUN+="/bin/chmod 664 /sys/class/leds/usr-buzzer/brightness", RUN+="/bin/chgrp video /sys/class/leds/usr-buzzer/brightness"
+SUBSYSTEM=="leds", KERNEL=="usr_buzzer", ACTION=="add", RUN+="/bin/chmod 664 /sys/class/leds/usr_buzzer/brightness", RUN+="/bin/chgrp video /sys/class/leds/usr_buzzer/brightness"
+
+# Generic buzzer/beeper LEDs
+SUBSYSTEM=="leds", KERNEL=="buzzer", ACTION=="add", RUN+="/bin/chmod 664 /sys/class/leds/buzzer/brightness", RUN+="/bin/chgrp video /sys/class/leds/buzzer/brightness"
+SUBSYSTEM=="leds", KERNEL=="beep", ACTION=="add", RUN+="/bin/chmod 664 /sys/class/leds/beep/brightness", RUN+="/bin/chgrp video /sys/class/leds/beep/brightness"
+
+# Backlight devices - allow video group to write (some may already have this)
+SUBSYSTEM=="backlight", ACTION=="add", RUN+="/bin/chmod 664 /sys/class/backlight/%k/brightness", RUN+="/bin/chgrp video /sys/class/backlight/%k/brightness"
+EOF
+
+chmod 644 "$UDEV_RULES_FILE"
+echo "   ✓ Udev rules created: $UDEV_RULES_FILE"
+
+# Reload udev rules
+udevadm control --reload-rules
+echo "   ✓ Udev rules reloaded"
+
+# Apply rules to existing devices (trigger re-add)
+echo "   Applying rules to existing devices..."
+if [ -d /sys/class/leds/usr-buzzer ]; then
+    chmod 664 /sys/class/leds/usr-buzzer/brightness 2>/dev/null || true
+    chgrp video /sys/class/leds/usr-buzzer/brightness 2>/dev/null || true
+    echo "   ✓ Buzzer permissions set (usr-buzzer)"
+fi
+if [ -d /sys/class/leds/usr_buzzer ]; then
+    chmod 664 /sys/class/leds/usr_buzzer/brightness 2>/dev/null || true
+    chgrp video /sys/class/leds/usr_buzzer/brightness 2>/dev/null || true
+    echo "   ✓ Buzzer permissions set (usr_buzzer)"
+fi
+
+# Apply to any backlight devices
+for bl in /sys/class/backlight/*/; do
+    if [ -f "${bl}brightness" ]; then
+        chmod 664 "${bl}brightness" 2>/dev/null || true
+        chgrp video "${bl}brightness" 2>/dev/null || true
+        echo "   ✓ Backlight permissions set ($(basename $bl))"
+    fi
+done
+
+echo ""
 echo "=== Configuration Complete ==="
 echo ""
-echo "The $SERVICE_USER user can now run these commands without password:"
-echo "  - sudo date -s \"YYYY-MM-DD HH:MM:SS\"  (set system time)"
-echo "  - sudo hwclock --systohc              (sync hardware clock)"
-echo "  - sudo timedatectl set-ntp true       (enable NTP)"
-echo "  - sudo reboot                         (restart system)"
-echo "  - sudo shutdown -h now                (power off)"
+echo "The $SERVICE_USER user can now:"
+echo ""
+echo "  Sudo commands (passwordless):"
+echo "    - sudo date -s \"YYYY-MM-DD HH:MM:SS\"  (set system time)"
+echo "    - sudo hwclock --systohc              (sync hardware clock)"
+echo "    - sudo timedatectl set-ntp true       (enable NTP)"
+echo "    - sudo reboot                         (restart system)"
+echo "    - sudo shutdown -h now                (power off)"
+echo ""
+echo "  Hardware access (via video group):"
+echo "    - Write to /sys/class/leds/*/brightness  (buzzer control)"
+echo "    - Write to /sys/class/backlight/*/brightness  (screen control)"
 echo ""
 echo "These permissions enable:"
 echo "  - Web-based time setting (Admin -> System Time)"
-echo "  - Web-based system reboot (Admin -> System Management)"
+echo "  - Web-based system reboot (Admin -> System)"
+echo "  - Screen timeout control (Admin -> Screen Saver)"
+echo "  - Buzzer/beep feedback on touch (reTerminal DM)"
 echo ""

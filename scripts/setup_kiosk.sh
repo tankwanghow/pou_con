@@ -1,10 +1,10 @@
 #!/bin/bash
-# Setup touchscreen kiosk mode for PouCon
+# Setup touchscreen kiosk mode for PouCon on Raspberry Pi OS Bookworm (Wayland/labwc)
 # Run this on Raspberry Pi with touchscreen connected
 
 set -e
 
-echo "=== PouCon Touchscreen Kiosk Setup ==="
+echo "=== PouCon Touchscreen Kiosk Setup (Wayland) ==="
 echo ""
 
 # Check if running on Pi
@@ -19,23 +19,28 @@ fi
 
 # Check if PouCon is installed
 if [ ! -f /opt/pou_con/bin/pou_con ]; then
-    echo "ERROR: PouCon not installed. Run deploy.sh first"
+    echo "ERROR: PouCon not installed. Run deploy script first."
     exit 1
 fi
 
-# Check if running Raspberry Pi OS Desktop
-if [ ! -d /usr/share/lightdm ]; then
-    echo "ERROR: This script requires Raspberry Pi OS Desktop"
-    echo "       For Raspberry Pi OS Lite, see TOUCHSCREEN_KIOSK_SETUP.md"
+# Check if labwc is installed (Wayland compositor for Raspberry Pi OS Bookworm)
+if ! command -v labwc &> /dev/null; then
+    echo "ERROR: labwc not installed."
+    echo "       This script requires Raspberry Pi OS Bookworm Desktop."
+    echo "       Install with: sudo apt install labwc"
     exit 1
 fi
 
+# Check if we're running in a graphical session or via SSH
+if pgrep -x labwc > /dev/null 2>&1; then
+    echo "Detected: labwc (Wayland) is running"
+else
+    echo "Note: labwc is installed but not currently running"
+    echo "      (This is normal when running via SSH or before desktop starts)"
+fi
+echo ""
 echo "This will configure the Pi to boot directly to PouCon in fullscreen mode"
 echo "on the connected touchscreen display."
-echo ""
-echo "Keyboard shortcuts available after setup:"
-echo "  F11       - Toggle fullscreen on/off"
-echo "  Alt+Tab   - Switch between applications"
 echo ""
 read -p "Continue? (y/n) " -n 1 -r
 echo
@@ -47,14 +52,20 @@ fi
 echo ""
 echo "1. Installing required packages..."
 sudo apt update
-sudo apt install -y chromium-browser unclutter xdotool
+sudo apt install -y chromium-browser
 
-# Create kiosk script directory
-echo "2. Creating kiosk startup script..."
-mkdir -p ~/.local/bin
-mkdir -p ~/.local/share/poucon
+# Get current user (usually 'pi')
+CURRENT_USER=$(whoami)
+LABWC_CONFIG_DIR="/home/$CURRENT_USER/.config/labwc"
+
+# Create labwc config directory
+echo "2. Creating labwc configuration..."
+mkdir -p "$LABWC_CONFIG_DIR"
 
 # Create loading page (black screen that auto-redirects when PouCon is ready)
+echo "3. Creating loading page..."
+mkdir -p ~/.local/share/poucon
+
 cat > ~/.local/share/poucon/loading.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html>
@@ -120,24 +131,19 @@ cat > ~/.local/share/poucon/loading.html << 'HTMLEOF'
 </html>
 HTMLEOF
 
+# Create kiosk startup script
+echo "4. Creating kiosk startup script..."
+mkdir -p ~/.local/bin
+
 cat > ~/.local/bin/start_poucon_kiosk.sh << 'EOF'
 #!/bin/bash
+# PouCon Kiosk Mode - Wayland/labwc
 
-# Hide mouse cursor after 0.1 seconds of inactivity
-unclutter -idle 0.1 -root &
-
-# Disable screen blanking
-xset s off
-xset -dpms
-xset s noblank
-
-# Optional: Set brightness (uncomment and adjust for your panel)
-# echo 200 | sudo tee /sys/class/backlight/*/brightness > /dev/null 2>&1
-
-# Start Chromium immediately with loading page (shows black screen)
-# The loading page will auto-redirect to PouCon when it's ready
+# Start Chromium in kiosk mode with Wayland support
+# The loading page shows a black screen and auto-redirects when PouCon is ready
 chromium-browser \
-  --start-fullscreen \
+  --ozone-platform=wayland \
+  --kiosk \
   --noerrdialogs \
   --disable-infobars \
   --disable-session-crashed-bubble \
@@ -149,61 +155,74 @@ chromium-browser \
   --disk-cache-dir=/dev/null \
   --overscroll-history-navigation=0 \
   --disable-pinch \
-  file://$HOME/.local/share/poucon/loading.html
+  --enable-features=TouchpadOverscrollHistoryNavigation \
+  "file://$HOME/.local/share/poucon/loading.html"
 EOF
 
 chmod +x ~/.local/bin/start_poucon_kiosk.sh
 
-# Create autostart configuration
-echo "3. Creating autostart configuration..."
-mkdir -p ~/.config/autostart
+# Update labwc autostart to include kiosk browser
+echo "5. Configuring labwc autostart..."
 
-cat > ~/.config/autostart/poucon-kiosk.desktop << EOF
-[Desktop Entry]
-Type=Application
-Name=PouCon Kiosk
-Exec=$HOME/.local/bin/start_poucon_kiosk.sh
-X-GNOME-Autostart-enabled=true
-EOF
+# Backup existing autostart if it exists
+if [ -f "$LABWC_CONFIG_DIR/autostart" ]; then
+    cp "$LABWC_CONFIG_DIR/autostart" "$LABWC_CONFIG_DIR/autostart.backup"
+    # Remove any existing poucon kiosk line
+    sed -i '/start_poucon_kiosk/d' "$LABWC_CONFIG_DIR/autostart"
+fi
 
-# Disable screen saver
-echo "4. Disabling screen saver..."
-sudo mkdir -p /etc/X11/xorg.conf.d/
-sudo cat > /etc/X11/xorg.conf.d/10-monitor.conf << 'EOF'
-Section "ServerLayout"
-    Identifier "ServerLayout0"
-    Option "BlankTime"   "0"
-    Option "StandbyTime" "0"
-    Option "SuspendTime" "0"
-    Option "OffTime"     "0"
-EndSection
+# Add kiosk to autostart
+echo "$HOME/.local/bin/start_poucon_kiosk.sh &" >> "$LABWC_CONFIG_DIR/autostart"
+
+# Configure labwc to hide cursor after inactivity
+echo "6. Configuring cursor hiding..."
+cat > "$LABWC_CONFIG_DIR/rc.xml" << 'EOF'
+<?xml version="1.0"?>
+<labwc_config>
+  <core>
+    <gap>0</gap>
+  </core>
+  <mouse>
+    <hideWhenTyping>yes</hideWhenTyping>
+  </mouse>
+  <libinput>
+    <device category="touch">
+      <tap>yes</tap>
+    </device>
+  </libinput>
+</labwc_config>
 EOF
 
 # Check and enable auto-login
-echo "5. Checking auto-login configuration..."
-CURRENT_USER=$(whoami)
-if ! grep -q "^autologin-user=" /etc/lightdm/lightdm.conf 2>/dev/null; then
-    echo "   Enabling auto-login for user: $CURRENT_USER"
-    sudo sed -i "s/^#autologin-user=/autologin-user=$CURRENT_USER/" /etc/lightdm/lightdm.conf
-
-    # If that didn't work, add it manually
+echo "7. Checking auto-login configuration..."
+if [ -f /etc/lightdm/lightdm.conf ]; then
     if ! grep -q "^autologin-user=" /etc/lightdm/lightdm.conf 2>/dev/null; then
-        sudo sed -i "/^\[Seat:\*\]/a autologin-user=$CURRENT_USER" /etc/lightdm/lightdm.conf
+        echo "   Enabling auto-login for user: $CURRENT_USER"
+        sudo sed -i "s/^#autologin-user=/autologin-user=$CURRENT_USER/" /etc/lightdm/lightdm.conf
+
+        # If that didn't work, add it manually
+        if ! grep -q "^autologin-user=" /etc/lightdm/lightdm.conf 2>/dev/null; then
+            sudo sed -i "/^\[Seat:\*\]/a autologin-user=$CURRENT_USER" /etc/lightdm/lightdm.conf
+        fi
+    else
+        echo "   Auto-login already enabled"
     fi
 else
-    echo "   Auto-login already enabled"
+    echo "   WARNING: lightdm.conf not found. Auto-login may need manual configuration."
 fi
 
 # Verify touchscreen is detected
 echo ""
-echo "6. Verifying touchscreen detection..."
-if xinput list | grep -iq touch; then
-    echo "   ✓ Touchscreen detected"
-    xinput list | grep -i touch
+echo "8. Verifying touchscreen detection..."
+if command -v libinput &> /dev/null; then
+    if sudo libinput list-devices 2>/dev/null | grep -iq touch; then
+        echo "   Touchscreen detected"
+    else
+        echo "   WARNING: No touchscreen detected via libinput"
+        echo "   The kiosk will work with mouse/keyboard"
+    fi
 else
-    echo "   ⚠ WARNING: No touchscreen detected"
-    echo "   The kiosk will work with mouse/keyboard"
-    echo "   For touchscreen setup, see TOUCHSCREEN_KIOSK_SETUP.md"
+    echo "   libinput not available for touchscreen detection"
 fi
 
 echo ""
@@ -214,15 +233,14 @@ echo "  1. Reboot: sudo reboot"
 echo "  2. Pi will boot directly to PouCon in fullscreen"
 echo "  3. Touch screen to interact with controls"
 echo ""
-echo "Keyboard shortcuts:"
-echo "  F11       - Toggle fullscreen on/off"
-echo "  Alt+Tab   - Switch between applications"
+echo "To exit kiosk mode temporarily:"
+echo "  - Connect a keyboard and press Alt+F4"
+echo "  - Or SSH in and run: pkill chromium"
 echo ""
-echo "To disable kiosk mode:"
-echo "  rm ~/.config/autostart/poucon-kiosk.desktop"
-echo "  rm ~/.local/bin/start_poucon_kiosk.sh"
+echo "To disable kiosk mode permanently:"
+echo "  sed -i '/start_poucon_kiosk/d' ~/.config/labwc/autostart"
 echo ""
 echo "To customize settings, edit:"
 echo "  ~/.local/bin/start_poucon_kiosk.sh"
+echo "  ~/.config/labwc/autostart"
 echo ""
-echo "For troubleshooting, see TOUCHSCREEN_KIOSK_SETUP.md"

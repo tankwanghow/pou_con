@@ -6,10 +6,12 @@ defmodule PouCon.Backup do
 
   alias PouCon.Repo
 
-  @supported_versions ["1.0", "2.0"]
+  @supported_versions ["1.0", "2.0", "2.1"]
 
   # Tables in order of restoration (respecting foreign keys)
+  # Configuration tables first, then logging tables
   @restore_order [
+    # Configuration tables
     :app_config,
     :ports,
     :data_points,
@@ -24,7 +26,13 @@ defmodule PouCon.Backup do
     :light_schedules,
     :egg_collection_schedules,
     :feeding_schedules,
-    :flocks
+    :flocks,
+    # Logging tables (only present in full backups)
+    :equipment_events,
+    :data_point_logs,
+    :daily_summaries,
+    :flock_logs,
+    :task_completions
   ]
 
   @doc """
@@ -145,7 +153,15 @@ defmodule PouCon.Backup do
 
   defp clear_tables do
     # Clear in reverse order to respect foreign keys
+    # Logging tables first, then configuration tables
     tables_to_clear = [
+      # Logging tables (cleared first, no foreign key dependencies on config)
+      "task_completions",
+      "flock_logs",
+      "daily_summaries",
+      "data_point_logs",
+      "equipment_events",
+      # Configuration tables (in reverse dependency order)
       "alarm_conditions",
       "light_schedules",
       "egg_collection_schedules",
@@ -191,18 +207,61 @@ defmodule PouCon.Backup do
         0
 
       config when is_map(config) ->
-        # Build the update dynamically
-        fields =
-          config
-          |> Map.drop([:id])
-          |> Enum.map(fn {k, v} -> "#{k} = '#{v}'" end)
-          |> Enum.join(", ")
+        # Build parameterized update to handle types correctly
+        config_without_id = Map.drop(config, [:id])
 
-        if fields != "" do
-          Repo.query!("UPDATE environment_control_config SET #{fields} WHERE id = 1")
+        if map_size(config_without_id) > 0 do
+          {columns, values} =
+            config_without_id
+            |> Enum.map(fn {k, v} -> {k, convert_value(v)} end)
+            |> Enum.unzip()
+
+          set_clause =
+            columns
+            |> Enum.with_index(1)
+            |> Enum.map(fn {col, idx} -> "#{col} = ?#{idx}" end)
+            |> Enum.join(", ")
+
+          Repo.query!(
+            "UPDATE environment_control_config SET #{set_clause} WHERE id = 1",
+            values
+          )
         end
 
         1
+    end
+  end
+
+  # Logging tables that only have inserted_at (no updated_at)
+  defp restore_table(backup, table)
+       when table in [:equipment_events, :data_point_logs] do
+    case Map.get(backup, table) do
+      nil ->
+        0
+
+      [] ->
+        0
+
+      rows when is_list(rows) ->
+        table_name = Atom.to_string(table)
+
+        for row <- rows do
+          # Only ensure inserted_at for these tables (no updated_at column)
+          row = ensure_inserted_at_only(row)
+
+          columns = Map.keys(row) |> Enum.map(&Atom.to_string/1)
+          placeholders = Enum.with_index(columns, 1) |> Enum.map(fn {_, i} -> "?#{i}" end)
+          values = Map.values(row) |> Enum.map(&convert_value/1)
+
+          sql = """
+          INSERT INTO #{table_name} (#{Enum.join(columns, ", ")})
+          VALUES (#{Enum.join(placeholders, ", ")})
+          """
+
+          Repo.query!(sql, values)
+        end
+
+        length(rows)
     end
   end
 
@@ -235,6 +294,12 @@ defmodule PouCon.Backup do
 
         length(rows)
     end
+  end
+
+  # For tables with only inserted_at (equipment_events, data_point_logs)
+  defp ensure_inserted_at_only(row) do
+    now = DateTime.utc_now() |> DateTime.to_naive() |> NaiveDateTime.to_string()
+    Map.put_new(row, :inserted_at, now)
   end
 
   # Ensure inserted_at and updated_at timestamps exist for tables that require them
