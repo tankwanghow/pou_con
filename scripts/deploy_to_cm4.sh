@@ -164,10 +164,7 @@ deploy_to_cm4() {
             echo "WARNING: No .env file found. Skipping migrations."
         fi
 
-        echo "Starting service..."
-        sudo systemctl start pou_con 2>/dev/null || echo "Service not configured. Run setup manually."
-
-        # Run setup_sudo.sh if it exists (enables web-based time setting, reboot, screen control)
+        # Run setup_sudo.sh BEFORE starting service (service needs sudo permissions for screen control)
         echo "Configuring sudo permissions..."
         if [ -f /opt/pou_con/setup_sudo.sh ]; then
             sudo bash /opt/pou_con/setup_sudo.sh
@@ -176,8 +173,12 @@ deploy_to_cm4() {
             echo "WARNING: setup_sudo.sh not found. Web-based time/reboot/screen control may not work."
         fi
 
+        echo "Starting service..."
+        sudo systemctl start pou_con 2>/dev/null || echo "Service not configured. Run setup manually."
+
         echo "Configuring screen saver (3 minute idle timeout)..."
         IDLE_SECONDS=180
+        DISPLAY_USER="pi"  # User running the Wayland display (labwc)
 
         # Detect backlight device
         BACKLIGHT_PATH=""
@@ -193,11 +194,10 @@ deploy_to_cm4() {
         echo "Configuring screen blanking for Wayland (labwc)..."
 
         if [ -f /opt/pou_con/scripts/set_screen_timeout.sh ]; then
-            sudo /opt/pou_con/scripts/set_screen_timeout.sh $IDLE_SECONDS pi
+            sudo /opt/pou_con/scripts/set_screen_timeout.sh $IDLE_SECONDS $DISPLAY_USER
             echo "Screen timeout configured via set_screen_timeout.sh"
         elif [ -n "$BACKLIGHT_PATH" ]; then
             # Manual labwc autostart configuration
-            DISPLAY_USER="pi"
             AUTOSTART_FILE="/home/$DISPLAY_USER/.config/labwc/autostart"
             MAX_BRIGHT=$(cat "$BACKLIGHT_PATH/max_brightness" 2>/dev/null || echo "5")
 

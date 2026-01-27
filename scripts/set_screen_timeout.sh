@@ -12,8 +12,23 @@ set -e
 TIMEOUT_SECONDS="${1:-0}"
 DISPLAY_USER="${2:-pi}"
 AUTOSTART_FILE="/home/$DISPLAY_USER/.config/labwc/autostart"
-BACKLIGHT_PATH="/sys/class/backlight/lcd_backlight/brightness"
+
+# Auto-detect backlight device (different hardware uses different paths)
+BACKLIGHT_PATH=""
 MAX_BRIGHTNESS="5"
+for bl in lcd_backlight 10-0045 rpi_backlight backlight; do
+    if [ -f "/sys/class/backlight/$bl/brightness" ]; then
+        BACKLIGHT_PATH="/sys/class/backlight/$bl/brightness"
+        MAX_BRIGHTNESS=$(cat "/sys/class/backlight/$bl/max_brightness" 2>/dev/null || echo "5")
+        break
+    fi
+done
+
+if [ -z "$BACKLIGHT_PATH" ]; then
+    echo "WARNING: No backlight device found. Screen blanking may not work."
+    # Use a default path anyway for the config file
+    BACKLIGHT_PATH="/sys/class/backlight/lcd_backlight/brightness"
+fi
 
 # Validate input
 if ! [[ "$TIMEOUT_SECONDS" =~ ^[0-9]+$ ]]; then

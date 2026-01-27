@@ -148,7 +148,7 @@ openssl req -new -key server.key \
 
 # Create extension file with SAN (Subject Alternative Names)
 cat > server.ext << EOF
-authorityKeyIdentifier=keyIdentifier,issuer
+authorityKeyIdentifier=keyid,issuer
 basicConstraints=CA:FALSE
 keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
 extendedKeyUsage = serverAuth
