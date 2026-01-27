@@ -2,12 +2,19 @@ defmodule PouConWeb.AuthHooks do
   import Phoenix.LiveView
   import Phoenix.Component
 
+  alias PouCon.Hardware.ScreenAlert
+
   # Capture Mix.env at compile time since Mix is not available in releases
   @env Mix.env()
 
   def on_mount(:default, _params, session, socket) do
     current_role = session["current_role"]
-    {:cont, assign(socket, :current_role, current_role)}
+
+    socket =
+      socket
+      |> assign(:current_role, current_role)
+
+    {:cont, socket}
   end
 
   def on_mount(:ensure_is_admin, _params, session, socket) do
@@ -50,32 +57,21 @@ defmodule PouConWeb.AuthHooks do
     end
   end
 
-  def on_mount(:check_system_time, _params, _session, socket) do
-    # Check if system time is valid and add to socket assigns
-    time_valid = check_time_valid?()
-
-    socket =
-      socket
-      |> assign(:system_time_valid, time_valid)
-
-    {:cont, socket}
-  end
-
-  def on_mount(:check_failsafe_status, _params, _session, socket) do
-    # Subscribe to failsafe status updates for real-time banner
+  def on_mount(:check_critical_alerts, _params, _session, socket) do
+    # Subscribe to critical alerts for real-time banner updates
     if Phoenix.LiveView.connected?(socket) do
-      Phoenix.PubSub.subscribe(PouCon.PubSub, "failsafe_status")
+      Phoenix.PubSub.subscribe(PouCon.PubSub, "critical_alerts")
     end
 
-    # Get current failsafe status
-    failsafe_status = get_failsafe_status()
+    # Get current critical alerts
+    critical_alerts = get_critical_alerts()
 
     socket =
       socket
-      |> assign(:failsafe_status, failsafe_status)
-      |> attach_hook(:failsafe_status_hook, :handle_info, fn
-        {:failsafe_status, status}, socket ->
-          {:halt, assign(socket, :failsafe_status, status)}
+      |> assign(:critical_alerts, critical_alerts)
+      |> attach_hook(:critical_alerts_hook, :handle_info, fn
+        {:critical_alerts_changed, alerts}, socket ->
+          {:halt, assign(socket, :critical_alerts, alerts)}
 
         _msg, socket ->
           {:cont, socket}
@@ -93,32 +89,19 @@ defmodule PouConWeb.AuthHooks do
     end
   end
 
-  # Helper to safely check time validity
-  defp check_time_valid? do
+  # Helper to get critical alerts safely
+  defp get_critical_alerts do
     # Skip check in test environment
     if @env == :test do
-      true
+      []
     else
       try do
-        PouCon.SystemTimeValidator.time_valid?()
+        ScreenAlert.list_alerts()
       rescue
-        # If validator not running, assume time is valid
-        _ -> true
-      end
-    end
-  end
-
-  # Helper to get failsafe status safely
-  defp get_failsafe_status do
-    # Skip check in test environment
-    if @env == :test do
-      %{valid: true, expected: 0, actual: 0, fans: []}
-    else
-      try do
-        PouCon.Automation.Environment.FailsafeValidator.status()
-      rescue
-        # If validator not running, assume valid
-        _ -> %{valid: true, expected: 0, actual: 0, fans: []}
+        # If ScreenAlert not running, return empty list
+        _ -> []
+      catch
+        :exit, _ -> []
       end
     end
   end

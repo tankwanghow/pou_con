@@ -135,8 +135,7 @@ defmodule PouConWeb.Live.PowerMeters.Index do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      failsafe_status={assigns[:failsafe_status]}
-      system_time_valid={assigns[:system_time_valid]}
+      critical_alerts={assigns[:critical_alerts]}
     >
       <div class="bg-white shadow-sm rounded-xl border border-gray-200 p-4 mb-6">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">

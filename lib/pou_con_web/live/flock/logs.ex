@@ -153,8 +153,7 @@ defmodule PouConWeb.Live.Flock.Logs do
       flash={@flash}
       class="xs:w-full lg:w-3/4 xl:w-4/5"
       current_role={@current_role}
-      failsafe_status={assigns[:failsafe_status]}
-      system_time_valid={assigns[:system_time_valid]}
+      critical_alerts={assigns[:critical_alerts]}
     >
       <.header>
         <:actions>

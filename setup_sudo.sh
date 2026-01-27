@@ -1,6 +1,6 @@
 #!/bin/bash
 # Setup passwordless sudo for pou_con service user
-# This enables web-based system time management, screen control, and buzzer access
+# This enables web-based system time management and screen control
 
 set -e
 
@@ -63,18 +63,10 @@ fi
 echo ""
 echo "2. Configuring udev rules for hardware access..."
 
-# Create udev rules for buzzer and backlight access
+# Create udev rules for backlight access
 cat > "$UDEV_RULES_FILE" << EOF
 # PouCon hardware access rules
-# Allows pou_con user (via video group) to control buzzer and backlight
-
-# reTerminal DM buzzer LED - allow video group to write
-SUBSYSTEM=="leds", KERNEL=="usr-buzzer", ACTION=="add", RUN+="/bin/chmod 664 /sys/class/leds/usr-buzzer/brightness", RUN+="/bin/chgrp video /sys/class/leds/usr-buzzer/brightness"
-SUBSYSTEM=="leds", KERNEL=="usr_buzzer", ACTION=="add", RUN+="/bin/chmod 664 /sys/class/leds/usr_buzzer/brightness", RUN+="/bin/chgrp video /sys/class/leds/usr_buzzer/brightness"
-
-# Generic buzzer/beeper LEDs
-SUBSYSTEM=="leds", KERNEL=="buzzer", ACTION=="add", RUN+="/bin/chmod 664 /sys/class/leds/buzzer/brightness", RUN+="/bin/chgrp video /sys/class/leds/buzzer/brightness"
-SUBSYSTEM=="leds", KERNEL=="beep", ACTION=="add", RUN+="/bin/chmod 664 /sys/class/leds/beep/brightness", RUN+="/bin/chgrp video /sys/class/leds/beep/brightness"
+# Allows pou_con user (via video group) to control backlight
 
 # Backlight devices - allow video group to write (some may already have this)
 SUBSYSTEM=="backlight", ACTION=="add", RUN+="/bin/chmod 664 /sys/class/backlight/%k/brightness", RUN+="/bin/chgrp video /sys/class/backlight/%k/brightness"
@@ -89,16 +81,6 @@ echo "   ✓ Udev rules reloaded"
 
 # Apply rules to existing devices (trigger re-add)
 echo "   Applying rules to existing devices..."
-if [ -d /sys/class/leds/usr-buzzer ]; then
-    chmod 664 /sys/class/leds/usr-buzzer/brightness 2>/dev/null || true
-    chgrp video /sys/class/leds/usr-buzzer/brightness 2>/dev/null || true
-    echo "   ✓ Buzzer permissions set (usr-buzzer)"
-fi
-if [ -d /sys/class/leds/usr_buzzer ]; then
-    chmod 664 /sys/class/leds/usr_buzzer/brightness 2>/dev/null || true
-    chgrp video /sys/class/leds/usr_buzzer/brightness 2>/dev/null || true
-    echo "   ✓ Buzzer permissions set (usr_buzzer)"
-fi
 
 # Apply to any backlight devices
 for bl in /sys/class/backlight/*/; do
@@ -122,12 +104,10 @@ echo "    - sudo reboot                         (restart system)"
 echo "    - sudo shutdown -h now                (power off)"
 echo ""
 echo "  Hardware access (via video group):"
-echo "    - Write to /sys/class/leds/*/brightness  (buzzer control)"
 echo "    - Write to /sys/class/backlight/*/brightness  (screen control)"
 echo ""
 echo "These permissions enable:"
 echo "  - Web-based time setting (Admin -> System Time)"
 echo "  - Web-based system reboot (Admin -> System)"
 echo "  - Screen timeout control (Admin -> Screen Saver)"
-echo "  - Buzzer/beep feedback on touch (reTerminal DM)"
 echo ""

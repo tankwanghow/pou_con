@@ -94,8 +94,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      failsafe_status={assigns[:failsafe_status]}
-      system_time_valid={assigns[:system_time_valid]}
+      critical_alerts={assigns[:critical_alerts]}
     >
       <div class="mx-auto w-2xl">
         <.header>

@@ -39,13 +39,9 @@ defmodule PouConWeb.Layouts do
     default: nil,
     doc: "the current user role"
 
-  attr :failsafe_status, :map,
-    default: nil,
-    doc: "the current failsafe validation status"
-
-  attr :system_time_valid, :boolean,
-    default: true,
-    doc: "whether system time is valid"
+  attr :critical_alerts, :list,
+    default: [],
+    doc: "list of critical alerts from ScreenAlert"
 
   slot :inner_block, required: true
 
@@ -229,46 +225,8 @@ defmodule PouConWeb.Layouts do
       </nav>
     </div>
 
-    <!-- System Time Invalid Banner -->
-    <div
-      :if={@system_time_valid == false}
-      class="mx-auto w-1/2 mt-1 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 bg-orange-600 text-white border-2 border-orange-800 animate-pulse"
-    >
-      <span class="text-2xl">🕐</span>
-      <div class="flex-1 text-center">
-        <div class="font-bold">SYSTEM TIME INVALID</div>
-        <div class="text-sm font-normal">
-          Schedules and logging may not work correctly
-        </div>
-        <.link href="/admin/system_time" class="text-yellow-200 underline text-sm">
-          Fix Now
-        </.link>
-      </div>
-      <span class="text-2xl">🕐</span>
-    </div>
-
-    <!-- Failsafe/Auto Fan Alert Banner -->
-    <div
-      :if={@failsafe_status && @failsafe_status.valid == false}
-      class="mx-auto mt-1 px-3 py-2 w-1/2 rounded-lg font-semibold flex items-center gap-2 bg-red-600 text-white border-2 border-red-800 animate-pulse"
-    >
-      <span class="text-2xl">⚠️</span>
-      <div class="flex-1 text-center">
-        <div class="font-bold">FAN CONFIGURATION ERROR</div>
-        <div class="text-sm font-normal">
-          Failsafe: {@failsafe_status.actual} of {@failsafe_status.expected} min |
-          Auto: {Map.get(@failsafe_status, :auto_available, 0)} of {Map.get(
-            @failsafe_status,
-            :auto_required,
-            0
-          )} needed
-        </div>
-        <.link href="/admin/environment/control" class="text-yellow-200 underline text-sm">
-          Fix Now
-        </.link>
-      </div>
-      <span class="text-2xl">⚠️</span>
-    </div>
+    <!-- Critical Alert Banners (generic, sticky) -->
+    <.alert_banner :for={alert <- @critical_alerts} alert={alert} />
 
     <main class="px-4 sm:px-6 lg:px-8">
       <div class={["mx-auto", @class]}>
@@ -277,6 +235,35 @@ defmodule PouConWeb.Layouts do
     </main>
 
     <.flash_group flash={@flash} />
+    """
+  end
+
+  # Renders a critical alert banner.
+  # Alerts are provided by ScreenAlert with: title, message, icon, color, link, link_text
+  attr :alert, :map, required: true
+
+  defp alert_banner(assigns) do
+    ~H"""
+    <div class={[
+      "mx-auto w-1/2 mt-1 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 animate-pulse",
+      PouCon.Hardware.ScreenAlert.banner_classes(@alert.color)
+    ]}>
+      <span class="text-2xl">{@alert.icon}</span>
+      <div class="flex-1 text-center">
+        <div class="font-bold">{@alert.title}</div>
+        <div :if={@alert.message} class="text-sm font-normal">
+          {@alert.message}
+        </div>
+        <.link
+          :if={@alert.link}
+          href={@alert.link}
+          class={PouCon.Hardware.ScreenAlert.link_classes(@alert.color)}
+        >
+          {@alert.link_text || "Fix Now"}
+        </.link>
+      </div>
+      <span class="text-2xl">{@alert.icon}</span>
+    </div>
     """
   end
 

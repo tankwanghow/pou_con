@@ -10,8 +10,7 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      failsafe_status={assigns[:failsafe_status]}
-      system_time_valid={assigns[:system_time_valid]}
+      critical_alerts={assigns[:critical_alerts]}
     >
       <.header>
         Listing Ports

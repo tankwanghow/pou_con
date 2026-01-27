@@ -10,19 +10,20 @@ defmodule PouCon.Application do
   ```
   ┌─────────────────────────────────────────────────────────────────┐
   │  1. Telemetry + Repo         (Infrastructure)                   │
-  │  2. SystemTimeValidator      (RTC battery failure detection)    │
-  │  3. PortSupervisor           (Serial port connections)          │
-  │  4. DataPointManager         (Modbus polling engine + ETS)      │
-  │  5. Registry                 (Controller name registration)     │
-  │  6. DynamicSupervisor        (Controller process supervisor)    │
-  │  7. Ecto.Migrator            (Database migrations)              │
-  │  8. Phoenix.PubSub           (Real-time event broadcast)        │
-  │  9. TaskSupervisor           (Async logging writes)             │
-  │ 10. InterlockController      (Safety chain rules)               │
-  │ 11. EquipmentLoader          (Spawns all controllers)           │
-  │ 12. Logging Services         (DataPointLogger, DailySummary, Cleanup) │
-  │ 13. Automation Services      (Environment, Light, Egg, Feeding) │
-  │ 14. Phoenix.Endpoint         (Web UI - always last)             │
+  │  2. ScreenAlert              (Critical alert display + screen)  │
+  │  3. SystemTimeValidator      (RTC battery failure detection)    │
+  │  4. PortSupervisor           (Serial port connections)          │
+  │  5. DataPointManager         (Modbus polling engine + ETS)      │
+  │  6. Registry                 (Controller name registration)     │
+  │  7. DynamicSupervisor        (Controller process supervisor)    │
+  │  8. Ecto.Migrator            (Database migrations)              │
+  │  9. Phoenix.PubSub           (Real-time event broadcast)        │
+  │ 10. TaskSupervisor           (Async logging writes)             │
+  │ 11. InterlockController      (Safety chain rules)               │
+  │ 12. EquipmentLoader          (Spawns all controllers)           │
+  │ 13. Logging Services         (DataPointLogger, DailySummary)    │
+  │ 14. Automation Services      (Environment, Light, Egg, Feeding) │
+  │ 15. Phoenix.Endpoint         (Web UI - always last)             │
   └─────────────────────────────────────────────────────────────────┘
   ```
 
@@ -83,6 +84,10 @@ defmodule PouCon.Application do
       ] ++
         if @env != :test do
           [
+            # Screen alert system for critical alerts (must start before validators)
+            # Keeps screen awake and displays banners when critical issues occur
+            PouCon.Hardware.ScreenAlert,
+
             # CRITICAL: Validate system time before any logging occurs
             # Compares current time with last logged event to detect RTC failures
             PouCon.SystemTimeValidator

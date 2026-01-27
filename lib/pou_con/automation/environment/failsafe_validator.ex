@@ -13,6 +13,9 @@ defmodule PouCon.Automation.Environment.FailsafeValidator do
   alias PouCon.Automation.Environment.Configs
   alias PouCon.Automation.Environment.Schemas.Config
   alias PouCon.Equipment.Controllers.Fan
+  alias PouCon.Hardware.ScreenAlert
+
+  @alert_id "failsafe_error"
 
   @poll_interval_ms 2000
   @pubsub_topic "failsafe_status"
@@ -83,6 +86,7 @@ defmodule PouCon.Automation.Environment.FailsafeValidator do
   def handle_continue(:initial_check, _state) do
     new_state = check_failsafe()
     broadcast_status(new_state)
+    update_screen_alert(new_state)
     schedule_check()
     {:noreply, new_state}
   end
@@ -91,9 +95,10 @@ defmodule PouCon.Automation.Environment.FailsafeValidator do
   def handle_info(:check, state) do
     new_state = check_failsafe()
 
-    # Only broadcast if status changed
+    # Only broadcast and update screen alert if status changed
     if status_changed?(state, new_state) do
       broadcast_status(new_state)
+      update_screen_alert(new_state)
     end
 
     schedule_check()
@@ -120,6 +125,7 @@ defmodule PouCon.Automation.Environment.FailsafeValidator do
   def handle_cast(:check_now, _state) do
     new_state = check_failsafe()
     broadcast_status(new_state)
+    update_screen_alert(new_state)
     {:noreply, new_state}
   end
 
@@ -242,5 +248,25 @@ defmodule PouCon.Automation.Environment.FailsafeValidator do
 
   defp schedule_check do
     Process.send_after(self(), :check, @poll_interval_ms)
+  end
+
+  # Register or clear screen keep-awake alert based on failsafe validity
+  defp update_screen_alert(%{valid: true}) do
+    ScreenAlert.clear_alert(@alert_id)
+  end
+
+  defp update_screen_alert(%{valid: false} = status) do
+    message =
+      "Failsafe: #{status.actual} of #{status.expected} min | " <>
+        "Auto: #{status.auto_available} of #{status.auto_required} needed"
+
+    ScreenAlert.register_alert(@alert_id, %{
+      title: "FAN CONFIGURATION ERROR",
+      message: message,
+      icon: "⚠️",
+      color: :red,
+      link: "/admin/environment/control",
+      link_text: "Fix Now"
+    })
   end
 end

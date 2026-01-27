@@ -13,8 +13,11 @@ defmodule PouCon.SystemTimeValidator do
   require Logger
 
   import Ecto.Query
+  alias PouCon.Hardware.ScreenAlert
   alias PouCon.Logging.Schemas.EquipmentEvent
   alias PouCon.Repo
+
+  @alert_id "system_time_invalid"
 
   @grace_period_seconds 10
 
@@ -28,7 +31,15 @@ defmodule PouCon.SystemTimeValidator do
   end
 
   def start_link(_opts) do
-    Agent.start_link(fn -> validate_on_startup() end, name: __MODULE__)
+    Agent.start_link(
+      fn ->
+        state = validate_on_startup()
+        # Register/clear screen keep-awake alert based on validation result
+        update_screen_alert(state.time_valid?)
+        state
+      end,
+      name: __MODULE__
+    )
   end
 
   @doc """
@@ -52,6 +63,9 @@ defmodule PouCon.SystemTimeValidator do
   def mark_time_corrected do
     new_state = validate_on_startup()
     Agent.update(__MODULE__, fn _ -> new_state end)
+
+    # Update screen keep-awake alert based on new validation result
+    update_screen_alert(new_state.time_valid?)
 
     if new_state.time_valid? do
       Logger.info("System time validated and corrected successfully")
@@ -121,5 +135,21 @@ defmodule PouCon.SystemTimeValidator do
       )
 
     Repo.one(query)
+  end
+
+  # Register or clear screen keep-awake alert based on time validity
+  defp update_screen_alert(time_valid?) do
+    if time_valid? do
+      ScreenAlert.clear_alert(@alert_id)
+    else
+      ScreenAlert.register_alert(@alert_id, %{
+        title: "SYSTEM TIME INVALID",
+        message: "Schedules and logging may not work correctly",
+        icon: "⚠️",
+        color: :red,
+        link: "/admin/system_time",
+        link_text: "Fix Now"
+      })
+    end
   end
 end

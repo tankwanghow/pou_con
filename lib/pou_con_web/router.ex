@@ -96,6 +96,7 @@ defmodule PouConWeb.Router do
     get("/sync/task_completions", SyncController, :task_completions)
   end
 
+
   # --------------------------------------------------------------------
   # Public Routes (No Session Required)
   # Dashboard is the main entry point - no login required for viewing
@@ -112,7 +113,7 @@ defmodule PouConWeb.Router do
     live_session :public,
       on_mount: [
         {PouConWeb.AuthHooks, :default},
-        {PouConWeb.AuthHooks, :check_failsafe_status}
+        {PouConWeb.AuthHooks, :check_critical_alerts}
       ] do
       # Dashboard is now the root page - accessible without login
       live("/", Live.Dashboard.Index, :index)
@@ -160,8 +161,7 @@ defmodule PouConWeb.Router do
     live_session :ensure_is_admin,
       on_mount: [
         {PouConWeb.AuthHooks, :ensure_is_admin},
-        {PouConWeb.AuthHooks, :check_system_time},
-        {PouConWeb.AuthHooks, :check_failsafe_status}
+        {PouConWeb.AuthHooks, :check_critical_alerts}
       ] do
       # Admin settings
       live("/settings", Live.Auth.AdminSettings)

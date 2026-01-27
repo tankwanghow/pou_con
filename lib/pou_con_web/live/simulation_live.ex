@@ -218,8 +218,7 @@ defmodule PouConWeb.SimulationLive do
       flash={@flash}
       class="xs:w-full lg:w-3/4 xl:w-4/5"
       current_role={@current_role}
-      failsafe_status={assigns[:failsafe_status]}
-      system_time_valid={assigns[:system_time_valid]}
+      critical_alerts={assigns[:critical_alerts]}
     >
       <%!-- Port Control Section --%>
       <div class="mb-6 p-4 bg-gray-900 rounded-lg border border-gray-700">

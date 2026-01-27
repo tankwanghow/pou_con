@@ -20,8 +20,7 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      failsafe_status={assigns[:failsafe_status]}
-      system_time_valid={assigns[:system_time_valid]}
+      critical_alerts={assigns[:critical_alerts]}
     >
       <div class="mt-6 space-y-6">
         <%!-- House Info --%>
