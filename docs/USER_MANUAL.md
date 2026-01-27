@@ -1,6 +1,6 @@
 # PouCon User Manual
 
-**Version 1.2**
+**Version 1.3**
 
 A comprehensive guide to operating the PouCon Poultry Farm Automation System.
 
@@ -10,19 +10,20 @@ A comprehensive guide to operating the PouCon Poultry Farm Automation System.
 
 1. [Introduction](#introduction)
 2. [Getting Started](#getting-started)
-3. [Navigation](#navigation)
-4. [Dashboard](#dashboard)
-5. [Equipment Monitoring](#equipment-monitoring)
-6. [Operations & Tasks](#operations-amp-tasks)
-7. [Flock Management](#flock-management)
-8. [Scheduling (Admin)](#scheduling-admin)
-9. [Environment Control (Admin)](#environment-control-admin)
-10. [Alarm System (Admin)](#alarm-system-admin)
-11. [Interlock System (Admin)](#interlock-system-admin)
-12. [Reports & Logs](#reports-amp-logs)
-13. [System Administration](#system-administration)
-14. [Troubleshooting](#troubleshooting)
-15. [On-Screen Keyboard](#on-screen-keyboard)
+3. [Critical Alert Banners](#critical-alert-banners)
+4. [Navigation](#navigation)
+5. [Dashboard](#dashboard)
+6. [Equipment Monitoring](#equipment-monitoring)
+7. [Operations & Tasks](#operations--tasks)
+8. [Flock Management](#flock-management)
+9. [Scheduling (Admin)](#scheduling-admin)
+10. [Environment Control (Admin)](#environment-control-admin)
+11. [Alarm System (Admin)](#alarm-system-admin)
+12. [Interlock System (Admin)](#interlock-system-admin)
+13. [Reports & Logs](#reports--logs)
+14. [System Administration](#system-administration)
+15. [Troubleshooting](#troubleshooting)
+16. [On-Screen Keyboard](#on-screen-keyboard)
 
 ---
 
@@ -97,6 +98,40 @@ This enables:
 - **Screen Saver**: Control screen blank timeout on Wayland (Bookworm) systems
 
 Without this setup, these features will show permission errors or "Setup Required" messages.
+
+---
+
+## Critical Alert Banners
+
+When critical system issues occur, PouCon displays a prominent banner at the top of every page. These banners ensure operators notice and address important problems.
+
+### Banner Types
+
+| Banner | Color | Meaning |
+|--------|-------|---------|
+| **SYSTEM TIME INVALID** | Orange | System clock has incorrect time (RTC battery may be dead) |
+| **FAN CONFIGURATION ERROR** | Red | Failsafe fan requirements not met |
+
+### Banner Behavior
+
+- Banners appear on **all pages** until the issue is resolved
+- Banners **pulse/animate** to draw attention
+- Click the **Fix Now** link to go directly to the settings page
+- The screen will **stay awake** (no blanking) while critical alerts are active
+
+### Resolving Alerts
+
+**System Time Invalid:**
+1. Click "Fix Now" or navigate to Admin → System Time
+2. Set the correct date and time
+3. Click "Set System Time & Sync Hardware Clock"
+4. The banner disappears once time is valid
+
+**Fan Configuration Error:**
+1. Click "Fix Now" or navigate to Admin → Environment
+2. Check that required fans are in AUTO mode and available
+3. Ensure the failsafe configuration matches available equipment
+4. The banner disappears once requirements are met
 
 ---
 
@@ -908,7 +943,8 @@ The screen timeout feature turns off the display after a period of inactivity. T
 | Setting | Description |
 |---------|-------------|
 | **Timeout Presets** | Quick selection: 1, 3, 5, 10, 15, 30 minutes, or Never |
-| **Custom Timeout** | Enter any value from 0-3600 seconds (0 = always on) |
+
+The active preset is highlighted with a green border. Click any preset to change the screen timeout immediately.
 
 #### Setup Required
 

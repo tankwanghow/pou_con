@@ -1,6 +1,6 @@
 # PouCon Deployment Manual
 
-**Version 1.0 | December 2025**
+**Version 1.3 | January 2026**
 
 This is the comprehensive deployment manual for PouCon, an industrial automation and control system for poultry farms built with Elixir and Phoenix LiveView.
 
@@ -1059,6 +1059,8 @@ When the Raspberry Pi's RTC battery dies, the system clock resets after power fa
 - Scheduler confusion
 - Report generation issues
 
+**Visual Alert:** When invalid system time is detected, an orange **"SYSTEM TIME INVALID"** banner appears at the top of every page and the screen stays awake until the issue is resolved.
+
 ## 8.2 One-Time Setup
 
 Enable web-based time setting:
@@ -1548,8 +1550,9 @@ pou_con/
 
 ---
 
-**Document Version:** 1.2
-**Last Updated:** December 2025
+**Document Version:** 1.3
+**Last Updated:** January 2026
 **Changes:**
+- v1.3: Added ScreenAlert system documentation, simplified screen saver to presets only
 - v1.2: Added offline deployment (system dependencies included in package)
 - v1.1: Simplified deployment with all-in-one deploy.sh (CA files included)
