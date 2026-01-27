@@ -176,6 +176,22 @@ defmodule PouCon.Equipment.Controllers.Fan do
   @impl GenServer
   def handle_continue(:initial_poll, state) do
     new_state = poll_and_update(state)
+
+    # For inverted (NC wiring) equipment: ensure OFF state after reboot
+    #
+    # During power failure, NC relay de-energizes (coil=0) causing NC contact
+    # to close, which turns equipment ON. After system reboots, the equipment
+    # is still ON but commanded_on is false. We need to actively sync the coil
+    # to turn the equipment OFF. Automation controllers (EnvironmentController)
+    # will then turn them ON as needed based on their logic.
+    new_state =
+      if new_state.inverted and new_state.actual_on and not new_state.commanded_on do
+        Logger.info("[#{new_state.name}] Startup sync: turning OFF inverted equipment")
+        sync_coil(new_state)
+      else
+        new_state
+      end
+
     schedule_poll(new_state.poll_interval_ms)
     {:noreply, new_state}
   end
