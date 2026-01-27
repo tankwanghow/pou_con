@@ -727,7 +727,7 @@ defmodule PouCon.Hardware.DataPointManager do
   def handle_info({:DOWN, ref, :process, _pid, reason}, state) do
     # Find the port that this monitor belongs to
     case Enum.find(state.ports, fn {_path, port} -> port.monitor_ref == ref end) do
-      {device_path, port} ->
+      {device_path, %RuntimePort{} = port} ->
         Logger.warning("[DataPointManager] Port #{device_path} disconnected: #{inspect(reason)}")
 
         # Mark port as disconnected - DO NOT auto-reconnect

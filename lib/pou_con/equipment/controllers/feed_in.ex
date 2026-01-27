@@ -305,7 +305,7 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
 
     critical_results = [full_res, coil_res, fb_res, am_res, trip_res]
 
-    {new_state, temp_error} =
+    {%State{} = new_state, temp_error} =
       cond do
         Enum.any?(critical_results, &match?({:error, _}, &1)) ->
           Logger.error("[#{state.name}] Critical sensor timeout — entering safe fault state")

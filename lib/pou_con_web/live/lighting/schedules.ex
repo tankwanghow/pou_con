@@ -118,7 +118,7 @@ defmodule PouConWeb.Live.Lighting.Schedules do
       flash={@flash}
       class="xs:w-full lg:w-3/4 xl:w-4/5"
       current_role={@current_role}
-      critical_alerts={assigns[:critical_alerts]}
+      critical_alerts={assigns[:critical_alerts] || []}
     >
     <!-- Schedule Management -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">

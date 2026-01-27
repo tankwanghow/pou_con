@@ -61,7 +61,7 @@ defmodule PouConWeb.Live.Admin.Alarm.Index do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      critical_alerts={assigns[:critical_alerts]}
+      critical_alerts={assigns[:critical_alerts] || []}
     >
       <.header>
         Alarm Rules

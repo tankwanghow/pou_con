@@ -71,7 +71,7 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
   end
 
   @impl true
-  def handle_cast(:reload_schedules, state) do
+  def handle_cast(:reload_schedules, %State{} = state) do
     Logger.info("FeedingScheduler: Reloading schedules from database")
     schedules = load_schedules()
     {:noreply, %State{state | schedules: schedules}}

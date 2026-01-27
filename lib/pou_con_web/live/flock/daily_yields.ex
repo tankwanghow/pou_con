@@ -41,7 +41,7 @@ defmodule PouConWeb.Live.Flock.DailyYields do
       flash={@flash}
       class="xs:w-full lg:w-3/4 xl:w-4/5"
       current_role={@current_role}
-      critical_alerts={assigns[:critical_alerts]}
+      critical_alerts={assigns[:critical_alerts] || []}
     >
       <.header>
         Daily Yields: {@flock.name}

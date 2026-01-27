@@ -105,7 +105,7 @@ defmodule PouConWeb.Live.PowerIndicators.Index do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      critical_alerts={assigns[:critical_alerts]}
+      critical_alerts={assigns[:critical_alerts] || []}
     >
       <div>
         <div class="flex flex-wrap gap-4 justify-center">

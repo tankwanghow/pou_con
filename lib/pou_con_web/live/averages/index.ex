@@ -80,7 +80,7 @@ defmodule PouConWeb.Live.Averages.Index do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      critical_alerts={assigns[:critical_alerts]}
+      critical_alerts={assigns[:critical_alerts] || []}
     >
       <div class="flex flex-wrap gap-1 justify-center">
         <%= for eq <- @equipment |> Enum.sort_by(& &1.title) do %>

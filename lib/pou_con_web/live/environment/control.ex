@@ -175,7 +175,7 @@ defmodule PouConWeb.Live.Environment.Control do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      critical_alerts={assigns[:critical_alerts]}
+      critical_alerts={assigns[:critical_alerts] || []}
     >
       <div class="max-w-6xl mx-auto px-1">
         <.form for={@form} phx-submit="save" phx-change="validate">

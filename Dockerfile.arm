@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for ARM builds
 # Builds PouCon release for Raspberry Pi on x86_64 development machines
 
-FROM hexpm/elixir:1.18.4-erlang-27.3.4.1-debian-bookworm-20251117-slim AS builder
+FROM hexpm/elixir:1.19.5-erlang-28.3.1-debian-bookworm-20260112-slim AS builder
 
 # Install build dependencies (nodejs/npm not needed - esbuild/tailwind use standalone binaries)
 RUN apt-get update -y && apt-get install -y \

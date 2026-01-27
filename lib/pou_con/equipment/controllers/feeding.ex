@@ -209,7 +209,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   end
 
   @impl GenServer
-  def handle_cast({:command_move, target}, state)
+  def handle_cast({:command_move, target}, %State{} = state)
       when target in [:to_back_limit, :to_front_limit] do
     already_at_limit? =
       case target do
@@ -303,7 +303,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       trip_res
     ]
 
-    {base_state, temp_error} =
+    {%State{} = base_state, temp_error} =
       cond do
         Enum.any?(inputs, &match?({:error, _}, &1)) ->
           Logger.error("[#{state.name}] Sensor timeout → safe fault state")
@@ -383,7 +383,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       end
 
     # Stop if limit reached while moving
-    state_after_limits =
+    %State{} = state_after_limits =
       if base_state.is_moving && limit_hit_in_direction?(base_state) do
         Logger.info("[#{state.name}] Limit reached → auto-stop")
 
@@ -471,7 +471,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
     @data_point_manager.command(state.to_front_limit, :set_state, %{state: 1})
   end
 
-  defp stop_and_reset(state) do
+  defp stop_and_reset(%State{} = state) do
     @data_point_manager.command(state.to_back_limit, :set_state, %{state: 0})
     @data_point_manager.command(state.to_front_limit, :set_state, %{state: 0})
     %State{state | commanded_target: nil, command_timestamp: nil}

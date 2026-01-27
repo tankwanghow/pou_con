@@ -125,7 +125,7 @@ defmodule PouConWeb.Live.WaterMeters.Index do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      critical_alerts={assigns[:critical_alerts]}
+      critical_alerts={assigns[:critical_alerts] || []}
     >
       <div class="bg-white shadow-sm rounded-xl border border-gray-200 p-4 mb-6">
         <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-center">

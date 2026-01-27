@@ -160,7 +160,7 @@ defmodule PouConWeb.Live.Reports.Index do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      critical_alerts={assigns[:critical_alerts]}
+      critical_alerts={assigns[:critical_alerts] || []}
     >
       <div class="flex gap-2 mb-4">
         <button

@@ -187,7 +187,7 @@ defmodule PouCon.Hardware.Devices.DigitalIO do
           if value == 1 do
             current_byte ||| 1 <<< bit
           else
-            current_byte &&& ~~~(1 <<< bit)
+            current_byte &&& Bitwise.bnot(1 <<< bit)
           end
 
         # Write back the modified byte

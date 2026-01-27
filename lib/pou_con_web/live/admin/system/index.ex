@@ -19,7 +19,7 @@ defmodule PouConWeb.Live.Admin.System.Index do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      critical_alerts={assigns[:critical_alerts]}
+      critical_alerts={assigns[:critical_alerts] || []}
     >
       <div class="mt-6 space-y-6">
         <%!-- System Status --%>

@@ -91,14 +91,14 @@ defmodule PouCon.Automation.Feeding.FeedInController do
     Process.send_after(self(), :poll, interval_ms)
   end
 
-  defp poll_and_update(state) do
+  defp poll_and_update(%State{} = state) do
     # Check each trigger bucket for state changes
     new_trigger_buckets = check_trigger_buckets(state.trigger_buckets)
     %State{state | trigger_buckets: new_trigger_buckets}
   end
 
   @impl GenServer
-  def handle_cast(:reload_schedules, state) do
+  def handle_cast(:reload_schedules, %State{} = state) do
     Logger.info("FeedInController: Reloading schedules from database")
     schedules = load_schedules()
     trigger_buckets = initialize_trigger_buckets(schedules)

@@ -146,7 +146,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   # Private - Averages Calculation
   # ------------------------------------------------------------------ #
 
-  defp calculate_averages(state) do
+  defp calculate_averages(%State{} = state) do
     {avg_temp, avg_hum} =
       case find_average_sensor() do
         nil -> calculate_averages_legacy()
@@ -216,7 +216,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   # Private - Control Logic
   # ------------------------------------------------------------------ #
 
-  defp apply_control_logic(state) do
+  defp apply_control_logic(%State{} = state) do
     config = Configs.get_config()
 
     unless config.enabled do

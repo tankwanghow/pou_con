@@ -155,7 +155,7 @@ defmodule PouConWeb.Live.Dashboard.Index do
       flash={@flash}
       class="xs:w-full lg:w-3/4 xl:w-4/5"
       current_role={@current_role}
-      critical_alerts={assigns[:critical_alerts]}
+      critical_alerts={assigns[:critical_alerts] || []}
     >
       <div class="flex flex-wrap items-center gap-1 mb-1 justify-center items-center">
         <%!-- Flock Summary --%>

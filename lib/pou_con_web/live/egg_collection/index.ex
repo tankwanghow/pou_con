@@ -136,7 +136,7 @@ defmodule PouConWeb.Live.EggCollection.Index do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      critical_alerts={assigns[:critical_alerts]}
+      critical_alerts={assigns[:critical_alerts] || []}
     >
     <!-- Egg Collection Equipment -->
       <div class="flex flex-wrap gap-1 justify-center">

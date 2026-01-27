@@ -117,7 +117,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      critical_alerts={assigns[:critical_alerts]}
+      critical_alerts={assigns[:critical_alerts] || []}
     >
 
       <div class="p-2">

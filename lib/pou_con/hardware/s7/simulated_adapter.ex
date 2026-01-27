@@ -281,7 +281,7 @@ defmodule PouCon.Hardware.S7.SimulatedAdapter do
       if value == 1 do
         byte ||| 1 <<< bit
       else
-        byte &&& ~~~(1 <<< bit)
+        byte &&& Bitwise.bnot(1 <<< bit)
       end
 
     new_inputs = <<pre::binary, new_byte::8, post::binary>>
@@ -309,7 +309,7 @@ defmodule PouCon.Hardware.S7.SimulatedAdapter do
       if value == 1 do
         byte ||| 1 <<< bit
       else
-        byte &&& ~~~(1 <<< bit)
+        byte &&& Bitwise.bnot(1 <<< bit)
       end
 
     new_outputs = <<pre::binary, new_byte::8, post::binary>>

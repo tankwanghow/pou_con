@@ -184,7 +184,7 @@ defmodule PouConWeb.Live.Sirens.Index do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      critical_alerts={assigns[:critical_alerts]}
+      critical_alerts={assigns[:critical_alerts] || []}
     >
       <.active_alarms_panel
         alarm_status={@alarm_status}

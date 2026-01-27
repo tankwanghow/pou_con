@@ -49,7 +49,7 @@ defmodule PouConWeb.Live.Help.UserGuide do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      critical_alerts={assigns[:critical_alerts]}
+      critical_alerts={assigns[:critical_alerts] || []}
     >
       <div id="user-guide-content" class="bg-white rounded-xl shadow-lg p-6 mt-4">
         <style>

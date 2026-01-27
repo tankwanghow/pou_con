@@ -105,7 +105,7 @@ defmodule PouConWeb.Live.Operations.Tasks do
     <Layouts.app
       flash={@flash}
       current_role={@current_role}
-      critical_alerts={assigns[:critical_alerts]}
+      critical_alerts={assigns[:critical_alerts] || []}
     >
     <!-- Summary Bar -->
       <div class="grid grid-cols-4 gap-2 mb-4">

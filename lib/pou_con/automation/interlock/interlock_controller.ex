@@ -101,7 +101,7 @@ defmodule PouCon.Automation.Interlock.InterlockController do
     {:noreply, new_state}
   end
 
-  def handle_info({event, _data}, state)
+  def handle_info({event, _data}, %State{} = state)
       when event in [:rule_created, :rule_updated, :rule_deleted] do
     Logger.info("InterlockController: Interlock rules changed, reloading...")
     rules = load_rules_map()
@@ -113,7 +113,7 @@ defmodule PouCon.Automation.Interlock.InterlockController do
     Process.send_after(self(), :poll, interval_ms)
   end
 
-  defp poll_and_update(state) do
+  defp poll_and_update(%State{} = state) do
     # Check for state changes and enforce interlock
     new_equipment_state = check_equipment(state.equipment_state, state.rules)
     # Update ETS cache with fresh running states
@@ -122,7 +122,7 @@ defmodule PouCon.Automation.Interlock.InterlockController do
   end
 
   @impl GenServer
-  def handle_cast(:reload_rules, state) do
+  def handle_cast(:reload_rules, %State{} = state) do
     Logger.info("InterlockController: Manually reloading rules")
     rules = load_rules_map()
     update_ets_cache(rules, state.equipment_state)
