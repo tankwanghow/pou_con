@@ -577,26 +577,32 @@ defmodule PouCon.Equipment.Controllers.BinaryController do
                 false
               end
 
-            # Detect mode switch: manual -> auto (for physical DI)
-            # Only applies when has_auto_manual and not always_manual
-            mode_switched_to_auto =
-              if unquote(has_auto_manual) and not unquote(always_manual) do
-                state.mode == :manual and mode == :auto
-              else
-                false
-              end
+            # Mode switch handling: detect manual -> auto transition (for physical DI)
+            # Use compile-time code generation to avoid dead code warnings
+            # when mode switching is not applicable
+            commanded_on =
+              unquote(
+                if has_auto_manual and not always_manual do
+                  quote do
+                    if state.mode == :manual and mode == :auto do
+                      # When switching to AUTO, reset commanded_on for clean slate
+                      # and send command to turn off if equipment is on
+                      if actual_on do
+                        Logger.info("[#{state.name}] Mode switch sync: turning OFF equipment")
+                        coil_value = if state.inverted, do: 1, else: 0
+                        on_off_coil = state.data_points[:on_off_coil]
+                        @data_point_manager.command(on_off_coil, :set_state, %{state: coil_value})
+                      end
 
-            # When switching to AUTO, reset commanded_on to give automation clean slate
-            commanded_on = if mode_switched_to_auto, do: false, else: state.commanded_on
-
-            # If mode switched to AUTO and equipment is on, send command to turn off
-            # This handles inverted equipment correctly (sends coil=1 for inverted)
-            if mode_switched_to_auto and actual_on do
-              Logger.info("[#{state.name}] Mode switch sync: turning OFF equipment")
-              coil_value = if state.inverted, do: 1, else: 0
-              on_off_coil = state.data_points[:on_off_coil]
-              @data_point_manager.command(on_off_coil, :set_state, %{state: coil_value})
-            end
+                      false
+                    else
+                      state.commanded_on
+                    end
+                  end
+                else
+                  quote do: state.commanded_on
+                end
+              )
 
             updated = %{
               state
@@ -642,37 +648,50 @@ defmodule PouCon.Equipment.Controllers.BinaryController do
         #
         # When has_auto_manual: false (always manual equipment like Dung)
         #   Always detect mismatch errors - there's no physical switch concept
+        #
+        # Use compile-time code generation to avoid dead code warnings
         should_detect_mismatch =
-          if unquote(has_auto_manual) do
-            # Has mode switch - skip detection when physical switch in MANUAL
-            state.mode == :auto or state.is_auto_manual_virtual_di
-          else
-            # No mode switch - always detect (software always controls)
-            true
-          end
+          unquote(
+            if has_auto_manual do
+              quote do: (state.mode == :auto or state.is_auto_manual_virtual_di)
+            else
+              true
+            end
+          )
 
         is_running =
-          if unquote(has_running_feedback) do
-            state.is_running
-          else
-            state.actual_on
-          end
+          unquote(
+            if has_running_feedback do
+              quote do: state.is_running
+            else
+              quote do: state.actual_on
+            end
+          )
 
-        is_tripped =
-          if unquote(has_trip_signal) do
-            state.is_tripped
+        # Generate cond with or without trip signal clause to avoid dead code warnings
+        unquote(
+          if has_trip_signal do
+            quote do
+              cond do
+                # Trip signal always reported regardless of mode
+                state.is_tripped -> :tripped
+                # Mismatch errors only in AUTO mode or virtual manual mode
+                should_detect_mismatch && state.actual_on && !is_running -> :on_but_not_running
+                should_detect_mismatch && !state.actual_on && is_running -> :off_but_running
+                true -> nil
+              end
+            end
           else
-            false
+            quote do
+              cond do
+                # Mismatch errors only in AUTO mode or virtual manual mode
+                should_detect_mismatch && state.actual_on && !is_running -> :on_but_not_running
+                should_detect_mismatch && !state.actual_on && is_running -> :off_but_running
+                true -> nil
+              end
+            end
           end
-
-        cond do
-          # Trip signal always reported regardless of mode
-          is_tripped -> :tripped
-          # Mismatch errors only in AUTO mode or virtual manual mode
-          should_detect_mismatch && state.actual_on && !is_running -> :on_but_not_running
-          should_detect_mismatch && !state.actual_on && is_running -> :off_but_running
-          true -> nil
-        end
+        )
       end
 
       defp apply_error_debouncing(old_state, raw_error) do

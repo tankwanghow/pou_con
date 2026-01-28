@@ -154,19 +154,70 @@ export MODBUS_PORT_PATH="$MODBUS_PORT"
 echo ""
 echo "1. Installing system dependencies..."
 
-# Check if offline debs are available
+# Check internet connectivity (quick test with 3 second timeout)
+check_internet() {
+    wget -q --spider --timeout=3 http://deb.debian.org 2>/dev/null || \
+    ping -c 1 -W 3 8.8.8.8 >/dev/null 2>&1
+}
+
+# Check if offline package is newer than installed version
+# Returns 0 if offline should be installed (newer or not installed)
+needs_offline_install() {
+    local deb_file="$1"
+    local pkg_name=$(dpkg-deb -f "$deb_file" Package 2>/dev/null)
+    local offline_ver=$(dpkg-deb -f "$deb_file" Version 2>/dev/null)
+    local installed_ver=$(dpkg-query -W -f '${Version}' "$pkg_name" 2>/dev/null || echo "")
+
+    if [ -z "$installed_ver" ]; then
+        # Package not installed - need to install
+        return 0
+    fi
+
+    if [ -z "$offline_ver" ]; then
+        # Can't read offline version - skip
+        return 1
+    fi
+
+    # Compare versions: returns 0 if offline is newer
+    dpkg --compare-versions "$offline_ver" gt "$installed_ver" 2>/dev/null
+}
+
+HAS_OFFLINE_DEBS=false
 if [ -d "$SCRIPT_DIR/debs" ] && ls "$SCRIPT_DIR/debs/"*.deb 1> /dev/null 2>&1; then
-    echo "   Installing from offline packages..."
-    # Install debs, showing errors
-    dpkg -i "$SCRIPT_DIR/debs/"*.deb 2>&1 | grep -v "^Selecting\|^Preparing\|^Unpacking\|^Setting up" || true
-    # Fix any broken dependencies
-    apt-get install -f -y -qq 2>/dev/null || true
-    echo "   ✓ Dependencies installed (offline)"
-else
-    echo "   Installing from internet..."
+    HAS_OFFLINE_DEBS=true
+fi
+
+if check_internet; then
+    echo "   Internet available - installing from online repositories..."
     apt-get update -qq
     apt-get install -y -qq sqlite3 libsqlite3-dev openssl libncurses5 > /dev/null
-    echo "   ✓ Dependencies installed (online)"
+    echo "   ✓ Dependencies installed (online - latest versions)"
+elif [ "$HAS_OFFLINE_DEBS" = true ]; then
+    echo "   No internet - checking offline packages..."
+    DEBS_TO_INSTALL=""
+    for deb_file in "$SCRIPT_DIR/debs/"*.deb; do
+        pkg_name=$(dpkg-deb -f "$deb_file" Package 2>/dev/null || basename "$deb_file" .deb)
+        if needs_offline_install "$deb_file"; then
+            echo "   → $pkg_name: will install from offline"
+            DEBS_TO_INSTALL="$DEBS_TO_INSTALL $deb_file"
+        else
+            echo "   → $pkg_name: already installed (same or newer)"
+        fi
+    done
+
+    if [ -n "$DEBS_TO_INSTALL" ]; then
+        echo "   Installing selected offline packages..."
+        dpkg -i $DEBS_TO_INSTALL 2>&1 | grep -v "^Selecting\|^Preparing\|^Unpacking\|^Setting up" || true
+        # Fix any broken dependencies (offline, so this may fail)
+        apt-get install -f -y -qq 2>/dev/null || true
+        echo "   ✓ Dependencies installed (offline)"
+    else
+        echo "   ✓ All packages already up-to-date"
+    fi
+else
+    echo -e "   ${YELLOW}No internet and no offline packages available${NC}"
+    echo "   Attempting to install from system cache..."
+    apt-get install -y -qq sqlite3 libsqlite3-dev openssl libncurses5 2>/dev/null || true
 fi
 
 # Verify critical tools are available
