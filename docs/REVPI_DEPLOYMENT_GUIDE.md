@@ -148,7 +148,24 @@ Expected output:
 ═══════════════════════════════════════════
 ```
 
-### Phase 4: Deploy PouCon
+### Phase 4: First-Time Setup (Optional)
+
+For fresh RevPi installations, you can run the first-time setup script to prepare the system:
+
+```bash
+# On RevPi Connect 5 (run once for new installations)
+sudo ./revpi_first_setup.sh
+```
+
+This script:
+- Updates system packages
+- Installs system dependencies
+- Creates the `pou_con` user with home directory at `/home/pou_con`
+- Adds `pou_con` to required groups (dialout, video, input, render, audio)
+- Configures serial ports and log rotation
+- Sets up file descriptor limits for BEAM
+
+### Phase 5: Deploy PouCon
 
 The deployment process is **identical** to Raspberry Pi:
 
@@ -167,7 +184,9 @@ cd deployment_package_*/
 sudo ./deploy.sh
 ```
 
-### Phase 5: Configure Ports
+The `deploy.sh` script will create the `pou_con` user if it doesn't exist (as a regular user with home directory).
+
+### Phase 6: Configure Ports
 
 After deployment, configure your Modbus ports via Admin UI:
 

@@ -250,7 +250,8 @@ defmodule PouCon.Equipment.Controllers.Egg do
         new_state = %{state | mode: mode}
         # Turn off when switching to AUTO mode (clean state)
         new_state = if mode == :auto, do: %{new_state | commanded_on: false}, else: new_state
-        {:noreply, poll_and_update(new_state)}
+        # Use sync_coil to ensure equipment turns off when switching to AUTO
+        {:noreply, sync_coil(new_state)}
 
       {:error, reason} ->
         Logger.error("[#{state.name}] Failed to set mode: #{inspect(reason)}")
@@ -370,13 +371,26 @@ defmodule PouCon.Equipment.Controllers.Egg do
             switch_changed =
               state.manual_switch != nil and switch_on != state.last_switch_on
 
-            # In MANUAL mode with switch configured, switch controls commanded_on
+            # Detect mode switch: manual -> auto (for physical DI)
+            mode_switched_to_auto = state.mode == :manual and mode == :auto
+
+            # Determine commanded_on based on mode and switch
             commanded_on =
-              if mode == :manual and state.manual_switch != nil do
-                switch_on
-              else
-                state.commanded_on
+              cond do
+                # When switching to AUTO, reset to OFF (clean slate for automation)
+                mode_switched_to_auto -> false
+                # In MANUAL mode with switch configured, switch controls commanded_on
+                mode == :manual and state.manual_switch != nil -> switch_on
+                true -> state.commanded_on
               end
+
+            # If mode switched to AUTO and equipment is on, send command to turn off
+            # This handles inverted equipment correctly (sends coil=1 for inverted)
+            if mode_switched_to_auto and actual_on do
+              Logger.info("[#{state.name}] Mode switch sync: turning OFF equipment")
+              coil_value = if state.inverted, do: 1, else: 0
+              @data_point_manager.command(state.on_off_coil, :set_state, %{state: coil_value})
+            end
 
             updated = %State{
               state

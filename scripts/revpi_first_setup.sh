@@ -158,15 +158,28 @@ fi
 print_step "Creating application user..."
 
 if ! id "pou_con" &>/dev/null; then
-    useradd -r -s /bin/false -d /var/lib/pou_con -m pou_con
-    echo "   ✓ User pou_con created"
+    # Create as regular user with home directory (needed for kiosk/desktop)
+    useradd -m -s /bin/bash -d /home/pou_con pou_con
+    # Set a random password (user won't need to login with password - auto-login)
+    echo "pou_con:$(openssl rand -base64 32)" | chpasswd
+    echo "   ✓ User pou_con created with home directory"
 else
     echo "   ✓ User pou_con already exists"
+    # Ensure home directory exists for existing user
+    if [ ! -d "/home/pou_con" ]; then
+        mkdir -p /home/pou_con
+        chown pou_con:pou_con /home/pou_con
+        echo "   ✓ Created missing home directory"
+    fi
 fi
 
-# Add to dialout group for serial port access
-usermod -a -G dialout pou_con
-echo "   ✓ Added pou_con to dialout group"
+# Add to required groups for hardware and display access
+usermod -a -G dialout pou_con   # Serial ports (Modbus RTU)
+usermod -a -G video pou_con     # Backlight control (screen blanking)
+usermod -a -G input pou_con     # Touchscreen input
+usermod -a -G render pou_con 2>/dev/null || true  # GPU access
+usermod -a -G audio pou_con 2>/dev/null || true   # Audio (for alerts)
+echo "   ✓ Added pou_con to required groups"
 
 #═══════════════════════════════════════════
 # 7. Create Directory Structure

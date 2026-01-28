@@ -381,6 +381,19 @@ defmodule PouCon.Equipment.Controllers.Fan do
             # DI = 0 when switch is in ON or OFF position (panel control)
             mode = if mode_state == 1, do: :auto, else: :manual
 
+            # Detect mode switch: manual -> auto (for physical DI)
+            # When switching to AUTO, reset commanded_on to give automation clean slate
+            mode_switched_to_auto = state.mode == :manual and mode == :auto
+            commanded_on = if mode_switched_to_auto, do: false, else: state.commanded_on
+
+            # If mode switched to AUTO and equipment is on, send command to turn off
+            # This handles inverted equipment correctly (sends coil=1 for inverted)
+            if mode_switched_to_auto and actual_on do
+              Logger.info("[#{state.name}] Mode switch sync: turning OFF equipment")
+              coil_value = if state.inverted, do: 1, else: 0
+              @data_point_manager.command(state.on_off_coil, :set_state, %{state: coil_value})
+            end
+
             updated = %State{
               state
               | actual_on: actual_on,
@@ -388,6 +401,7 @@ defmodule PouCon.Equipment.Controllers.Fan do
                 is_tripped: is_tripped,
                 current: current,
                 mode: mode,
+                commanded_on: commanded_on,
                 error: nil
             }
 

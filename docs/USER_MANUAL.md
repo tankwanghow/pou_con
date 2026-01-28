@@ -979,8 +979,8 @@ PouCon automatically discovers the correct backlight path.
 
 **Screen doesn't blank on Wayland:**
 1. Check if labwc is running: `pgrep labwc`
-2. Check if swayidle is running: `pgrep swayidle`
-3. Verify autostart file exists: `cat ~/.config/labwc/autostart`
+2. Check if swayidle is running: `pgrep -u pou_con swayidle`
+3. Verify autostart file exists: `cat /home/pou_con/.config/labwc/autostart`
 4. Test backlight manually: `echo 0 | sudo tee /sys/class/backlight/lcd_backlight/brightness`
 
 **Screen doesn't wake on touch:**
@@ -991,9 +991,9 @@ PouCon automatically discovers the correct backlight path.
 #### Technical Details
 
 Screen blanking on Raspberry Pi OS Bookworm (Wayland/labwc) uses:
-- `swayidle` daemon to detect inactivity
+- `swayidle` daemon to detect inactivity (runs as `pou_con` user)
 - Direct backlight control via sysfs (`/sys/class/backlight/*/brightness`)
-- Configuration stored in `~/.config/labwc/autostart`
+- Configuration stored in `/home/pou_con/.config/labwc/autostart`
 
 ---
 
@@ -1107,14 +1107,15 @@ The on-screen keyboard includes:
 ### Raspberry Pi Kiosk Mode
 
 When running PouCon in fullscreen/kiosk mode on Raspberry Pi:
+- Kiosk mode runs as the `pou_con` user (same user as the PouCon service)
 - **Disable the system on-screen keyboard** (Onboard) to avoid conflicts
 - Use PouCon's built-in keyboard instead
 - The web-based keyboard always appears above page content
 
-To disable Raspbian's Onboard keyboard:
+To disable Raspbian's Onboard keyboard for the kiosk user:
 ```bash
-mkdir -p ~/.config/autostart
-echo -e "[Desktop Entry]\nHidden=true" > ~/.config/autostart/onboard-autostart.desktop
+sudo -u pou_con mkdir -p /home/pou_con/.config/autostart
+echo -e "[Desktop Entry]\nHidden=true" | sudo -u pou_con tee /home/pou_con/.config/autostart/onboard-autostart.desktop
 ```
 
 ---

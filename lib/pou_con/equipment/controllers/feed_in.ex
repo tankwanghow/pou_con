@@ -255,7 +255,8 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
         new_state = %{state | mode: mode}
         # Turn off when switching to AUTO mode (clean state)
         new_state = if mode == :auto, do: %{new_state | commanded_on: false}, else: new_state
-        {:noreply, poll_and_update(new_state)}
+        # Use sync_coil to ensure equipment turns off when switching to AUTO
+        {:noreply, sync_coil(new_state)}
 
       {:error, reason} ->
         Logger.error("[#{state.name}] Failed to set mode: #{inspect(reason)}")
@@ -340,15 +341,29 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
             actual_on = if state.inverted, do: coil_state == 0, else: coil_state == 1
             is_tripped = trip_state == 1
 
+            # Detect mode switch: manual -> auto (for physical DI)
+            mode = if is_manual, do: :manual, else: :auto
+            mode_switched_to_auto = state.mode == :manual and mode == :auto
+
             commanded_on =
               cond do
                 # Safety: Always stop if bucket is full
                 is_full -> false
+                # When switching to AUTO, reset to OFF (clean slate for automation)
+                mode_switched_to_auto -> false
                 # Manual mode: follow actual hardware state
                 is_manual -> actual_on
                 # Auto mode: maintain commanded state (set by turn_on/turn_off)
                 true -> state.commanded_on
               end
+
+            # If mode switched to AUTO and equipment is on, send command to turn off
+            # This handles inverted equipment correctly (sends coil=1 for inverted)
+            if mode_switched_to_auto and actual_on do
+              Logger.info("[#{state.name}] Mode switch sync: turning OFF equipment")
+              coil_value = if state.inverted, do: 1, else: 0
+              @data_point_manager.command(state.filling_coil, :set_state, %{state: coil_value})
+            end
 
             updated_state = %State{
               state
@@ -356,7 +371,7 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
                 actual_on: actual_on,
                 is_running: is_running,
                 is_tripped: is_tripped,
-                mode: if(is_manual, do: :manual, else: :auto),
+                mode: mode,
                 bucket_full: is_full,
                 error: nil
             }

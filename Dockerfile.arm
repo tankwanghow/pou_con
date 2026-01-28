@@ -14,6 +14,9 @@ RUN apt-get update -y && apt-get install -y \
     && apt-get clean && rm -f /var/lib/apt/lists/*_*
 
 # Download runtime dependencies as .deb files for offline installation
+# Includes:
+#   - chromium for kiosk mode (setup_kiosk.sh)
+#   - swayidle for screen timeout/blanking (set_screen_timeout.sh)
 RUN mkdir -p /debs && cd /debs && \
     apt-get update && \
     apt-get download \
@@ -26,7 +29,16 @@ RUN mkdir -p /debs && cd /debs && \
         libncurses5 \
         libreadline8 \
         2>/dev/null || true && \
-    ls -la /debs/
+    echo "Downloading chromium and dependencies for kiosk mode..." && \
+    apt-get download $(apt-cache depends --recurse --no-recommends --no-suggests \
+        --no-conflicts --no-breaks --no-replaces --no-enhances chromium \
+        | grep "^\w" | sort -u) 2>/dev/null || true && \
+    echo "Downloading swayidle for screen timeout..." && \
+    apt-get download $(apt-cache depends --recurse --no-recommends --no-suggests \
+        --no-conflicts --no-breaks --no-replaces --no-enhances swayidle \
+        | grep "^\w" | sort -u) 2>/dev/null || true && \
+    ls -la /debs/ && \
+    echo "Total packages: $(ls *.deb 2>/dev/null | wc -l)"
 
 # Prepare build dir
 WORKDIR /app

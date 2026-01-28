@@ -350,7 +350,8 @@ defmodule PouCon.Equipment.Controllers.BinaryController do
               new_state =
                 if mode == :auto, do: %{new_state | commanded_on: false}, else: new_state
 
-              {:noreply, poll_and_update(new_state)}
+              # Use sync_coil to ensure equipment turns off when switching to AUTO
+              {:noreply, sync_coil(new_state)}
 
             {:error, reason} ->
               Logger.error("[#{state.name}] Failed to set mode: #{inspect(reason)}")
@@ -576,12 +577,34 @@ defmodule PouCon.Equipment.Controllers.BinaryController do
                 false
               end
 
+            # Detect mode switch: manual -> auto (for physical DI)
+            # Only applies when has_auto_manual and not always_manual
+            mode_switched_to_auto =
+              if unquote(has_auto_manual) and not unquote(always_manual) do
+                state.mode == :manual and mode == :auto
+              else
+                false
+              end
+
+            # When switching to AUTO, reset commanded_on to give automation clean slate
+            commanded_on = if mode_switched_to_auto, do: false, else: state.commanded_on
+
+            # If mode switched to AUTO and equipment is on, send command to turn off
+            # This handles inverted equipment correctly (sends coil=1 for inverted)
+            if mode_switched_to_auto and actual_on do
+              Logger.info("[#{state.name}] Mode switch sync: turning OFF equipment")
+              coil_value = if state.inverted, do: 1, else: 0
+              on_off_coil = state.data_points[:on_off_coil]
+              @data_point_manager.command(on_off_coil, :set_state, %{state: coil_value})
+            end
+
             updated = %{
               state
               | actual_on: actual_on,
                 is_running: is_running,
                 mode: mode,
                 is_tripped: is_tripped,
+                commanded_on: commanded_on,
                 error: nil
             }
 

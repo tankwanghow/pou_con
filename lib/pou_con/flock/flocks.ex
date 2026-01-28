@@ -191,8 +191,7 @@ defmodule PouCon.Flock.Flocks do
   Creates a flock log.
   """
   def create_flock_log(attrs \\ %{}) do
-    # Add house_id automatically
-    attrs = Map.put_new(attrs, :house_id, get_house_id())
+    # Add house_id automatically (use string key to match form params)
     attrs = Map.put_new(attrs, "house_id", get_house_id())
 
     %FlockLog{}

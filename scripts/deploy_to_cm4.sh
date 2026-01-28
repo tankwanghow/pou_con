@@ -112,15 +112,28 @@ deploy_to_cm4() {
 
         echo "Creating service user if needed..."
         if ! id "$SERVICE_USER" &>/dev/null; then
-            sudo useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
-            echo "Created system user: $SERVICE_USER"
+            # Create as regular user with home directory (needed for kiosk/desktop)
+            sudo useradd -m -s /bin/bash -d "/home/$SERVICE_USER" "$SERVICE_USER"
+            # Set a random password (user won't need to login with password - auto-login)
+            echo "$SERVICE_USER:$(openssl rand -base64 32)" | sudo chpasswd
+            echo "Created user: $SERVICE_USER with home directory"
+        else
+            # Ensure home directory exists for existing user
+            if [ ! -d "/home/$SERVICE_USER" ]; then
+                sudo mkdir -p "/home/$SERVICE_USER"
+                sudo chown "$SERVICE_USER:$SERVICE_USER" "/home/$SERVICE_USER"
+                echo "Created missing home directory for $SERVICE_USER"
+            fi
         fi
 
-        # Add to required groups
+        # Add to required groups for hardware and display access
         echo "Configuring user groups..."
         sudo usermod -aG dialout "$SERVICE_USER"  # Serial port access (Modbus RTU)
         sudo usermod -aG video "$SERVICE_USER"    # Backlight control (screen blanking)
-        echo "Added $SERVICE_USER to dialout and video groups"
+        sudo usermod -aG input "$SERVICE_USER"    # Touchscreen input
+        sudo usermod -aG render "$SERVICE_USER" 2>/dev/null || true  # GPU access
+        sudo usermod -aG audio "$SERVICE_USER" 2>/dev/null || true   # Audio (for alerts)
+        echo "Added $SERVICE_USER to required groups"
 
         echo "Backing up current installation..."
         if [ -d /opt/pou_con ]; then

@@ -1,6 +1,6 @@
 # PouCon Deployment Manual
 
-**Version 1.3 | January 2026**
+**Version 1.4 | January 2026**
 
 This is the comprehensive deployment manual for PouCon, an industrial automation and control system for poultry farms built with Elixir and Phoenix LiveView.
 
@@ -442,7 +442,7 @@ deployment_package_YYYYMMDD_HHMMSS/
 └── README.txt         # Quick guide
 ```
 
-**Offline Deployment:** The `debs/` folder contains pre-downloaded ARM64 packages (sqlite3, openssl, libncurses, etc.) enabling deployment without internet access.
+**Offline Deployment:** The `debs/` folder contains pre-downloaded ARM64 packages (sqlite3, openssl, libncurses, chromium, swayidle, etc.) enabling deployment without internet access. Chromium is used for kiosk mode and swayidle for screen timeout control.
 
 ### Deployment Steps
 
@@ -467,7 +467,7 @@ sudo ./deploy.sh
 
 1. **Prompts for house_id** (e.g., h1, house2, farm_a)
 2. **Installs dependencies** (sqlite3, openssl, libncurses5)
-3. **Creates system user** (`pou_con`) and directories
+3. **Creates application user** (`pou_con`) with home directory at `/home/pou_con` and adds to required groups (dialout, video, input, render, audio)
 4. **Writes house_id** to `/etc/pou_con/house_id`
 5. **Generates SSL certificate** signed by included CA
 6. **Installs application** to `/opt/pou_con`
@@ -961,13 +961,20 @@ openssl x509 -in /etc/pou_con/ssl/server.crt -text -noout
 ```bash
 # After deploying PouCon
 cd deployment_package_*/
-./setup_kiosk.sh
+sudo ./setup_kiosk.sh
 sudo reboot
 ```
 
-### Manual Setup
+### User Configuration
 
-**Automated Setup (Recommended):**
+Kiosk mode runs as the `pou_con` user, the same user that runs the PouCon service. This simplifies permission management and ensures consistent behavior. The setup script:
+
+- Installs Chromium from offline packages (no internet required)
+- Creates kiosk startup script at `/home/pou_con/.local/bin/start_poucon_kiosk.sh`
+- Configures labwc autostart at `/home/pou_con/.config/labwc/autostart`
+- Sets up auto-login for `pou_con` user
+
+### Automated Setup (Recommended)
 
 Run the included kiosk setup script:
 ```bash
@@ -975,23 +982,24 @@ sudo bash /opt/pou_con/scripts/setup_kiosk.sh
 ```
 
 This configures:
-- Chromium in kiosk mode with Wayland support
-- labwc autostart configuration
-- Auto-login
+- Chromium in kiosk mode with Wayland support (installed from offline packages)
+- labwc autostart configuration for `pou_con` user
+- Auto-login for `pou_con` user
 - Cursor hiding
+- swayidle for screen timeout (installed from offline packages)
 
-**Manual Setup:**
+### Manual Setup
 
 If you prefer manual configuration:
 
 ```bash
-# Install Chromium
+# Install Chromium (if not using offline packages)
 sudo apt update
 sudo apt install -y chromium-browser
 
-# Create kiosk script
-mkdir -p ~/.local/bin
-cat > ~/.local/bin/start_kiosk.sh << 'EOF'
+# Create kiosk script for pou_con user
+sudo -u pou_con mkdir -p /home/pou_con/.local/bin
+sudo -u pou_con cat > /home/pou_con/.local/bin/start_kiosk.sh << 'EOF'
 #!/bin/bash
 chromium-browser \
   --ozone-platform=wayland \
@@ -1003,25 +1011,28 @@ chromium-browser \
   --disable-pinch \
   http://localhost
 EOF
-chmod +x ~/.local/bin/start_kiosk.sh
+chmod +x /home/pou_con/.local/bin/start_kiosk.sh
 
 # Add to labwc autostart
-mkdir -p ~/.config/labwc
-echo "$HOME/.local/bin/start_kiosk.sh &" >> ~/.config/labwc/autostart
+sudo -u pou_con mkdir -p /home/pou_con/.config/labwc
+echo "/home/pou_con/.local/bin/start_kiosk.sh &" >> /home/pou_con/.config/labwc/autostart
 ```
 
-**Enable auto-login:**
+**Enable auto-login for pou_con:**
 
-```bash
-sudo raspi-config
-# Select: System Options → Boot → Desktop Autologin
+Edit `/etc/lightdm/lightdm.conf` and set:
+```ini
+[Seat:*]
+autologin-user=pou_con
 ```
+
+Or use raspi-config if available.
 
 **Configure screen timeout:**
 
 Screen blanking is configured via swayidle. Use the web UI (Admin → Screen Saver) or run:
 ```bash
-sudo /opt/pou_con/scripts/set_screen_timeout.sh 180 pi  # 3 minutes
+sudo /opt/pou_con/scripts/set_screen_timeout.sh 180 pou_con  # 3 minutes
 # Use 0 for always-on
 ```
 
@@ -1478,6 +1489,11 @@ pou_con/
   ├── server.crt                   # Server certificate
   ├── server.key                   # Server private key
   └── ca.crt                       # CA certificate
+/home/pou_con/                     # Application user home (for kiosk mode)
+  ├── .config/labwc/autostart      # Kiosk autostart config
+  └── .local/
+      ├── bin/start_poucon_kiosk.sh # Kiosk startup script
+      └── share/poucon/loading.html # Loading page
 ```
 
 ## 13.6 Default Credentials
@@ -1550,9 +1566,10 @@ pou_con/
 
 ---
 
-**Document Version:** 1.3
+**Document Version:** 1.4
 **Last Updated:** January 2026
 **Changes:**
+- v1.4: Changed `pou_con` to regular user with home directory; kiosk mode now uses `pou_con` user; added chromium and swayidle to offline packages
 - v1.3: Added ScreenAlert system documentation, simplified screen saver to presets only
 - v1.2: Added offline deployment (system dependencies included in package)
 - v1.1: Simplified deployment with all-in-one deploy.sh (CA files included)

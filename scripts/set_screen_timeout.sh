@@ -10,7 +10,33 @@
 set -e
 
 TIMEOUT_SECONDS="${1:-0}"
-DISPLAY_USER="${2:-pi}"
+
+# Ensure swayidle is installed
+if ! command -v swayidle &> /dev/null; then
+    echo "swayidle not found, attempting to install..."
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    # Check for offline packages (deployment package)
+    if [ -d "$SCRIPT_DIR/../debs" ] && ls "$SCRIPT_DIR/../debs/"*swayidle*.deb 1> /dev/null 2>&1; then
+        echo "Installing from offline packages..."
+        dpkg -i "$SCRIPT_DIR/../debs/"*swayidle*.deb 2>/dev/null || true
+        apt-get install -f -y -qq 2>/dev/null || true
+    elif [ -d "/opt/pou_con/debs" ] && ls /opt/pou_con/debs/*swayidle*.deb 1> /dev/null 2>&1; then
+        echo "Installing from offline packages..."
+        dpkg -i /opt/pou_con/debs/*swayidle*.deb 2>/dev/null || true
+        apt-get install -f -y -qq 2>/dev/null || true
+    else
+        echo "Installing from internet..."
+        apt-get update -qq && apt-get install -y -qq swayidle
+    fi
+
+    if ! command -v swayidle &> /dev/null; then
+        echo "ERROR: Failed to install swayidle"
+        exit 1
+    fi
+    echo "swayidle installed successfully"
+fi
+DISPLAY_USER="${2:-pou_con}"
 AUTOSTART_FILE="/home/$DISPLAY_USER/.config/labwc/autostart"
 
 # Auto-detect backlight device (different hardware uses different paths)

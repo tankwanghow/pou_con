@@ -184,10 +184,19 @@ echo "   ✓ All required tools available"
 #═══════════════════════════════════════════
 echo "2. Creating application user..."
 if ! id "$SERVICE_USER" &>/dev/null; then
-    useradd -r -s /bin/false -d "$DATA_DIR" "$SERVICE_USER"
-    echo "   ✓ User $SERVICE_USER created"
+    # Create as regular user with home directory (needed for kiosk/desktop)
+    useradd -m -s /bin/bash -d "/home/$SERVICE_USER" "$SERVICE_USER"
+    # Set a random password (user won't need to login with password - auto-login)
+    echo "$SERVICE_USER:$(openssl rand -base64 32)" | chpasswd
+    echo "   ✓ User $SERVICE_USER created with home directory"
 else
     echo "   ✓ User $SERVICE_USER already exists"
+    # Ensure home directory exists for existing user
+    if [ ! -d "/home/$SERVICE_USER" ]; then
+        mkdir -p "/home/$SERVICE_USER"
+        chown "$SERVICE_USER:$SERVICE_USER" "/home/$SERVICE_USER"
+        echo "   ✓ Created missing home directory"
+    fi
 fi
 
 echo "3. Creating directories..."
@@ -327,9 +336,12 @@ chmod 644 "$SSL_DIR/server.crt"
 chmod 644 "$SSL_DIR/ca.crt"
 echo "   ✓ SSL key ownership set to $SERVICE_USER"
 
-# Group permissions for hardware access
+# Group permissions for hardware and display access
 usermod -a -G dialout "$SERVICE_USER"  # Serial ports (Modbus RTU)
 usermod -a -G video "$SERVICE_USER"    # Backlight control (screen blanking)
+usermod -a -G input "$SERVICE_USER"    # Touchscreen input
+usermod -a -G render "$SERVICE_USER" 2>/dev/null || true  # GPU access (may not exist)
+usermod -a -G audio "$SERVICE_USER" 2>/dev/null || true   # Audio (for alerts)
 
 #═══════════════════════════════════════════
 # STEP 8: Allow Privileged Ports
