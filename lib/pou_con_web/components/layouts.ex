@@ -56,11 +56,10 @@ defmodule PouConWeb.Layouts do
       <.icon name="hero-bars-3" class="w-6 h-6 text-base-content/80" />
     </button>
 
-    <%!-- Sidebar Overlay --%>
+    <%!-- Sidebar Overlay (does not close sidebar - only X button closes it) --%>
     <div
       id="sidebar-overlay"
-      onclick="document.getElementById('sidebar').classList.add('-translate-x-full'); this.classList.add('hidden');"
-      class="hidden fixed inset-0 bg-black/30 z-40 transition-opacity"
+      class="hidden fixed inset-0 bg-black/30 z-40 transition-opacity pointer-events-none"
     >
     </div>
 

@@ -152,13 +152,20 @@ defmodule PouCon.Logging.DataPointLogger do
 
       # Interval-based logging (> 0)
       interval when is_integer(interval) and interval > 0 ->
-        last_logged = Map.get(state.last_logged_at, data_point.name, 0)
-        elapsed_ms = now_ms - last_logged
+        case Map.fetch(state.last_logged_at, data_point.name) do
+          # First time seeing this data point - log immediately to establish baseline
+          :error ->
+            {:log, cached, current_value}
 
-        if elapsed_ms >= interval * 1000 do
-          {:log, cached, current_value}
-        else
-          :skip
+          # Check if enough time has elapsed since last log
+          {:ok, last_logged} ->
+            elapsed_ms = now_ms - last_logged
+
+            if elapsed_ms >= interval * 1000 do
+              {:log, cached, current_value}
+            else
+              :skip
+            end
         end
 
       # No logging (0 or invalid)
