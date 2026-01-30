@@ -106,8 +106,57 @@ defmodule PouCon.Auth do
 
   def get_timezone do
     case Repo.get_by(AppConfig, key: "timezone") do
-      nil -> "Asia/Singapore"
-      config -> config.value || "Asia/Singapore"
+      nil -> get_system_timezone()
+      config -> config.value || get_system_timezone()
+    end
+  end
+
+  @doc """
+  Gets the system timezone from the deployed machine.
+
+  Tries in order:
+  1. TZ environment variable
+  2. /etc/timezone file (Debian/Ubuntu/Raspberry Pi OS)
+  3. /etc/localtime symlink (fallback for other Linux distros)
+  4. "UTC" as final fallback
+  """
+  def get_system_timezone do
+    cond do
+      # Check TZ environment variable first
+      (tz = System.get_env("TZ")) && tz != "" ->
+        tz
+
+      # Debian/Ubuntu/Raspberry Pi OS style - /etc/timezone contains the timezone name
+      File.exists?("/etc/timezone") ->
+        case File.read("/etc/timezone") do
+          {:ok, content} ->
+            content |> String.trim() |> case do
+              "" -> get_timezone_from_localtime()
+              tz -> tz
+            end
+
+          {:error, _} ->
+            get_timezone_from_localtime()
+        end
+
+      true ->
+        get_timezone_from_localtime()
+    end
+  end
+
+  # Parse /etc/localtime symlink to extract timezone name
+  defp get_timezone_from_localtime do
+    case File.read_link("/etc/localtime") do
+      {:ok, path} ->
+        # Path looks like: /usr/share/zoneinfo/Asia/Singapore
+        # or ../usr/share/zoneinfo/Asia/Singapore
+        case Regex.run(~r{zoneinfo/(.+)$}, path) do
+          [_, timezone] -> timezone
+          _ -> "UTC"
+        end
+
+      {:error, _} ->
+        "UTC"
     end
   end
 

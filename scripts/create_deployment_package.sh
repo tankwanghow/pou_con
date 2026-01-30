@@ -64,7 +64,7 @@ INSTALL_DIR="/opt/pou_con"
 DATA_DIR="/var/lib/pou_con"
 POUCON_CONFIG_DIR="/etc/pou_con"
 SSL_DIR="$POUCON_CONFIG_DIR/ssl"
-SERVICE_USER="pou_con"
+SERVICE_USER="pi"
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
@@ -231,24 +231,14 @@ done
 echo "   ✓ All required tools available"
 
 #═══════════════════════════════════════════
-# STEP 3: Create User and Directories
+# STEP 3: Verify User and Create Directories
 #═══════════════════════════════════════════
-echo "2. Creating application user..."
+echo "2. Verifying application user..."
 if ! id "$SERVICE_USER" &>/dev/null; then
-    # Create as regular user with home directory (needed for kiosk/desktop)
-    useradd -m -s /bin/bash -d "/home/$SERVICE_USER" "$SERVICE_USER"
-    # Set a random password (user won't need to login with password - auto-login)
-    echo "$SERVICE_USER:$(openssl rand -base64 32)" | chpasswd
-    echo "   ✓ User $SERVICE_USER created with home directory"
-else
-    echo "   ✓ User $SERVICE_USER already exists"
-    # Ensure home directory exists for existing user
-    if [ ! -d "/home/$SERVICE_USER" ]; then
-        mkdir -p "/home/$SERVICE_USER"
-        chown "$SERVICE_USER:$SERVICE_USER" "/home/$SERVICE_USER"
-        echo "   ✓ Created missing home directory"
-    fi
+    echo -e "   ${RED}ERROR: pi user not found - this is unexpected on Raspberry Pi OS${NC}"
+    exit 1
 fi
+echo "   ✓ Using default pi user"
 
 echo "3. Creating directories..."
 mkdir -p "$INSTALL_DIR"
@@ -380,7 +370,7 @@ chown -R root:root "$POUCON_CONFIG_DIR"
 chmod 755 "$DATA_DIR"
 chmod 755 "$POUCON_CONFIG_DIR"
 
-# SSL key must be readable by pou_con service (set AFTER recursive chown above)
+# SSL key must be readable by the service user (set AFTER recursive chown above)
 chown "$SERVICE_USER:$SERVICE_USER" "$SSL_DIR/server.key"
 chmod 600 "$SSL_DIR/server.key"
 chmod 644 "$SSL_DIR/server.crt"
@@ -427,8 +417,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=pou_con
-Group=pou_con
+User=pi
+Group=pi
 WorkingDirectory=/opt/pou_con
 Environment="DATABASE_PATH=/var/lib/pou_con/pou_con_prod.db"
 Environment="SECRET_KEY_BASE=CHANGE_THIS_SECRET_KEY"
@@ -580,8 +570,7 @@ echo "  - /var/log/pou_con/"
 echo "  - /var/backups/pou_con/"
 echo ""
 echo "To completely remove including data, run:"
-echo "  sudo rm -rf /var/lib/pou_con /var/log/pou_con /var/backups/pou_con"
-echo "  sudo userdel pou_con"
+echo "  sudo rm -rf /var/lib/pou_con /var/log/pou_con /var/backups/pou_con /etc/pou_con"
 EOF
 
 chmod +x "$PACKAGE_DIR/uninstall.sh"
@@ -599,12 +588,14 @@ if [ -f "scripts/verify_revpi_hardware.sh" ]; then
     echo "  ✓ RevPi hardware verification script included"
 fi
 
-# Copy screen timeout script
+# Copy screen timeout scripts
 if [ -f "scripts/set_screen_timeout.sh" ]; then
     mkdir -p "$PACKAGE_DIR/pou_con/scripts"
     cp scripts/set_screen_timeout.sh "$PACKAGE_DIR/pou_con/scripts/"
-    chmod +x "$PACKAGE_DIR/pou_con/scripts/set_screen_timeout.sh"
-    echo "  ✓ Screen timeout script included"
+    cp scripts/on_screen.sh "$PACKAGE_DIR/pou_con/scripts/"
+    cp scripts/off_screen.sh "$PACKAGE_DIR/pou_con/scripts/"
+    chmod +x "$PACKAGE_DIR/pou_con/scripts/"*.sh
+    echo "  ✓ Screen timeout scripts included"
 fi
 
 if [ -f "scripts/revpi_first_setup.sh" ]; then

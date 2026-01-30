@@ -84,35 +84,30 @@ else
     echo "   ✓ swayidle installed (online)"
 fi
 
-# Use pou_con user for kiosk mode (consistent with the service user)
-KIOSK_USER="pou_con"
+# Use pi user for kiosk mode (default Raspberry Pi user, simplifies permissions)
+KIOSK_USER="pi"
 KIOSK_HOME="/home/$KIOSK_USER"
 LABWC_CONFIG_DIR="$KIOSK_HOME/.config/labwc"
 
-# Verify pou_con user exists
+# Verify pi user exists (should always exist on Raspberry Pi OS)
 if ! id "$KIOSK_USER" &>/dev/null; then
     echo "ERROR: User $KIOSK_USER does not exist."
-    echo "       Run the deploy script first, or create the user manually:"
-    echo "       sudo useradd -m -s /bin/bash $KIOSK_USER"
+    echo "       This is unexpected - pi user should exist on Raspberry Pi OS."
     exit 1
 fi
 
-# Verify home directory exists
-if [ ! -d "$KIOSK_HOME" ]; then
-    echo "Creating home directory for $KIOSK_USER..."
-    sudo mkdir -p "$KIOSK_HOME"
-    sudo chown "$KIOSK_USER:$KIOSK_USER" "$KIOSK_HOME"
-fi
-
-# Create labwc config directory
-echo "2. Creating labwc configuration..."
-sudo -u "$KIOSK_USER" mkdir -p "$LABWC_CONFIG_DIR"
+# Create only the directories that don't exist by default on Raspberry Pi OS
+# (pi user already has .config, .cache, .local with correct ownership)
+echo "2. Creating kiosk directories..."
+sudo -u "$KIOSK_USER" mkdir -p "$KIOSK_HOME/.config/labwc"
+sudo -u "$KIOSK_USER" mkdir -p "$KIOSK_HOME/.local/share/poucon"
+sudo -u "$KIOSK_USER" mkdir -p "$KIOSK_HOME/.local/bin"
+echo "   ✓ Directories created"
 
 # Create loading page (black screen that auto-redirects when PouCon is ready)
 echo "3. Creating loading page..."
-sudo -u "$KIOSK_USER" mkdir -p "$KIOSK_HOME/.local/share/poucon"
 
-cat > "$KIOSK_HOME/.local/share/poucon/loading.html" << 'HTMLEOF'
+sudo -u "$KIOSK_USER" tee "$KIOSK_HOME/.local/share/poucon/loading.html" > /dev/null << 'HTMLEOF'
 <!DOCTYPE html>
 <html>
 <head>
@@ -179,82 +174,160 @@ HTMLEOF
 
 # Create kiosk startup script
 echo "4. Creating kiosk startup script..."
-sudo -u "$KIOSK_USER" mkdir -p "$KIOSK_HOME/.local/bin"
-
-cat > "$KIOSK_HOME/.local/bin/start_poucon_kiosk.sh" << 'EOF'
+sudo -u "$KIOSK_USER" tee "$KIOSK_HOME/.local/bin/start_poucon_kiosk.sh" > /dev/null << 'EOF'
 #!/bin/bash
-# PouCon Kiosk Mode - Wayland/labwc
+# PouCon Kiosk Mode - Wayland/labwc (touchscreen optimized)
 
-# Detect chromium command (chromium-browser on some distros, chromium on others)
-if command -v chromium-browser &> /dev/null; then
-    CHROMIUM_CMD="chromium-browser"
-elif command -v chromium &> /dev/null; then
-    CHROMIUM_CMD="chromium"
-else
-    echo "ERROR: Chromium not found"
-    exit 1
-fi
+# Clear chromium session files to prevent "restore session" prompts on crash/reboot
+rm -f ~/.config/chromium/Default/{Current,Last}\ {Session,Tabs} 2>/dev/null
+rm -rf ~/.config/chromium/Crash\ Reports 2>/dev/null
 
-# Start Chromium in kiosk mode with Wayland support
-# The loading page shows a black screen and auto-redirects when PouCon is ready
-$CHROMIUM_CMD \
+# Detect chromium command
+CHROMIUM=$(command -v chromium-browser || command -v chromium)
+[ -z "$CHROMIUM" ] && { echo "ERROR: Chromium not found"; exit 1; }
+
+# Start Chromium in kiosk mode (touchscreen optimized)
+exec $CHROMIUM \
   --ozone-platform=wayland \
-  --kiosk \
+  --start-fullscreen \
   --noerrdialogs \
   --disable-infobars \
   --disable-session-crashed-bubble \
+  --disable-restore-session-state \
   --disable-translate \
   --no-first-run \
-  --fast \
-  --fast-start \
-  --disable-features=TranslateUI \
-  --disk-cache-dir=/dev/null \
+  --password-store=basic \
+  --disable-features=TranslateUI,PasswordManager \
   --overscroll-history-navigation=0 \
   --disable-pinch \
-  --enable-features=TouchpadOverscrollHistoryNavigation \
+  --touch-events=enabled \
+  --enable-touch-drag-drop \
   "file://$HOME/.local/share/poucon/loading.html"
 EOF
 
 chmod +x "$KIOSK_HOME/.local/bin/start_poucon_kiosk.sh"
-chown "$KIOSK_USER:$KIOSK_USER" "$KIOSK_HOME/.local/bin/start_poucon_kiosk.sh"
-chown "$KIOSK_USER:$KIOSK_USER" "$KIOSK_HOME/.local/share/poucon/loading.html"
+
+# Configure screen orientation
+echo "5. Configuring screen orientation..."
+echo ""
+echo "Select screen orientation:"
+echo "  1) Normal (0°) - Landscape, no rotation"
+echo "  2) Left (90°) - Portrait, rotated left"
+echo "  3) Inverted (180°) - Landscape, upside down"
+echo "  4) Right (270°) - Portrait, rotated right (common for reTerminal)"
+echo ""
+read -p "Select [1-4] (default: 1): " ORIENTATION_CHOICE
+
+case "$ORIENTATION_CHOICE" in
+    2) SCREEN_TRANSFORM="transform 90" ;;
+    3) SCREEN_TRANSFORM="transform 180" ;;
+    4) SCREEN_TRANSFORM="transform 270" ;;
+    *) SCREEN_TRANSFORM="" ;;
+esac
+
+# Configure screen timeout
+echo ""
+echo "6. Configuring screen timeout..."
+echo ""
+echo "Select screen blank timeout:"
+echo "  1) 1 minute"
+echo "  2) 3 minutes"
+echo "  3) 5 minutes"
+echo "  4) 10 minutes"
+echo "  5) Never (always on)"
+echo ""
+read -p "Select [1-5] (default: 3): " TIMEOUT_CHOICE
+
+case "$TIMEOUT_CHOICE" in
+    1) SCREEN_TIMEOUT=60 ;;
+    2) SCREEN_TIMEOUT=180 ;;
+    4) SCREEN_TIMEOUT=600 ;;
+    5) SCREEN_TIMEOUT=0 ;;
+    *) SCREEN_TIMEOUT=300 ;;
+esac
 
 # Update labwc autostart to include kiosk browser
-echo "5. Configuring labwc autostart..."
+echo "7. Configuring labwc autostart..."
 
 # Backup existing autostart if it exists
 if [ -f "$LABWC_CONFIG_DIR/autostart" ]; then
-    cp "$LABWC_CONFIG_DIR/autostart" "$LABWC_CONFIG_DIR/autostart.backup"
-    # Remove any existing poucon kiosk line
-    sed -i '/start_poucon_kiosk/d' "$LABWC_CONFIG_DIR/autostart"
+    sudo cp "$LABWC_CONFIG_DIR/autostart" "$LABWC_CONFIG_DIR/autostart.backup"
 fi
 
-# Add kiosk to autostart (use explicit path, not $HOME which varies by user)
-echo "$KIOSK_HOME/.local/bin/start_poucon_kiosk.sh &" >> "$LABWC_CONFIG_DIR/autostart"
-chown "$KIOSK_USER:$KIOSK_USER" "$LABWC_CONFIG_DIR/autostart"
+# Build autostart content
+AUTOSTART_CONTENT="# Screen orientation (applied on startup)"
 
-# Configure labwc to hide cursor after inactivity
-echo "6. Configuring cursor hiding..."
-cat > "$LABWC_CONFIG_DIR/rc.xml" << 'EOF'
+# Add wlr-randr command if rotation is needed
+if [ -n "$SCREEN_TRANSFORM" ]; then
+    # Install wlr-randr if not present
+    if ! command -v wlr-randr &> /dev/null; then
+        echo "   Installing wlr-randr for screen rotation..."
+        if [ -d "$SCRIPT_DIR/debs" ] && ls "$SCRIPT_DIR/debs/"*wlr-randr*.deb 1> /dev/null 2>&1; then
+            sudo dpkg -i "$SCRIPT_DIR/debs/"*wlr-randr*.deb 2>/dev/null || true
+            sudo apt-get install -f -y -qq 2>/dev/null || true
+        else
+            sudo apt-get install -y -qq wlr-randr 2>/dev/null || sudo apt install -y wlr-randr
+        fi
+    fi
+    AUTOSTART_CONTENT="$AUTOSTART_CONTENT
+wlr-randr --output \$(wlr-randr | grep -m1 '^[A-Z]' | cut -d' ' -f1) --$SCREEN_TRANSFORM"
+    echo "   ✓ Screen rotation configured: $SCREEN_TRANSFORM"
+else
+    echo "   ✓ No screen rotation (normal orientation)"
+fi
+
+# Add screen timeout configuration
+AUTOSTART_CONTENT="$AUTOSTART_CONTENT
+
+# Screen timeout (swayidle)"
+if [ "$SCREEN_TIMEOUT" -gt 0 ]; then
+    AUTOSTART_CONTENT="$AUTOSTART_CONTENT
+swayidle -w timeout $SCREEN_TIMEOUT '/opt/pou_con/scripts/off_screen.sh' resume '/opt/pou_con/scripts/on_screen.sh' &"
+    echo "   ✓ Screen timeout set to ${SCREEN_TIMEOUT}s"
+else
+    AUTOSTART_CONTENT="$AUTOSTART_CONTENT
+# Screen timeout disabled (always on)"
+    echo "   ✓ Screen timeout disabled (always on)"
+fi
+
+# Add kiosk browser
+AUTOSTART_CONTENT="$AUTOSTART_CONTENT
+
+# PouCon kiosk browser
+$KIOSK_HOME/.local/bin/start_poucon_kiosk.sh &"
+
+# Write autostart file (as pi user for correct ownership)
+echo "$AUTOSTART_CONTENT" | sudo -u "$KIOSK_USER" tee "$LABWC_CONFIG_DIR/autostart" > /dev/null
+
+# Configure labwc for touchscreen-first mode
+echo "8. Configuring touchscreen mode..."
+sudo -u "$KIOSK_USER" tee "$LABWC_CONFIG_DIR/rc.xml" > /dev/null << 'EOF'
 <?xml version="1.0"?>
 <labwc_config>
   <core>
     <gap>0</gap>
   </core>
-  <mouse>
-    <hideWhenTyping>yes</hideWhenTyping>
-  </mouse>
+  <cursor>
+    <!-- Hide cursor after 3 seconds of inactivity (touchscreen mode) -->
+    <hide>3000</hide>
+  </cursor>
   <libinput>
+    <!-- Touchscreen settings -->
     <device category="touch">
       <tap>yes</tap>
+      <naturalScroll>yes</naturalScroll>
+    </device>
+    <!-- Disable touchpad if mouse is connected (prefer touch) -->
+    <device category="touchpad">
+      <tap>yes</tap>
+      <naturalScroll>yes</naturalScroll>
     </device>
   </libinput>
 </labwc_config>
 EOF
-chown "$KIOSK_USER:$KIOSK_USER" "$LABWC_CONFIG_DIR/rc.xml"
 
-# Check and enable auto-login for pou_con user
-echo "7. Checking auto-login configuration..."
+# Check and enable auto-login for pi user
+echo "9. Checking auto-login configuration..."
 if [ -f /etc/lightdm/lightdm.conf ]; then
     # Check current auto-login setting
     CURRENT_AUTOLOGIN=$(grep "^autologin-user=" /etc/lightdm/lightdm.conf 2>/dev/null | cut -d= -f2)
@@ -281,7 +354,7 @@ fi
 
 # Verify touchscreen is detected
 echo ""
-echo "8. Verifying touchscreen detection..."
+echo "10. Verifying touchscreen detection..."
 if command -v libinput &> /dev/null; then
     if sudo libinput list-devices 2>/dev/null | grep -iq touch; then
         echo "   Touchscreen detected"

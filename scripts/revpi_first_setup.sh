@@ -153,33 +153,27 @@ else
 fi
 
 #═══════════════════════════════════════════
-# 6. Create pou_con User
+# 6. Configure pi User for Application
 #═══════════════════════════════════════════
-print_step "Creating application user..."
+print_step "Configuring pi user for application..."
 
-if ! id "pou_con" &>/dev/null; then
-    # Create as regular user with home directory (needed for kiosk/desktop)
-    useradd -m -s /bin/bash -d /home/pou_con pou_con
-    # Set a random password (user won't need to login with password - auto-login)
-    echo "pou_con:$(openssl rand -base64 32)" | chpasswd
-    echo "   ✓ User pou_con created with home directory"
-else
-    echo "   ✓ User pou_con already exists"
-    # Ensure home directory exists for existing user
-    if [ ! -d "/home/pou_con" ]; then
-        mkdir -p /home/pou_con
-        chown pou_con:pou_con /home/pou_con
-        echo "   ✓ Created missing home directory"
-    fi
+# Using the default pi user simplifies permissions and deployment
+SERVICE_USER="pi"
+
+if ! id "$SERVICE_USER" &>/dev/null; then
+    echo -e "   ${RED}ERROR: pi user not found - this is unexpected on Raspberry Pi/RevPi OS${NC}"
+    exit 1
 fi
 
+echo "   ✓ Using default pi user"
+
 # Add to required groups for hardware and display access
-usermod -a -G dialout pou_con   # Serial ports (Modbus RTU)
-usermod -a -G video pou_con     # Backlight control (screen blanking)
-usermod -a -G input pou_con     # Touchscreen input
-usermod -a -G render pou_con 2>/dev/null || true  # GPU access
-usermod -a -G audio pou_con 2>/dev/null || true   # Audio (for alerts)
-echo "   ✓ Added pou_con to required groups"
+usermod -a -G dialout "$SERVICE_USER"   # Serial ports (Modbus RTU)
+usermod -a -G video "$SERVICE_USER"     # Backlight control (screen blanking)
+usermod -a -G input "$SERVICE_USER"     # Touchscreen input
+usermod -a -G render "$SERVICE_USER" 2>/dev/null || true  # GPU access
+usermod -a -G audio "$SERVICE_USER" 2>/dev/null || true   # Audio (for alerts)
+echo "   ✓ Configured pi user groups for hardware access"
 
 #═══════════════════════════════════════════
 # 7. Create Directory Structure
@@ -192,9 +186,9 @@ mkdir -p /var/log/pou_con
 mkdir -p /var/backups/pou_con
 mkdir -p /etc/pou_con/ssl
 
-chown -R pou_con:pou_con /opt/pou_con
-chown -R pou_con:pou_con /var/lib/pou_con
-chown -R pou_con:pou_con /var/log/pou_con
+chown -R pi:pi /opt/pou_con
+chown -R pi:pi /var/lib/pou_con
+chown -R pi:pi /var/log/pou_con
 chmod 755 /etc/pou_con
 
 echo "   ✓ Directories created"
@@ -211,7 +205,7 @@ cat > /etc/logrotate.d/pou_con << 'EOF'
     compress
     delaycompress
     notifempty
-    create 0644 pou_con pou_con
+    create 0644 pi pi
     sharedscripts
     postrotate
         systemctl reload pou_con > /dev/null 2>&1 || true
@@ -226,12 +220,12 @@ echo "   ✓ Log rotation configured"
 #═══════════════════════════════════════════
 print_step "Applying performance optimizations..."
 
-# Increase file descriptor limits for BEAM
-if ! grep -q "pou_con" /etc/security/limits.conf; then
+# Increase file descriptor limits for BEAM (pi user runs the service)
+if ! grep -q "# PouCon file descriptor limits" /etc/security/limits.conf; then
     cat >> /etc/security/limits.conf << 'EOF'
 # PouCon file descriptor limits
-pou_con soft nofile 65536
-pou_con hard nofile 65536
+pi soft nofile 65536
+pi hard nofile 65536
 EOF
     echo "   ✓ File descriptor limits increased"
 fi

@@ -181,7 +181,9 @@ defmodule PouConWeb.Live.Admin.Screensaver.Index do
 
     case Screensaver.set_idle_timeout(seconds) do
       :ok ->
-        settings = fetch_settings()
+        # Update settings directly with the new value instead of re-reading the file
+        # (avoids race condition where file may not be fully synced yet)
+        settings = Map.put(socket.assigns.settings, :current_timeout, seconds)
 
         {:noreply,
          socket

@@ -10,11 +10,11 @@
 set -e
 
 TIMEOUT_SECONDS="${1:-0}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Ensure swayidle is installed
 if ! command -v swayidle &> /dev/null; then
     echo "swayidle not found, attempting to install..."
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
     # Check for offline packages (deployment package)
     if [ -d "$SCRIPT_DIR/../debs" ] && ls "$SCRIPT_DIR/../debs/"*swayidle*.deb 1> /dev/null 2>&1; then
@@ -36,7 +36,7 @@ if ! command -v swayidle &> /dev/null; then
     fi
     echo "swayidle installed successfully"
 fi
-DISPLAY_USER="${2:-pou_con}"
+DISPLAY_USER="${2:-pi}"
 AUTOSTART_FILE="/home/$DISPLAY_USER/.config/labwc/autostart"
 
 # Auto-detect backlight device (different hardware uses different paths)
@@ -84,8 +84,8 @@ fi
 
 # Add new swayidle configuration if timeout > 0
 if [ "$TIMEOUT_SECONDS" -gt 0 ]; then
-    # Use backlight control for reliable blanking on reTerminal DM
-    echo "swayidle -w timeout $TIMEOUT_SECONDS 'echo 0 > $BACKLIGHT_PATH' resume 'echo $MAX_BRIGHTNESS > $BACKLIGHT_PATH' &" >> "$AUTOSTART_FILE"
+    # Use backlight control scripts for reliable blanking on reTerminal DM
+    echo "swayidle -w timeout $TIMEOUT_SECONDS '$SCRIPT_DIR/off_screen.sh' resume '$SCRIPT_DIR/on_screen.sh' &" >> "$AUTOSTART_FILE"
     echo "Screen timeout set to $TIMEOUT_SECONDS seconds"
 else
     echo "Screen timeout disabled (always on)"
@@ -110,7 +110,7 @@ if [ "$TIMEOUT_SECONDS" -gt 0 ]; then
         sudo -u "$DISPLAY_USER" \
             WAYLAND_DISPLAY="$WAYLAND_SOCK" \
             XDG_RUNTIME_DIR="$XDG_RUNTIME" \
-            sh -c "swayidle -w timeout $TIMEOUT_SECONDS 'echo 0 > $BACKLIGHT_PATH' resume 'echo $MAX_BRIGHTNESS > $BACKLIGHT_PATH' &" 2>/dev/null
+            sh -c "swayidle -w timeout $TIMEOUT_SECONDS '$SCRIPT_DIR/off_screen.sh' resume '$SCRIPT_DIR/on_screen.sh' &" 2>/dev/null
 
         if pgrep -u "$DISPLAY_USER" swayidle > /dev/null 2>&1; then
             echo "swayidle started with ${TIMEOUT_SECONDS}s timeout"

@@ -33,6 +33,8 @@ defmodule PouCon.Hardware.Screensaver do
   ]
 
   @screen_timeout_script "/opt/pou_con/scripts/set_screen_timeout.sh"
+  @on_screen_script "/opt/pou_con/scripts/on_screen.sh"
+  @off_screen_script "/opt/pou_con/scripts/off_screen.sh"
 
   @doc """
   Gets the current screen timeout in seconds.
@@ -161,26 +163,48 @@ defmodule PouCon.Hardware.Screensaver do
   end
 
   @doc """
-  Immediately blanks the screen using backlight control.
+  Immediately blanks the screen.
+
+  Uses off_screen.sh script for hardware-agnostic control.
   """
   @spec blank_now() :: :ok | {:error, String.t()}
   def blank_now do
-    if has_backlight_control?() do
-      set_backlight(0)
-    else
-      {:error, "No backlight device found."}
-    end
+    run_screen_script(@off_screen_script, "off_screen.sh")
   end
 
   @doc """
-  Immediately wakes the screen using backlight control.
+  Immediately wakes the screen.
+
+  Uses on_screen.sh script for hardware-agnostic control.
   """
   @spec wake_now() :: :ok | {:error, String.t()}
   def wake_now do
-    if has_backlight_control?() do
-      set_backlight(:max)
-    else
-      {:error, "No backlight device found."}
+    run_screen_script(@on_screen_script, "on_screen.sh")
+  end
+
+  defp run_screen_script(script_path, script_name) do
+    # Try production path first, then development path
+    path =
+      cond do
+        File.exists?(script_path) ->
+          script_path
+
+        File.exists?("scripts/#{script_name}") ->
+          "scripts/#{script_name}"
+
+        true ->
+          nil
+      end
+
+    case path do
+      nil ->
+        {:error, "Screen control script not found: #{script_name}"}
+
+      path ->
+        case System.cmd("bash", [path], stderr_to_stdout: true) do
+          {_output, 0} -> :ok
+          {error, _} -> {:error, "Screen control failed: #{String.trim(error)}"}
+        end
     end
   end
 

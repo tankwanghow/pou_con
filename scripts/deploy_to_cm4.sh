@@ -104,36 +104,20 @@ deploy_to_cm4() {
     ssh "${REMOTE_USER}@${CM4_IP}" bash << 'ENDSSH'
         set -e
 
-        # Service user - all pou_con files and processes run as this user
-        SERVICE_USER="pou_con"
+        # Service user - using default pi user simplifies permissions
+        SERVICE_USER="pi"
 
         echo "Stopping service if running..."
         sudo systemctl stop pou_con 2>/dev/null || true
 
-        echo "Creating service user if needed..."
-        if ! id "$SERVICE_USER" &>/dev/null; then
-            # Create as regular user with home directory (needed for kiosk/desktop)
-            sudo useradd -m -s /bin/bash -d "/home/$SERVICE_USER" "$SERVICE_USER"
-            # Set a random password (user won't need to login with password - auto-login)
-            echo "$SERVICE_USER:$(openssl rand -base64 32)" | sudo chpasswd
-            echo "Created user: $SERVICE_USER with home directory"
-        else
-            # Ensure home directory exists for existing user
-            if [ ! -d "/home/$SERVICE_USER" ]; then
-                sudo mkdir -p "/home/$SERVICE_USER"
-                sudo chown "$SERVICE_USER:$SERVICE_USER" "/home/$SERVICE_USER"
-                echo "Created missing home directory for $SERVICE_USER"
-            fi
-        fi
-
-        # Add to required groups for hardware and display access
+        # Ensure pi user has required group memberships for hardware access
         echo "Configuring user groups..."
         sudo usermod -aG dialout "$SERVICE_USER"  # Serial port access (Modbus RTU)
         sudo usermod -aG video "$SERVICE_USER"    # Backlight control (screen blanking)
         sudo usermod -aG input "$SERVICE_USER"    # Touchscreen input
         sudo usermod -aG render "$SERVICE_USER" 2>/dev/null || true  # GPU access
         sudo usermod -aG audio "$SERVICE_USER" 2>/dev/null || true   # Audio (for alerts)
-        echo "Added $SERVICE_USER to required groups"
+        echo "Configured $SERVICE_USER groups for hardware access"
 
         echo "Backing up current installation..."
         if [ -d /opt/pou_con ]; then

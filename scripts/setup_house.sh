@@ -176,28 +176,19 @@ sudo cp server.key "$SSL_DIR/server.key"
 sudo cp server.crt "$SSL_DIR/server.crt"
 sudo cp "$CA_CRT" "$SSL_DIR/ca.crt"
 
-# Set permissions (pou_con user needs to read the key for HTTPS)
+# Set permissions (pi user needs to read the key for HTTPS)
 sudo chmod 600 "$SSL_DIR/server.key"
 sudo chmod 644 "$SSL_DIR/server.crt"
 sudo chmod 644 "$SSL_DIR/ca.crt"
 
-# Service user for pou_con (same as in deploy script)
-SERVICE_USER="pou_con"
+# Service user - using default pi user simplifies permissions
+SERVICE_USER="pi"
 
-# Check if service user exists (created by deploy script)
-if id "$SERVICE_USER" &>/dev/null; then
-    # Key must be readable by pou_con service
-    sudo chown "$SERVICE_USER:$SERVICE_USER" "$SSL_DIR/server.key"
-    sudo chown root:root "$SSL_DIR/server.crt"
-    sudo chown root:root "$SSL_DIR/ca.crt"
-    echo "SSL key ownership set to $SERVICE_USER user"
-else
-    # pou_con user doesn't exist yet, will be created by deploy
-    sudo chown -R root:root "$SSL_DIR"
-    echo -e "${YELLOW}Note: $SERVICE_USER user not found. Run deploy script first, then re-run this script.${NC}"
-    echo -e "${YELLOW}Or manually fix permissions after deploy:${NC}"
-    echo "  sudo chown $SERVICE_USER:$SERVICE_USER $SSL_DIR/server.key"
-fi
+# Key must be readable by the service user
+sudo chown "$SERVICE_USER:$SERVICE_USER" "$SSL_DIR/server.key"
+sudo chown root:root "$SSL_DIR/server.crt"
+sudo chown root:root "$SSL_DIR/ca.crt"
+echo "SSL key ownership set to $SERVICE_USER user"
 
 # Cleanup
 cd /

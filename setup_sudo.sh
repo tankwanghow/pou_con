@@ -1,10 +1,10 @@
 #!/bin/bash
-# Setup passwordless sudo for pou_con service user
+# Setup passwordless sudo for pi user (PouCon service)
 # This enables web-based system time management and screen control
 
 set -e
 
-SERVICE_USER="pou_con"
+SERVICE_USER="pi"
 SUDOERS_FILE="/etc/sudoers.d/pou_con"
 UDEV_RULES_FILE="/etc/udev/rules.d/99-pou_con.rules"
 
@@ -17,34 +17,34 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Check if user exists
+# Check if user exists (pi should always exist on Raspberry Pi OS)
 if ! id "$SERVICE_USER" &>/dev/null; then
     echo "ERROR: User '$SERVICE_USER' does not exist"
-    echo "Run the deployment script first to create the user"
+    echo "This is unexpected - pi user should exist on Raspberry Pi OS"
     exit 1
 fi
 
 echo "1. Configuring passwordless sudo for $SERVICE_USER..."
 
 # Create sudoers file with specific command permissions
-cat > "$SUDOERS_FILE" << 'EOF'
-# PouCon service user sudo permissions
-# This file allows the pou_con user to run specific system commands
+cat > "$SUDOERS_FILE" << EOF
+# PouCon service sudo permissions
+# This file allows the pi user to run specific system commands
 # without a password, enabling web-based administration.
 
 # System time management (for RTC battery failure recovery)
-pou_con ALL=(ALL) NOPASSWD: /usr/bin/date
-pou_con ALL=(ALL) NOPASSWD: /usr/sbin/hwclock
-pou_con ALL=(ALL) NOPASSWD: /usr/bin/timedatectl
+$SERVICE_USER ALL=(ALL) NOPASSWD: /usr/bin/date
+$SERVICE_USER ALL=(ALL) NOPASSWD: /usr/sbin/hwclock
+$SERVICE_USER ALL=(ALL) NOPASSWD: /usr/bin/timedatectl
 
 # System management (reboot, shutdown from web UI)
-pou_con ALL=(ALL) NOPASSWD: /usr/sbin/reboot
-pou_con ALL=(ALL) NOPASSWD: /usr/sbin/shutdown
-pou_con ALL=(ALL) NOPASSWD: /usr/bin/systemctl reboot
-pou_con ALL=(ALL) NOPASSWD: /usr/bin/systemctl poweroff
+$SERVICE_USER ALL=(ALL) NOPASSWD: /usr/sbin/reboot
+$SERVICE_USER ALL=(ALL) NOPASSWD: /usr/sbin/shutdown
+$SERVICE_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl reboot
+$SERVICE_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl poweroff
 
 # Screen timeout management (Wayland/labwc)
-pou_con ALL=(ALL) NOPASSWD: /opt/pou_con/scripts/set_screen_timeout.sh
+$SERVICE_USER ALL=(ALL) NOPASSWD: /opt/pou_con/scripts/set_screen_timeout.sh
 EOF
 
 # Set correct permissions (required for sudoers files)
@@ -66,7 +66,7 @@ echo "2. Configuring udev rules for hardware access..."
 # Create udev rules for backlight access
 cat > "$UDEV_RULES_FILE" << EOF
 # PouCon hardware access rules
-# Allows pou_con user (via video group) to control backlight
+# Allows pi user (via video group) to control backlight
 
 # Backlight devices - allow video group to write (some may already have this)
 SUBSYSTEM=="backlight", ACTION=="add", RUN+="/bin/chmod 664 /sys/class/backlight/%k/brightness", RUN+="/bin/chgrp video /sys/class/backlight/%k/brightness"
