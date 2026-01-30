@@ -51,13 +51,36 @@ echo ""
 rm -rf output
 mkdir -p output
 
-# Build for ARM64
-docker buildx build \
+# Prune buildx cache to prevent stale state issues
+# This helps avoid intermittent hangs during export
+echo "Pruning Docker build cache..."
+docker builder prune -f --filter "until=24h" 2>/dev/null || true
+
+# Build for ARM64 with timeout to prevent indefinite hangs
+# The export phase can occasionally hang due to BuildKit issues
+echo "Starting ARM64 build (timeout: 30 minutes)..."
+timeout 1800 docker buildx build \
   --platform linux/arm64 \
   --output type=local,dest=./output \
   -f Dockerfile.arm \
   --progress=plain \
   .
+
+BUILD_STATUS=$?
+if [ $BUILD_STATUS -eq 124 ]; then
+    echo ""
+    echo "ERROR: Build timed out after 30 minutes"
+    echo "Try resetting the buildx builder:"
+    echo "  docker buildx stop"
+    echo "  docker buildx rm multiarch"
+    echo "  docker buildx create --name multiarch --driver docker-container --use"
+    echo "  docker buildx inspect --bootstrap"
+    exit 1
+elif [ $BUILD_STATUS -ne 0 ]; then
+    echo ""
+    echo "ERROR: Build failed with exit code $BUILD_STATUS"
+    exit $BUILD_STATUS
+fi
 
 # Check if build succeeded
 if [ ! -f "output/pou_con_release_arm.tar.gz" ]; then

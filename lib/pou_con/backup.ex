@@ -8,6 +8,15 @@ defmodule PouCon.Backup do
 
   @supported_versions ["1.0", "2.0", "2.1"]
 
+  # Batch size for inserts - SQLite performs best with moderate batch sizes
+  @batch_size 500
+
+  # Transaction timeout for restore operations (5 minutes)
+  @restore_timeout :timer.minutes(5)
+
+  # Maximum records to restore for large logging tables
+  @max_log_records 3000
+
   # Tables in order of restoration (respecting foreign keys)
   # Configuration tables first, then logging tables
   @restore_order [
@@ -125,23 +134,26 @@ defmodule PouCon.Backup do
   end
 
   defp do_restore(backup) do
-    Repo.transaction(fn ->
-      # Clear tables in reverse order (respecting foreign keys)
-      clear_tables()
+    Repo.transaction(
+      fn ->
+        # Clear tables in reverse order (respecting foreign keys)
+        clear_tables()
 
-      # Restore in order
-      restored =
-        for table <- @restore_order do
-          count = restore_table(backup, table)
-          {table, count}
-        end
-        |> Enum.filter(fn {_, count} -> count > 0 end)
+        # Restore in order
+        restored =
+          for table <- @restore_order do
+            count = restore_table(backup, table)
+            {table, count}
+          end
+          |> Enum.filter(fn {_, count} -> count > 0 end)
 
-      %{
-        restored_tables: restored,
-        total_records: Enum.reduce(restored, 0, fn {_, count}, acc -> acc + count end)
-      }
-    end)
+        %{
+          restored_tables: restored,
+          total_records: Enum.reduce(restored, 0, fn {_, count}, acc -> acc + count end)
+        }
+      end,
+      timeout: @restore_timeout
+    )
     |> case do
       {:ok, summary} ->
         {:ok, summary}
@@ -233,6 +245,7 @@ defmodule PouCon.Backup do
   end
 
   # Logging tables that only have inserted_at (no updated_at)
+  # Limited to @max_log_records most recent records to prevent timeout on slow SD cards
   defp restore_table(backup, table)
        when table in [:equipment_events, :data_point_logs] do
     case Map.get(backup, table) do
@@ -243,25 +256,14 @@ defmodule PouCon.Backup do
         0
 
       rows when is_list(rows) ->
+        # Sort by inserted_at descending and take most recent records only
+        rows =
+          rows
+          |> Enum.sort_by(& &1[:inserted_at], :desc)
+          |> Enum.take(@max_log_records)
+
         table_name = Atom.to_string(table)
-
-        for row <- rows do
-          # Only ensure inserted_at for these tables (no updated_at column)
-          row = ensure_inserted_at_only(row)
-
-          columns = Map.keys(row) |> Enum.map(&Atom.to_string/1)
-          placeholders = Enum.with_index(columns, 1) |> Enum.map(fn {_, i} -> "?#{i}" end)
-          values = Map.values(row) |> Enum.map(&convert_value/1)
-
-          sql = """
-          INSERT INTO #{table_name} (#{Enum.join(columns, ", ")})
-          VALUES (#{Enum.join(placeholders, ", ")})
-          """
-
-          Repo.query!(sql, values)
-        end
-
-        length(rows)
+        batch_insert_rows(table_name, rows, &ensure_inserted_at_only/1)
     end
   end
 
@@ -275,25 +277,50 @@ defmodule PouCon.Backup do
 
       rows when is_list(rows) ->
         table_name = Atom.to_string(table)
-
-        for row <- rows do
-          # Ensure timestamps exist for tables that require them
-          row = ensure_timestamps(row)
-
-          columns = Map.keys(row) |> Enum.map(&Atom.to_string/1)
-          placeholders = Enum.with_index(columns, 1) |> Enum.map(fn {_, i} -> "?#{i}" end)
-          values = Map.values(row) |> Enum.map(&convert_value/1)
-
-          sql = """
-          INSERT INTO #{table_name} (#{Enum.join(columns, ", ")})
-          VALUES (#{Enum.join(placeholders, ", ")})
-          """
-
-          Repo.query!(sql, values)
-        end
-
-        length(rows)
+        batch_insert_rows(table_name, rows, &ensure_timestamps/1)
     end
+  end
+
+  # Batch insert rows for better performance on slow storage (SD cards)
+  # Uses multi-row INSERT statements instead of one query per row
+  defp batch_insert_rows(_table_name, [], _transform_fn), do: 0
+
+  defp batch_insert_rows(table_name, rows, transform_fn) do
+    rows
+    |> Enum.chunk_every(@batch_size)
+    |> Enum.each(fn batch ->
+      # Transform all rows and get consistent column order from first row
+      transformed_batch = Enum.map(batch, transform_fn)
+      first_row = hd(transformed_batch)
+      columns = Map.keys(first_row) |> Enum.sort()
+      column_names = Enum.map(columns, &Atom.to_string/1)
+
+      # Build multi-row VALUES clause
+      {placeholders_list, all_values} =
+        transformed_batch
+        |> Enum.with_index()
+        |> Enum.map_reduce([], fn {row, row_idx}, acc_values ->
+          row_values = Enum.map(columns, fn col -> convert_value(Map.get(row, col)) end)
+          base_idx = row_idx * length(columns)
+
+          placeholders =
+            columns
+            |> Enum.with_index(1)
+            |> Enum.map(fn {_, i} -> "?#{base_idx + i}" end)
+            |> then(&"(#{Enum.join(&1, ", ")})")
+
+          {placeholders, acc_values ++ row_values}
+        end)
+
+      sql = """
+      INSERT INTO #{table_name} (#{Enum.join(column_names, ", ")})
+      VALUES #{Enum.join(placeholders_list, ", ")}
+      """
+
+      Repo.query!(sql, all_values)
+    end)
+
+    length(rows)
   end
 
   # For tables with only inserted_at (equipment_events, data_point_logs)
