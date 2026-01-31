@@ -183,7 +183,7 @@ defmodule PouCon.Backup do
       "task_categories",
       "flocks",
       "interlock_rules",
-      "environment_control_config",
+      # Note: environment_control_config is not cleared, only updated (like app_config)
       "virtual_digital_states",
       "equipment",
       "data_points",
@@ -289,10 +289,17 @@ defmodule PouCon.Backup do
     rows
     |> Enum.chunk_every(@batch_size)
     |> Enum.each(fn batch ->
-      # Transform all rows and get consistent column order from first row
+      # Transform all rows and get consistent column order from ALL rows
+      # This ensures columns like color_zones/log_interval are included even if
+      # nil in the first row (since clean_nil_values removes nil fields from backup)
       transformed_batch = Enum.map(batch, transform_fn)
-      first_row = hd(transformed_batch)
-      columns = Map.keys(first_row) |> Enum.sort()
+
+      columns =
+        transformed_batch
+        |> Enum.flat_map(&Map.keys/1)
+        |> Enum.uniq()
+        |> Enum.sort()
+
       column_names = Enum.map(columns, &Atom.to_string/1)
 
       # Build multi-row VALUES clause

@@ -136,15 +136,22 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
   # Display Data
   # ——————————————————————————————————————————————
 
-  def calculate_display_data(%{error: error})
+  def calculate_display_data(%{error: error} = status)
       when error in [:invalid_data, :timeout, :no_sensors_configured] do
+    # Get units from thresholds even in error state
+    thresholds = Map.get(status, :thresholds, %{})
+    temp_unit = get_in(thresholds, [:temp, :unit]) || "°C"
+    hum_unit = get_in(thresholds, [:humidity, :unit]) || "%"
+    co2_unit = get_in(thresholds, [:co2, :unit]) || "ppm"
+    nh3_unit = get_in(thresholds, [:nh3, :unit]) || "ppm"
+
     %{
       is_error: true,
       main_color: "gray",
-      temp: "--.-°C",
-      hum: "--.-%",
-      co2: "-- ppm",
-      nh3: "-- ppm",
+      temp: Formatters.format_with_unit(nil, temp_unit, 1),
+      hum: Formatters.format_with_unit(nil, hum_unit, 1),
+      co2: Formatters.format_with_unit(nil, " #{co2_unit}", 0),
+      nh3: Formatters.format_with_unit(nil, " #{nh3_unit}", 1),
       temp_range: nil,
       hum_range: nil,
       co2_range: nil,
@@ -179,12 +186,18 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
     co2_count = status[:co2_count] || 0
     nh3_count = status[:nh3_count] || 0
 
-    # Get thresholds from status
+    # Get thresholds from status (includes color_zones and unit)
     thresholds = status[:thresholds] || %{}
     temp_thresholds = Map.get(thresholds, :temp, %{})
     hum_thresholds = Map.get(thresholds, :humidity, %{})
     co2_thresholds = Map.get(thresholds, :co2, %{})
     nh3_thresholds = Map.get(thresholds, :nh3, %{})
+
+    # Extract units from thresholds (aggregated from data points)
+    temp_unit = Map.get(temp_thresholds, :unit) || "°C"
+    hum_unit = Map.get(hum_thresholds, :unit) || "%"
+    co2_unit = Map.get(co2_thresholds, :unit) || "ppm"
+    nh3_unit = Map.get(nh3_thresholds, :unit) || "ppm"
 
     is_error = is_nil(avg_temp) and length(temp_sensors) > 0
 
@@ -201,32 +214,48 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
 
     temp_color = get_color_with_threshold(avg_temp, temp_thresholds, status[:error])
 
+    # Extract range suffix from unit (use first char or custom suffix)
+    temp_range_suffix = extract_range_suffix(temp_unit, "°")
+    hum_range_suffix = extract_range_suffix(hum_unit, "%")
+
     %{
       is_error: is_error,
       main_color: temp_color,
       # Temperature (always shown)
-      temp: format_temp(avg_temp),
+      temp: format_value_with_unit(avg_temp, temp_unit, 1),
       temp_color: temp_color,
-      temp_range: format_range(status[:temp_min], status[:temp_max], "°"),
+      temp_range: format_range(status[:temp_min], status[:temp_max], temp_range_suffix),
       # Humidity (optional)
       has_hum: length(hum_sensors) > 0,
-      hum: format_hum(avg_hum),
+      hum: format_value_with_unit(avg_hum, hum_unit, 1),
       hum_color: get_color_with_threshold(avg_hum, hum_thresholds, nil),
-      hum_range: format_range(status[:humidity_min], status[:humidity_max], "%"),
+      hum_range: format_range(status[:humidity_min], status[:humidity_max], hum_range_suffix),
       # CO2 (optional)
       has_co2: length(co2_sensors) > 0,
-      co2: format_co2(avg_co2),
+      co2: format_value_with_unit(avg_co2, " #{co2_unit}", 0),
       co2_color: get_color_with_threshold(avg_co2, co2_thresholds, nil),
       co2_range: format_range_int(status[:co2_min], status[:co2_max]),
       # NH3 (optional)
       has_nh3: length(nh3_sensors) > 0,
-      nh3: format_nh3(avg_nh3),
+      nh3: format_value_with_unit(avg_nh3, " #{nh3_unit}", 1),
       nh3_color: get_color_with_threshold(avg_nh3, nh3_thresholds, nil),
       nh3_range: format_range(status[:nh3_min], status[:nh3_max], ""),
       # Counts
       counts: counts
     }
   end
+
+  # Extract a short suffix for range display from a unit string
+  defp extract_range_suffix(unit, default) when is_binary(unit) do
+    cond do
+      String.starts_with?(unit, "°") -> String.slice(unit, 0, 2)
+      String.contains?(unit, ",") -> ""
+      String.length(unit) <= 3 -> unit
+      true -> default
+    end
+  end
+
+  defp extract_range_suffix(_, default), do: default
 
   defp get_color_with_threshold(nil, _thresholds, _error), do: "gray"
   defp get_color_with_threshold(_value, _thresholds, :partial_data), do: "amber"
@@ -237,17 +266,10 @@ defmodule PouConWeb.Components.Equipment.AverageSensorComponent do
 
   defp get_color_with_threshold(_, _, _), do: @no_threshold_color
 
-  defp format_temp(nil), do: "--.-°C"
-  defp format_temp(temp), do: Formatters.format_temperature(temp)
-
-  defp format_hum(nil), do: "--.-%"
-  defp format_hum(hum), do: Formatters.format_percentage(hum)
-
-  defp format_co2(nil), do: "-- ppm"
-  defp format_co2(co2), do: "#{round(co2)} ppm"
-
-  defp format_nh3(nil), do: "-- ppm"
-  defp format_nh3(nh3), do: "#{nh3} ppm"
+  # Format value with dynamic unit from data point configuration
+  defp format_value_with_unit(value, unit, decimals) do
+    Formatters.format_with_unit(value, unit, decimals)
+  end
 
   # Format 24h min/max range as "(min-max)" with unit suffix
   defp format_range(nil, nil, _suffix), do: nil

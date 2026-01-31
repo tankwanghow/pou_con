@@ -29,42 +29,74 @@ defmodule PouConWeb.Components.Formatters do
   def format_decimal(_, _decimals, placeholder), do: placeholder
 
   @doc """
-  Formats temperature value with 1 decimal place and °C suffix.
+  Formats a value with its unit from the data point configuration.
+  Falls back to a default unit if none provided.
+
+  ## Examples
+
+      iex> format_with_unit(25.678, "°C", 1)
+      "25.7°C"
+
+      iex> format_with_unit(nil, "LPM", 1)
+      "--.-LPM"
+
+      iex> format_with_unit(1234, "L", 0)
+      "1,234L"
+  """
+  def format_with_unit(nil, unit, decimals) do
+    placeholder =
+      if decimals > 0,
+        do: "--." <> String.duplicate("-", decimals),
+        else: "--"
+
+    "#{placeholder}#{unit || ""}"
+  end
+
+  def format_with_unit(value, unit, decimals) when is_number(value) do
+    "#{Number.Delimit.number_to_delimited(value, precision: decimals)}#{unit || ""}"
+  end
+
+  def format_with_unit(_, unit, decimals), do: format_with_unit(nil, unit, decimals)
+
+  @doc """
+  Formats temperature value with 1 decimal place and unit suffix.
+  Can take an optional unit parameter, defaults to °C.
 
   ## Examples
 
       iex> format_temperature(25.678)
       "25.7°C"
 
+      iex> format_temperature(25.678, "°F")
+      "25.7°F"
+
       iex> format_temperature(nil)
       "--.-°C"
   """
-  def format_temperature(nil), do: "--.-°C"
-
-  def format_temperature(value) when is_number(value) do
-    "#{Number.Delimit.number_to_delimited(value, precision: 1)}°C"
-  end
-
-  def format_temperature(_), do: "--.-°C"
+  def format_temperature(value, unit \\ "°C")
+  def format_temperature(nil, unit), do: format_with_unit(nil, unit, 1)
+  def format_temperature(value, unit) when is_number(value), do: format_with_unit(value, unit, 1)
+  def format_temperature(_, unit), do: format_with_unit(nil, unit, 1)
 
   @doc """
-  Formats humidity/percentage value with 1 decimal place and % suffix.
+  Formats humidity/percentage value with 1 decimal place and unit suffix.
+  Can take an optional unit parameter, defaults to %.
 
   ## Examples
 
       iex> format_percentage(65.5)
       "65.5%"
 
+      iex> format_percentage(65.5, "%RH")
+      "65.5%RH"
+
       iex> format_percentage(nil)
       "--.-%"
   """
-  def format_percentage(nil), do: "--.-%"
-
-  def format_percentage(value) when is_number(value) do
-    "#{Number.Delimit.number_to_delimited(value, precision: 1)}%"
-  end
-
-  def format_percentage(_), do: "--.-%"
+  def format_percentage(value, unit \\ "%")
+  def format_percentage(nil, unit), do: format_with_unit(nil, unit, 1)
+  def format_percentage(value, unit) when is_number(value), do: format_with_unit(value, unit, 1)
+  def format_percentage(_, unit), do: format_with_unit(nil, unit, 1)
 
   @doc """
   Formats flow rate value with specified decimals and unit suffix.

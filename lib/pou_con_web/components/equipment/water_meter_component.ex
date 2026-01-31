@@ -6,6 +6,7 @@ defmodule PouConWeb.Components.Equipment.WaterMeterComponent do
   use PouConWeb, :live_component
 
   alias PouConWeb.Components.Equipment.Shared
+  alias PouConWeb.Components.Formatters
 
   @impl true
   def update(assigns, socket) do
@@ -144,7 +145,7 @@ defmodule PouConWeb.Components.Equipment.WaterMeterComponent do
       value = status[key]
       key_thresholds = Map.get(thresholds, key, %{})
       label = format_label(key)
-      formatted = format_value(key, value)
+      formatted = format_value(key, value, key_thresholds)
       color = get_value_color(key, value, key_thresholds)
       # First row is bold (primary value)
       bold = idx == 0
@@ -162,20 +163,28 @@ defmodule PouConWeb.Components.Equipment.WaterMeterComponent do
     |> Enum.join(" ")
   end
 
-  # Format value based on key name hints
-  defp format_value(key, value) when is_number(value) do
-    key_str = Atom.to_string(key)
+  # Format value using unit from data point, with fallback based on key name
+  defp format_value(key, value, thresholds) when is_number(value) do
+    unit = Map.get(thresholds, :unit)
 
-    cond do
-      String.contains?(key_str, "flow_rate") -> "#{Float.round(value * 1.0, 2)} m³/h"
-      String.contains?(key_str, "flow") -> "#{Float.round(value * 1.0, 2)} m³"
-      String.contains?(key_str, "pressure") -> "#{Float.round(value * 10.0, 2)} bar"
-      String.contains?(key_str, "temp") -> "#{Float.round(value * 1.0, 1)}°C"
-      true -> "#{Float.round(value * 1.0, 2)}"
+    if unit do
+      # Use unit from data point configuration
+      Formatters.format_with_unit(value, unit, 2)
+    else
+      # Fallback: guess unit based on key name
+      key_str = Atom.to_string(key)
+
+      cond do
+        String.contains?(key_str, "flow_rate") -> "#{Float.round(value * 1.0, 2)} m³/h"
+        String.contains?(key_str, "flow") -> "#{Float.round(value * 1.0, 2)} m³"
+        String.contains?(key_str, "pressure") -> "#{Float.round(value * 10.0, 2)} bar"
+        String.contains?(key_str, "temp") -> "#{Float.round(value * 1.0, 1)}°C"
+        true -> "#{Float.round(value * 1.0, 2)}"
+      end
     end
   end
 
-  defp format_value(_key, value), do: "#{value}"
+  defp format_value(_key, value, _thresholds), do: "#{value}"
 
   # No thresholds configured = neutral dark green color (no color coding)
   @no_threshold_color "green-700"

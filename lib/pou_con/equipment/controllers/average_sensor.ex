@@ -97,6 +97,11 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
       humidity_color_zones: [],
       co2_color_zones: [],
       nh3_color_zones: [],
+      # Aggregated distinct units from data points (comma-separated if multiple)
+      temp_unit: nil,
+      humidity_unit: nil,
+      co2_unit: nil,
+      nh3_unit: nil,
       # Error state
       error: nil,
       poll_interval_ms: 5000
@@ -271,7 +276,7 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
   # Self-Polling: Read from sensor controllers
   # ——————————————————————————————————————————————————————————————
   defp poll_and_update(%State{} = state) do
-    # Get readings from all configured sensor types
+    # Get readings from all configured sensor types (now includes units)
     temp_readings = read_sensors(state.temp_sensors, :temperature)
     humidity_readings = read_sensors(state.humidity_sensors, :humidity)
     co2_readings = read_sensors(state.co2_sensors, :co2)
@@ -288,6 +293,12 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
     avg_humidity = calculate_average(valid_hums, 1)
     avg_co2 = calculate_average(valid_co2s, 0)
     avg_nh3 = calculate_average(valid_nh3s, 1)
+
+    # Aggregate distinct units from data points
+    temp_unit = aggregate_units(temp_readings)
+    humidity_unit = aggregate_units(humidity_readings)
+    co2_unit = aggregate_units(co2_readings)
+    nh3_unit = aggregate_units(nh3_readings)
 
     # Determine error state (only check configured sensor types)
     error = determine_error_state(state, valid_temps, valid_hums, valid_co2s, valid_nh3s)
@@ -315,20 +326,25 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
       end
     end
 
+    # Convert readings to {name, value} format for status (drop unit from tuple)
     %State{
       state
       | avg_temp: avg_temp,
         avg_humidity: avg_humidity,
         avg_co2: avg_co2,
         avg_nh3: avg_nh3,
-        temp_readings: temp_readings,
-        humidity_readings: humidity_readings,
-        co2_readings: co2_readings,
-        nh3_readings: nh3_readings,
+        temp_readings: to_name_value_pairs(temp_readings),
+        humidity_readings: to_name_value_pairs(humidity_readings),
+        co2_readings: to_name_value_pairs(co2_readings),
+        nh3_readings: to_name_value_pairs(nh3_readings),
         temp_count: length(valid_temps),
         humidity_count: length(valid_hums),
         co2_count: length(valid_co2s),
         nh3_count: length(valid_nh3s),
+        temp_unit: temp_unit,
+        humidity_unit: humidity_unit,
+        co2_unit: co2_unit,
+        nh3_unit: nh3_unit,
         error: error
     }
   end
@@ -338,14 +354,19 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
     %State{name: "recovered", error: :crashed_previously}
   end
 
+  # Convert {name, value, unit} tuples to {name, value} pairs for backwards compatibility
+  defp to_name_value_pairs(readings) do
+    Enum.map(readings, fn {name, value, _unit} -> {name, value} end)
+  end
+
   defp reject_nil_values(readings) do
-    Enum.reject(readings, fn {_name, val} -> is_nil(val) end)
+    Enum.reject(readings, fn {_name, val, _unit} -> is_nil(val) end)
   end
 
   defp calculate_average([], _precision), do: nil
 
   defp calculate_average(valid_readings, precision) do
-    sum = valid_readings |> Enum.map(fn {_n, v} -> v end) |> Enum.sum()
+    sum = valid_readings |> Enum.map(fn {_n, v, _u} -> v end) |> Enum.sum()
     Float.round(sum / length(valid_readings), precision)
   end
 
@@ -380,25 +401,33 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
   end
 
   # Read values directly from data points
-  # Returns list of {data_point_name, value} tuples
+  # Returns list of {data_point_name, value, unit} tuples
   defp read_sensors(data_point_names, _field) do
     Enum.map(data_point_names, fn dp_name ->
-      value =
-        case @data_point_manager.read_direct(dp_name) do
-          {:ok, data} when is_map(data) ->
-            # Get the converted value from data point
-            if data[:valid] != false do
-              data[:value]
-            else
-              nil
-            end
+      case @data_point_manager.read_direct(dp_name) do
+        {:ok, data} when is_map(data) ->
+          # Get the converted value and unit from data point
+          value = if data[:valid] != false, do: data[:value], else: nil
+          unit = data[:unit]
+          {dp_name, value, unit}
 
-          _ ->
-            nil
-        end
-
-      {dp_name, value}
+        _ ->
+          {dp_name, nil, nil}
+      end
     end)
+  end
+
+  # Aggregate distinct units from readings into a single string
+  # e.g., ["°C", "°C", "°F"] -> "°C, °F"
+  defp aggregate_units(readings) do
+    readings
+    |> Enum.map(fn {_name, _value, unit} -> unit end)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+    |> case do
+      [] -> nil
+      units -> Enum.join(units, ", ")
+    end
   end
 
   # ——————————————————————————————————————————————————————————————
@@ -406,12 +435,12 @@ defmodule PouCon.Equipment.Controllers.AverageSensor do
   # ——————————————————————————————————————————————————————————————
   @impl GenServer
   def handle_call(:status, _from, state) do
-    # Build thresholds map with color_zones for each sensor type
+    # Build thresholds map with color_zones and units for each sensor type
     thresholds = %{
-      temp: %{color_zones: state.temp_color_zones},
-      humidity: %{color_zones: state.humidity_color_zones},
-      co2: %{color_zones: state.co2_color_zones},
-      nh3: %{color_zones: state.nh3_color_zones}
+      temp: %{color_zones: state.temp_color_zones, unit: state.temp_unit},
+      humidity: %{color_zones: state.humidity_color_zones, unit: state.humidity_unit},
+      co2: %{color_zones: state.co2_color_zones, unit: state.co2_unit},
+      nh3: %{color_zones: state.nh3_color_zones, unit: state.nh3_unit}
     }
 
     reply = %{

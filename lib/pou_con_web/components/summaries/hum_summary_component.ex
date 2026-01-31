@@ -1,13 +1,13 @@
 defmodule PouConWeb.Components.Summaries.HumSummaryComponent do
   @moduledoc """
   Summary component for humidity sensors.
-  Displays individual sensor readings.
+  Displays individual sensor readings with dynamic units.
   """
 
   use PouConWeb, :live_component
 
   alias PouConWeb.Components.Equipment.Shared
-  alias PouConWeb.Components.Formatters
+  alias PouConWeb.Components.Equipment.HumComponent
 
   @impl true
   def update(assigns, socket) do
@@ -49,7 +49,7 @@ defmodule PouConWeb.Components.Summaries.HumSummaryComponent do
       <div class={[Shared.text_color(@sensor.color), "text-sm"]}>{@sensor.title}</div>
       <div class="flex items-center gap-1">
         <.hum_icon color={@sensor.color} />
-        <span class={[Shared.text_color(@sensor.value_color), "text-sm font-mono font-bold"]}>
+        <span class={[Shared.text_color(@sensor.color), "text-sm font-mono font-bold"]}>
           {@sensor.display}
         </span>
       </div>
@@ -71,50 +71,15 @@ defmodule PouConWeb.Components.Summaries.HumSummaryComponent do
 
   defp prepare_sensors(items) do
     items
-    |> Enum.map(fn eq -> format_sensor(eq.status) end)
-    |> Enum.sort_by(& &1.title)
-  end
-
-  defp format_sensor(%{error: error} = status)
-       when error in [:invalid_data, :unresponsive, :timeout] do
-    %{
-      title: status[:title] || "Hum",
-      color: "gray",
-      value_color: "gray",
-      display: "--.-"
-    }
-  end
-
-  # No thresholds configured = neutral dark green color (no color coding)
-  @no_threshold_color "green-700"
-
-  defp format_sensor(status) do
-    hum = status[:hum]
-    thresholds = status[:thresholds] || %{}
-    hum_thresh = Map.get(thresholds, :hum, %{})
-
-    if is_number(hum) do
-      color = get_color(hum, hum_thresh)
+    |> Enum.map(fn eq ->
+      display = HumComponent.calculate_display_data(eq.status)
 
       %{
-        title: status[:title] || "Hum",
-        color: color,
-        value_color: color,
-        display: Formatters.format_percentage(hum)
+        title: eq.status[:title] || eq.title,
+        color: display.main_color,
+        display: display.hum
       }
-    else
-      %{title: status[:title] || "Hum", color: "gray", value_color: "gray", display: "--.-%"}
-    end
-  end
-
-  # ============================================================================
-  # Color Helpers
-  # ============================================================================
-
-  # Get color using thresholds if available, otherwise use slate
-  defp get_color(nil, _thresholds), do: "gray"
-
-  defp get_color(value, thresholds) do
-    Shared.color_from_thresholds(value, thresholds, @no_threshold_color)
+    end)
+    |> Enum.sort_by(& &1.title)
   end
 end

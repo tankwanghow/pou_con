@@ -208,15 +208,26 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
                 </p>
 
                 <div class="flex gap-1">
-                  <div class="w-1/4">
+                  <div class="w-1/5">
                     <.input
                       field={@form[:value_type]}
                       type="text"
                       label="Data Type"
-                      placeholder="int16, uint16, float32"
+                      placeholder="int16, uint16, uint32"
                     />
                   </div>
-                  <div class="w-1/4">
+                  <div class="w-1/5">
+                    <.input
+                      field={@form[:byte_order]}
+                      type="select"
+                      label="Byte Order (32-bit)"
+                      options={[
+                        {"High-Low (Standard)", "high_low"},
+                        {"Low-High (DIJIANG)", "low_high"}
+                      ]}
+                    />
+                  </div>
+                  <div class="w-1/5">
                     <.input
                       field={@form[:scale_factor]}
                       type="number"
@@ -224,10 +235,10 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
                       label="Scale Factor"
                     />
                   </div>
-                  <div class="w-1/4">
+                  <div class="w-1/5">
                     <.input field={@form[:offset]} type="number" step="any" label="Offset" />
                   </div>
-                  <div class="w-1/4">
+                  <div class="w-1/5">
                     <.input field={@form[:unit]} type="text" label="Unit" placeholder="°C, %, bar" />
                   </div>
                 </div>

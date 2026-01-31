@@ -85,25 +85,28 @@ defmodule PouConWeb.Components.Equipment.TempComponent do
   # Default color when no zones configured
   @default_color "green-700"
 
-  defp calculate_display_data(%{error: error})
+  def calculate_display_data(%{error: error} = status)
        when error in [:invalid_data, :timeout, :unresponsive] do
+    unit = get_unit(status, :temp) || "°C"
+
     %{
       is_error: true,
       main_color: "gray",
-      temp: "--.-°C",
+      temp: Formatters.format_with_unit(nil, unit, 1),
       temp_color: "gray"
     }
   end
 
-  defp calculate_display_data(status) do
+  def calculate_display_data(status) do
     temp = status[:temp]
     color_zones = get_color_zones(status, :temp)
+    unit = get_unit(status, :temp) || "°C"
 
     if is_nil(temp) do
       %{
         is_error: true,
         main_color: "gray",
-        temp: "--.-°C",
+        temp: Formatters.format_with_unit(nil, unit, 1),
         temp_color: "gray"
       }
     else
@@ -112,7 +115,7 @@ defmodule PouConWeb.Components.Equipment.TempComponent do
       %{
         is_error: false,
         main_color: color,
-        temp: Formatters.format_temperature(temp),
+        temp: Formatters.format_with_unit(temp, unit, 1),
         temp_color: color
       }
     end
@@ -123,6 +126,14 @@ defmodule PouConWeb.Components.Equipment.TempComponent do
     case status[:thresholds] do
       %{^key => %{color_zones: zones}} when is_list(zones) -> zones
       _ -> status[:color_zones] || []
+    end
+  end
+
+  # Extract unit from status thresholds
+  defp get_unit(status, key) do
+    case status[:thresholds] do
+      %{^key => %{unit: unit}} when is_binary(unit) -> unit
+      _ -> nil
     end
   end
 end

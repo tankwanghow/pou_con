@@ -85,25 +85,28 @@ defmodule PouConWeb.Components.Equipment.HumComponent do
   # Default color when no zones configured
   @default_color "green-700"
 
-  defp calculate_display_data(%{error: error})
+  def calculate_display_data(%{error: error} = status)
        when error in [:invalid_data, :timeout, :unresponsive] do
+    unit = get_unit(status, :hum) || "%"
+
     %{
       is_error: true,
       main_color: "gray",
-      hum: "--.-%",
+      hum: Formatters.format_with_unit(nil, unit, 1),
       hum_color: "gray"
     }
   end
 
-  defp calculate_display_data(status) do
+  def calculate_display_data(status) do
     hum = status[:hum]
     color_zones = get_color_zones(status, :hum)
+    unit = get_unit(status, :hum) || "%"
 
     if is_nil(hum) do
       %{
         is_error: true,
         main_color: "gray",
-        hum: "--.-%",
+        hum: Formatters.format_with_unit(nil, unit, 1),
         hum_color: "gray"
       }
     else
@@ -112,7 +115,7 @@ defmodule PouConWeb.Components.Equipment.HumComponent do
       %{
         is_error: false,
         main_color: color,
-        hum: Formatters.format_percentage(hum),
+        hum: Formatters.format_with_unit(hum, unit, 1),
         hum_color: color
       }
     end
@@ -123,6 +126,14 @@ defmodule PouConWeb.Components.Equipment.HumComponent do
     case status[:thresholds] do
       %{^key => %{color_zones: zones}} when is_list(zones) -> zones
       _ -> status[:color_zones] || []
+    end
+  end
+
+  # Extract unit from status thresholds
+  defp get_unit(status, key) do
+    case status[:thresholds] do
+      %{^key => %{unit: unit}} when is_binary(unit) -> unit
+      _ -> nil
     end
   end
 end

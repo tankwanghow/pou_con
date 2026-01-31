@@ -147,7 +147,7 @@ defmodule PouConWeb.Components.Equipment.Nh3Component do
       value = status[key]
       key_thresholds = Map.get(thresholds, key, %{})
       label = format_label(key)
-      formatted = format_value(key, value)
+      formatted = format_value(key, value, key_thresholds)
       color = get_value_color(key, value, key_thresholds)
       # First row is bold (primary value)
       bold = idx == 0
@@ -165,19 +165,27 @@ defmodule PouConWeb.Components.Equipment.Nh3Component do
     |> Enum.join(" ")
   end
 
-  # Format value based on key name hints
-  defp format_value(key, value) when is_number(value) do
-    key_str = Atom.to_string(key)
+  # Format value using unit from data point, with fallback based on key name
+  defp format_value(key, value, thresholds) when is_number(value) do
+    unit = Map.get(thresholds, :unit)
 
-    cond do
-      String.contains?(key_str, "nh3") -> "#{Formatters.format_decimal(value, 1)} ppm"
-      String.contains?(key_str, "temp") -> Formatters.format_temperature(value)
-      String.contains?(key_str, "hum") -> Formatters.format_percentage(value)
-      true -> "#{Float.round(value * 1.0, 1)}"
+    if unit do
+      # Use unit from data point configuration
+      Formatters.format_with_unit(value, unit, 1)
+    else
+      # Fallback: guess unit based on key name
+      key_str = Atom.to_string(key)
+
+      cond do
+        String.contains?(key_str, "nh3") -> "#{Formatters.format_decimal(value, 1)} ppm"
+        String.contains?(key_str, "temp") -> Formatters.format_temperature(value)
+        String.contains?(key_str, "hum") -> Formatters.format_percentage(value)
+        true -> "#{Float.round(value * 1.0, 1)}"
+      end
     end
   end
 
-  defp format_value(_key, value), do: "#{value}"
+  defp format_value(_key, value, _thresholds), do: "#{value}"
 
   # No thresholds configured = neutral dark green color (no color coding)
   @no_threshold_color "green-700"

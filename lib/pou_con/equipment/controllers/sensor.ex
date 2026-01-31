@@ -253,12 +253,13 @@ defmodule PouCon.Equipment.Controllers.Sensor do
     end
   end
 
-  # Extract color zones from data point response
+  # Extract color zones and unit from data point response
   defp extract_thresholds(data) when is_map(data) do
     %{
       color_zones: Map.get(data, :color_zones, []),
       min_valid: Map.get(data, :min_valid),
-      max_valid: Map.get(data, :max_valid)
+      max_valid: Map.get(data, :max_valid),
+      unit: Map.get(data, :unit)
     }
   end
 

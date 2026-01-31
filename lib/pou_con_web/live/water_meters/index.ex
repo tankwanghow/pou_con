@@ -1,14 +1,12 @@
 defmodule PouConWeb.Live.WaterMeters.Index do
   @moduledoc """
   LiveView page for water meters monitoring.
-  Shows flow rates, cumulative consumption, and valve status.
+  Shows water meter components with flow rates and consumption.
   """
 
   use PouConWeb, :live_view
 
   alias PouCon.Equipment.EquipmentCommands
-  alias PouCon.Logging.DataPointLogger
-  alias PouConWeb.Components.Formatters
 
   @pubsub_topic "data_point_data"
 
@@ -17,10 +15,7 @@ defmodule PouConWeb.Live.WaterMeters.Index do
     if connected?(socket), do: Phoenix.PubSub.subscribe(PouCon.PubSub, @pubsub_topic)
     equipment = PouCon.Equipment.Devices.list_equipment()
 
-    socket =
-      socket
-      |> assign(equipment: equipment, now: DateTime.utc_now())
-      |> assign_consumption_stats()
+    socket = assign(socket, equipment: equipment)
 
     {:ok, fetch_all_status(socket)}
   end
@@ -75,48 +70,7 @@ defmodule PouConWeb.Live.WaterMeters.Index do
       end)
       |> Enum.reject(&is_nil/1)
 
-    # Calculate totals
-    valid_meters =
-      equipment_with_status
-      |> Enum.filter(&(is_nil(&1.status[:error]) and is_number(&1.status[:positive_flow])))
-
-    total_consumption =
-      if length(valid_meters) > 0 do
-        Enum.sum(Enum.map(valid_meters, & &1.status[:positive_flow]))
-      else
-        nil
-      end
-
-    total_flow_rate =
-      valid_meters
-      |> Enum.map(& &1.status[:flow_rate])
-      |> Enum.filter(&is_number/1)
-      |> Enum.sum()
-
-    socket
-    |> assign(equipment: equipment_with_status, now: DateTime.utc_now())
-    |> assign(total_consumption: total_consumption, total_flow_rate: total_flow_rate)
-  end
-
-  defp assign_consumption_stats(socket) do
-    equipment = socket.assigns.equipment
-    water_meters = Enum.filter(equipment, &(&1.type == "water_meter"))
-
-    # Get daily consumption for last 7 days across all meters
-    # Note: Data point names should match equipment names for consumption tracking
-    daily_totals =
-      Enum.flat_map(water_meters, fn meter ->
-        # Use equipment name as data point name prefix for positive flow
-        DataPointLogger.get_daily_water_consumption(meter.name, 7)
-      end)
-      |> Enum.group_by(& &1.date)
-      |> Enum.map(fn {date, items} ->
-        %{date: date, consumption: Enum.sum(Enum.map(items, & &1.consumption))}
-      end)
-      |> Enum.sort_by(& &1.date, :desc)
-
-    socket
-    |> assign(daily_consumption: daily_totals)
+    assign(socket, equipment: equipment_with_status)
   end
 
   @impl true
@@ -127,54 +81,8 @@ defmodule PouConWeb.Live.WaterMeters.Index do
       current_role={@current_role}
       critical_alerts={assigns[:critical_alerts] || []}
     >
-      <div class="bg-white shadow-sm rounded-xl border border-gray-200 p-4 mb-6">
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
-          <div>
-            <div class="text-sm text-gray-500 uppercase">Current Flow</div>
-            <div class="text-2xl font-bold font-mono text-cyan-600">
-              {format_flow(@total_flow_rate)}
-            </div>
-          </div>
-          <div>
-            <div class="text-sm text-gray-500 uppercase">Total Consumption</div>
-            <div class="text-2xl font-bold font-mono text-blue-600">
-              {format_volume(@total_consumption)}
-            </div>
-          </div>
-          <div>
-            <div class="text-sm text-gray-500 uppercase">Meters Online</div>
-            <div class="text-2xl font-bold font-mono text-emerald-600">
-              {count_online(@equipment)} / {length(@equipment)}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <%!-- Daily Consumption (last 7 days) --%>
-      <div
-        :if={length(@daily_consumption) > 0}
-        class="bg-white shadow-sm rounded-xl border border-gray-200 p-4 mb-6"
-      >
-        <h3 class="text-lg font-semibold text-gray-700 mb-3">
-          Daily Water Consumption (Last 7 Days)
-        </h3>
-        <div class="grid grid-cols-7 gap-2">
-          <%= for day <- Enum.take(@daily_consumption, 7) do %>
-            <div class="bg-cyan-50 p-3 rounded text-center">
-              <div class="text-xs text-gray-500">
-                {Calendar.strftime(day.date, "%d %b")}
-              </div>
-              <div class="text-lg font-bold text-cyan-600">
-                {Formatters.format_decimal(day.consumption, 1)}
-              </div>
-              <div class="text-xs text-gray-400">m³</div>
-            </div>
-          <% end %>
-        </div>
-      </div>
-
       <%!-- Water Meter Cards --%>
-      <div class="flex flex-wrap gap-4">
+      <div class="flex flex-wrap gap-1 justify-center">
         <%= for eq <- @equipment |> Enum.sort_by(& &1.title) do %>
           <.live_component
             module={PouConWeb.Components.Equipment.WaterMeterComponent}
@@ -182,59 +90,6 @@ defmodule PouConWeb.Live.WaterMeters.Index do
             equipment={eq}
           />
         <% end %>
-      </div>
-
-      <%!-- Detailed Data Table --%>
-      <div
-        :if={length(@equipment) > 0}
-        class="mt-6 bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden"
-      >
-        <table class="w-full text-sm">
-          <thead class="bg-cyan-600 text-white">
-            <tr>
-              <th class="p-3 text-left">Meter</th>
-              <th class="p-3 text-right">Flow Rate</th>
-              <th class="p-3 text-right">Cumulative</th>
-              <th class="p-3 text-right">Temperature</th>
-              <th class="p-3 text-right">Pressure</th>
-              <th class="p-3 text-right">Battery</th>
-              <th class="p-3 text-center">Pipe</th>
-              <th class="p-3 text-center">Valve</th>
-              <th class="p-3 text-center">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <%= for eq <- @equipment |> Enum.sort_by(& &1.title) do %>
-              <tr class="border-t border-gray-100 hover:bg-gray-50">
-                <td class="p-3 font-medium text-gray-800">{eq.status[:title] || eq.title}</td>
-                <td class="p-3 text-right font-mono text-cyan-600">
-                  {format_flow(eq.status[:flow_rate])}
-                </td>
-                <td class="p-3 text-right font-mono text-blue-600">
-                  {format_volume(eq.status[:positive_flow])}
-                </td>
-                <td class="p-3 text-right font-mono text-amber-600">
-                  {format_temp(eq.status[:temperature])}
-                </td>
-                <td class="p-3 text-right font-mono text-green-600">
-                  {format_pressure(eq.status[:pressure])}
-                </td>
-                <td class="p-3 text-right font-mono text-gray-600">
-                  {format_battery(eq.status[:battery_voltage])}
-                </td>
-                <td class="p-3 text-center">
-                  <.pipe_badge status={eq.status[:pipe_status]} />
-                </td>
-                <td class="p-3 text-center">
-                  <.valve_badge status={eq.status[:valve_status]} />
-                </td>
-                <td class="p-3 text-center">
-                  <.status_badge error={eq.status[:error]} />
-                </td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
       </div>
 
       <%!-- Empty State --%>
@@ -246,92 +101,5 @@ defmodule PouConWeb.Live.WaterMeters.Index do
       </div>
     </Layouts.app>
     """
-  end
-
-  # ——————————————————————————————————————————————
-  # Badge Components
-  # ——————————————————————————————————————————————
-
-  defp pipe_badge(assigns) do
-    assigns = assign(assigns, :status, assigns[:status])
-
-    ~H"""
-    <span class={[
-      "px-2 py-1 rounded text-xs font-medium",
-      pipe_badge_color(@status)
-    ]}>
-      {pipe_badge_text(@status)}
-    </span>
-    """
-  end
-
-  defp pipe_badge_color("full"), do: "bg-green-100 text-green-700"
-  defp pipe_badge_color("empty"), do: "bg-amber-100 text-amber-700"
-  defp pipe_badge_color(_), do: "bg-gray-100 text-gray-500"
-
-  defp pipe_badge_text("full"), do: "Full"
-  defp pipe_badge_text("empty"), do: "Empty"
-  defp pipe_badge_text(nil), do: "--"
-  defp pipe_badge_text(other), do: to_string(other)
-
-  defp valve_badge(assigns) do
-    assigns = assign(assigns, :status, assigns[:status])
-
-    ~H"""
-    <span class={[
-      "px-2 py-1 rounded text-xs font-medium",
-      valve_badge_color(@status)
-    ]}>
-      {valve_badge_text(@status)}
-    </span>
-    """
-  end
-
-  defp valve_badge_color(%{open: true}), do: "bg-green-100 text-green-700"
-  defp valve_badge_color(%{closed: true}), do: "bg-gray-100 text-gray-600"
-  defp valve_badge_color(%{abnormal: true}), do: "bg-rose-100 text-rose-700"
-  defp valve_badge_color(_), do: "bg-gray-100 text-gray-500"
-
-  defp valve_badge_text(%{open: true}), do: "Open"
-  defp valve_badge_text(%{closed: true}), do: "Closed"
-  defp valve_badge_text(%{abnormal: true}), do: "Error"
-  defp valve_badge_text(%{low_battery: true}), do: "Low Batt"
-  defp valve_badge_text(nil), do: "--"
-  defp valve_badge_text(_), do: "--"
-
-  defp status_badge(assigns) do
-    assigns = assign(assigns, :error, assigns[:error])
-
-    ~H"""
-    <span class={[
-      "px-2 py-1 rounded text-xs font-medium",
-      status_badge_color(@error)
-    ]}>
-      {status_badge_text(@error)}
-    </span>
-    """
-  end
-
-  defp status_badge_color(nil), do: "bg-green-100 text-green-700"
-  defp status_badge_color(:timeout), do: "bg-rose-100 text-rose-700"
-  defp status_badge_color(_), do: "bg-amber-100 text-amber-700"
-
-  defp status_badge_text(nil), do: "OK"
-  defp status_badge_text(:timeout), do: "Timeout"
-  defp status_badge_text(:not_running), do: "Not Running"
-  defp status_badge_text(error), do: to_string(error)
-
-  # ——————————————————————————————————————————————
-  # Formatting Helpers (using centralized Formatters)
-  # ——————————————————————————————————————————————
-
-  defp format_flow(value), do: Formatters.format_flow(value, "m³/h", 2)
-  defp format_volume(value), do: Formatters.format_volume(value, "m³", 1)
-  defp format_temp(value), do: Formatters.format_temperature(value)
-  defp format_pressure(value), do: Formatters.format_pressure(value)
-  defp format_battery(value), do: Formatters.format_voltage(value)
-
-  defp count_online(equipment) do
-    Enum.count(equipment, &is_nil(&1.status[:error]))
   end
 end
