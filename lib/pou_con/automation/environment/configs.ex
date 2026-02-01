@@ -156,7 +156,10 @@ defmodule PouCon.Automation.Environment.Configs do
 
   def humidity_override_status(_config, _humidity), do: :normal
 
-  defp filter_auto_mode_pumps(pump_names) do
+  @doc """
+  Filter pump names to only include those in auto mode.
+  """
+  def filter_auto_mode_pumps(pump_names) do
     alias PouCon.Equipment.Controllers.Pump
 
     Enum.filter(pump_names, fn name ->

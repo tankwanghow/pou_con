@@ -27,6 +27,7 @@ defmodule PouConWeb.Live.Dashboard.Index do
       |> assign(:flock_data, flock_data)
       |> assign(equipment: equipment, now: DateTime.utc_now(), current_role: role)
       |> assign(:muted_sirens, get_muted_siren_names())
+      |> assign(:env_refresh_tick, 0)
 
     {:ok, fetch_all_status(socket)}
   end
@@ -45,7 +46,11 @@ defmodule PouConWeb.Live.Dashboard.Index do
 
   def handle_info(:refresh_alarm_status, socket) do
     schedule_alarm_refresh()
-    {:noreply, assign(socket, :muted_sirens, get_muted_siren_names())}
+
+    {:noreply,
+     socket
+     |> assign(:muted_sirens, get_muted_siren_names())
+     |> update(:env_refresh_tick, &(&1 + 1))}
   end
 
   defp schedule_alarm_refresh do
@@ -251,6 +256,13 @@ defmodule PouConWeb.Live.Dashboard.Index do
           module={PouConWeb.Components.Summaries.PumpsSummaryComponent}
           id="pumps"
           pumps={pumps}
+        />
+        
+    <!-- Environment Status Summary -->
+        <.live_component
+          module={PouConWeb.Components.Summaries.EnvStatusSummaryComponent}
+          id="env_status_summary"
+          refresh_tick={@env_refresh_tick}
         />
 
         <.live_component

@@ -276,6 +276,74 @@ window.liveSocket = liveSocket
 // Keyboard mode management: "auto" | "always_show" | "always_hide"
 window.keyboardMode = localStorage.getItem("keyboardMode") || "auto";
 
+// ============================================
+// Sidebar State Persistence
+// ============================================
+const SIDEBAR_KEY = "pou_con_sidebar_open";
+
+function initSidebar() {
+  const sidebar = document.getElementById("sidebar");
+  const overlay = document.getElementById("sidebar-overlay");
+  if (!sidebar || !overlay) return;
+
+  // Restore sidebar state from localStorage
+  if (localStorage.getItem(SIDEBAR_KEY) === "true") {
+    sidebar.classList.remove("-translate-x-full");
+    overlay.classList.remove("hidden");
+  }
+}
+
+function openSidebar() {
+  const sidebar = document.getElementById("sidebar");
+  const overlay = document.getElementById("sidebar-overlay");
+  if (!sidebar || !overlay) return;
+
+  sidebar.classList.remove("-translate-x-full");
+  overlay.classList.remove("hidden");
+  localStorage.setItem(SIDEBAR_KEY, "true");
+}
+
+function closeSidebar() {
+  const sidebar = document.getElementById("sidebar");
+  const overlay = document.getElementById("sidebar-overlay");
+  if (!sidebar || !overlay) return;
+
+  sidebar.classList.add("-translate-x-full");
+  overlay.classList.add("hidden");
+  localStorage.setItem(SIDEBAR_KEY, "false");
+}
+
+// Initialize sidebar on page load and LiveView navigation
+document.addEventListener("DOMContentLoaded", initSidebar);
+window.addEventListener("phx:page-loading-stop", initSidebar);
+
+// Watch for LiveView DOM patches that reset the sidebar
+const sidebarObserver = new MutationObserver((mutations) => {
+  if (localStorage.getItem(SIDEBAR_KEY) !== "true") return;
+
+  for (const mutation of mutations) {
+    if (mutation.type === "attributes" && mutation.attributeName === "class") {
+      const sidebar = document.getElementById("sidebar");
+      if (sidebar && sidebar.classList.contains("-translate-x-full")) {
+        // LiveView reset the sidebar - restore it
+        initSidebar();
+      }
+    }
+  }
+});
+
+// Start observing once DOM is ready
+document.addEventListener("DOMContentLoaded", () => {
+  const sidebar = document.getElementById("sidebar");
+  if (sidebar) {
+    sidebarObserver.observe(sidebar, { attributes: true, attributeFilter: ["class"] });
+  }
+});
+
+// Expose functions globally for onclick handlers
+window.openSidebar = openSidebar;
+window.closeSidebar = closeSidebar;
+
 function setKeyboardMode(mode) {
   window.keyboardMode = mode;
   localStorage.setItem("keyboardMode", mode);

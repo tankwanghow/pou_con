@@ -42,6 +42,12 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
     field :step_5_extra_fans, :integer, default: 0
     field :step_5_pumps, :string, default: ""
 
+    # Temperature delta (front-to-back uniformity) configuration
+    # Sensors listed in airflow order: first = front (inlet), last = back (outlet)
+    # When delta exceeds max, jump to highest step for maximum cooling
+    field :temp_sensor_order, :string, default: ""
+    field :max_temp_delta, :float, default: 5.0
+
     timestamps()
   end
 
@@ -60,7 +66,9 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
         :hum_max,
         :enabled,
         :environment_poll_interval_ms,
-        :failsafe_fans_count
+        :failsafe_fans_count,
+        :temp_sensor_order,
+        :max_temp_delta
       ] ++
         @step_fields
     )
@@ -73,6 +81,10 @@ defmodule PouCon.Automation.Environment.Schemas.Config do
       less_than_or_equal_to: 60000
     )
     |> validate_number(:failsafe_fans_count, greater_than_or_equal_to: 1)
+    |> validate_number(:max_temp_delta,
+      greater_than_or_equal_to: 1.0,
+      less_than_or_equal_to: 15.0
+    )
     |> validate_step_temps()
     |> validate_step_extra_fans()
     |> validate_active_steps()
