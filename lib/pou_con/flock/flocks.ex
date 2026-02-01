@@ -191,8 +191,12 @@ defmodule PouCon.Flock.Flocks do
   Creates a flock log.
   """
   def create_flock_log(attrs \\ %{}) do
-    # Add house_id automatically (use string key to match form params)
-    attrs = Map.put_new(attrs, "house_id", get_house_id())
+    # Normalize keys to strings and add house_id automatically
+    attrs =
+      attrs
+      |> Enum.map(fn {k, v} -> {to_string(k), v} end)
+      |> Map.new()
+      |> Map.put_new("house_id", get_house_id())
 
     %FlockLog{}
     |> FlockLog.changeset(attrs)
@@ -241,36 +245,42 @@ defmodule PouCon.Flock.Flocks do
       |> where([l], l.flock_id == ^flock_id)
       |> select([l], %{
         total_deaths: sum(l.deaths),
-        total_eggs: sum(l.eggs),
+        total_egg_trays: sum(l.egg_trays),
+        total_egg_pcs: sum(l.egg_pcs),
         log_count: count(l.id)
       })
       |> Repo.one()
 
     current_quantity = flock.quantity - (stats.total_deaths || 0)
-    today_eggs = get_today_eggs(flock_id)
+    {today_egg_trays, today_egg_pcs} = get_today_eggs(flock_id)
 
     %{
       flock: flock,
       initial_quantity: flock.quantity,
       current_quantity: current_quantity,
       total_deaths: stats.total_deaths || 0,
-      total_eggs: stats.total_eggs || 0,
+      total_egg_trays: stats.total_egg_trays || 0,
+      total_egg_pcs: stats.total_egg_pcs || 0,
       log_count: stats.log_count || 0,
       age_days: Date.diff(Date.utc_today(), flock.date_of_birth),
-      today_eggs: today_eggs
+      today_egg_trays: today_egg_trays,
+      today_egg_pcs: today_egg_pcs
     }
   end
 
   @doc """
-  Returns total eggs produced today for a flock.
+  Returns total eggs produced today for a flock as {trays, pcs}.
   """
   def get_today_eggs(flock_id) do
     today = Date.utc_today()
 
-    FlockLog
-    |> where([l], l.flock_id == ^flock_id and l.log_date == ^today)
-    |> select([l], sum(l.eggs))
-    |> Repo.one() || 0
+    result =
+      FlockLog
+      |> where([l], l.flock_id == ^flock_id and l.log_date == ^today)
+      |> select([l], %{trays: sum(l.egg_trays), pcs: sum(l.egg_pcs)})
+      |> Repo.one()
+
+    {result.trays || 0, result.pcs || 0}
   end
 
   @doc """
@@ -290,7 +300,8 @@ defmodule PouCon.Flock.Flocks do
           |> where([l], l.flock_id == ^flock.id)
           |> select([l], %{
             total_deaths: sum(l.deaths),
-            total_eggs: sum(l.eggs),
+            total_egg_trays: sum(l.egg_trays),
+            total_egg_pcs: sum(l.egg_pcs),
             first_log_date: min(l.log_date),
             log_count: count(l.id)
           })
@@ -299,7 +310,7 @@ defmodule PouCon.Flock.Flocks do
         current_quantity = flock.quantity - (stats.total_deaths || 0)
         age_days = Date.diff(Date.utc_today(), flock.date_of_birth)
         age_weeks = div(age_days, 7)
-        today_eggs = get_today_eggs(flock.id)
+        {today_egg_trays, today_egg_pcs} = get_today_eggs(flock.id)
 
         %{
           flock_id: flock.id,
@@ -313,8 +324,10 @@ defmodule PouCon.Flock.Flocks do
           age_days: age_days,
           age_weeks: age_weeks,
           total_deaths: stats.total_deaths || 0,
-          total_eggs: stats.total_eggs || 0,
-          today_eggs: today_eggs
+          total_egg_trays: stats.total_egg_trays || 0,
+          total_egg_pcs: stats.total_egg_pcs || 0,
+          today_egg_trays: today_egg_trays,
+          today_egg_pcs: today_egg_pcs
         }
     end
   end
@@ -342,7 +355,8 @@ defmodule PouCon.Flock.Flocks do
       |> select([l], %{
         log_date: l.log_date,
         deaths: sum(l.deaths),
-        eggs: sum(l.eggs)
+        egg_trays: sum(l.egg_trays),
+        egg_pcs: sum(l.egg_pcs)
       })
       |> order_by([l], asc: l.log_date)
       |> Repo.all()
@@ -357,9 +371,10 @@ defmodule PouCon.Flock.Flocks do
         age_days = Date.diff(day.log_date, flock.date_of_birth)
         age_weeks = div(age_days, 7)
 
+        # Yield calculation uses actual egg pieces
         yield =
           if current_quantity > 0 do
-            day.eggs / current_quantity * 100
+            day.egg_pcs / current_quantity * 100
           else
             0.0
           end
@@ -369,7 +384,8 @@ defmodule PouCon.Flock.Flocks do
            age_weeks: age_weeks,
            current_quantity: current_quantity,
            deaths: day.deaths,
-           eggs: day.eggs,
+           egg_trays: day.egg_trays,
+           egg_pcs: day.egg_pcs,
            yield: yield
          }, new_cumulative_deaths}
       end)

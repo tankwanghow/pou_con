@@ -156,7 +156,8 @@ defmodule PouConWeb.API.StatusController do
           initial_quantity: flock.quantity,
           current_quantity: summary.current_quantity,
           total_deaths: summary.total_deaths,
-          total_eggs: summary.total_eggs,
+          total_egg_trays: summary.total_egg_trays,
+          total_egg_pcs: summary.total_egg_pcs,
           age_days: summary.age_days
         }
     end

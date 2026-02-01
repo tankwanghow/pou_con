@@ -611,7 +611,8 @@ defmodule Mix.Tasks.Backup do
           flock_id: f.flock_id,
           log_date: f.log_date,
           deaths: f.deaths,
-          eggs: f.eggs,
+          egg_trays: f.egg_trays,
+          egg_pcs: f.egg_pcs,
           notes: f.notes,
           inserted_at: f.inserted_at,
           updated_at: f.updated_at

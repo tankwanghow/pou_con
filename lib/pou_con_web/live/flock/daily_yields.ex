@@ -54,10 +54,11 @@ defmodule PouConWeb.Live.Flock.DailyYields do
       <div class="text-xs font-medium flex flex-row text-center bg-amber-500/20 text-amber-600 dark:text-amber-400 border-b border-t border-amber-500/30 py-2">
         <div class="w-[18%]">Date</div>
         <div class="w-[12%]">Age (wks)</div>
-        <div class="w-[18%]">Current Qty</div>
-        <div class="w-[14%]">Deaths</div>
-        <div class="w-[18%]">Eggs</div>
-        <div class="w-[20%]">Daily Yield %</div>
+        <div class="w-[16%]">Current Qty</div>
+        <div class="w-[12%]">Deaths</div>
+        <div class="w-[12%]">Trays</div>
+        <div class="w-[14%]">Pcs</div>
+        <div class="w-[16%]">Yield %</div>
       </div>
       
     <!-- Data Rows -->
@@ -70,10 +71,11 @@ defmodule PouConWeb.Live.Flock.DailyYields do
             <div class="text-sm flex flex-row text-center border-b border-base-300 py-2 hover:bg-base-200">
               <div class="w-[18%]">{format_date(yield.log_date)}</div>
               <div class="w-[12%]">{yield.age_weeks}w</div>
-              <div class="w-[18%] text-emerald-400">{format_number(yield.current_quantity)}</div>
-              <div class="w-[14%] text-rose-400">{format_number(yield.deaths)}</div>
-              <div class="w-[18%] text-amber-400">{format_number(yield.eggs)}</div>
-              <div class="w-[20%] font-bold text-amber-300">{format_yield(yield.yield)}</div>
+              <div class="w-[16%] text-emerald-400">{format_number(yield.current_quantity)}</div>
+              <div class="w-[12%] text-rose-400">{format_number(yield.deaths)}</div>
+              <div class="w-[12%] text-amber-400">{format_number(yield.egg_trays)}</div>
+              <div class="w-[14%] text-amber-300">{format_number(yield.egg_pcs)}</div>
+              <div class="w-[16%] font-bold text-amber-300">{format_yield(yield.yield)}</div>
             </div>
           <% end %>
         </div>

@@ -131,7 +131,7 @@ defmodule PouConWeb.Live.Flock.Logs do
         flock_id: socket.assigns.flock.id,
         log_date: Date.utc_today(),
         deaths: 0,
-        eggs: 0
+        egg_trays: 0
       })
 
     assign(socket, editing_log: nil, form: to_form(changeset))
@@ -220,23 +220,23 @@ defmodule PouConWeb.Live.Flock.Logs do
 
           <div class="bg-amber-500/20 rounded p-1">
             <div class="text-amber-600 dark:text-amber-400 font-bold">
-              {format_number(@summary.today_eggs)}
+              {format_number(@summary.today_egg_trays)}
             </div>
-            <div class="text-amber-500 text-xs">Today Eggs</div>
+            <div class="text-amber-500 text-xs">Today Trays</div>
           </div>
 
           <div class="bg-emerald-500/20 rounded p-1">
             <div class="text-emerald-600 dark:text-emerald-400 font-bold">
-              {format_yield(@summary.today_eggs, @summary.current_quantity)}
+              {format_yield(@summary.today_egg_pcs, @summary.current_quantity)}
             </div>
             <div class="text-emerald-500 text-xs">Today Yield</div>
           </div>
 
           <div class="bg-amber-500/20 rounded p-1">
             <div class="text-amber-600 dark:text-amber-400 font-bold">
-              {format_number(@summary.total_eggs)}
+              {format_number(@summary.total_egg_trays)}
             </div>
-            <div class="text-amber-500 text-xs">Total Eggs</div>
+            <div class="text-amber-500 text-xs">Total Trays</div>
           </div>
         </div>
       </div>
@@ -264,10 +264,10 @@ defmodule PouConWeb.Live.Flock.Logs do
                 <.input type="number" field={@form[:deaths]} min="0" required />
               </div>
               
-    <!-- Eggs -->
+    <!-- Egg Trays -->
               <div>
-                <label class="block text-sm font-medium">Eggs Produced</label>
-                <.input type="number" field={@form[:eggs]} min="0" required />
+                <label class="block text-sm font-medium">Egg Trays (30 pcs/tray)</label>
+                <.input type="number" field={@form[:egg_trays]} min="0" required />
               </div>
               
     <!-- Notes -->
@@ -313,7 +313,7 @@ defmodule PouConWeb.Live.Flock.Logs do
                     <div class="font-semibold text-base-content">{log.log_date}</div>
 
                     <div class="font-bold text-rose-400">{format_number(log.deaths)}</div>
-                    <div class="text-amber-400">{format_number(log.eggs)}</div>
+                    <div class="text-amber-400">{format_number(log.egg_trays)} trays</div>
 
                     <div :if={@flock.active} class="flex gap-1">
                       <button

@@ -115,12 +115,12 @@ defmodule PouCon.Flock.FlocksTest do
         flock_id: flock.id,
         log_date: ~D[2026-01-07],
         deaths: 2,
-        eggs: 500
+        egg_trays: 500
       }
 
       assert {:ok, %FlockLog{} = log} = Flocks.create_flock_log(attrs)
       assert log.deaths == 2
-      assert log.eggs == 500
+      assert log.egg_trays == 500
     end
 
     test "list_flock_logs/1 returns logs for a flock", %{flock: flock} do
@@ -129,7 +129,7 @@ defmodule PouCon.Flock.FlocksTest do
           flock_id: flock.id,
           log_date: ~D[2026-01-07],
           deaths: 1,
-          eggs: 100
+          egg_trays: 100
         })
 
       {:ok, _log2} =
@@ -137,7 +137,7 @@ defmodule PouCon.Flock.FlocksTest do
           flock_id: flock.id,
           log_date: ~D[2026-01-08],
           deaths: 2,
-          eggs: 200
+          egg_trays: 200
         })
 
       logs = Flocks.list_flock_logs(flock.id)
@@ -150,7 +150,7 @@ defmodule PouCon.Flock.FlocksTest do
           flock_id: flock.id,
           log_date: ~D[2026-01-07],
           deaths: 1,
-          eggs: 100
+          egg_trays: 100
         })
 
       {:ok, log2} =
@@ -158,7 +158,7 @@ defmodule PouCon.Flock.FlocksTest do
           flock_id: flock.id,
           log_date: ~D[2026-01-07],
           deaths: 2,
-          eggs: 150
+          egg_trays: 150
         })
 
       logs = Flocks.list_flock_logs_by_date(flock.id, ~D[2026-01-07])
@@ -177,7 +177,7 @@ defmodule PouCon.Flock.FlocksTest do
           flock_id: flock.id,
           log_date: ~D[2026-01-07],
           deaths: 1,
-          eggs: 100
+          egg_trays: 100
         })
 
       {:ok, log2} =
@@ -185,7 +185,7 @@ defmodule PouCon.Flock.FlocksTest do
           flock_id: flock.id,
           log_date: ~D[2026-01-07],
           deaths: 2,
-          eggs: 200
+          egg_trays: 200
         })
 
       assert log1.id != log2.id
@@ -202,7 +202,7 @@ defmodule PouCon.Flock.FlocksTest do
           flock_id: flock.id,
           log_date: ~D[2026-01-07],
           deaths: 5,
-          eggs: 500
+          egg_trays: 500
         })
 
       {:ok, _log2} =
@@ -210,7 +210,7 @@ defmodule PouCon.Flock.FlocksTest do
           flock_id: flock.id,
           log_date: ~D[2026-01-08],
           deaths: 3,
-          eggs: 600
+          egg_trays: 600
         })
 
       summary = Flocks.get_flock_summary(flock.id)
@@ -218,7 +218,8 @@ defmodule PouCon.Flock.FlocksTest do
       assert summary.initial_quantity == 1000
       assert summary.total_deaths == 8
       assert summary.current_quantity == 992
-      assert summary.total_eggs == 1100
+      assert summary.total_egg_trays == 1100
+      assert summary.total_egg_pcs == 1100 * 30
       assert summary.log_count == 2
     end
 
@@ -228,7 +229,7 @@ defmodule PouCon.Flock.FlocksTest do
           flock_id: flock.id,
           log_date: ~D[2026-01-07],
           deaths: 1,
-          eggs: 100
+          egg_trays: 100
         })
 
       {:ok, _} = Flocks.delete_flock(flock)

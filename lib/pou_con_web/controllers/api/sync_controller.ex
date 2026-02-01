@@ -280,7 +280,8 @@ defmodule PouConWeb.API.SyncController do
       flock_id: log.flock_id,
       log_date: log.log_date,
       deaths: log.deaths,
-      eggs: log.eggs,
+      egg_trays: log.egg_trays,
+      egg_pcs: log.egg_pcs,
       notes: log.notes,
       inserted_at: log.inserted_at,
       updated_at: log.updated_at
