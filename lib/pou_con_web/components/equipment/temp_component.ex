@@ -86,7 +86,7 @@ defmodule PouConWeb.Components.Equipment.TempComponent do
   @default_color "green-700"
 
   def calculate_display_data(%{error: error} = status)
-       when error in [:invalid_data, :timeout, :unresponsive] do
+      when error in [:invalid_data, :timeout, :unresponsive] do
     unit = get_unit(status, :temp) || "°C"
 
     %{

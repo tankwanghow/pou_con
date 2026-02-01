@@ -152,7 +152,10 @@ defmodule PouConWeb.Live.Admin.Alarm.Index do
 
             <div class="w-[22%] text-left px-1">
               <%= for cond <- rule.conditions || [] do %>
-                <div class="text-[10px] text-base-content/70 truncate" title={condition_description(cond)}>
+                <div
+                  class="text-[10px] text-base-content/70 truncate"
+                  title={condition_description(cond)}
+                >
                   {condition_description(cond)}
                 </div>
               <% end %>

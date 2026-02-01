@@ -37,11 +37,15 @@ defmodule PouConWeb.Components.Summaries.FlockSummaryComponent do
             <!-- Row 1: Flock Info -->
             <div class="bg-slate-500/20 rounded p-1">
               <div class="text-slate-600 dark:text-slate-300 font-bold">{@flock_data.flock_name}</div>
-              <div class="text-slate-500 dark:text-slate-400 text-xs">{@flock_data.flock_breed || "-"}</div>
+              <div class="text-slate-500 dark:text-slate-400 text-xs">
+                {@flock_data.flock_breed || "-"}
+              </div>
             </div>
 
             <div class="bg-slate-500/20 rounded p-1">
-              <div class="text-slate-600 dark:text-slate-300 font-bold">{format_date(@flock_data.flock_dob)}</div>
+              <div class="text-slate-600 dark:text-slate-300 font-bold">
+                {format_date(@flock_data.flock_dob)}
+              </div>
               <div class="text-slate-500 dark:text-slate-400 text-xs">DOB</div>
             </div>
 
@@ -51,7 +55,9 @@ defmodule PouConWeb.Components.Summaries.FlockSummaryComponent do
             </div>
 
             <div class="bg-cyan-500/20 rounded p-1">
-              <div class="text-cyan-600 dark:text-cyan-400 font-bold">{format_number(@flock_data.initial_quantity)}</div>
+              <div class="text-cyan-600 dark:text-cyan-400 font-bold">
+                {format_number(@flock_data.initial_quantity)}
+              </div>
               <div class="text-cyan-500 text-xs">Initial</div>
             </div>
 
@@ -63,16 +69,22 @@ defmodule PouConWeb.Components.Summaries.FlockSummaryComponent do
             </div>
 
             <div class="bg-rose-500/20 rounded p-1">
-              <div class="text-rose-600 dark:text-rose-400 font-bold">{format_number(@flock_data.total_deaths)}</div>
+              <div class="text-rose-600 dark:text-rose-400 font-bold">
+                {format_number(@flock_data.total_deaths)}
+              </div>
               <div class="text-rose-500 text-xs">Deaths</div>
             </div>
 
             <div class="bg-amber-500/20 rounded p-1">
-              <div class="text-amber-600 dark:text-amber-400 font-bold">{format_number(@flock_data.today_eggs)}</div>
+              <div class="text-amber-600 dark:text-amber-400 font-bold">
+                {format_number(@flock_data.today_eggs)}
+              </div>
               <div class="text-amber-500 text-xs">Today Eggs</div>
             </div>
             <div class="bg-cyan-500/20 rounded p-1">
-              <div class="text-cyan-600 dark:text-cyan-400 font-bold">{format_number(@flock_data.current_quantity)}</div>
+              <div class="text-cyan-600 dark:text-cyan-400 font-bold">
+                {format_number(@flock_data.current_quantity)}
+              </div>
               <div class="text-cyan-500 text-xs">Alive</div>
             </div>
 
@@ -83,7 +95,9 @@ defmodule PouConWeb.Components.Summaries.FlockSummaryComponent do
               <div class="text-emerald-500 text-xs">Today Yield</div>
             </div>
             <div class="bg-amber-500/20 rounded p-1">
-              <div class="text-amber-600 dark:text-amber-400 font-bold">{format_number(@flock_data.total_eggs)}</div>
+              <div class="text-amber-600 dark:text-amber-400 font-bold">
+                {format_number(@flock_data.total_eggs)}
+              </div>
               <div class="text-amber-500 text-xs">Total Eggs</div>
             </div>
           </div>

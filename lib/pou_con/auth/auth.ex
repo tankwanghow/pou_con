@@ -130,7 +130,9 @@ defmodule PouCon.Auth do
       File.exists?("/etc/timezone") ->
         case File.read("/etc/timezone") do
           {:ok, content} ->
-            content |> String.trim() |> case do
+            content
+            |> String.trim()
+            |> case do
               "" -> get_timezone_from_localtime()
               tz -> tz
             end

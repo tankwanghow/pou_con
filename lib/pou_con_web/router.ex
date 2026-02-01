@@ -96,7 +96,6 @@ defmodule PouConWeb.Router do
     get("/sync/task_completions", SyncController, :task_completions)
   end
 
-
   # --------------------------------------------------------------------
   # Public Routes (No Session Required)
   # Dashboard is the main entry point - no login required for viewing

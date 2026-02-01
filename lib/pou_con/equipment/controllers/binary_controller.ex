@@ -653,7 +653,7 @@ defmodule PouCon.Equipment.Controllers.BinaryController do
         should_detect_mismatch =
           unquote(
             if has_auto_manual do
-              quote do: (state.mode == :auto or state.is_auto_manual_virtual_di)
+              quote do: state.mode == :auto or state.is_auto_manual_virtual_di
             else
               true
             end

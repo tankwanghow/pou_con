@@ -138,7 +138,7 @@ defmodule PouConWeb.Live.EggCollection.Index do
       current_role={@current_role}
       critical_alerts={assigns[:critical_alerts] || []}
     >
-    <!-- Egg Collection Equipment -->
+      <!-- Egg Collection Equipment -->
       <div class="flex flex-wrap gap-1 justify-center">
         <%= for eq <- Enum.filter(@equipment, &(&1.type == "egg")) |> Enum.sort_by(& &1.title) do %>
           <.live_component

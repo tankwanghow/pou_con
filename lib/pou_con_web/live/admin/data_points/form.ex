@@ -278,7 +278,9 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
                   <%= for {zone, idx} <- Enum.with_index(@color_zones) do %>
                     <div class="flex gap-3 items-end bg-base-200 p-3 rounded-lg border border-base-300">
                       <div class="w-1/4">
-                        <label class="block text-xs font-medium text-base-content/60 mb-1">From</label>
+                        <label class="block text-xs font-medium text-base-content/60 mb-1">
+                          From
+                        </label>
                         <input
                           type="number"
                           step="any"
@@ -302,7 +304,9 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
                         />
                       </div>
                       <div class="w-1/4">
-                        <label class="block text-xs font-medium text-base-content/60 mb-1">Color</label>
+                        <label class="block text-xs font-medium text-base-content/60 mb-1">
+                          Color
+                        </label>
                         <select
                           phx-change="update_zone"
                           phx-value-idx={idx}

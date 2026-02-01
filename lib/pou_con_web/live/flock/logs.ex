@@ -160,7 +160,7 @@ defmodule PouConWeb.Live.Flock.Logs do
           <.btn_link to={~p"/flock/#{@flock.id}/daily-yields"} label="Daily Yields" color="amber" />
         </:actions>
       </.header>
-
+      
     <!-- Inactive flock warning -->
       <div
         :if={!@flock.active}
@@ -177,37 +177,51 @@ defmodule PouConWeb.Live.Flock.Logs do
           </div>
 
           <div class="bg-slate-500/20 rounded p-1">
-            <div class="text-slate-600 dark:text-slate-300 font-bold">{format_date(@flock.date_of_birth)}</div>
+            <div class="text-slate-600 dark:text-slate-300 font-bold">
+              {format_date(@flock.date_of_birth)}
+            </div>
             <div class="text-slate-500 dark:text-slate-400 text-xs">DOB</div>
           </div>
 
           <div class="bg-slate-500/20 rounded p-1">
-            <div class="text-slate-600 dark:text-slate-300 font-bold">{div(@summary.age_days, 7)}w</div>
+            <div class="text-slate-600 dark:text-slate-300 font-bold">
+              {div(@summary.age_days, 7)}w
+            </div>
             <div class="text-slate-500 dark:text-slate-400 text-xs">Age</div>
           </div>
 
           <div class="bg-slate-500/20 rounded p-1">
-            <div class="text-slate-600 dark:text-slate-300 font-bold">{format_date(@flock.inserted_at) || "-"}</div>
+            <div class="text-slate-600 dark:text-slate-300 font-bold">
+              {format_date(@flock.inserted_at) || "-"}
+            </div>
             <div class="text-slate-500 dark:text-slate-400 text-xs">Entry</div>
           </div>
 
           <div class="bg-cyan-500/20 rounded p-1">
-            <div class="text-cyan-600 dark:text-cyan-400 font-bold">{format_number(@summary.initial_quantity)}</div>
+            <div class="text-cyan-600 dark:text-cyan-400 font-bold">
+              {format_number(@summary.initial_quantity)}
+            </div>
             <div class="text-cyan-500 text-xs">Initial</div>
           </div>
 
           <div class="bg-rose-500/20 rounded p-1">
-            <div class="text-rose-600 dark:text-rose-400 font-bold">{format_number(@summary.total_deaths)}</div>
+            <div class="text-rose-600 dark:text-rose-400 font-bold">
+              {format_number(@summary.total_deaths)}
+            </div>
             <div class="text-rose-500 text-xs">Deaths</div>
           </div>
 
           <div class="bg-cyan-500/20 rounded p-1">
-            <div class="text-cyan-600 dark:text-cyan-400 font-bold">{format_number(@summary.current_quantity)}</div>
+            <div class="text-cyan-600 dark:text-cyan-400 font-bold">
+              {format_number(@summary.current_quantity)}
+            </div>
             <div class="text-cyan-500 text-xs">Alive</div>
           </div>
 
           <div class="bg-amber-500/20 rounded p-1">
-            <div class="text-amber-600 dark:text-amber-400 font-bold">{format_number(@summary.today_eggs)}</div>
+            <div class="text-amber-600 dark:text-amber-400 font-bold">
+              {format_number(@summary.today_eggs)}
+            </div>
             <div class="text-amber-500 text-xs">Today Eggs</div>
           </div>
 
@@ -219,12 +233,14 @@ defmodule PouConWeb.Live.Flock.Logs do
           </div>
 
           <div class="bg-amber-500/20 rounded p-1">
-            <div class="text-amber-600 dark:text-amber-400 font-bold">{format_number(@summary.total_eggs)}</div>
+            <div class="text-amber-600 dark:text-amber-400 font-bold">
+              {format_number(@summary.total_eggs)}
+            </div>
             <div class="text-amber-500 text-xs">Total Eggs</div>
           </div>
         </div>
       </div>
-
+      
     <!-- Log Form and List -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Log Form (only for active flocks) -->
@@ -241,25 +257,25 @@ defmodule PouConWeb.Live.Flock.Logs do
                 <label class="block text-sm font-medium">Date</label>
                 <.input type="date" field={@form[:log_date]} required />
               </div>
-
+              
     <!-- Deaths -->
               <div>
                 <label class="block text-sm font-medium">Deaths</label>
                 <.input type="number" field={@form[:deaths]} min="0" required />
               </div>
-
+              
     <!-- Eggs -->
               <div>
                 <label class="block text-sm font-medium">Eggs Produced</label>
                 <.input type="number" field={@form[:eggs]} min="0" required />
               </div>
-
+              
     <!-- Notes -->
               <div class="col-span-2">
                 <label class="block text-sm font-medium">Notes (optional)</label>
                 <.input type="textarea" field={@form[:notes]} rows="2" />
               </div>
-
+              
     <!-- Buttons -->
               <div class="col-span-2 flex gap-2 items-center">
                 <.button type="submit">
@@ -278,7 +294,7 @@ defmodule PouConWeb.Live.Flock.Logs do
             </div>
           </.form>
         </div>
-
+        
     <!-- Log List -->
         <div class={if @flock.active, do: "", else: "lg:col-span-2"}>
           <h2 class="text-lg font-semibold mb-2">

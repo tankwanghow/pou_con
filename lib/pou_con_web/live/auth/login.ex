@@ -28,7 +28,7 @@ defmodule PouConWeb.Live.Auth.Login do
       class="xs:w-full sm:w-3/4 md:w-1/3 lg:w-1/4"
       current_role={@current_role}
     >
-    <h2 class="text-2xl font-bold mb-6">Login</h2>
+      <h2 class="text-2xl font-bold mb-6">Login</h2>
       <.form for={@form} phx-submit="login" class="mt-8 space-y-6">
         <%= if @error do %>
           <div class="bg-red-500/10 border border-red-500/30 text-red-500 px-4 py-3 rounded-md text-sm">

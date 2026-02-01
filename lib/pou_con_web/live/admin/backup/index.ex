@@ -44,7 +44,8 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
           </p>
 
           <div class="mb-3 text-sm">
-            <strong>Includes:</strong> Ports, data points, equipment, environment config, light/egg/feeding schedules, alarms, tasks, flocks
+            <strong>Includes:</strong>
+            Ports, data points, equipment, environment config, light/egg/feeding schedules, alarms, tasks, flocks
           </div>
 
           <a

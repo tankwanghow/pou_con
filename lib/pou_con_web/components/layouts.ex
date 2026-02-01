@@ -50,7 +50,7 @@ defmodule PouConWeb.Layouts do
     <%!-- Menu Button (top left corner) --%>
     <button
       id="sidebar-toggle"
-      onclick="document.getElementById('sidebar').classList.remove('-translate-x-full'); document.getElementById('sidebar-overlay').classList.remove('hidden');"
+      onclick="openSidebar()"
       class="fixed top-2 left-2 z-30 p-2 rounded-lg bg-base-100/90 shadow-md border border-base-300 hover:bg-base-200 active:scale-95 transition-all"
     >
       <.icon name="hero-bars-3" class="w-6 h-6 text-base-content/80" />
@@ -70,10 +70,7 @@ defmodule PouConWeb.Layouts do
     >
       <div class="p-4 border-b border-base-300 bg-base-200 flex justify-between items-center">
         <h2 class="text-lg font-semibold text-base-content">Menu</h2>
-        <button
-          onclick="document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('sidebar-overlay').classList.add('hidden');"
-          class="p-1 rounded hover:bg-base-300"
-        >
+        <button onclick="closeSidebar()" class="p-1 rounded hover:bg-base-300">
           <.icon name="hero-x-mark" class="w-5 h-5" />
         </button>
       </div>

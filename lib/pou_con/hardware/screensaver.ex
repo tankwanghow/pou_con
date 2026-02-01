@@ -121,9 +121,7 @@ defmodule PouCon.Hardware.Screensaver do
   end
 
   defp set_wayland_timeout(seconds) do
-    case System.cmd("sudo", [@screen_timeout_script, to_string(seconds)],
-           stderr_to_stdout: true
-         ) do
+    case System.cmd("sudo", [@screen_timeout_script, to_string(seconds)], stderr_to_stdout: true) do
       {_output, 0} ->
         :ok
 

@@ -383,7 +383,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       end
 
     # Stop if limit reached while moving
-    %State{} = state_after_limits =
+    %State{} =
+      state_after_limits =
       if base_state.is_moving && limit_hit_in_direction?(base_state) do
         Logger.info("[#{state.name}] Limit reached → auto-stop")
 

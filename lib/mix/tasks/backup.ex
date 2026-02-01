@@ -343,6 +343,9 @@ defmodule Mix.Tasks.Backup do
         environment_poll_interval_ms: c.environment_poll_interval_ms,
         # Failsafe fans (manual mode, always running)
         failsafe_fans_count: c.failsafe_fans_count,
+        # Temperature delta (front-to-back uniformity)
+        temp_sensor_order: c.temp_sensor_order,
+        max_temp_delta: c.max_temp_delta,
         # Step 1-5: temp threshold, extra fans count, pump names
         step_1_temp: c.step_1_temp,
         step_1_extra_fans: c.step_1_extra_fans,
