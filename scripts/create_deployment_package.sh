@@ -575,6 +575,13 @@ EOF
 
 chmod +x "$PACKAGE_DIR/uninstall.sh"
 
+# Copy update script for existing installations
+if [ -f "scripts/update.sh" ]; then
+    cp scripts/update.sh "$PACKAGE_DIR/"
+    chmod +x "$PACKAGE_DIR/update.sh"
+    echo "  ✓ Update script included (for existing installations)"
+fi
+
 # Copy kiosk setup script (if it exists)
 if [ -f "scripts/setup_kiosk.sh" ]; then
     cp scripts/setup_kiosk.sh "$PACKAGE_DIR/"
@@ -652,7 +659,8 @@ without internet access.
 Contents:
   - pou_con/                   : Application release (built for ARM)
   - debs/                      : Offline system dependencies (if available)
-  - deploy.sh                  : All-in-one deployment script
+  - deploy.sh                  : Fresh installation script (new Pi)
+  - update.sh                  : Update existing installation (preserves data)
   - setup_house.sh             : House reconfiguration (house_id + HTTPS)
   - ca.crt, ca.key             : CA files for signing SSL certificates
   - backup.sh                  : Backup script
@@ -687,6 +695,27 @@ Quick Start (USB Drive - No Internet Required):
      - Done! Service starts automatically
 
   4. Unplug USB drive
+
+Updating Existing Installation:
+  If you already have PouCon running and want to update:
+
+  1. At Raspberry Pi - insert USB and run:
+     cd /media/pi/*/deployment_package_*/
+     sudo ./update.sh
+
+  2. The script will:
+     - Stop the service
+     - Backup your database (to /var/backups/pou_con/)
+     - Update application files
+     - Run database migrations
+     - Restart the service
+
+  Your data, SSL certificates, and configuration are preserved.
+
+  To rollback if something goes wrong:
+     sudo systemctl stop pou_con
+     cp /var/backups/pou_con/pou_con_pre_update_<timestamp>.db /var/lib/pou_con/pou_con_prod.db
+     sudo systemctl start pou_con
 
 RevPi Connect 5 Deployment:
   For RevPi Connect 5, the process is identical. Optional extra steps:
