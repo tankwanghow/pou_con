@@ -37,6 +37,10 @@ RUN mkdir -p /debs && cd /debs && \
     apt-get download $(apt-cache depends --recurse --no-recommends --no-suggests \
         --no-conflicts --no-breaks --no-replaces --no-enhances swayidle \
         | grep "^\w" | sort -u) 2>/dev/null || true && \
+    echo "Downloading wlr-randr for screen rotation..." && \
+    apt-get download $(apt-cache depends --recurse --no-recommends --no-suggests \
+        --no-conflicts --no-breaks --no-replaces --no-enhances wlr-randr \
+        | grep "^\w" | sort -u) 2>/dev/null || true && \
     ls -la /debs/ && \
     echo "Total packages: $(ls *.deb 2>/dev/null | wc -l)"
 

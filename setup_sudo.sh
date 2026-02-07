@@ -24,7 +24,49 @@ if ! id "$SERVICE_USER" &>/dev/null; then
     exit 1
 fi
 
-echo "1. Configuring passwordless sudo for $SERVICE_USER..."
+echo "1. Installing swayidle for screen timeout control..."
+
+# Get script directory (to find offline debs)
+SETUP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if command -v swayidle &> /dev/null; then
+    echo "   ✓ swayidle already installed"
+else
+    INSTALLED=false
+
+    # Try offline packages from deployment package (debs/ next to this script)
+    if [ -d "$SETUP_SCRIPT_DIR/debs" ] && ls "$SETUP_SCRIPT_DIR/debs/"*swayidle*.deb 1> /dev/null 2>&1; then
+        echo "   Installing swayidle from offline packages..."
+        dpkg -i "$SETUP_SCRIPT_DIR/debs/"*swayidle*.deb 2>/dev/null || true
+        apt-get install -f -y -qq 2>/dev/null || true
+        command -v swayidle &> /dev/null && INSTALLED=true
+    fi
+
+    # Try /opt/pou_con/debs as fallback
+    if [ "$INSTALLED" = false ] && [ -d "/opt/pou_con/debs" ] && ls /opt/pou_con/debs/*swayidle*.deb 1> /dev/null 2>&1; then
+        echo "   Installing swayidle from /opt/pou_con/debs..."
+        dpkg -i /opt/pou_con/debs/*swayidle*.deb 2>/dev/null || true
+        apt-get install -f -y -qq 2>/dev/null || true
+        command -v swayidle &> /dev/null && INSTALLED=true
+    fi
+
+    # Try apt-get as last resort (requires internet)
+    if [ "$INSTALLED" = false ]; then
+        echo "   Attempting to install swayidle from apt..."
+        apt-get update -qq 2>/dev/null && apt-get install -y -qq swayidle 2>/dev/null && INSTALLED=true
+    fi
+
+    if command -v swayidle &> /dev/null; then
+        echo "   ✓ swayidle installed successfully"
+    else
+        echo "   ⚠ Could not install swayidle - screen timeout will not work"
+        echo "     Install manually: sudo apt-get install swayidle"
+    fi
+fi
+
+echo ""
+echo "2. Configuring passwordless sudo for $SERVICE_USER..."
+echo ""
 
 # Create sudoers file with specific command permissions
 cat > "$SUDOERS_FILE" << EOF
@@ -61,7 +103,7 @@ else
 fi
 
 echo ""
-echo "2. Configuring udev rules for hardware access..."
+echo "3. Configuring udev rules for hardware access..."
 
 # Create udev rules for backlight access
 cat > "$UDEV_RULES_FILE" << EOF

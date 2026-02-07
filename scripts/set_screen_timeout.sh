@@ -12,29 +12,14 @@ set -e
 TIMEOUT_SECONDS="${1:-0}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Ensure swayidle is installed
+# Check if swayidle is installed
+# NOTE: Do NOT attempt inline install here - this script is called from the web UI
+# with a short timeout. Install swayidle via: sudo bash setup_sudo.sh
+SWAYIDLE_AVAILABLE=true
 if ! command -v swayidle &> /dev/null; then
-    echo "swayidle not found, attempting to install..."
-
-    # Check for offline packages (deployment package)
-    if [ -d "$SCRIPT_DIR/../debs" ] && ls "$SCRIPT_DIR/../debs/"*swayidle*.deb 1> /dev/null 2>&1; then
-        echo "Installing from offline packages..."
-        dpkg -i "$SCRIPT_DIR/../debs/"*swayidle*.deb 2>/dev/null || true
-        apt-get install -f -y -qq 2>/dev/null || true
-    elif [ -d "/opt/pou_con/debs" ] && ls /opt/pou_con/debs/*swayidle*.deb 1> /dev/null 2>&1; then
-        echo "Installing from offline packages..."
-        dpkg -i /opt/pou_con/debs/*swayidle*.deb 2>/dev/null || true
-        apt-get install -f -y -qq 2>/dev/null || true
-    else
-        echo "Installing from internet..."
-        apt-get update -qq && apt-get install -y -qq swayidle
-    fi
-
-    if ! command -v swayidle &> /dev/null; then
-        echo "ERROR: Failed to install swayidle"
-        exit 1
-    fi
-    echo "swayidle installed successfully"
+    SWAYIDLE_AVAILABLE=false
+    echo "WARNING: swayidle not installed. Run 'sudo bash setup_sudo.sh' to install it."
+    echo "Autostart config will be updated but screen timeout won't work until swayidle is installed."
 fi
 DISPLAY_USER="${2:-pi}"
 AUTOSTART_FILE="/home/$DISPLAY_USER/.config/labwc/autostart"
@@ -91,38 +76,41 @@ else
     echo "Screen timeout disabled (always on)"
 fi
 
-# Stop existing swayidle if running
-if pgrep -u "$DISPLAY_USER" swayidle > /dev/null 2>&1; then
-    pkill -u "$DISPLAY_USER" swayidle || true
-    sleep 1
-    echo "Stopped existing swayidle"
-fi
+# Only manage swayidle process if it's installed
+if [ "$SWAYIDLE_AVAILABLE" = true ]; then
+    # Stop existing swayidle if running
+    if pgrep -u "$DISPLAY_USER" swayidle > /dev/null 2>&1; then
+        pkill -u "$DISPLAY_USER" swayidle || true
+        sleep 1
+        echo "Stopped existing swayidle"
+    fi
 
-# Start swayidle if timeout > 0
-# Need to set Wayland environment variables to connect to the compositor
-if [ "$TIMEOUT_SECONDS" -gt 0 ]; then
-    # Find the Wayland display socket
-    XDG_RUNTIME="/run/user/$(id -u "$DISPLAY_USER")"
-    WAYLAND_SOCK=$(ls "$XDG_RUNTIME"/wayland-* 2>/dev/null | head -1 | xargs basename 2>/dev/null || echo "wayland-0")
+    # Start swayidle if timeout > 0
+    # Need to set Wayland environment variables to connect to the compositor
+    if [ "$TIMEOUT_SECONDS" -gt 0 ]; then
+        # Find the Wayland display socket
+        XDG_RUNTIME="/run/user/$(id -u "$DISPLAY_USER")"
+        WAYLAND_SOCK=$(ls "$XDG_RUNTIME"/wayland-* 2>/dev/null | head -1 | xargs basename 2>/dev/null || echo "wayland-0")
 
-    if [ -S "$XDG_RUNTIME/$WAYLAND_SOCK" ]; then
-        # Start swayidle with proper Wayland environment
-        sudo -u "$DISPLAY_USER" \
-            WAYLAND_DISPLAY="$WAYLAND_SOCK" \
-            XDG_RUNTIME_DIR="$XDG_RUNTIME" \
-            sh -c "swayidle -w timeout $TIMEOUT_SECONDS '$SCRIPT_DIR/off_screen.sh' resume '$SCRIPT_DIR/on_screen.sh' &" 2>/dev/null
+        if [ -S "$XDG_RUNTIME/$WAYLAND_SOCK" ]; then
+            # Start swayidle with proper Wayland environment
+            sudo -u "$DISPLAY_USER" \
+                WAYLAND_DISPLAY="$WAYLAND_SOCK" \
+                XDG_RUNTIME_DIR="$XDG_RUNTIME" \
+                sh -c "swayidle -w timeout $TIMEOUT_SECONDS '$SCRIPT_DIR/off_screen.sh' resume '$SCRIPT_DIR/on_screen.sh' &" 2>/dev/null
 
-        if pgrep -u "$DISPLAY_USER" swayidle > /dev/null 2>&1; then
-            echo "swayidle started with ${TIMEOUT_SECONDS}s timeout"
+            if pgrep -u "$DISPLAY_USER" swayidle > /dev/null 2>&1; then
+                echo "swayidle started with ${TIMEOUT_SECONDS}s timeout"
+            else
+                echo "Note: swayidle configured but could not start immediately."
+                echo "      It will start automatically on next login/reboot."
+            fi
         else
-            echo "Note: swayidle configured but could not start immediately."
-            echo "      It will start automatically on next login/reboot."
+            echo "Note: Wayland display not found. swayidle will start on next login/reboot."
         fi
     else
-        echo "Note: Wayland display not found. swayidle will start on next login/reboot."
+        echo "Screen timeout disabled (swayidle not running)"
     fi
-else
-    echo "Screen timeout disabled (swayidle not running)"
 fi
 
 echo "Done. Configuration saved to $AUTOSTART_FILE"

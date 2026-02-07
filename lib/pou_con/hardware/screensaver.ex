@@ -128,7 +128,7 @@ defmodule PouCon.Hardware.Screensaver do
         System.cmd("sudo", [@screen_timeout_script, to_string(seconds)], stderr_to_stdout: true)
       end)
 
-    case Task.yield(task, 5_000) || Task.shutdown(task) do
+    case Task.yield(task, 10_000) || Task.shutdown(task) do
       {:ok, {_output, 0}} ->
         :ok
 
@@ -142,7 +142,7 @@ defmodule PouCon.Hardware.Screensaver do
         end
 
       nil ->
-        Logger.warning("Screensaver: set_screen_timeout.sh timed out (5s). Likely sudo password prompt hanging.")
+        Logger.warning("Screensaver: set_screen_timeout.sh timed out (10s). Likely sudo password prompt hanging.")
         {:error, "Timeout: script took too long. Check sudo configuration."}
     end
   end
@@ -214,7 +214,7 @@ defmodule PouCon.Hardware.Screensaver do
       path ->
         task = Task.async(fn -> System.cmd("bash", [path], stderr_to_stdout: true) end)
 
-        case Task.yield(task, 5_000) || Task.shutdown(task) do
+        case Task.yield(task, 10_000) || Task.shutdown(task) do
           {:ok, {_output, 0}} -> :ok
           {:ok, {error, _}} -> {:error, "Screen control failed: #{String.trim(error)}"}
           nil -> {:error, "Timeout: #{script_name} took too long"}

@@ -190,7 +190,7 @@ fi
 if check_internet; then
     echo "   Internet available - installing from online repositories..."
     apt-get update -qq
-    apt-get install -y -qq sqlite3 libsqlite3-dev openssl libncurses5 > /dev/null
+    apt-get install -y -qq sqlite3 libsqlite3-dev openssl libncurses5 swayidle > /dev/null
     echo "   ✓ Dependencies installed (online - latest versions)"
 elif [ "$HAS_OFFLINE_DEBS" = true ]; then
     echo "   No internet - checking offline packages..."
@@ -217,7 +217,7 @@ elif [ "$HAS_OFFLINE_DEBS" = true ]; then
 else
     echo -e "   ${YELLOW}No internet and no offline packages available${NC}"
     echo "   Attempting to install from system cache..."
-    apt-get install -y -qq sqlite3 libsqlite3-dev openssl libncurses5 2>/dev/null || true
+    apt-get install -y -qq sqlite3 libsqlite3-dev openssl libncurses5 swayidle 2>/dev/null || true
 fi
 
 # Verify critical tools are available
