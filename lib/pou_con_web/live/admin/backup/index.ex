@@ -3,11 +3,10 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
   Admin page for backup and restore operations.
 
   Provides:
-  - Configuration backup download (for Pi replacement)
-  - Full backup download (config + logs for central server)
-  - Backup summary information
+  - Full backup download (config + logs)
+  - Selective restore with table selection
+  - Days filter for data point logs and equipment events
   - File upload for restore operations
-  - Instructions for restore and USB transfer
   """
 
   use PouConWeb, :live_view
@@ -36,17 +35,12 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
           </div>
         </div>
 
-        <%!-- Configuration Backup (Pi Replacement) --%>
+        <%!-- Full Backup --%>
         <div class="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-          <h3 class="text-lg font-semibold mb-2">Configuration Backup</h3>
+          <h3 class="text-lg font-semibold mb-2">Download Full Backup</h3>
           <p class="text-sm text-base-content/70 mb-4">
-            For Pi replacement. Contains all settings but no logging data.
+            Contains all configuration and logging data.
           </p>
-
-          <div class="mb-3 text-sm">
-            <strong>Includes:</strong>
-            Ports, data points, equipment, environment config, light/egg/feeding schedules, alarms, tasks, flocks
-          </div>
 
           <a
             href="/admin/backup/download"
@@ -67,52 +61,8 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
                 d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
               />
             </svg>
-            Download Config Backup
+            Download Full Backup
           </a>
-        </div>
-
-        <%!-- Full Backup (Central Server) --%>
-        <div class="p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
-          <h3 class="text-lg font-semibold mb-2">Full Backup (Config + Logs)</h3>
-          <p class="text-sm text-base-content/70 mb-4">
-            For central server sync. Contains configuration AND all logging data.
-          </p>
-
-          <div class="mb-3 text-sm">
-            <strong>Includes:</strong>
-            All config + equipment events, sensor logs, daily summaries, flock logs, task completions
-          </div>
-
-          <div class="flex flex-wrap gap-3 mb-4">
-            <a
-              href="/admin/backup/download?full=true"
-              download
-              class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                />
-              </svg>
-              Download Full Backup
-            </a>
-          </div>
-
-          <div class="text-sm text-base-content/70">
-            <strong>Note:</strong>
-            Full backup may be large. For incremental sync, use the API with
-            <code class="bg-base-300 px-1 rounded">?since=YYYY-MM-DD</code>
-            parameter.
-          </div>
         </div>
 
         <%!-- Restore Section --%>
@@ -122,8 +72,8 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
           <div class="p-3 bg-red-500/20 border border-red-500/40 rounded mb-4">
             <p class="font-semibold text-red-800">Warning</p>
             <p class="text-sm text-red-700">
-              Restoring will <strong>replace all existing configuration</strong>.
-              Make sure you have a backup of the current configuration first.
+              Restoring will <strong>replace selected tables</strong> with backup data.
+              Make sure you have a backup of the current data first.
             </p>
           </div>
 
@@ -157,7 +107,11 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
                 <span class="text-yellow-800">Validating backup file...</span>
               </div>
             <% :preview -> %>
-              <.restore_preview summary={@backup_summary} />
+              <.restore_preview
+                summary={@backup_summary}
+                selected_tables={@selected_tables}
+                restore_days={@restore_days}
+              />
             <% :restoring -> %>
               <div class="flex items-center gap-3 p-4 bg-blue-500/10 border border-blue-500/30 rounded">
                 <svg
@@ -213,7 +167,6 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
             <.stat_card label="Equipment Events" value={@counts.equipment_events} color="purple" />
             <.stat_card label="Data Point Logs" value={@counts.data_point_logs} color="purple" />
-            <.stat_card label="Daily Summaries" value={@counts.daily_summaries} color="purple" />
             <.stat_card label="Task Completions" value={@counts.task_completions} color="purple" />
           </div>
         </div>
@@ -229,23 +182,16 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
 
           <div class="space-y-3 text-sm">
             <div>
-              <h4 class="font-medium">Configuration only:</h4>
+              <h4 class="font-medium">Full backup:</h4>
               <div class="bg-gray-900 text-green-400 p-2 rounded font-mono text-xs mt-1 overflow-x-auto">
                 curl -H "X-API-Key: YOUR_KEY" https://pi-ip/api/backup
               </div>
             </div>
 
             <div>
-              <h4 class="font-medium">Full backup (config + all logs):</h4>
-              <div class="bg-gray-900 text-green-400 p-2 rounded font-mono text-xs mt-1 overflow-x-auto">
-                curl -H "X-API-Key: YOUR_KEY" "https://pi-ip/api/backup?full=true"
-              </div>
-            </div>
-
-            <div>
               <h4 class="font-medium">Incremental sync (logs since date):</h4>
               <div class="bg-gray-900 text-green-400 p-2 rounded font-mono text-xs mt-1 overflow-x-auto">
-                curl -H "X-API-Key: YOUR_KEY" "https://pi-ip/api/backup?full=true&since=2024-01-15"
+                curl -H "X-API-Key: YOUR_KEY" "https://pi-ip/api/backup?since=2024-01-15"
               </div>
             </div>
           </div>
@@ -257,16 +203,9 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
 
           <div class="space-y-3 text-sm">
             <div>
-              <h4 class="font-medium">Create config backup to USB:</h4>
+              <h4 class="font-medium">Create backup to USB:</h4>
               <div class="bg-gray-900 text-green-400 p-2 rounded font-mono text-xs mt-1">
                 mix backup --output /media/usb
-              </div>
-            </div>
-
-            <div>
-              <h4 class="font-medium">Create full backup to USB:</h4>
-              <div class="bg-gray-900 text-green-400 p-2 rounded font-mono text-xs mt-1">
-                mix backup --full --output /media/usb
               </div>
             </div>
 
@@ -366,8 +305,33 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
     """
   end
 
-  # Preview component
+  @config_tables ~w(app_config ports data_points equipment virtual_digital_states
+    interlock_rules environment_control_config task_categories task_templates
+    alarm_rules alarm_conditions light_schedules egg_collection_schedules
+    feeding_schedules flocks)a
+
+  @log_tables ~w(equipment_events data_point_logs flock_logs task_completions)a
+
+  defp days_filterable?(table), do: table in [:equipment_events, :data_point_logs]
+
+  # Preview component with table selection
   defp restore_preview(assigns) do
+    config_tables =
+      Enum.filter(assigns.summary.tables, fn {t, _} -> t in @config_tables end)
+
+    log_tables =
+      Enum.filter(assigns.summary.tables, fn {t, _} -> t in @log_tables end)
+
+    selected_count = MapSet.size(assigns.selected_tables)
+    total_available = length(assigns.summary.tables)
+
+    assigns =
+      assigns
+      |> assign(:config_tables, config_tables)
+      |> assign(:log_tables, log_tables)
+      |> assign(:selected_count, selected_count)
+      |> assign(:total_available, total_available)
+
     ~H"""
     <div class="space-y-4">
       <div class="p-4 bg-base-100 border border-base-300 rounded-lg">
@@ -387,22 +351,102 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
       </div>
 
       <div class="p-4 bg-base-100 border border-base-300 rounded-lg">
-        <h4 class="font-semibold mb-3">Tables to Restore ({@summary.total_records} total records)</h4>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-          <%= for {table, count} <- @summary.tables do %>
-            <div class="flex justify-between p-2 bg-base-200 rounded">
-              <span>{format_table_name(table)}</span>
-              <span class="font-medium">{count}</span>
-            </div>
-          <% end %>
+        <div class="flex items-center justify-between mb-3">
+          <h4 class="font-semibold">
+            Select Tables to Restore ({@selected_count}/{@total_available})
+          </h4>
+          <div class="flex gap-2">
+            <button
+              type="button"
+              phx-click="select_all_tables"
+              class="text-xs px-2 py-1 bg-info/20 text-info rounded hover:bg-info/30"
+            >
+              Select All
+            </button>
+            <button
+              type="button"
+              phx-click="deselect_all_tables"
+              class="text-xs px-2 py-1 bg-base-300 text-base-content/70 rounded hover:bg-base-300/80"
+            >
+              Deselect All
+            </button>
+          </div>
         </div>
+
+        <%!-- Configuration Tables --%>
+        <%= if @config_tables != [] do %>
+          <h5 class="text-sm font-medium text-base-content/70 mb-2">Configuration</h5>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-1 mb-4">
+            <%= for {table, count} <- @config_tables do %>
+              <label
+                class={"flex items-center justify-between p-2 rounded cursor-pointer #{if MapSet.member?(@selected_tables, table), do: "bg-info/10 border border-info/30", else: "bg-base-200"}"}
+                phx-click="toggle_table"
+                phx-value-table={table}
+              >
+                <div class="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={MapSet.member?(@selected_tables, table)}
+                    class="checkbox checkbox-sm checkbox-info"
+                    tabindex="-1"
+                  />
+                  <span class="text-sm">{format_table_name(table)}</span>
+                </div>
+                <span class="text-sm font-medium text-base-content/60">{count}</span>
+              </label>
+            <% end %>
+          </div>
+        <% end %>
+
+        <%!-- Logging Tables --%>
+        <%= if @log_tables != [] do %>
+          <h5 class="text-sm font-medium text-base-content/70 mb-2">Logging Data</h5>
+          <div class="grid grid-cols-1 gap-1">
+            <%= for {table, count} <- @log_tables do %>
+              <div>
+                <label
+                  class={"flex items-center justify-between p-2 rounded cursor-pointer #{if MapSet.member?(@selected_tables, table), do: "bg-secondary/10 border border-secondary/30", else: "bg-base-200"}"}
+                  phx-click="toggle_table"
+                  phx-value-table={table}
+                >
+                  <div class="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={MapSet.member?(@selected_tables, table)}
+                      class="checkbox checkbox-sm checkbox-secondary"
+                      tabindex="-1"
+                    />
+                    <span class="text-sm">{format_table_name(table)}</span>
+                  </div>
+                  <span class="text-sm font-medium text-base-content/60">{count}</span>
+                </label>
+                <%= if days_filterable?(table) and MapSet.member?(@selected_tables, table) do %>
+                  <div class="flex items-center gap-2 ml-8 mt-1 mb-2">
+                    <span class="text-xs text-base-content/60">Restore last</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={@restore_days}
+                      placeholder="all"
+                      phx-blur="update_restore_days"
+                      phx-keyup="update_restore_days"
+                      phx-key="Enter"
+                      class="input input-xs input-bordered w-20 text-center"
+                    />
+                    <span class="text-xs text-base-content/60">days (empty = all)</span>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
       </div>
 
       <div class="p-3 bg-amber-500/20 border border-amber-500/40 rounded">
         <p class="text-sm text-amber-800">
           <strong>Confirm:</strong>
-          This will delete all existing configuration and replace it with the backup data.
-          The application will need to be restarted after restore.
+          Selected tables will be cleared and replaced with the backup data.
+          The application may need to be restarted after restore.
         </p>
       </div>
 
@@ -417,9 +461,10 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
         <button
           type="button"
           phx-click="confirm_restore"
-          class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+          disabled={@selected_count == 0}
+          class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors disabled:opacity-50"
         >
-          Restore Now
+          Restore Selected ({@selected_count} tables)
         </button>
       </div>
     </div>
@@ -651,6 +696,8 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
      |> assign(:restore_state, :idle)
      |> assign(:backup_data, nil)
      |> assign(:backup_summary, nil)
+     |> assign(:selected_tables, MapSet.new())
+     |> assign(:restore_days, nil)
      |> assign(:restore_result, nil)
      |> assign(:restore_error, nil)
      |> assign(:reload_state, :idle)
@@ -688,11 +735,15 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
 
         case result do
           {backup, summary} when is_map(backup) ->
+            all_tables = summary.tables |> Enum.map(fn {t, _} -> t end) |> MapSet.new()
+
             {:noreply,
              socket
              |> assign(:restore_state, :preview)
              |> assign(:backup_data, backup)
-             |> assign(:backup_summary, summary)}
+             |> assign(:backup_summary, summary)
+             |> assign(:selected_tables, all_tables)
+             |> assign(:restore_days, nil)}
 
           {:error, reason} ->
             {:noreply,
@@ -720,7 +771,44 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
      socket
      |> assign(:restore_state, :idle)
      |> assign(:backup_data, nil)
-     |> assign(:backup_summary, nil)}
+     |> assign(:backup_summary, nil)
+     |> assign(:selected_tables, MapSet.new())
+     |> assign(:restore_days, nil)}
+  end
+
+  @impl true
+  def handle_event("toggle_table", %{"table" => table_str}, socket) do
+    table = String.to_existing_atom(table_str)
+    selected = socket.assigns.selected_tables
+
+    selected =
+      if MapSet.member?(selected, table),
+        do: MapSet.delete(selected, table),
+        else: MapSet.put(selected, table)
+
+    {:noreply, assign(socket, :selected_tables, selected)}
+  end
+
+  @impl true
+  def handle_event("select_all_tables", _params, socket) do
+    all = socket.assigns.backup_summary.tables |> Enum.map(fn {t, _} -> t end) |> MapSet.new()
+    {:noreply, assign(socket, :selected_tables, all)}
+  end
+
+  @impl true
+  def handle_event("deselect_all_tables", _params, socket) do
+    {:noreply, assign(socket, :selected_tables, MapSet.new())}
+  end
+
+  @impl true
+  def handle_event("update_restore_days", %{"value" => value}, socket) do
+    days =
+      case Integer.parse(String.trim(value)) do
+        {n, _} when n > 0 -> n
+        _ -> nil
+      end
+
+    {:noreply, assign(socket, :restore_days, days)}
   end
 
   @impl true
@@ -728,7 +816,12 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
     socket = assign(socket, :restore_state, :restoring)
     backup = socket.assigns.backup_data
 
-    case Backup.restore(backup) do
+    opts = %{
+      selected_tables: MapSet.to_list(socket.assigns.selected_tables),
+      days: socket.assigns.restore_days
+    }
+
+    case Backup.restore(backup, opts) do
       {:ok, result} ->
         {:noreply,
          socket
@@ -751,6 +844,8 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
      |> assign(:restore_state, :idle)
      |> assign(:backup_data, nil)
      |> assign(:backup_summary, nil)
+     |> assign(:selected_tables, MapSet.new())
+     |> assign(:restore_days, nil)
      |> assign(:restore_result, nil)
      |> assign(:restore_error, nil)
      |> assign(:reload_state, :idle)
@@ -815,7 +910,6 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
       # Logging counts (last 30 days)
       equipment_events: count_logs("equipment_events", "inserted_at", thirty_days_ago),
       data_point_logs: count_logs("data_point_logs", "inserted_at", thirty_days_ago),
-      daily_summaries: count_logs("daily_summaries", "date", thirty_days_ago),
       task_completions: count_logs("task_completions", "completed_at", thirty_days_ago)
     }
   end

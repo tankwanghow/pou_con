@@ -21,7 +21,7 @@ defmodule PouCon.Application do
   │ 10. TaskSupervisor           (Async logging writes)             │
   │ 11. InterlockController      (Safety chain rules)               │
   │ 12. EquipmentLoader          (Spawns all controllers)           │
-  │ 13. Logging Services         (DataPointLogger, DailySummary)    │
+  │ 13. Logging Services         (DataPointLogger)                  │
   │ 14. Automation Services      (Environment, Light, Egg, Feeding) │
   │ 15. Phoenix.Endpoint         (Web UI - always last)             │
   └─────────────────────────────────────────────────────────────────┘
@@ -154,9 +154,6 @@ defmodule PouCon.Application do
 
             # Logging system - data point value logging based on log_interval settings
             PouCon.Logging.DataPointLogger,
-
-            # Logging system - daily summaries at midnight
-            PouCon.Logging.DailySummaryTask,
 
             # Logging system - cleanup old data daily at 3 AM
             PouCon.Logging.CleanupTask,

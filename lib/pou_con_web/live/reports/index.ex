@@ -6,13 +6,13 @@ defmodule PouConWeb.Live.Reports.Index do
 
   - **Equipment Events**: Start/stop/error events from equipment controllers
   - **Data Point Logs**: Value snapshots from data points (based on log_interval settings)
-  - **Daily Summaries**: Aggregated daily statistics
   - **Errors**: Filtered view of error events only
+  - **Efficiency**: Hourly analysis of temp, humidity, fan/pump usage for tuning environment control
   """
 
   use PouConWeb, :live_view
 
-  alias PouCon.Logging.{EquipmentLogger, DataPointLogger, DailySummaryTask}
+  alias PouCon.Logging.{EquipmentLogger, DataPointLogger}
   alias PouCon.Equipment.{Devices, DataPoints}
 
   @impl true
@@ -37,8 +37,7 @@ defmodule PouConWeb.Live.Reports.Index do
       |> assign(:filter_event_type, "all")
       |> assign(:filter_mode, "all")
       |> assign(:filter_hours, "24")
-      |> assign(:date_from, Date.add(Date.utc_today(), -7))
-      |> assign(:date_to, Date.utc_today())
+      |> assign(:efficiency_days, "7")
       |> load_data()
 
     {:ok, socket}
@@ -71,11 +70,10 @@ defmodule PouConWeb.Live.Reports.Index do
     {:noreply, socket}
   end
 
-  def handle_event("change_date_range", params, socket) do
+  def handle_event("filter_efficiency", params, socket) do
     socket =
       socket
-      |> assign(:date_from, Date.from_iso8601!(params["from"]))
-      |> assign(:date_to, Date.from_iso8601!(params["to"]))
+      |> assign(:efficiency_days, params["days"] || "7")
       |> load_data()
 
     {:noreply, socket}
@@ -85,8 +83,8 @@ defmodule PouConWeb.Live.Reports.Index do
     case socket.assigns.view_mode do
       "events" -> load_events(socket)
       "data_points" -> load_data_point_logs(socket)
-      "summaries" -> load_summaries(socket)
       "errors" -> load_errors(socket)
+      "efficiency" -> load_efficiency(socket)
       _ -> socket
     end
   end
@@ -143,15 +141,24 @@ defmodule PouConWeb.Live.Reports.Index do
     assign(socket, :data_point_logs, logs)
   end
 
-  defp load_summaries(socket) do
-    summaries = DailySummaryTask.get_summaries(socket.assigns.date_from, socket.assigns.date_to)
-    assign(socket, :summaries, summaries)
-  end
-
   defp load_errors(socket) do
     hours = String.to_integer(socket.assigns.filter_hours)
     errors = EquipmentLogger.get_errors(hours)
     assign(socket, :errors, errors)
+  end
+
+  defp load_efficiency(socket) do
+    days = String.to_integer(socket.assigns.efficiency_days)
+    timezone = PouCon.Auth.get_timezone()
+
+    efficiency_data =
+      DataPointLogger.get_efficiency_data(
+        days_back: days,
+        interval_minutes: 30,
+        timezone: timezone
+      )
+
+    assign(socket, :efficiency_data, efficiency_data)
   end
 
   @impl true
@@ -179,17 +186,17 @@ defmodule PouConWeb.Live.Reports.Index do
         </button>
         <button
           phx-click="change_view"
-          phx-value-view="summaries"
-          class={"px-4 py-2 rounded " <> if @view_mode == "summaries", do: "bg-blue-600 text-white", else: "bg-gray-700 text-gray-300"}
-        >
-          Daily Summaries
-        </button>
-        <button
-          phx-click="change_view"
           phx-value-view="errors"
           class={"px-4 py-2 rounded " <> if @view_mode == "errors", do: "bg-rose-600 text-white", else: "bg-gray-700 text-gray-300"}
         >
           Errors
+        </button>
+        <button
+          phx-click="change_view"
+          phx-value-view="efficiency"
+          class={"px-4 py-2 rounded " <> if @view_mode == "efficiency", do: "bg-purple-600 text-white", else: "bg-gray-700 text-gray-300"}
+        >
+          Efficiency
         </button>
       </div>
 
@@ -361,77 +368,6 @@ defmodule PouConWeb.Live.Reports.Index do
         </div>
       <% end %>
 
-      <%!-- Daily Summaries View --%>
-      <%= if @view_mode == "summaries" do %>
-        <div class="bg-gray-400 p-4 rounded-lg mb-4">
-          <h3 class="text-lg font-semibold mb-3">Date Range</h3>
-          <.form for={%{}} phx-change="change_date_range" class="grid grid-cols-2 gap-3 max-w-md">
-            <div>
-              <label class="block text-sm mb-1">From</label>
-              <input
-                type="date"
-                name="from"
-                value={@date_from}
-                class="w-full bg-gray-900 border-gray-600 rounded text-white p-2"
-              />
-            </div>
-            <div>
-              <label class="block text-sm mb-1">To</label>
-              <input
-                type="date"
-                name="to"
-                value={@date_to}
-                class="w-full bg-gray-900 border-gray-600 rounded text-white p-2"
-              />
-            </div>
-          </.form>
-        </div>
-
-        <div class="bg-gray-800 rounded-lg overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-blue-500">
-              <tr>
-                <th class="p-2 text-left">Date</th>
-                <th class="p-2 text-left">Equipment</th>
-                <th class="p-2 text-left">Type</th>
-                <th class="p-2 text-right">Avg Temp</th>
-                <th class="p-2 text-right">Avg Hum</th>
-                <th class="p-2 text-right">Runtime (min)</th>
-                <th class="p-2 text-right">Cycles</th>
-                <th class="p-2 text-right">Errors</th>
-              </tr>
-            </thead>
-            <tbody>
-              <%= for summary <- @summaries do %>
-                <tr class="border-t border-gray-700">
-                  <td class="p-2 text-gray-300">{summary.date}</td>
-                  <td class="p-2 font-medium">{summary.equipment_name}</td>
-                  <td class="p-2 text-gray-400">{summary.equipment_type}</td>
-                  <td class="p-2 text-right text-yellow-400">
-                    {if summary.avg_temperature,
-                      do: Float.round(summary.avg_temperature, 1),
-                      else: "-"}
-                  </td>
-                  <td class="p-2 text-right text-blue-400">
-                    {if summary.avg_humidity, do: Float.round(summary.avg_humidity, 1), else: "-"}
-                  </td>
-                  <td class="p-2 text-right">{summary.total_runtime_minutes || "-"}</td>
-                  <td class="p-2 text-right">{summary.total_cycles || "-"}</td>
-                  <td class={"p-2 text-right " <> if summary.error_count > 0, do: "text-rose-400 font-bold", else: "text-gray-400"}>
-                    {summary.error_count || 0}
-                  </td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-          <%= if Enum.empty?(@summaries) do %>
-            <div class="p-8 text-center text-gray-400">
-              No summaries found for the selected date range.
-            </div>
-          <% end %>
-        </div>
-      <% end %>
-
       <%!-- Errors View --%>
       <%= if @view_mode == "errors" do %>
         <div class="bg-gray-400 p-4 rounded-lg mb-4">
@@ -483,6 +419,73 @@ defmodule PouConWeb.Live.Reports.Index do
           <% end %>
         </div>
       <% end %>
+
+      <%!-- Efficiency View --%>
+      <%= if @view_mode == "efficiency" do %>
+        <div class="bg-gray-400 p-4 rounded-lg mb-4">
+          <h3 class="text-lg font-semibold mb-3">Environment Efficiency Analysis</h3>
+          <p class="text-sm text-gray-700 mb-3">
+            Shows average temperature, humidity, temperature delta (back - front), and equipment usage by time of day.
+            Use this to tune your environment control step parameters.
+          </p>
+          <.form for={%{}} phx-change="filter_efficiency" class="max-w-xs">
+            <label class="block text-sm mb-1">Analysis Period</label>
+            <select name="days" class="w-full bg-gray-900 border-gray-600 rounded text-white p-2">
+              <option value="1" selected={@efficiency_days == "1"}>Last 1 day</option>
+              <option value="3" selected={@efficiency_days == "3"}>Last 3 days</option>
+              <option value="7" selected={@efficiency_days == "7"}>Last 7 days</option>
+              <option value="14" selected={@efficiency_days == "14"}>Last 14 days</option>
+              <option value="30" selected={@efficiency_days == "30"}>Last 30 days</option>
+            </select>
+          </.form>
+        </div>
+
+        <div class="bg-gray-400 rounded-lg overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-purple-600">
+              <tr>
+                <th class="p-2 text-left">Time</th>
+                <th class="p-2 text-right">Avg Temp (°C)</th>
+                <th class="p-2 text-right">Temp Delta (°C)</th>
+                <th class="p-2 text-right">Humidity (%)</th>
+                <th class="p-2 text-right">Fans Running</th>
+                <th class="p-2 text-right">Pumps Running</th>
+                <th class="p-2 text-right text-gray-300">Samples</th>
+              </tr>
+            </thead>
+            <tbody>
+              <%= for row <- @efficiency_data do %>
+                <tr class={"border-t border-gray-700 hover:bg-gray-500 " <> efficiency_row_bg(row.avg_temp)}>
+                  <td class="p-2 font-medium">{row.time_slot}</td>
+                  <td class="p-2 text-right font-mono text-yellow-200">
+                    {format_efficiency_value(row.avg_temp)}
+                  </td>
+                  <td class={"p-2 text-right font-mono " <> delta_color(row.temp_delta)}>
+                    {format_efficiency_value(row.temp_delta)}
+                  </td>
+                  <td class="p-2 text-right font-mono text-blue-200">
+                    {format_efficiency_value(row.avg_humidity)}
+                  </td>
+                  <td class="p-2 text-right font-mono text-green-200">
+                    {format_efficiency_value(row.avg_fans_running)}
+                  </td>
+                  <td class="p-2 text-right font-mono text-cyan-200">
+                    {format_efficiency_value(row.avg_pumps_running)}
+                  </td>
+                  <td class="p-2 text-right text-gray-400 text-xs">
+                    {row.sample_count}
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+          <%= if Enum.empty?(@efficiency_data) do %>
+            <div class="p-8 text-center text-gray-600">
+              No data available for the selected period. Ensure data points are configured with logging enabled.
+            </div>
+          <% end %>
+        </div>
+      <% end %>
     </Layouts.app>
     """
   end
@@ -500,6 +503,24 @@ defmodule PouConWeb.Live.Reports.Index do
   defp format_value(nil), do: "-"
   defp format_value(value) when is_float(value), do: Float.round(value, 3)
   defp format_value(value), do: value
+
+  defp format_efficiency_value(nil), do: "-"
+  defp format_efficiency_value(value) when is_float(value), do: :erlang.float_to_binary(value, decimals: 1)
+  defp format_efficiency_value(value), do: value
+
+  # Color coding for temperature rows - hotter = more red
+  defp efficiency_row_bg(nil), do: ""
+  defp efficiency_row_bg(temp) when temp >= 35, do: "bg-rose-900/30"
+  defp efficiency_row_bg(temp) when temp >= 32, do: "bg-orange-900/30"
+  defp efficiency_row_bg(temp) when temp >= 29, do: "bg-yellow-900/20"
+  defp efficiency_row_bg(_temp), do: ""
+
+  # Color coding for temperature delta - higher delta = more concerning
+  defp delta_color(nil), do: "text-gray-400"
+  defp delta_color(delta) when delta >= 5, do: "text-rose-300 font-bold"
+  defp delta_color(delta) when delta >= 3, do: "text-orange-300"
+  defp delta_color(delta) when delta >= 0, do: "text-green-300"
+  defp delta_color(_delta), do: "text-blue-300"
 
   # Convert UTC datetime to local time using configured timezone from app_config
   defp to_local(nil), do: nil

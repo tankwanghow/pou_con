@@ -39,7 +39,6 @@ defmodule PouCon.Backup do
     # Logging tables (only present in full backups)
     :equipment_events,
     :data_point_logs,
-    :daily_summaries,
     :flock_logs,
     :task_completions
   ]
@@ -121,28 +120,41 @@ defmodule PouCon.Backup do
 
   @doc """
   Performs the restore operation.
+
+  Options:
+    - selected_tables: list of atom table names to restore (default: all from @restore_order)
+    - days: integer or nil, filters data_point_logs and equipment_events
+            to only restore records from the last N days
   Returns {:ok, summary} or {:error, reason}.
   """
-  def restore(backup) do
+  def restore(backup, opts \\ %{}) do
     case validate_backup(backup) do
       :ok ->
-        do_restore(backup)
+        do_restore(backup, opts)
 
       error ->
         error
     end
   end
 
-  defp do_restore(backup) do
+  defp do_restore(backup, opts) do
+    selected = Map.get(opts, :selected_tables) || @restore_order
+    selected_set = MapSet.new(selected)
+    days = Map.get(opts, :days)
+
+    tables_to_restore =
+      @restore_order
+      |> Enum.filter(&MapSet.member?(selected_set, &1))
+
     Repo.transaction(
       fn ->
-        # Clear tables in reverse order (respecting foreign keys)
-        clear_tables()
+        # Clear only selected tables in reverse order (respecting foreign keys)
+        clear_tables(selected_set)
 
         # Restore in order
         restored =
-          for table <- @restore_order do
-            count = restore_table(backup, table)
+          for table <- tables_to_restore do
+            count = restore_table(backup, table, days)
             {table, count}
           end
           |> Enum.filter(fn {_, count} -> count > 0 end)
@@ -163,40 +175,37 @@ defmodule PouCon.Backup do
     end
   end
 
-  defp clear_tables do
-    # Clear in reverse order to respect foreign keys
-    # Logging tables first, then configuration tables
-    tables_to_clear = [
-      # Logging tables (cleared first, no foreign key dependencies on config)
-      "task_completions",
-      "flock_logs",
-      "daily_summaries",
-      "data_point_logs",
-      "equipment_events",
-      # Configuration tables (in reverse dependency order)
-      "alarm_conditions",
-      "light_schedules",
-      "egg_collection_schedules",
-      "feeding_schedules",
-      "alarm_rules",
-      "task_templates",
-      "task_categories",
-      "flocks",
-      "interlock_rules",
-      # Note: environment_control_config is not cleared, only updated (like app_config)
-      "virtual_digital_states",
-      "equipment",
-      "data_points",
-      "ports"
-      # Note: app_config is not cleared, only updated
+  @log_table_keys [
+    :equipment_events, :data_point_logs, :flock_logs, :task_completions
+  ]
+
+  # Clear in reverse order to respect foreign keys, only for selected config tables.
+  # Log tables are never cleared — new records are merged via INSERT OR IGNORE.
+  defp clear_tables(selected_set) do
+    # Tables that are never cleared (only updated): app_config, environment_control_config
+    # Log tables are never cleared — they merge instead of replace
+    clearable_tables = [
+      {:alarm_conditions, "alarm_conditions"},
+      {:light_schedules, "light_schedules"},
+      {:egg_collection_schedules, "egg_collection_schedules"},
+      {:feeding_schedules, "feeding_schedules"},
+      {:alarm_rules, "alarm_rules"},
+      {:task_templates, "task_templates"},
+      {:task_categories, "task_categories"},
+      {:flocks, "flocks"},
+      {:interlock_rules, "interlock_rules"},
+      {:virtual_digital_states, "virtual_digital_states"},
+      {:equipment, "equipment"},
+      {:data_points, "data_points"},
+      {:ports, "ports"}
     ]
 
-    for table <- tables_to_clear do
-      Repo.query!("DELETE FROM #{table}")
+    for {key, table_name} <- clearable_tables, MapSet.member?(selected_set, key) do
+      Repo.query!("DELETE FROM #{table_name}")
     end
   end
 
-  defp restore_table(backup, :app_config) do
+  defp restore_table(backup, :app_config, _days) do
     case Map.get(backup, :app_config) do
       nil ->
         0
@@ -213,7 +222,7 @@ defmodule PouCon.Backup do
     end
   end
 
-  defp restore_table(backup, :environment_control_config) do
+  defp restore_table(backup, :environment_control_config, _days) do
     case Map.get(backup, :environment_control_config) do
       nil ->
         0
@@ -246,7 +255,9 @@ defmodule PouCon.Backup do
 
   # Logging tables that only have inserted_at (no updated_at)
   # Limited to @max_log_records most recent records to prevent timeout on slow SD cards
-  defp restore_table(backup, table)
+  # When days is specified, only restore records from the last N days
+  # Merges with existing data — duplicates are filtered by natural keys
+  defp restore_table(backup, table, days)
        when table in [:equipment_events, :data_point_logs] do
     case Map.get(backup, table) do
       nil ->
@@ -256,18 +267,41 @@ defmodule PouCon.Backup do
         0
 
       rows when is_list(rows) ->
-        # Sort by inserted_at descending and take most recent records only
         rows =
           rows
+          |> maybe_filter_by_days(days)
           |> Enum.sort_by(& &1[:inserted_at], :desc)
           |> Enum.take(@max_log_records)
+          |> drop_id()
+          |> exclude_existing(table)
 
         table_name = Atom.to_string(table)
         batch_insert_rows(table_name, rows, &ensure_inserted_at_only/1)
     end
   end
 
-  defp restore_table(backup, table) do
+  # Other logging tables (flock_logs, task_completions)
+  # Merges with existing data — duplicates are filtered by natural keys
+  defp restore_table(backup, table, _days) when table in @log_table_keys do
+    case Map.get(backup, table) do
+      nil ->
+        0
+
+      [] ->
+        0
+
+      rows when is_list(rows) ->
+        rows =
+          rows
+          |> drop_id()
+          |> exclude_existing(table)
+
+        table_name = Atom.to_string(table)
+        batch_insert_rows(table_name, rows, &ensure_timestamps/1)
+    end
+  end
+
+  defp restore_table(backup, table, _days) do
     case Map.get(backup, table) do
       nil ->
         0
@@ -278,6 +312,76 @@ defmodule PouCon.Backup do
       rows when is_list(rows) ->
         table_name = Atom.to_string(table)
         batch_insert_rows(table_name, rows, &ensure_timestamps/1)
+    end
+  end
+
+  defp maybe_filter_by_days(rows, nil), do: rows
+
+  defp maybe_filter_by_days(rows, days) when is_integer(days) and days > 0 do
+    cutoff =
+      Date.utc_today()
+      |> Date.add(-days)
+      |> Date.to_iso8601()
+
+    Enum.filter(rows, fn row ->
+      case row[:inserted_at] do
+        nil -> true
+        ts when is_binary(ts) -> ts >= cutoff
+        _ -> true
+      end
+    end)
+  end
+
+  defp maybe_filter_by_days(rows, _), do: rows
+
+  defp drop_id(rows), do: Enum.map(rows, &Map.delete(&1, :id))
+
+  # Natural keys used to detect duplicates when merging log data
+  defp natural_key(:equipment_events, row),
+    do: {row[:equipment_name], row[:event_type], row[:inserted_at]}
+
+  defp natural_key(:data_point_logs, row),
+    do: {row[:data_point_name], row[:inserted_at]}
+
+  defp natural_key(:flock_logs, row),
+    do: {row[:flock_id], row[:log_date]}
+
+  defp natural_key(:task_completions, row),
+    do: {row[:task_template_id], row[:completed_at]}
+
+  # Query existing natural keys from DB, then filter out rows that already exist
+  defp exclude_existing([], _table), do: []
+
+  defp exclude_existing(rows, table) do
+    existing = query_existing_keys(table)
+    Enum.reject(rows, fn row -> MapSet.member?(existing, natural_key(table, row)) end)
+  end
+
+  defp query_existing_keys(:equipment_events) do
+    case Repo.query("SELECT equipment_name, event_type, inserted_at FROM equipment_events") do
+      {:ok, %{rows: rows}} -> MapSet.new(rows, fn [a, b, c] -> {a, b, c} end)
+      _ -> MapSet.new()
+    end
+  end
+
+  defp query_existing_keys(:data_point_logs) do
+    case Repo.query("SELECT data_point_name, inserted_at FROM data_point_logs") do
+      {:ok, %{rows: rows}} -> MapSet.new(rows, fn [a, b] -> {a, b} end)
+      _ -> MapSet.new()
+    end
+  end
+
+  defp query_existing_keys(:flock_logs) do
+    case Repo.query("SELECT flock_id, log_date FROM flock_logs") do
+      {:ok, %{rows: rows}} -> MapSet.new(rows, fn [a, b] -> {a, b} end)
+      _ -> MapSet.new()
+    end
+  end
+
+  defp query_existing_keys(:task_completions) do
+    case Repo.query("SELECT task_template_id, completed_at FROM task_completions") do
+      {:ok, %{rows: rows}} -> MapSet.new(rows, fn [a, b] -> {a, b} end)
+      _ -> MapSet.new()
     end
   end
 

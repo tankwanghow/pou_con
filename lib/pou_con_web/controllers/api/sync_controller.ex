@@ -15,8 +15,7 @@ defmodule PouConWeb.API.SyncController do
 
   alias PouCon.Logging.Schemas.{
     EquipmentEvent,
-    DataPointLog,
-    DailySummary
+    DataPointLog
   }
 
   alias PouCon.Flock.Schemas.{Flock, FlockLog}
@@ -147,61 +146,6 @@ defmodule PouConWeb.API.SyncController do
       unit: log.unit,
       triggered_by: log.triggered_by,
       inserted_at: log.inserted_at
-    }
-  end
-
-  # ------------------------------------------------------------------ #
-  # Daily Summaries
-  # ------------------------------------------------------------------ #
-
-  @doc """
-  GET /api/sync/daily_summaries
-
-  Returns daily aggregated summaries.
-
-  Query params:
-  - since: date (YYYY-MM-DD) to start from
-  - limit/offset: pagination
-  - equipment_name: filter by equipment
-  - equipment_type: filter by type
-  """
-  def daily_summaries(conn, params) do
-    {limit, offset} = parse_pagination(params)
-    since_date = parse_date(params["since"])
-
-    query =
-      from(d in DailySummary,
-        order_by: [asc: d.date, asc: d.id]
-      )
-      |> maybe_filter_date_since(since_date)
-      |> maybe_filter(:equipment_name, params["equipment_name"])
-      |> maybe_filter(:equipment_type, params["equipment_type"])
-
-    total = Repo.aggregate(query, :count)
-    records = query |> limit(^limit) |> offset(^offset) |> Repo.all()
-
-    json(conn, %{
-      data: Enum.map(records, &serialize_daily_summary/1),
-      meta: pagination_meta(total, limit, offset, since_date)
-    })
-  end
-
-  defp serialize_daily_summary(summary) do
-    %{
-      id: summary.id,
-      date: summary.date,
-      equipment_name: summary.equipment_name,
-      equipment_type: summary.equipment_type,
-      avg_temperature: summary.avg_temperature,
-      min_temperature: summary.min_temperature,
-      max_temperature: summary.max_temperature,
-      avg_humidity: summary.avg_humidity,
-      min_humidity: summary.min_humidity,
-      max_humidity: summary.max_humidity,
-      total_runtime_minutes: summary.total_runtime_minutes,
-      total_cycles: summary.total_cycles,
-      error_count: summary.error_count,
-      state_change_count: summary.state_change_count
     }
   end
 
@@ -416,7 +360,6 @@ defmodule PouConWeb.API.SyncController do
     json(conn, %{
       equipment_events: Repo.aggregate(EquipmentEvent, :count),
       data_point_logs: Repo.aggregate(DataPointLog, :count),
-      daily_summaries: Repo.aggregate(DailySummary, :count),
       flocks: Repo.aggregate(Flock, :count),
       flock_logs: Repo.aggregate(FlockLog, :count),
       task_categories: Repo.aggregate(TaskCategory, :count),
@@ -457,15 +400,6 @@ defmodule PouConWeb.API.SyncController do
     end
   end
 
-  defp parse_date(nil), do: nil
-
-  defp parse_date(date_str) do
-    case Date.from_iso8601(date_str) do
-      {:ok, date} -> date
-      _ -> nil
-    end
-  end
-
   defp parse_integer(nil), do: nil
 
   defp parse_integer(str) when is_binary(str) do
@@ -492,12 +426,6 @@ defmodule PouConWeb.API.SyncController do
 
   defp maybe_filter_since(query, since) do
     from(q in query, where: q.inserted_at > ^since)
-  end
-
-  defp maybe_filter_date_since(query, nil), do: query
-
-  defp maybe_filter_date_since(query, since_date) do
-    from(q in query, where: q.date >= ^since_date)
   end
 
   defp maybe_filter(query, _field, nil), do: query

@@ -1,33 +1,28 @@
 defmodule Mix.Tasks.Backup do
   @moduledoc """
-  Creates a complete backup of PouCon data for Pi replacement or central server sync.
+  Creates a full backup of all PouCon data (configuration + logs).
 
   ## Usage
 
-    # Configuration only (for Pi replacement)
+    # Full backup
     mix backup
 
-    # Full backup including logs (for central server)
-    mix backup --full
-
     # Incremental sync (only logs since a date)
-    mix backup --full --since 2024-01-15
+    mix backup --since 2024-01-15
 
     # Output to specific directory
-    mix backup --output /media/usb --full
+    mix backup --output /media/usb
 
   ## Options
 
     --output DIR         Output directory (default: current directory)
-    --full               Include logging data (equipment_events, data_point_logs, etc.)
     --since DATE         Only include logs since this date (ISO format: YYYY-MM-DD)
-    --no-include-flocks  Exclude flock data (included by default)
 
   ## Output
 
   Filename: pou_con_backup_{house_id}_{date}.json
 
-  ## Configuration Data (always included)
+  ## Included Data
 
     - House metadata (house_id, house_name, app version)
     - Ports, data points, equipment definitions
@@ -35,12 +30,9 @@ defmodule Mix.Tasks.Backup do
     - Light, egg, feeding schedules
     - Alarm rules and conditions
     - Task categories and templates
-
-  ## Logging Data (with --full)
-
+    - Flocks
     - equipment_events (state changes, errors)
     - data_point_logs (sensor readings)
-    - daily_summaries (aggregated statistics)
     - flock_logs (daily flock records)
     - task_completions (completed tasks)
   """
@@ -50,7 +42,7 @@ defmodule Mix.Tasks.Backup do
   alias PouCon.Repo
   import Ecto.Query
 
-  @shortdoc "Create backup for Pi replacement or central server sync"
+  @shortdoc "Create full backup of all PouCon data"
 
   @backup_version "2.1"
 
@@ -62,33 +54,26 @@ defmodule Mix.Tasks.Backup do
       OptionParser.parse(args,
         switches: [
           output: :string,
-          full: :boolean,
-          since: :string,
-          include_flocks: :boolean
+          since: :string
         ]
       )
 
     output_dir = opts[:output] || "."
-    full_backup = opts[:full] || false
     since = parse_since(opts[:since])
-    # Include flocks by default (can be disabled with --no-include-flocks)
-    include_flocks = Keyword.get(opts, :include_flocks, true)
 
-    IO.puts("Creating PouCon backup...")
-    if full_backup, do: IO.puts("  Mode: Full (config + logs)")
+    IO.puts("Creating PouCon full backup...")
     if since, do: IO.puts("  Since: #{DateTime.to_iso8601(since)}")
 
     backup_data =
       build_backup(%{
-        include_flocks: include_flocks,
-        include_logs: full_backup,
+        include_flocks: true,
+        include_logs: true,
         since: since
       })
 
     house_id = backup_data.metadata.house_id || "unknown"
     date = Date.to_iso8601(Date.utc_today())
-    suffix = if full_backup, do: "_full", else: ""
-    filename = "pou_con_backup_#{house_id}_#{date}#{suffix}.json"
+    filename = "pou_con_backup_#{house_id}_#{date}.json"
     path = Path.join(output_dir, filename)
 
     case File.write(path, Jason.encode!(backup_data, pretty: true)) do
@@ -129,7 +114,6 @@ defmodule Mix.Tasks.Backup do
     if Map.has_key?(backup, :equipment_events) do
       IO.puts("  Equipment events: #{length(backup.equipment_events)}")
       IO.puts("  Data point logs: #{length(backup.data_point_logs)}")
-      IO.puts("  Daily summaries: #{length(backup.daily_summaries)}")
       IO.puts("  Flock logs: #{length(backup.flock_logs)}")
       IO.puts("  Task completions: #{length(backup.task_completions)}")
     end
@@ -198,7 +182,6 @@ defmodule Mix.Tasks.Backup do
       backup
       |> Map.put(:equipment_events, export_equipment_events(since))
       |> Map.put(:data_point_logs, export_data_point_logs(since))
-      |> Map.put(:daily_summaries, export_daily_summaries(since))
       |> Map.put(:flock_logs, export_flock_logs(since))
       |> Map.put(:task_completions, export_task_completions(since))
     else
@@ -559,42 +542,6 @@ defmodule Mix.Tasks.Backup do
     query =
       if since do
         where(query, [l], l.inserted_at >= ^since)
-      else
-        query
-      end
-
-    Repo.all(query)
-  end
-
-  defp export_daily_summaries(since) do
-    query =
-      from(d in "daily_summaries",
-        select: %{
-          id: d.id,
-          house_id: d.house_id,
-          date: d.date,
-          equipment_name: d.equipment_name,
-          equipment_type: d.equipment_type,
-          avg_temperature: d.avg_temperature,
-          min_temperature: d.min_temperature,
-          max_temperature: d.max_temperature,
-          avg_humidity: d.avg_humidity,
-          min_humidity: d.min_humidity,
-          max_humidity: d.max_humidity,
-          total_runtime_minutes: d.total_runtime_minutes,
-          total_cycles: d.total_cycles,
-          error_count: d.error_count,
-          state_change_count: d.state_change_count,
-          inserted_at: d.inserted_at,
-          updated_at: d.updated_at
-        },
-        order_by: [asc: d.date]
-      )
-
-    query =
-      if since do
-        since_date = DateTime.to_date(since)
-        where(query, [d], d.date >= ^since_date)
       else
         query
       end
