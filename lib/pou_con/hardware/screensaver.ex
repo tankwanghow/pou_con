@@ -22,6 +22,8 @@ defmodule PouCon.Hardware.Screensaver do
   which modifies the labwc autostart to run swayidle with backlight control.
   """
 
+  require Logger
+
   @backlight_base_path "/sys/class/backlight"
 
   # Known backlight directory names (checked in order of preference)
@@ -121,16 +123,27 @@ defmodule PouCon.Hardware.Screensaver do
   end
 
   defp set_wayland_timeout(seconds) do
-    case System.cmd("sudo", [@screen_timeout_script, to_string(seconds)], stderr_to_stdout: true) do
-      {_output, 0} ->
+    task =
+      Task.async(fn ->
+        System.cmd("sudo", [@screen_timeout_script, to_string(seconds)], stderr_to_stdout: true)
+      end)
+
+    case Task.yield(task, 5_000) || Task.shutdown(task) do
+      {:ok, {_output, 0}} ->
         :ok
 
-      {error, _} ->
+      {:ok, {error, _}} ->
         if String.contains?(error, "password") do
+          Logger.warning("Screensaver: sudo requires password. Run: sudo bash setup_sudo.sh")
           {:error, "Sudo not configured. Run: sudo bash setup_sudo.sh"}
         else
+          Logger.warning("Screensaver: set_screen_timeout.sh failed: #{String.trim(error)}")
           {:error, "Failed to set timeout: #{String.trim(error)}"}
         end
+
+      nil ->
+        Logger.warning("Screensaver: set_screen_timeout.sh timed out (5s). Likely sudo password prompt hanging.")
+        {:error, "Timeout: script took too long. Check sudo configuration."}
     end
   end
 
@@ -199,9 +212,12 @@ defmodule PouCon.Hardware.Screensaver do
         {:error, "Screen control script not found: #{script_name}"}
 
       path ->
-        case System.cmd("bash", [path], stderr_to_stdout: true) do
-          {_output, 0} -> :ok
-          {error, _} -> {:error, "Screen control failed: #{String.trim(error)}"}
+        task = Task.async(fn -> System.cmd("bash", [path], stderr_to_stdout: true) end)
+
+        case Task.yield(task, 5_000) || Task.shutdown(task) do
+          {:ok, {_output, 0}} -> :ok
+          {:ok, {error, _}} -> {:error, "Screen control failed: #{String.trim(error)}"}
+          nil -> {:error, "Timeout: #{script_name} took too long"}
         end
     end
   end

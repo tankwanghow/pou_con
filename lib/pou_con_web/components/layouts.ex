@@ -165,6 +165,7 @@ defmodule PouConWeb.Layouts do
               color="cyan"
               href="/admin/simulation"
             />
+            <.sidebar_link icon="hero-eye-solid" title="Raw Viewer" color="teal" href="/admin/raw-viewer" />
           </div>
 
           <%!-- System (Admin only) --%>
