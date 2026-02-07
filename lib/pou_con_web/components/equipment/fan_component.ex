@@ -2,7 +2,6 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
   use PouConWeb, :live_component
 
   alias PouConWeb.Components.Equipment.Shared
-  alias PouConWeb.Components.Formatters
 
   @impl true
   def update(assigns, socket) do
@@ -54,7 +53,6 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
               is_error={@display.is_error}
               error_message={@display.err_msg}
             />
-            <.current_display :if={@display.has_current} current={@display.current} />
             <%= if @display.is_auto_manual_virtual_di do %>
               <Shared.virtual_power_control
                 is_offline={@display.is_offline}
@@ -77,21 +75,6 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
           </:controls>
         </Shared.equipment_body>
       </Shared.equipment_card>
-    </div>
-    """
-  end
-
-  # ——————————————————————————————————————————————
-  # Current Display Component
-  # ——————————————————————————————————————————————
-
-  attr :current, :string, required: true
-
-  defp current_display(assigns) do
-    ~H"""
-    <div class="flex items-center justify-center gap-1 text-sm font-mono">
-      <span class="text-base-content/60">I:</span>
-      <span class="text-blue-600 font-semibold">{@current}</span>
     </div>
     """
   end
@@ -202,9 +185,7 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
       state_text: "OFFLINE",
       color: "gray",
       anim_class: "",
-      err_msg: "offline",
-      has_current: false,
-      current: nil
+      err_msg: "offline"
     }
   end
 
@@ -213,7 +194,6 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
     has_error = not is_nil(status.error)
     is_interlocked = Map.get(status, :interlocked, false)
     is_auto_manual_virtual_di = Map.get(status, :is_auto_manual_virtual_di, false)
-    current_value = Map.get(status, :current)
 
     {color, anim_class} =
       cond do
@@ -233,9 +213,7 @@ defmodule PouConWeb.Components.Equipment.FanComponent do
       state_text: if(is_running, do: "RUNNING", else: "STOPPED"),
       color: color,
       anim_class: anim_class,
-      err_msg: status.error_message,
-      has_current: not is_nil(current_value),
-      current: Formatters.format_current(current_value)
+      err_msg: status.error_message
     }
   end
 end

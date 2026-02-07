@@ -747,8 +747,11 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
 
   # Scan all active fans and categorize by mode and commanded state.
   # Returns {auto_on, auto_off} where:
-  # - auto_on: fan names in AUTO mode that are commanded ON
-  # - auto_off: fan names in AUTO mode that are NOT commanded ON
+  # - auto_on: fan names in AUTO mode that are commanded ON and healthy
+  # - auto_off: fan names in AUTO mode that are NOT commanded ON and healthy
+  # Fans with :on_but_not_running error are excluded from both lists —
+  # they've failed to start (past debounce), so the controller will seek
+  # a replacement and FailsafeValidator will flag the shortage.
   defp scan_fan_states do
     PouCon.Equipment.Devices.list_equipment()
     |> Enum.filter(&(&1.type == "fan" and &1.active))
@@ -756,7 +759,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       try do
         status = Fan.status(eq.name)
 
-        if status[:mode] == :auto do
+        if status[:mode] == :auto and status[:error] != :on_but_not_running do
           if status[:commanded_on] do
             {[eq.name | on_acc], off_acc}
           else

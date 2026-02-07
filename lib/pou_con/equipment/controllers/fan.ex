@@ -81,12 +81,10 @@ defmodule PouCon.Equipment.Controllers.Fan do
       :running_feedback,
       :auto_manual,
       :trip,
-      :current_input,
       commanded_on: false,
       actual_on: false,
       is_running: false,
       is_tripped: false,
-      current: nil,
       mode: :auto,
       error: nil,
       interlocked: false,
@@ -155,7 +153,6 @@ defmodule PouCon.Equipment.Controllers.Fan do
         running_feedback: running_feedback,
         auto_manual: auto_manual,
         trip: opts[:trip],
-        current_input: opts[:current_input],
         is_auto_manual_virtual_di: is_auto_manual_virtual_di,
         inverted: opts[:inverted] == true,
         poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
@@ -330,14 +327,6 @@ defmodule PouCon.Equipment.Controllers.Fan do
     trip_res =
       if state.trip, do: @data_point_manager.read_direct(state.trip), else: {:ok, %{state: 0}}
 
-    # Current input is optional - only read if configured
-    current_res =
-      if state.current_input,
-        do: @data_point_manager.read_direct(state.current_input),
-        else: {:ok, nil}
-
-    # Only include essential results (coil, fb, mode, trip) for error checking
-    # Current is optional and shouldn't cause timeout state
     essential_results = [coil_res, fb_res, mode_res, trip_res]
 
     {new_state, temp_error} =
@@ -350,7 +339,6 @@ defmodule PouCon.Equipment.Controllers.Fan do
             | actual_on: false,
               is_running: false,
               is_tripped: false,
-              current: nil,
               mode: :auto,
               error: :timeout
           }
@@ -363,13 +351,6 @@ defmodule PouCon.Equipment.Controllers.Fan do
             {:ok, %{:state => fb_state}} = fb_res
             {:ok, %{:state => mode_state}} = mode_res
             {:ok, %{:state => trip_state}} = trip_res
-
-            # Extract current value if available (analog input returns :value key)
-            current =
-              case current_res do
-                {:ok, %{value: val}} when is_number(val) -> val
-                _ -> nil
-              end
 
             # Normal (NO): coil ON (1) = fan ON, coil OFF (0) = fan OFF
             # Inverted (NC): coil OFF (0) = fan ON, coil ON (1) = fan OFF
@@ -399,7 +380,6 @@ defmodule PouCon.Equipment.Controllers.Fan do
               | actual_on: actual_on,
                 is_running: is_running,
                 is_tripped: is_tripped,
-                current: current,
                 mode: mode,
                 commanded_on: commanded_on,
                 error: nil
@@ -485,7 +465,6 @@ defmodule PouCon.Equipment.Controllers.Fan do
       actual_on: state.actual_on,
       is_running: state.is_running,
       is_tripped: state.is_tripped,
-      current: state.current,
       mode: state.mode,
       error: state.error,
       error_message: Helpers.error_message(state.error),

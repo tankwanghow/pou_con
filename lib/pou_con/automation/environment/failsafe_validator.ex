@@ -216,14 +216,16 @@ defmodule PouCon.Automation.Environment.FailsafeValidator do
 
   @doc false
   def get_available_auto_fans do
-    # Get all active fan equipment that are in AUTO mode and NOT running
+    # Get all active fan equipment in AUTO mode, excluding broken fans.
+    # Fans with :on_but_not_running are excluded — they've failed to start
+    # and should not count toward the available auto fan pool.
     PouCon.Equipment.Devices.list_equipment()
     |> Enum.filter(&(&1.type == "fan" and &1.active))
     |> Enum.map(fn eq ->
       try do
         status = Fan.status(eq.name)
 
-        if status[:mode] == :auto do
+        if status[:mode] == :auto and status[:error] != :on_but_not_running do
           eq.name
         else
           nil
