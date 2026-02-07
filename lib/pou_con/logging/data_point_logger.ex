@@ -467,4 +467,201 @@ defmodule PouCon.Logging.DataPointLogger do
         %{min: nil, max: nil}
     end
   end
+
+  @doc """
+  Get efficiency data showing the relationship between temperature, humidity,
+  fan count, and pump count grouped by time intervals.
+
+  This helps users tune environment control parameters by seeing patterns like:
+  - Which times are hottest and require most cooling
+  - How many fans/pumps are typically running at each temperature
+  - Temperature delta (front-to-back) patterns
+
+  ## Options
+
+  - `:days_back` - Number of days to analyze (default: 7)
+  - `:interval_minutes` - Grouping interval in minutes (default: 30)
+  - `:timezone` - Timezone for time grouping (default: "Asia/Kuala_Lumpur")
+  - `:temp_patterns` - List of patterns for temperature data points (default: ["TT%"])
+  - `:temp_front_patterns` - Patterns for front temperature sensors (default: ["TT%-FRONT"])
+  - `:temp_back_patterns` - Patterns for back temperature sensors (default: ["TT%-BACK"])
+  - `:humidity_patterns` - Patterns for humidity data points (default: ["RH%"])
+  - `:fan_patterns` - Patterns for fan running data points (default: ["FAN%-RUN"])
+  - `:pump_patterns` - Patterns for pump running data points (default: ["CWP%-RUN"])
+
+  ## Returns
+
+  List of maps with interval aggregates:
+  ```
+  [
+    %{
+      time_slot: "00:00",
+      hour: 0,
+      minute: 0,
+      avg_temp: 28.5,
+      avg_temp_front: 27.2,
+      avg_temp_back: 29.8,
+      temp_delta: 2.6,
+      avg_humidity: 65.0,
+      avg_fans_running: 3.2,
+      avg_pumps_running: 1.0,
+      sample_count: 1250
+    },
+    ...
+  ]
+  ```
+  """
+  def get_efficiency_data(opts \\ []) do
+    days_back = Keyword.get(opts, :days_back, 7)
+    interval_minutes = Keyword.get(opts, :interval_minutes, 30)
+    timezone = Keyword.get(opts, :timezone, "Asia/Kuala_Lumpur")
+    temp_patterns = Keyword.get(opts, :temp_patterns, ["TT%"])
+    temp_front_patterns = Keyword.get(opts, :temp_front_patterns, ["TT%-FRONT"])
+    temp_back_patterns = Keyword.get(opts, :temp_back_patterns, ["TT%-BACK"])
+    humidity_patterns = Keyword.get(opts, :humidity_patterns, ["RH%"])
+    fan_patterns = Keyword.get(opts, :fan_patterns, ["FAN%-RUN"])
+    pump_patterns = Keyword.get(opts, :pump_patterns, ["CWP%-RUN"])
+
+    cutoff = DateTime.utc_now() |> DateTime.add(-days_back * 24 * 3600, :second)
+
+    # Get all relevant logs
+    all_logs =
+      from(l in DataPointLog,
+        where: l.inserted_at >= ^cutoff,
+        where: not is_nil(l.value),
+        select: %{
+          data_point_name: l.data_point_name,
+          value: l.value,
+          inserted_at: l.inserted_at
+        }
+      )
+      |> Repo.all()
+
+    # Group logs by time slot (in local timezone) and calculate metrics
+    all_logs
+    |> Enum.group_by(fn log ->
+      local_dt = DateTime.shift_zone!(log.inserted_at, timezone)
+      # Round down to interval boundary
+      slot_minute = div(local_dt.minute, interval_minutes) * interval_minutes
+      {local_dt.hour, slot_minute}
+    end)
+    |> Enum.map(fn {{hour, minute}, logs} ->
+      calculate_interval_metrics(
+        hour,
+        minute,
+        logs,
+        temp_patterns,
+        temp_front_patterns,
+        temp_back_patterns,
+        humidity_patterns,
+        fan_patterns,
+        pump_patterns
+      )
+    end)
+    |> Enum.sort_by(fn m -> {m.hour, m.minute} end)
+  end
+
+  defp calculate_interval_metrics(
+         hour,
+         minute,
+         logs,
+         temp_patterns,
+         temp_front_patterns,
+         temp_back_patterns,
+         humidity_patterns,
+         fan_patterns,
+         pump_patterns
+       ) do
+    # Filter logs by data point type using LIKE patterns
+    temp_logs = filter_logs_by_patterns(logs, temp_patterns)
+    temp_front_logs = filter_logs_by_patterns(logs, temp_front_patterns)
+    temp_back_logs = filter_logs_by_patterns(logs, temp_back_patterns)
+    humidity_logs = filter_logs_by_patterns(logs, humidity_patterns)
+    fan_logs = filter_logs_by_patterns(logs, fan_patterns)
+    pump_logs = filter_logs_by_patterns(logs, pump_patterns)
+
+    avg_temp = calculate_average(temp_logs)
+    avg_temp_front = calculate_average(temp_front_logs)
+    avg_temp_back = calculate_average(temp_back_logs)
+
+    temp_delta =
+      if avg_temp_front && avg_temp_back do
+        Float.round(avg_temp_back - avg_temp_front, 1)
+      else
+        nil
+      end
+
+    # For fans/pumps, we need to calculate average running count
+    # Each fan logs 1 when running, 0 when not
+    # Average of all readings gives us the average number running
+    avg_fans = calculate_equipment_running_average(fan_logs, fan_patterns)
+    avg_pumps = calculate_equipment_running_average(pump_logs, pump_patterns)
+
+    # Format time slot as HH:MM
+    time_slot =
+      "#{String.pad_leading(Integer.to_string(hour), 2, "0")}:#{String.pad_leading(Integer.to_string(minute), 2, "0")}"
+
+    %{
+      time_slot: time_slot,
+      hour: hour,
+      minute: minute,
+      avg_temp: avg_temp,
+      avg_temp_front: avg_temp_front,
+      avg_temp_back: avg_temp_back,
+      temp_delta: temp_delta,
+      avg_humidity: calculate_average(humidity_logs),
+      avg_fans_running: avg_fans,
+      avg_pumps_running: avg_pumps,
+      sample_count: length(logs)
+    }
+  end
+
+  defp filter_logs_by_patterns(logs, patterns) do
+    Enum.filter(logs, fn log ->
+      Enum.any?(patterns, fn pattern ->
+        matches_like_pattern?(log.data_point_name, pattern)
+      end)
+    end)
+  end
+
+  defp matches_like_pattern?(name, pattern) do
+    # Convert SQL LIKE pattern to regex
+    regex_pattern =
+      pattern
+      |> String.replace("%", ".*")
+      |> String.replace("_", ".")
+
+    Regex.match?(~r/^#{regex_pattern}$/, name)
+  end
+
+  defp calculate_average([]), do: nil
+
+  defp calculate_average(logs) do
+    values = Enum.map(logs, & &1.value)
+    sum = Enum.sum(values)
+    count = length(values)
+
+    if count > 0 do
+      Float.round(sum / count, 1)
+    else
+      nil
+    end
+  end
+
+  # Calculate average number of equipment running
+  # For each unique equipment, calculate its average state (0-1), then sum across all equipment
+  defp calculate_equipment_running_average([], _patterns), do: 0.0
+
+  defp calculate_equipment_running_average(logs, _patterns) do
+    # Group by equipment name and calculate average for each
+    logs
+    |> Enum.group_by(& &1.data_point_name)
+    |> Enum.map(fn {_name, equipment_logs} ->
+      # Average state for this equipment (0.0 to 1.0)
+      values = Enum.map(equipment_logs, & &1.value)
+      Enum.sum(values) / length(values)
+    end)
+    |> Enum.sum()
+    |> Float.round(1)
+  end
 end

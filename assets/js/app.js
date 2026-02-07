@@ -123,6 +123,13 @@ Hooks.SimpleKeyboard = {
             'A S D F G H J K L : "',
             '{shift} Z X C V B N M < > ?',
             '{tab} {space} {enter} {bksp}'
+          ],
+          numeric: [
+            '7 8 9',
+            '4 5 6',
+            '1 2 3',
+            '0 . -',
+            '{tab} {bksp}'
           ]
         },
         display: {
@@ -209,8 +216,12 @@ Hooks.SimpleKeyboard = {
 
     // Show and bind keyboard on focus
     inputElement.addEventListener("focus", () => {
-      // Set current inputName and sync value
-      window.keyboard.setOptions({ inputName: this.inputName });
+      // Switch layout based on input type
+      const isNumeric = inputElement.type === 'number';
+      const layoutName = isNumeric ? 'numeric' : 'default';
+
+      // Set current inputName, sync value, and switch layout
+      window.keyboard.setOptions({ inputName: this.inputName, layoutName: layoutName });
       window.keyboard.setInput(inputElement.value);
 
       // Only auto-show in "auto" mode (always_show is handled globally, always_hide stays hidden)
