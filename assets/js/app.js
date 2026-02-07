@@ -111,18 +111,18 @@ Hooks.SimpleKeyboard = {
         layoutName: "default",
         layout: {
           default: [
-            '1 2 3 4 5 6 7 8 9 0 - =',
-            'q w e r t y u i o p [ ]',
-            'a s d f g h j k l ; \'',
-            '{shift} z x c v b n m , .',
-            '{tab} {space} {enter} {bksp}'
+            '` 1 2 3 4 5 6 7 8 9 0 - = {bksp}',
+            '{tab} q w e r t y u i o p [ ] \\',
+            'a s d f g h j k l ; \' {enter}',
+            '{shift} z x c v b n m , . / {shift}',
+            '{arrowleft} {arrowup} {space} {arrowdown} {arrowright}'
           ],
           shift: [
-            '! @ # $ % ^ & * ( ) _ +',
-            'Q W E R T Y U I O P { }',
-            'A S D F G H J K L : "',
-            '{shift} Z X C V B N M < > ?',
-            '{tab} {space} {enter} {bksp}'
+            '~ ! @ # $ % ^ & * ( ) _ + {bksp}',
+            '{tab} Q W E R T Y U I O P { } |',
+            'A S D F G H J K L : " {enter}',
+            '{shift} Z X C V B N M < > ? {shift}',
+            '{arrowleft} {arrowup} {space} {arrowdown} {arrowright}'
           ],
           numeric: [
             '7 8 9',
@@ -133,17 +133,35 @@ Hooks.SimpleKeyboard = {
           ]
         },
         display: {
-          "{bksp}": "⌫",
-          "{shift}": "⇧",
+          "{bksp}": "⌫ Bksp",
+          "{shift}": "⇧ Shift",
           "{tab}": "Tab ⇥",
-          "{enter}": "↵"
+          "{enter}": "Enter ↵",
+          "{space}": " ",
+          "{arrowleft}": "←",
+          "{arrowup}": "↑",
+          "{arrowdown}": "↓",
+          "{arrowright}": "→"
         },
+        buttonTheme: [
+          { class: "hg-button-double", buttons: "{enter} {bksp}" },
+          { class: "hg-button-wide", buttons: "{shift}" },
+          { class: "hg-button-tab", buttons: "{tab}" },
+          { class: "hg-button-space", buttons: "{space}" }
+        ],
         useMouseEvents: true,          // Enable mouse event handling for desktop
         preventMouseDownDefault: true, // Prevent default mousedown to keep input focus
         onChange: input => {
           const activeEl = window.keyboardInputs[window.keyboard.options.inputName];
           if (activeEl) {
             activeEl.value = input;
+            // Restore caret position in the DOM input to match SimpleKeyboard's internal caret
+            const caretPos = window.keyboard.caretPosition;
+            if (caretPos != null) {
+              activeEl.selectionStart = caretPos;
+              activeEl.selectionEnd = window.keyboard.caretPositionEnd != null
+                ? window.keyboard.caretPositionEnd : caretPos;
+            }
             // Dispatch input event to trigger LiveView's phx-change handler
             activeEl.dispatchEvent(new Event('input', { bubbles: true }));
           }
@@ -185,6 +203,21 @@ Hooks.SimpleKeyboard = {
             }
           }
 
+          // Handle arrow keys - move cursor within input
+          if (['{arrowleft}', '{arrowright}', '{arrowup}', '{arrowdown}'].includes(button)) {
+            const activeEl = window.keyboardInputs[window.keyboard.options.inputName];
+            if (activeEl) {
+              const pos = activeEl.selectionStart;
+              let newPos = pos;
+              if (button === '{arrowleft}') newPos = Math.max(0, pos - 1);
+              if (button === '{arrowright}') newPos = Math.min(activeEl.value.length, pos + 1);
+              if (button === '{arrowup}') newPos = 0;
+              if (button === '{arrowdown}') newPos = activeEl.value.length;
+              activeEl.selectionStart = activeEl.selectionEnd = newPos;
+              window.keyboard.setCaretPosition(newPos);
+            }
+          }
+
           // Handle tab key - move to next focusable input
           if (button === '{tab}') {
             const activeEl = window.keyboardInputs[window.keyboard.options.inputName];
@@ -212,6 +245,18 @@ Hooks.SimpleKeyboard = {
     // Sync input changes to keyboard (e.g., from physical keyboard or server updates)
     inputElement.addEventListener('input', event => {
       window.keyboard.setInput(event.target.value);
+      // Sync browser caret position to SimpleKeyboard so next virtual key press
+      // inserts at the correct position
+      if (event.target.selectionStart != null) {
+        window.keyboard.setCaretPosition(event.target.selectionStart, event.target.selectionEnd);
+      }
+    });
+
+    // When user taps/clicks within the input to move cursor, sync to SimpleKeyboard
+    inputElement.addEventListener('click', () => {
+      if (inputElement.selectionStart != null) {
+        window.keyboard.setCaretPosition(inputElement.selectionStart, inputElement.selectionEnd);
+      }
     });
 
     // Show and bind keyboard on focus
@@ -223,6 +268,10 @@ Hooks.SimpleKeyboard = {
       // Set current inputName, sync value, and switch layout
       window.keyboard.setOptions({ inputName: this.inputName, layoutName: layoutName });
       window.keyboard.setInput(inputElement.value);
+      // Sync browser caret position to SimpleKeyboard on focus
+      if (inputElement.selectionStart != null) {
+        window.keyboard.setCaretPosition(inputElement.selectionStart, inputElement.selectionEnd);
+      }
 
       // Only auto-show in "auto" mode (always_show is handled globally, always_hide stays hidden)
       if (window.keyboardMode === "auto" && keyboardContainer.style.display !== "block") {

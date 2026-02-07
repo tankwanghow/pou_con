@@ -227,6 +227,22 @@
   max-width: 60px
 }
 
+.hg-theme-default .hg-button.hg-button-double {
+  flex-grow: 2;
+}
+
+.hg-theme-default .hg-button.hg-button-wide {
+  flex-grow: 2.5;
+}
+
+.hg-theme-default .hg-button.hg-button-tab {
+  flex-grow: 1.5;
+}
+
+.hg-theme-default .hg-button.hg-button-space {
+  flex-grow: 7;
+}
+
 .hg-candidate-box {
   background: #ececec;
   border-bottom: 2px solid #b5b5b5;
