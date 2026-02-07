@@ -13,6 +13,9 @@ defmodule PouConWeb.Live.Auth.AdminSettings do
          to_form(%{
            "user_password" => "",
            "user_password_confirmation" => "",
+           "admin_current_password" => "",
+           "admin_new_password" => "",
+           "admin_new_password_confirmation" => "",
            "house_id" => if(house_id == "NOT SET", do: "", else: house_id),
            "timezone" => timezone || ""
          }),
@@ -39,7 +42,26 @@ defmodule PouConWeb.Live.Auth.AdminSettings do
         <% end %>
 
         <div>
-          <label class="block font-medium">User Login Password</label>
+          <label class="block font-medium">Change Admin Password</label>
+          <.input
+            field={@form[:admin_current_password]}
+            type="password"
+            placeholder="Current admin password"
+          />
+          <.input
+            field={@form[:admin_new_password]}
+            type="password"
+            placeholder="New admin password"
+          />
+          <.input
+            field={@form[:admin_new_password_confirmation]}
+            type="password"
+            placeholder="Confirm new admin password"
+          />
+        </div>
+
+        <div>
+          <label class="block font-medium">Change User Login Password</label>
           <.input
             field={@form[:user_password]}
             type="password"
@@ -89,21 +111,39 @@ defmodule PouConWeb.Live.Auth.AdminSettings do
 
   @impl true
   def handle_event("save", params, socket) do
-    user_pwd = params["user_password"]
-    confirm = params["user_password_confirmation"]
-    house_id = params["house_id"]
-    timezone = params["timezone"]
+    admin_current = params["admin_current_password"] || ""
+    admin_new = params["admin_new_password"] || ""
+    admin_confirm = params["admin_new_password_confirmation"] || ""
+    user_pwd = params["user_password"] || ""
+    user_confirm = params["user_password_confirmation"] || ""
+    house_id = params["house_id"] || ""
+    timezone = params["timezone"] || ""
+
+    changing_admin? = admin_new != ""
 
     cond do
+      changing_admin? and admin_current == "" ->
+        {:noreply, assign(socket, :error, "Current admin password is required")}
+
+      changing_admin? and Auth.verify_password(admin_current, :admin) != {:ok, :admin} ->
+        {:noreply, assign(socket, :error, "Current admin password is incorrect")}
+
+      changing_admin? and String.length(admin_new) < 6 ->
+        {:noreply, assign(socket, :error, "New admin password must be at least 6 characters")}
+
+      changing_admin? and admin_new != admin_confirm ->
+        {:noreply, assign(socket, :error, "New admin passwords do not match")}
+
       user_pwd != "" and String.length(user_pwd) < 6 ->
         {:noreply, assign(socket, :error, "User password must be at least 6 characters")}
 
-      user_pwd != "" and user_pwd != confirm ->
+      user_pwd != "" and user_pwd != user_confirm ->
         {:noreply, assign(socket, :error, "User passwords do not match")}
 
       true ->
         results =
           [
+            if(changing_admin?, do: Auth.update_password(admin_new, :admin), else: {:ok, nil}),
             if(user_pwd != "", do: Auth.update_password(user_pwd, :user), else: {:ok, nil}),
             if(house_id != "", do: Auth.set_house_id(house_id), else: {:ok, nil}),
             if(timezone != "", do: Auth.set_timezone(timezone), else: {:ok, nil})

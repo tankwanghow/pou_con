@@ -12,6 +12,7 @@ defmodule PouCon.Flock.Schemas.FlockLog do
     field :deaths, :integer, default: 0
     field :egg_trays, :integer, default: 0
     field :egg_pcs, :integer, default: 0
+    field :feed_usage_kg, :decimal, default: 0
     field :notes, :string
 
     belongs_to :flock, Flock
@@ -21,10 +22,11 @@ defmodule PouCon.Flock.Schemas.FlockLog do
 
   def changeset(log, attrs) do
     log
-    |> cast(attrs, [:house_id, :flock_id, :log_date, :deaths, :egg_trays, :notes])
+    |> cast(attrs, [:house_id, :flock_id, :log_date, :deaths, :egg_trays, :feed_usage_kg, :notes])
     |> validate_required([:house_id, :flock_id, :log_date])
     |> validate_number(:deaths, greater_than_or_equal_to: 0)
     |> validate_number(:egg_trays, greater_than_or_equal_to: 0)
+    |> validate_number(:feed_usage_kg, greater_than_or_equal_to: 0)
     |> calculate_egg_pcs()
     |> foreign_key_constraint(:flock_id)
   end

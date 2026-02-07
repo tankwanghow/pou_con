@@ -560,6 +560,7 @@ defmodule Mix.Tasks.Backup do
           deaths: f.deaths,
           egg_trays: f.egg_trays,
           egg_pcs: f.egg_pcs,
+          feed_usage_kg: f.feed_usage_kg,
           notes: f.notes,
           inserted_at: f.inserted_at,
           updated_at: f.updated_at

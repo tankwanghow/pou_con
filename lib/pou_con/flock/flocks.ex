@@ -247,6 +247,7 @@ defmodule PouCon.Flock.Flocks do
         total_deaths: sum(l.deaths),
         total_egg_trays: sum(l.egg_trays),
         total_egg_pcs: sum(l.egg_pcs),
+        total_feed_kg: sum(l.feed_usage_kg),
         log_count: count(l.id)
       })
       |> Repo.one()
@@ -261,6 +262,7 @@ defmodule PouCon.Flock.Flocks do
       total_deaths: stats.total_deaths || 0,
       total_egg_trays: stats.total_egg_trays || 0,
       total_egg_pcs: stats.total_egg_pcs || 0,
+      total_feed_kg: stats.total_feed_kg || Decimal.new(0),
       log_count: stats.log_count || 0,
       age_days: Date.diff(Date.utc_today(), flock.date_of_birth),
       today_egg_trays: today_egg_trays,
@@ -356,7 +358,8 @@ defmodule PouCon.Flock.Flocks do
         log_date: l.log_date,
         deaths: sum(l.deaths),
         egg_trays: sum(l.egg_trays),
-        egg_pcs: sum(l.egg_pcs)
+        egg_pcs: sum(l.egg_pcs),
+        feed_usage_kg: sum(l.feed_usage_kg)
       })
       |> order_by([l], asc: l.log_date)
       |> Repo.all()
@@ -386,6 +389,7 @@ defmodule PouCon.Flock.Flocks do
            deaths: day.deaths,
            egg_trays: day.egg_trays,
            egg_pcs: day.egg_pcs,
+           feed_usage_kg: day.feed_usage_kg || Decimal.new(0),
            yield: yield
          }, new_cumulative_deaths}
       end)

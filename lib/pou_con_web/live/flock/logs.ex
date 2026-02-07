@@ -131,7 +131,8 @@ defmodule PouConWeb.Live.Flock.Logs do
         flock_id: socket.assigns.flock.id,
         log_date: Date.utc_today(),
         deaths: 0,
-        egg_trays: 0
+        egg_trays: 0,
+        feed_usage_kg: 0
       })
 
     assign(socket, editing_log: nil, form: to_form(changeset))
@@ -238,6 +239,13 @@ defmodule PouConWeb.Live.Flock.Logs do
             </div>
             <div class="text-amber-500 text-xs">Total Trays</div>
           </div>
+
+          <div class="bg-orange-500/20 rounded p-1">
+            <div class="text-orange-600 dark:text-orange-400 font-bold">
+              {format_decimal(@summary.total_feed_kg)}
+            </div>
+            <div class="text-orange-500 text-xs">Total Feed (kg)</div>
+          </div>
         </div>
       </div>
       
@@ -269,7 +277,13 @@ defmodule PouConWeb.Live.Flock.Logs do
                 <label class="block text-sm font-medium">Egg Trays (30 pcs/tray)</label>
                 <.input type="number" field={@form[:egg_trays]} min="0" required />
               </div>
-              
+
+    <!-- Feed Usage -->
+              <div class="col-span-2">
+                <label class="block text-sm font-medium">Feed Usage (kg)</label>
+                <.input type="number" field={@form[:feed_usage_kg]} min="0" step="0.1" />
+              </div>
+
     <!-- Notes -->
               <div class="col-span-2">
                 <label class="block text-sm font-medium">Notes (optional)</label>
@@ -314,6 +328,7 @@ defmodule PouConWeb.Live.Flock.Logs do
 
                     <div class="font-bold text-rose-400">{format_number(log.deaths)}</div>
                     <div class="text-amber-400">{format_number(log.egg_trays)} trays</div>
+                    <div class="text-orange-400">{format_decimal(log.feed_usage_kg)} kg</div>
 
                     <div :if={@flock.active} class="flex gap-1">
                       <button
@@ -368,6 +383,11 @@ defmodule PouConWeb.Live.Flock.Logs do
   end
 
   defp format_number(number), do: Formatters.format_integer(number)
+
+  defp format_decimal(%Decimal{} = d), do: Decimal.to_string(d, :normal)
+  defp format_decimal(n) when is_number(n), do: :erlang.float_to_binary(n / 1, decimals: 1)
+  defp format_decimal(nil), do: "0"
+  defp format_decimal(n), do: to_string(n)
 
   defp format_yield(_eggs, 0), do: "0%"
 

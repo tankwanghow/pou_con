@@ -115,20 +115,21 @@ Hooks.SimpleKeyboard = {
             'q w e r t y u i o p [ ]',
             'a s d f g h j k l ; \'',
             '{shift} z x c v b n m , .',
-            '{tab} {space} {bksp}'
+            '{tab} {space} {enter} {bksp}'
           ],
           shift: [
             '! @ # $ % ^ & * ( ) _ +',
             'Q W E R T Y U I O P { }',
             'A S D F G H J K L : "',
             '{shift} Z X C V B N M < > ?',
-            '{tab} {space} {bksp}'
+            '{tab} {space} {enter} {bksp}'
           ]
         },
         display: {
           "{bksp}": "⌫",
           "{shift}": "⇧",
-          "{tab}": "Tab ⇥"
+          "{tab}": "Tab ⇥",
+          "{enter}": "↵"
         },
         useMouseEvents: true,          // Enable mouse event handling for desktop
         preventMouseDownDefault: true, // Prevent default mousedown to keep input focus
@@ -160,10 +161,21 @@ Hooks.SimpleKeyboard = {
             window.keyboard.setOptions({ layoutName: 'default' });
           }
 
-          // Handle enter or other special keys as needed
+          // Handle enter key - insert newline for textareas, submit for other inputs
           if (button === '{enter}') {
-            // Optional: Push event for form submission
-            // this.pushEvent("submit_form", {});
+            const activeEl = window.keyboardInputs[window.keyboard.options.inputName];
+            if (activeEl && activeEl.tagName === 'TEXTAREA') {
+              const start = activeEl.selectionStart;
+              const end = activeEl.selectionEnd;
+              const val = activeEl.value;
+              activeEl.value = val.substring(0, start) + '\n' + val.substring(end);
+              activeEl.selectionStart = activeEl.selectionEnd = start + 1;
+              window.keyboard.setInput(activeEl.value);
+              activeEl.dispatchEvent(new Event('input', { bubbles: true }));
+            } else if (activeEl) {
+              const form = activeEl.closest('form');
+              if (form) form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+            }
           }
 
           // Handle tab key - move to next focusable input

@@ -77,6 +77,34 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
     """
   end
 
+  attr :form, :any, required: true
+
+  defp logging_fields(assigns) do
+    ~H"""
+    <p class="text-sm text-base-content/70">
+      Configure how often this data point's value is logged to the database.
+    </p>
+
+    <div class="w-1/3">
+      <.input
+        field={@form[:log_interval]}
+        type="number"
+        label="Log Interval (seconds)"
+        placeholder="Empty = on change"
+        min="0"
+      />
+    </div>
+
+    <div class="bg-info/10 p-4 rounded-lg border border-info/30">
+      <div class="text-sm space-y-1">
+        <div><strong>Empty</strong> = Log whenever the value changes</div>
+        <div><strong>0</strong> = No logging (disabled)</div>
+        <div><strong>> 0</strong> = Log at fixed interval (in seconds)</div>
+      </div>
+    </div>
+    """
+  end
+
   defp color_class("green"), do: "bg-green-500 text-white"
   defp color_class("yellow"), do: "bg-yellow-400 text-gray-800"
   defp color_class("blue"), do: "bg-blue-500 text-white"
@@ -138,65 +166,13 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
             Analog: read_analog_input, read_analog_output, write_analog_output
           </p>
 
-          <%!-- Conversion Section
-          <div class="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <div class="flex items-center gap-2 mb-2">
-              <.icon name="hero-calculator" class="w-5 h-5 text-gray-600" />
-              <span class="text-sm font-medium text-gray-700">Conversion (for analog)</span>
-            </div>
-            <p class="text-xs text-gray-500">
-              Formula: converted = (raw × scale_factor) + offset
-            </p>
-
-            <div class="flex gap-1">
-              <div class="w-1/5">
-                <.input
-                  field={@form[:value_type]}
-                  type="text"
-                  label="Data Type"
-                  placeholder="int16, uint16, float32"
-                />
-              </div>
-              <div class="w-1/5">
-                <.input
-                  field={@form[:byte_order]}
-                  type="select"
-                  label="Byte Order (32-bit)"
-                  options={[
-                    {"High-Low (Standard)", "high_low"},
-                    {"Low-High (DIJIANG)", "low_high"}
-                  ]}
-                />
-              </div>
-              <div class="w-1/5">
-                <.input field={@form[:scale_factor]} type="number" step="any" label="Scale Factor" />
-              </div>
-              <div class="w-1/5">
-                <.input field={@form[:offset]} type="number" step="any" label="Offset" />
-              </div>
-              <div class="w-1/5">
-                <.input field={@form[:unit]} type="text" label="Unit" placeholder="°C, %, bar" />
-              </div>
-            </div>
-
-            <div class="flex gap-1">
-              <div class="w-1/2">
-                <.input field={@form[:min_valid]} type="number" step="any" label="Min Valid" />
-              </div>
-              <div class="w-1/2">
-                <.input field={@form[:max_valid]} type="number" step="any" label="Max Valid" />
-              </div>
-            </div>
-          </div> --%>
-
           <.input field={@form[:description]} type="text" label="Description" />
 
-          <%!-- Tabs only shown for Analog Input (AI) type --%>
+          <%!-- Tabs for Analog Input (AI) type: Conversion, Color Zones, Logging --%>
+          <%!-- For other types: only Logging section --%>
           <%= if @form[:type].value == "AI" do %>
-            <%!-- Tab Navigation --%>
             <.tab_navigation active_tab={@active_tab} tabs={@tabs} />
 
-            <%!-- Tab Content --%>
             <div class="mt-4">
               <%!-- Conversion Tab --%>
               <div :if={@active_tab == :conversion} class="space-y-4">
@@ -231,12 +207,11 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
                     <.input
                       field={@form[:scale_factor]}
                       type="number"
-                      step="any"
                       label="Scale Factor"
                     />
                   </div>
                   <div class="w-1/5">
-                    <.input field={@form[:offset]} type="number" step="any" label="Offset" />
+                    <.input field={@form[:offset]} type="number" label="Offset" />
                   </div>
                   <div class="w-1/5">
                     <.input field={@form[:unit]} type="text" label="Unit" placeholder="°C, %, bar" />
@@ -245,10 +220,10 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
 
                 <div class="flex gap-1">
                   <div class="w-1/2">
-                    <.input field={@form[:min_valid]} type="number" step="any" label="Min Valid" />
+                    <.input field={@form[:min_valid]} type="number" label="Min Valid" />
                   </div>
                   <div class="w-1/2">
-                    <.input field={@form[:max_valid]} type="number" step="any" label="Max Valid" />
+                    <.input field={@form[:max_valid]} type="number" label="Max Valid" />
                   </div>
                 </div>
 
@@ -346,30 +321,18 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
                 <.zone_preview zones={@color_zones} />
               </div>
 
-              <%!-- Logging Tab --%>
+              <%!-- Logging Tab (AI) --%>
               <div :if={@active_tab == :logging} class="space-y-4">
-                <p class="text-sm text-base-content/70">
-                  Configure how often this data point's value is logged to the database.
-                </p>
-
-                <div class="w-1/3">
-                  <.input
-                    field={@form[:log_interval]}
-                    type="number"
-                    label="Log Interval (seconds)"
-                    placeholder="Empty = on change"
-                    min="0"
-                  />
-                </div>
-
-                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <div class="text-sm text-blue-800 space-y-1">
-                    <div><strong>Empty</strong> = Log whenever the value changes</div>
-                    <div><strong>0</strong> = No logging (disabled)</div>
-                    <div><strong>> 0</strong> = Log at fixed interval (in seconds)</div>
-                  </div>
-                </div>
+                <.logging_fields form={@form} />
               </div>
+            </div>
+          <% else %>
+            <%!-- Logging section for non-AI types --%>
+            <div class="mt-4 space-y-4">
+              <h4 class="font-medium text-sm text-base-content/70 border-b border-base-300 pb-2">
+                Logging
+              </h4>
+              <.logging_fields form={@form} />
             </div>
           <% end %>
 

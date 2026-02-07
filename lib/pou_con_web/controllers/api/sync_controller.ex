@@ -226,6 +226,7 @@ defmodule PouConWeb.API.SyncController do
       deaths: log.deaths,
       egg_trays: log.egg_trays,
       egg_pcs: log.egg_pcs,
+      feed_usage_kg: log.feed_usage_kg,
       notes: log.notes,
       inserted_at: log.inserted_at,
       updated_at: log.updated_at
