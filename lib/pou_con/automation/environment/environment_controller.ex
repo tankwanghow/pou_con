@@ -13,8 +13,10 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
 
   Total fans at any step = failsafe_fans_count + step_N_extra_fans
 
-  The system randomly selects which auto fans to turn on when stepping up,
-  and turns off the same fans when stepping down (tracked in state).
+  Each poll cycle, the controller scans all fan states from hardware to
+  determine which AUTO fans are currently on/off, then adjusts toward the
+  target count. This eliminates stale tracking when users physically change
+  the 3-way switch (auto/manual_off/manual_on).
 
   ## Pump Control
 
@@ -46,11 +48,11 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
               delta_boost_active: false,
               # When delta boost started (for display purposes only)
               delta_boost_start_time: nil,
-              # Auto fans the system has turned ON (for tracking step-down)
+              # Auto fans currently ON in AUTO mode (scanned from hardware each cycle)
               auto_fans_on: [],
               # Target pumps from config
               target_pumps: [],
-              # Pumps the system has turned ON
+              # Pumps currently ON in AUTO mode (scanned from hardware each cycle)
               current_pumps_on: [],
               current_step: nil,
               # Pending step (what temp indicates, may differ during delay)
@@ -376,9 +378,11 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
     config = Configs.get_config()
 
     unless config.enabled do
-      # When disabled, turn off all auto fans we control
-      turn_off_all_auto_fans(state.auto_fans_on, state)
-      turn_off_all_pumps(state.current_pumps_on, state)
+      # When disabled, scan reality and turn off all auto-mode fans/pumps
+      {auto_on, _auto_off} = scan_fan_states()
+      auto_pumps = scan_auto_pumps_on()
+      turn_off_all_auto_fans(auto_on, state)
+      turn_off_all_pumps(auto_pumps, state)
 
       %State{
         state
@@ -391,6 +395,10 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       }
     else
       now = System.monotonic_time(:millisecond)
+
+      # Scan reality: get current fan/pump states from hardware
+      {auto_fans_on, auto_fans_off} = scan_fan_states()
+      auto_pumps_on = scan_auto_pumps_on()
 
       # Check if delta boost should override to highest step
       # When front-to-back delta is too high, jump to max cooling immediately
@@ -521,29 +529,29 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       can_switch = state.last_switch_time == nil or now - state.last_switch_time >= delay_ms
 
       # Debug logging for fan count tracking (only when adjustment needed)
-      if can_switch and length(state.auto_fans_on) != target_extra_fans do
+      if can_switch and length(auto_fans_on) != target_extra_fans do
         Logger.debug(
-          "[Environment] Fan adjustment: current=#{length(state.auto_fans_on)}, target=#{target_extra_fans}, " <>
+          "[Environment] Fan adjustment: current=#{length(auto_fans_on)}, target=#{target_extra_fans}, " <>
             "step=#{effective_step}, failsafe=#{actual_failsafe}"
         )
       end
 
-      # Adjust auto fans and pumps
+      # Adjust auto fans and pumps (using scanned reality, not cached lists)
       {new_auto_fans_on, new_pumps_on, switched?} =
         if can_switch do
           {fans, fan_switched?} =
-            adjust_auto_fans(state.auto_fans_on, target_extra_fans, state)
+            adjust_auto_fans(auto_fans_on, auto_fans_off, target_extra_fans, state)
 
           if fan_switched? do
-            {fans, state.current_pumps_on, true}
+            {fans, auto_pumps_on, true}
           else
             {pumps, pump_switched?} =
-              adjust_pumps(state.current_pumps_on, target_pump_list, state)
+              adjust_pumps(auto_pumps_on, target_pump_list, state)
 
             {fans, pumps, pump_switched?}
           end
         else
-          {state.auto_fans_on, state.current_pumps_on, false}
+          {auto_fans_on, auto_pumps_on, false}
         end
 
       new_switch_time = if switched?, do: now, else: state.last_switch_time
@@ -641,62 +649,50 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   end
 
   # ------------------------------------------------------------------ #
-  # Private - Fan Control (Random Selection)
+  # Private - Fan Control (Reality-Based)
   # ------------------------------------------------------------------ #
 
-  defp adjust_auto_fans(current_on, target_count, state) when length(current_on) < target_count do
-    # Need to turn ON more fans - randomly select from available
-    available = get_available_auto_fans() -- current_on
+  defp adjust_auto_fans(auto_on, auto_off, target_count, state) do
+    current_count = length(auto_on)
 
-    case available do
-      [] ->
-        Logger.warning(
-          "[Environment] Need #{target_count - length(current_on)} more auto fans but none available"
-        )
+    cond do
+      current_count < target_count ->
+        # Need to turn ON more fans - randomly select from available
+        case auto_off do
+          [] ->
+            Logger.warning(
+              "[Environment] Need #{target_count - current_count} more auto fans but none available"
+            )
 
-        {current_on, false}
+            {auto_on, false}
 
-      _ ->
-        fan_to_add = Enum.random(available)
+          _ ->
+            fan_to_add = Enum.random(auto_off)
 
-        if try_turn_on_fan(fan_to_add, state) do
-          Logger.info("[Environment] Turned ON auto fan: #{fan_to_add} (random selection)")
-          {[fan_to_add | current_on], true}
-        else
-          {current_on, false}
+            if try_turn_on_fan(fan_to_add, state) do
+              Logger.info("[Environment] Turned ON auto fan: #{fan_to_add}")
+              {[fan_to_add | auto_on], true}
+            else
+              {auto_on, false}
+            end
         end
-    end
-  end
 
-  defp adjust_auto_fans(current_on, target_count, state) when length(current_on) > target_count do
-    # Need to turn OFF fans - pick from our tracked list
-    case current_on do
-      [] ->
-        {[], false}
+      current_count > target_count ->
+        # Need to turn OFF fans - randomly select from currently on
+        fan_to_remove = Enum.random(auto_on)
 
-      [fan_to_remove | rest] ->
         case try_turn_off_fan(fan_to_remove, state) do
           :success ->
             Logger.info("[Environment] Turned OFF auto fan: #{fan_to_remove}")
-            {rest, true}
+            {auto_on -- [fan_to_remove], true}
 
-          :manual_mode ->
-            # Fan switched to manual - remove from tracking
-            Logger.debug("[Environment] Removing #{fan_to_remove} from tracking (MANUAL mode)")
-            {rest, true}
-
-          :error ->
-            {current_on, false}
+          _ ->
+            {auto_on, false}
         end
+
+      true ->
+        {auto_on, false}
     end
-  end
-
-  defp adjust_auto_fans(current_on, _target_count, _state) do
-    {current_on, false}
-  end
-
-  defp get_available_auto_fans do
-    FailsafeValidator.get_available_auto_fans()
   end
 
   defp turn_off_all_auto_fans(fans, state) do
@@ -709,43 +705,92 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   # Private - Pump Control
   # ------------------------------------------------------------------ #
 
-  defp adjust_pumps(current_on, target_list, state) do
-    pumps_to_turn_on = target_list -- current_on
-    pumps_to_turn_off = current_on -- target_list
+  defp adjust_pumps(pumps_on, target_list, state) do
+    pumps_to_turn_on = target_list -- pumps_on
+    pumps_to_turn_off = pumps_on -- target_list
 
     cond do
-      length(pumps_to_turn_on) > 0 ->
+      pumps_to_turn_on != [] ->
         name = hd(pumps_to_turn_on)
 
         if try_turn_on_pump(name, state) do
-          {[name | current_on], true}
+          {[name | pumps_on], true}
         else
-          {current_on, false}
+          {pumps_on, false}
         end
 
-      length(pumps_to_turn_off) > 0 ->
+      pumps_to_turn_off != [] ->
         name = hd(pumps_to_turn_off)
 
         case try_turn_off_pump(name, state) do
           :success ->
-            {current_on -- [name], true}
+            {pumps_on -- [name], true}
 
-          :manual_mode ->
-            Logger.debug("[Environment] Removing #{name} from tracking (MANUAL mode)")
-            {current_on -- [name], true}
-
-          :error ->
-            {current_on, false}
+          _ ->
+            {pumps_on, false}
         end
 
       true ->
-        {current_on, false}
+        {pumps_on, false}
     end
   end
 
   defp turn_off_all_pumps(pumps, state) do
     Enum.each(pumps, fn name ->
       try_turn_off_pump(name, state)
+    end)
+  end
+
+  # ------------------------------------------------------------------ #
+  # Private - Reality Scanning
+  # ------------------------------------------------------------------ #
+
+  # Scan all active fans and categorize by mode and commanded state.
+  # Returns {auto_on, auto_off} where:
+  # - auto_on: fan names in AUTO mode that are commanded ON
+  # - auto_off: fan names in AUTO mode that are NOT commanded ON
+  defp scan_fan_states do
+    PouCon.Equipment.Devices.list_equipment()
+    |> Enum.filter(&(&1.type == "fan" and &1.active))
+    |> Enum.reduce({[], []}, fn eq, {on_acc, off_acc} ->
+      try do
+        status = Fan.status(eq.name)
+
+        if status[:mode] == :auto do
+          if status[:commanded_on] do
+            {[eq.name | on_acc], off_acc}
+          else
+            {on_acc, [eq.name | off_acc]}
+          end
+        else
+          {on_acc, off_acc}
+        end
+      rescue
+        _ -> {on_acc, off_acc}
+      catch
+        :exit, _ -> {on_acc, off_acc}
+      end
+    end)
+  end
+
+  # Scan all active pumps in AUTO mode that are commanded ON.
+  defp scan_auto_pumps_on do
+    PouCon.Equipment.Devices.list_equipment()
+    |> Enum.filter(&(&1.type == "pump" and &1.active))
+    |> Enum.reduce([], fn eq, acc ->
+      try do
+        status = Pump.status(eq.name)
+
+        if status[:mode] == :auto and status[:commanded_on] do
+          [eq.name | acc]
+        else
+          acc
+        end
+      rescue
+        _ -> acc
+      catch
+        :exit, _ -> acc
+      end
     end)
   end
 

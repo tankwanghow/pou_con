@@ -208,6 +208,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
                       field={@form[:scale_factor]}
                       type="number"
                       label="Scale Factor"
+                      step="0.00000001"
                     />
                   </div>
                   <div class="w-1/5">

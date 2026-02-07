@@ -45,17 +45,18 @@ defmodule PouConWeb.Components.Summaries.PowerMeterSummaryComponent do
 
   defp power_meter_item(assigns) do
     ~H"""
-    <div class="p-2 flex flex-col items-center justify-center">
-      <div class={[Shared.text_color(@meter.main_color), "text-sm font-medium"]}>{@meter.title}</div>
-      <div class="flex items-center gap-1">
-        <PowerMeterComponent.power_meter_icon class={"w-8 h-8 #{Shared.text_color(@meter.main_color)}"} />
-        <div class="flex flex-col space-y-0.5">
-          <%= for {_label, value, color, _bold} <- @meter.rows do %>
-            <div class="flex items-baseline gap-1">
-              <span class={[Shared.text_color(color), "text-xs font-mono font-bold"]}>{value}</span>
-            </div>
-          <% end %>
-        </div>
+    <div class="p-2 flex flex-col items-center">
+      <div class="flex items-center gap-1 mb-1">
+        <PowerMeterComponent.power_meter_icon class={"w-5 h-5 brightness-150 #{Shared.text_color(@meter.main_color)}"} />
+        <span class={[Shared.text_color(@meter.main_color), "text-sm font-medium"]}>{@meter.title}</span>
+      </div>
+      <div class="flex gap-3">
+        <%= for {label, value, color, _bold} <- @meter.rows do %>
+          <div class="flex flex-col items-center">
+            <span class="text-[10px] text-base-content/50 uppercase tracking-wide">{label}</span>
+            <span class={[Shared.text_color(color), "text-xs font-mono font-bold"]}>{value}</span>
+          </div>
+        <% end %>
       </div>
     </div>
     """

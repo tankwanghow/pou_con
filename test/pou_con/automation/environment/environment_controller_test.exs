@@ -42,7 +42,7 @@ defmodule PouCon.Automation.Environment.EnvironmentControllerTest do
       assert Map.has_key?(state, :target_pumps)
       assert Map.has_key?(state, :current_pumps_on)
       assert Map.has_key?(state, :current_step)
-      assert Map.has_key?(state, :last_step)
+      assert Map.has_key?(state, :pending_step)
       assert Map.has_key?(state, :last_step_change_time)
       assert Map.has_key?(state, :last_switch_time)
       assert Map.has_key?(state, :humidity_override)
@@ -57,7 +57,7 @@ defmodule PouCon.Automation.Environment.EnvironmentControllerTest do
       assert state.target_pumps == []
       assert state.current_pumps_on == []
       assert state.current_step == nil
-      assert state.last_step == nil
+      assert state.pending_step == nil
       assert state.last_step_change_time == nil
       assert state.last_switch_time == nil
       assert state.humidity_override == :normal

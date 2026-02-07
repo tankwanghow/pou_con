@@ -79,11 +79,11 @@ defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
   Renders a power meter icon SVG (lightning bolt / meter style).
   Accepts assigns with optional :class for styling.
   """
-  attr :class, :string, default: ""
+  attr :class, :string, default: "w-10 h-10"
 
   def power_meter_icon(assigns) do
     ~H"""
-    <svg fill="currentColor" class={["w-10 h-10", @class]} viewBox="0 0 24 24">
+    <svg fill="currentColor" class={@class} viewBox="0 0 24 24">
       <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
     </svg>
     """
@@ -104,7 +104,7 @@ defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
     %{
       is_error: true,
       main_color: "gray",
-      rows: [{"--", "--.- V", "gray", true}]
+      rows: [{"--", "--.- V", "gray", false}]
     }
   end
 
@@ -151,16 +151,14 @@ defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
   defp build_rows(status, keys, thresholds) do
     keys
     |> Enum.reject(fn k -> is_nil(status[k]) end)
-    |> Enum.with_index()
-    |> Enum.map(fn {key, idx} ->
+    |> Enum.sort()
+    |> Enum.map(fn key ->
       value = status[key]
       key_thresholds = Map.get(thresholds, key, %{})
       label = format_label(key)
       formatted = format_value(key, value, key_thresholds)
       color = get_value_color(key, value, key_thresholds)
-      # First row is bold (primary value)
-      bold = idx == 0
-      {label, formatted, color, bold}
+      {label, formatted, color, false}
     end)
   end
 
