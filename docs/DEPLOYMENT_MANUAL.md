@@ -1,6 +1,6 @@
 # PouCon Deployment Manual
 
-**Version 1.4 | January 2026**
+**Version 1.5 | February 2026**
 
 This is the comprehensive deployment manual for PouCon, an industrial automation and control system for poultry farms built with Elixir and Phoenix LiveView.
 
@@ -41,10 +41,11 @@ This is the comprehensive deployment manual for PouCon, an industrial automation
 ## 1.2 Key Features
 
 ### Hardware Communication & Control
-- **Modbus Protocol Support**: Full Modbus RTU/TCP implementation
-- **Multi-Port Management**: Support for multiple serial/device ports
-- **Real-time Polling**: Efficient caching and polling mechanism
+- **Multi-Protocol Support**: Modbus RTU/TCP and Siemens S7 (S7-300/400, S7-1200/1500, ET200SP)
+- **Multi-Port Management**: Support for multiple serial/TCP ports
+- **Real-time Polling**: 1-second polling with ETS caching
 - **Simulation Mode**: Complete hardware simulation for testing
+- **Raw Data Viewer**: Direct inspection and writing of Modbus/S7 register values
 
 ### Equipment Management
 - **Climate Control**: Automatic fan control, water pump management, temperature/humidity monitoring
@@ -60,12 +61,12 @@ This is the comprehensive deployment manual for PouCon, an industrial automation
 
 ## 1.3 Technology Stack
 
-- **Language**: Elixir 1.18+
+- **Language**: Elixir 1.19+ / Erlang OTP 28+
 - **Web Framework**: Phoenix 1.8
-- **Real-time UI**: Phoenix LiveView
+- **Real-time UI**: Phoenix LiveView 1.1
 - **Database**: SQLite with Ecto ORM
-- **Hardware Protocol**: Modbus RTU/TCP
-- **Target Platform**: Raspberry Pi 3B+/4/CM4 (ARM64)
+- **Hardware Protocols**: Modbus RTU/TCP (modbux), Siemens S7 (snapex7)
+- **Target Platform**: Raspberry Pi 3B+/4/5/CM4, RevPi Connect 5 (ARM64)
 
 ## 1.4 Deployment Scenarios
 
@@ -192,15 +193,18 @@ hostname -I
 ```
 
 **What deploy.sh does automatically:**
-1. Installs system dependencies (sqlite3, openssl, libncurses5)
-2. Creates `pou_con` system user and directories
-3. Writes house_id to `/etc/pou_con/house_id`
-4. Generates SSL certificate signed by included CA
-5. Installs application to `/opt/pou_con`
-6. Configures privileged ports (80/443)
-7. Installs and enables systemd service
-8. Runs database migrations
-9. Starts the service
+1. Prompts for house_id and serial port type
+2. Installs system dependencies (sqlite3, openssl, libncurses5, swayidle)
+3. Verifies the `pi` user and creates required directories
+4. Writes house_id to `/etc/pou_con/house_id`
+5. Generates SSL certificate signed by included CA
+6. Installs application to `/opt/pou_con`
+7. Configures privileged ports (80/443) and user groups (dialout, video, input)
+8. Sets up system time management (sudo permissions)
+9. Installs and enables systemd service with auto-generated SECRET_KEY_BASE
+10. Runs database migrations and seeds
+11. Optionally sets system hostname to `poucon.<house_id>`
+12. Starts the service
 
 ### Phase 4: Initial Configuration (Web Interface)
 
@@ -208,9 +212,9 @@ hostname -I
 2. Login: `admin` / `admin`
 3. **CHANGE PASSWORD IMMEDIATELY**
 4. Configure Hardware:
-   - Admin → Ports (add RS485 ports)
-   - Admin → Devices (add Modbus devices)
-   - Admin → Equipment (configure fans, pumps, etc.)
+   - Admin → Ports (add RS485/TCP ports for Modbus or S7)
+   - Admin → Data Points (configure hardware I/O mappings)
+   - Admin → Equipment (configure fans, pumps, sensors, etc.)
 5. Configure Automation:
    - Environment control
    - Lighting schedules
@@ -367,7 +371,7 @@ Your development machine is **x86_64** (AMD64), but Raspberry Pi uses **ARM** ar
 The `Dockerfile.arm` uses Docker buildx with QEMU emulation:
 
 ```dockerfile
-FROM hexpm/elixir:1.18.4-erlang-27.3.4.1-debian-bookworm-20251117-slim AS builder
+FROM hexpm/elixir:<version>-debian-bookworm-slim AS builder
 
 # Build dependencies, compile, create release
 # All happens in ARM64 emulation
@@ -375,6 +379,8 @@ FROM hexpm/elixir:1.18.4-erlang-27.3.4.1-debian-bookworm-20251117-slim AS builde
 FROM scratch AS export
 COPY --from=builder /app/pou_con_release_arm.tar.gz /
 ```
+
+The exact Elixir/Erlang version in the Dockerfile should match the project's current requirements (Elixir 1.19+, OTP 28+).
 
 ## 4.4 Pi Build Server (Alternative)
 
@@ -466,18 +472,19 @@ sudo ./deploy.sh
 ### What deploy.sh Does
 
 1. **Prompts for house_id** (e.g., h1, house2, farm_a)
-2. **Installs dependencies** (sqlite3, openssl, libncurses5)
-3. **Creates application user** (`pou_con`) with home directory at `/home/pou_con` and adds to required groups (dialout, video, input, render, audio)
-4. **Writes house_id** to `/etc/pou_con/house_id`
-5. **Generates SSL certificate** signed by included CA
-6. **Installs application** to `/opt/pou_con`
-7. **Configures privileged ports** (80/443) via setcap
-8. **Sets up system time management** (for RTC battery failure recovery)
-9. **Installs systemd service** with AmbientCapabilities
-10. **Generates SECRET_KEY_BASE** and configures service
-11. **Runs database migrations and seeds**
-12. **Optionally sets system hostname** to `poucon.<house_id>`
-13. **Enables and starts the service**
+2. **Prompts for serial port type** (USB adapter, built-in RS485, or custom)
+3. **Installs dependencies** (sqlite3, openssl, libncurses5, swayidle) - supports offline packages
+4. **Verifies `pi` user** and creates required directories (`/opt/pou_con`, `/var/lib/pou_con`, etc.)
+5. **Writes house_id** to `/etc/pou_con/house_id`
+6. **Generates SSL certificate** signed by included CA with SAN (hostname + IP)
+7. **Installs application** to `/opt/pou_con`
+8. **Sets permissions** and adds `pi` user to groups (dialout, video, input, render, audio)
+9. **Configures privileged ports** (80/443) via setcap
+10. **Sets up system time management** (for RTC battery failure recovery)
+11. **Installs systemd service** with auto-generated SECRET_KEY_BASE
+12. **Runs database migrations and seeds** (with serial port configuration)
+13. **Optionally sets system hostname** to `poucon.<house_id>`
+14. **Enables and starts the service**
 
 ## 5.2 Master Image Deployment
 
@@ -743,6 +750,53 @@ See [Section 6: Touchscreen & Kiosk Setup](#6-touchscreen--kiosk-setup)
 # Disable unnecessary services
 sudo systemctl disable bluetooth
 sudo systemctl disable avahi-daemon
+```
+
+---
+
+## 5.5 Updating an Existing Installation
+
+For systems already running PouCon, use `update.sh` to update to a new version while preserving all data.
+
+### Using update.sh
+
+```bash
+# 1. Copy new deployment package to USB drive
+cp pou_con_deployment_*.tar.gz /media/$USER/<usb-drive>/
+
+# 2. At Raspberry Pi - extract and run update
+tar -xzf pou_con_deployment_*.tar.gz
+cd deployment_package_*/
+sudo ./update.sh
+```
+
+### What update.sh Does
+
+1. **Verifies existing installation** at `/opt/pou_con`
+2. **Stops the PouCon service**
+3. **Backs up the database** to `/var/backups/pou_con/pou_con_pre_update_<timestamp>.db`
+4. **Updates application files** (replaces bin, lib, releases, erts directories)
+5. **Re-enables privileged port binding** via setcap
+6. **Runs database migrations**
+7. **Starts the service** and verifies it's running
+8. **Cleans up old backups** (keeps last 10)
+
+### Preserved During Update
+
+- Database (all configuration and historical data)
+- SSL certificates
+- House ID configuration
+- SECRET_KEY_BASE
+- Systemd service configuration
+
+### Rollback
+
+If the update causes issues:
+
+```bash
+sudo systemctl stop pou_con
+cp /var/backups/pou_con/pou_con_pre_update_<timestamp>.db /var/lib/pou_con/pou_con_prod.db
+sudo systemctl start pou_con
 ```
 
 ---
@@ -1385,15 +1439,19 @@ docker buildx rm multiarch
 |--------|---------|
 | `deploy_to_cm4.sh` | Automated deployment to CM4 |
 | `cm4_first_setup.sh` | First-time CM4 setup |
+| `revpi_first_setup.sh` | First-time RevPi Connect 5 setup |
 | `setup_ca.sh` | Create Certificate Authority (run once) |
 | `setup_house.sh` | Configure house_id + SSL cert (run per house) |
 | `setup_kiosk.sh` | Configure kiosk mode |
+| `set_screen_timeout.sh` | Configure screen saver timeout |
+| `on_screen.sh` / `off_screen.sh` | Manual screen on/off control |
 
 ## 12.3 Package Scripts (Inside deployment package)
 
 | Script | Purpose |
 |--------|---------|
 | `deploy.sh` | **All-in-one deployment**: installs deps, prompts for house_id, generates SSL, configures and starts service |
+| `update.sh` | **Update existing installation**: backs up database, updates files, runs migrations, restarts service |
 | `setup_house.sh` | Reconfigure house_id and regenerate SSL certificate (for existing installations) |
 | `backup.sh` | Create database backup |
 | `uninstall.sh` | Remove PouCon |
@@ -1566,9 +1624,10 @@ pou_con/
 
 ---
 
-**Document Version:** 1.4
-**Last Updated:** January 2026
+**Document Version:** 1.5
+**Last Updated:** February 2026
 **Changes:**
+- v1.5: Updated tech stack (Elixir 1.19+/OTP 28+), added S7 protocol support, added update.sh documentation, fixed user references (pi user), added RevPi first-setup script reference
 - v1.4: Changed `pou_con` to regular user with home directory; kiosk mode now uses `pou_con` user; added chromium and swayidle to offline packages
 - v1.3: Added ScreenAlert system documentation, simplified screen saver to presets only
 - v1.2: Added offline deployment (system dependencies included in package)

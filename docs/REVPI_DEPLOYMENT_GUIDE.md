@@ -26,6 +26,7 @@ The PouCon adapter-based architecture means **no application code changes** are 
 | Equipment Controllers | None | Hardware-agnostic |
 | DataPointManager | None | Uses adapter pattern |
 | Modbus Adapter | None | Same library works |
+| S7 Adapter | None | TCP-based, works on any network |
 | Phoenix/LiveView | None | Standard Elixir |
 | Database (SQLite) | None | Works everywhere |
 | Build Process | Minor | Same Dockerfile |
@@ -177,14 +178,17 @@ The deployment process is **identical** to Raspberry Pi:
 # Copy to USB drive
 cp pou_con_deployment_*.tar.gz /media/usb-drive/
 
-# On RevPi Connect 5
+# On RevPi Connect 5 (fresh install)
 cd /media/pi/usb-drive/
 tar -xzf pou_con_deployment_*.tar.gz
 cd deployment_package_*/
 sudo ./deploy.sh
+
+# Or for updating an existing installation
+sudo ./update.sh
 ```
 
-The `deploy.sh` script will create the `pou_con` user if it doesn't exist (as a regular user with home directory).
+The `deploy.sh` script uses the default `pi` user and configures all required permissions automatically.
 
 ### Phase 6: Configure Ports
 

@@ -1,6 +1,6 @@
 # PouCon User Manual
 
-**Version 1.3**
+**Version 1.4**
 
 A comprehensive guide to operating the PouCon Poultry Farm Automation System.
 
@@ -22,8 +22,9 @@ A comprehensive guide to operating the PouCon Poultry Farm Automation System.
 12. [Interlock System (Admin)](#interlock-system-admin)
 13. [Reports & Logs](#reports--logs)
 14. [System Administration](#system-administration)
-15. [Troubleshooting](#troubleshooting)
-16. [On-Screen Keyboard](#on-screen-keyboard)
+15. [Raw Data Viewer](#raw-data-viewer-adminraw-viewer)
+16. [Troubleshooting](#troubleshooting)
+17. [On-Screen Keyboard](#on-screen-keyboard)
 
 ---
 
@@ -36,7 +37,7 @@ PouCon is an industrial automation and control system designed specifically for 
 - **Waste Management**: Dung/manure removal systems
 - **Safety Systems**: Alarms, sirens, interlocks, power monitoring
 
-The system communicates with industrial hardware via Modbus RTU/TCP protocol and provides a web-based interface accessible from any device with a web browser.
+The system communicates with industrial hardware via Modbus RTU/TCP and Siemens S7 protocols and provides a web-based interface accessible from any device with a web browser.
 
 ### User Roles
 
@@ -995,6 +996,37 @@ Screen blanking on Raspberry Pi OS Bookworm (Wayland/labwc) uses:
 - Direct backlight control via sysfs (`/sys/class/backlight/*/brightness`)
 - Configuration stored in `/home/pou_con/.config/labwc/autostart`
 
+### Raw Data Viewer (`/admin/raw-viewer`)
+
+The Raw Data Viewer provides direct access to hardware registers for debugging and diagnostics. This is an advanced tool for troubleshooting communication issues with Modbus RTU/TCP and Siemens S7 devices.
+
+#### Reading Data
+
+1. Select the **Port** (communication port)
+2. Enter the **Address** (Modbus slave address or S7 memory area)
+3. Specify the **Register** or memory location
+4. Select the **Function** (read coils, read holding registers, etc.)
+5. Click **Read** to fetch the raw value
+
+#### Writing Data
+
+1. Configure the same port, address, and register settings
+2. Enter the value to write
+3. Click **Write** to send the command
+
+#### Use Cases
+
+- **Verifying hardware communication**: Confirm that a Modbus/S7 device responds correctly
+- **Debugging data point mappings**: Check raw register values before configuring data points
+- **Testing new devices**: Read/write registers during initial hardware setup
+- **Troubleshooting errors**: Compare raw values with expected values when equipment shows errors
+
+#### Important Notes
+
+- This tool bypasses equipment controllers and writes directly to hardware
+- Use with caution in production - writing incorrect values can affect running equipment
+- Admin access required
+
 ---
 
 ## Troubleshooting
@@ -1130,4 +1162,4 @@ For technical issues:
 
 ---
 
-*PouCon - Industrial Automation for Modern Poultry Farming*
+*PouCon v1.4 - Industrial Automation for Modern Poultry Farming*
