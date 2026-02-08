@@ -51,17 +51,21 @@ echo ""
 rm -rf output
 mkdir -p output
 
-# Prune buildx cache to prevent stale state issues
-# This helps avoid intermittent hangs during export
-echo "Pruning Docker build cache..."
-docker builder prune -f --filter "until=24h" 2>/dev/null || true
+# Recreate buildx builder fresh to prevent export-phase hangs
+# The docker-container driver accumulates state that causes hangs
+echo "Recreating buildx builder..."
+docker buildx stop multiarch 2>/dev/null || true
+docker buildx rm multiarch 2>/dev/null || true
+docker buildx create --name multiarch --driver docker-container --use
+docker buildx inspect --bootstrap
 
 # Build for ARM64 with timeout to prevent indefinite hangs
-# The export phase can occasionally hang due to BuildKit issues
+# --provenance=false prevents BuildKit attestation hangs during local export
 echo "Starting ARM64 build (timeout: 30 minutes)..."
 timeout 1800 docker buildx build \
   --platform linux/arm64 \
   --output type=local,dest=./output \
+  --provenance=false \
   -f Dockerfile.arm \
   --progress=plain \
   .
