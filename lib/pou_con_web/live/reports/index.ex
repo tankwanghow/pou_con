@@ -505,7 +505,10 @@ defmodule PouConWeb.Live.Reports.Index do
   defp format_value(value), do: value
 
   defp format_efficiency_value(nil), do: "-"
-  defp format_efficiency_value(value) when is_float(value), do: :erlang.float_to_binary(value, decimals: 1)
+
+  defp format_efficiency_value(value) when is_float(value),
+    do: :erlang.float_to_binary(value, decimals: 1)
+
   defp format_efficiency_value(value), do: value
 
   # Color coding for temperature rows - hotter = more red

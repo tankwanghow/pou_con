@@ -11,7 +11,7 @@ defmodule PouCon.Equipment.Controllers.Siren do
   ```yaml
   on_off_coil: SIREN-BACK       # Digital output for siren (light + sound)
   auto_manual: SIREN-AUTO       # Virtual device for mode selection
-  inverted: true                # Optional: for fail-safe NC wiring
+  running_feedback: WS-12-I-01  # Digital input for siren running status
   ```
 
   ## Fail-Safe Wiring (Power Failure Protection)
@@ -51,7 +51,7 @@ defmodule PouCon.Equipment.Controllers.Siren do
   use PouCon.Equipment.Controllers.BinaryController,
     equipment_type: "siren",
     default_poll_interval: 1000,
-    has_running_feedback: false,
+    has_running_feedback: true,
     has_auto_manual: true,
     has_trip_signal: false
 end

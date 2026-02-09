@@ -277,13 +277,13 @@ defmodule PouConWeb.Live.Flock.Logs do
                 <label class="block text-sm font-medium">Egg Trays (30 pcs/tray)</label>
                 <.input type="number" field={@form[:egg_trays]} min="0" required />
               </div>
-
+              
     <!-- Feed Usage -->
               <div class="col-span-2">
                 <label class="block text-sm font-medium">Feed Usage (kg)</label>
                 <.input type="number" field={@form[:feed_usage_kg]} min="0" step="0.1" />
               </div>
-
+              
     <!-- Notes -->
               <div class="col-span-2">
                 <label class="block text-sm font-medium">Notes (optional)</label>

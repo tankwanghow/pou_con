@@ -16,7 +16,8 @@ defmodule PouCon.Equipment.Controllers.SirenTest do
 
     device_names = %{
       on_off_coil: "test_siren_coil_#{id}",
-      auto_manual: "test_siren_am_#{id}"
+      auto_manual: "test_siren_am_#{id}",
+      running_feedback: "test_siren_rf_#{id}"
     }
 
     # Default stub: return values for AUTO mode (state = 1 for auto_manual)
@@ -38,7 +39,8 @@ defmodule PouCon.Equipment.Controllers.SirenTest do
         name: "test_siren_1_#{System.unique_integer([:positive])}",
         title: "Test Siren 1",
         on_off_coil: devices.on_off_coil,
-        auto_manual: devices.auto_manual
+        auto_manual: devices.auto_manual,
+        running_feedback: devices.running_feedback
       ]
 
       assert {:ok, pid} = Siren.start(opts)
@@ -90,7 +92,8 @@ defmodule PouCon.Equipment.Controllers.SirenTest do
         name: name,
         title: "Test Status Siren",
         on_off_coil: devices.on_off_coil,
-        auto_manual: devices.auto_manual
+        auto_manual: devices.auto_manual,
+        running_feedback: devices.running_feedback
       ]
 
       {:ok, _pid} = Siren.start(opts)
@@ -126,7 +129,8 @@ defmodule PouCon.Equipment.Controllers.SirenTest do
       opts = [
         name: name,
         on_off_coil: devices.on_off_coil,
-        auto_manual: devices.auto_manual
+        auto_manual: devices.auto_manual,
+        running_feedback: devices.running_feedback
       ]
 
       {:ok, _pid} = Siren.start(opts)
@@ -148,7 +152,8 @@ defmodule PouCon.Equipment.Controllers.SirenTest do
       opts = [
         name: name,
         on_off_coil: devices.on_off_coil,
-        auto_manual: devices.auto_manual
+        auto_manual: devices.auto_manual,
+        running_feedback: devices.running_feedback
       ]
 
       {:ok, _pid} = Siren.start(opts)
@@ -167,7 +172,8 @@ defmodule PouCon.Equipment.Controllers.SirenTest do
       opts = [
         name: name,
         on_off_coil: devices.on_off_coil,
-        auto_manual: devices.auto_manual
+        auto_manual: devices.auto_manual,
+        running_feedback: devices.running_feedback
       ]
 
       {:ok, _pid} = Siren.start(opts)
@@ -186,7 +192,8 @@ defmodule PouCon.Equipment.Controllers.SirenTest do
       opts = [
         name: name,
         on_off_coil: devices.on_off_coil,
-        auto_manual: devices.auto_manual
+        auto_manual: devices.auto_manual,
+        running_feedback: devices.running_feedback
       ]
 
       {:ok, pid} = Siren.start(opts)
@@ -201,10 +208,11 @@ defmodule PouCon.Equipment.Controllers.SirenTest do
         {:ok, :success}
       end)
 
-      # Update stub to return coil state = 1 after command
+      # Update stub to return coil state = 1 and running_feedback = 1 after command
       stub(DataPointManagerMock, :read_direct, fn
         n when n == devices.auto_manual -> {:ok, %{state: 1}}
         n when n == devices.on_off_coil -> {:ok, %{state: 1}}
+        n when n == devices.running_feedback -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
 
@@ -212,8 +220,8 @@ defmodule PouCon.Equipment.Controllers.SirenTest do
       Process.sleep(100)
 
       status = Siren.status(name)
-      # For output-only devices, actual_on represents the on state
       assert status.actual_on == true
+      assert status.is_running == true
     end
 
     test "turn_off sends command to DataPointManager", %{name: name, devices: devices} do
@@ -279,7 +287,8 @@ defmodule PouCon.Equipment.Controllers.SirenTest do
       opts = [
         name: name,
         on_off_coil: devices.on_off_coil,
-        auto_manual: devices.auto_manual
+        auto_manual: devices.auto_manual,
+        running_feedback: devices.running_feedback
       ]
 
       {:ok, _pid} = Siren.start(opts)
@@ -296,88 +305,9 @@ defmodule PouCon.Equipment.Controllers.SirenTest do
     end
   end
 
-  describe "inverted wiring support" do
-    test "inverted wiring: coil OFF (0) = siren ON", %{devices: devices} do
-      name = "test_siren_inverted_#{System.unique_integer([:positive])}"
-
-      # For inverted wiring: coil state 1 = siren OFF, coil state 0 = siren ON
-      # Start with coil = 1 (siren OFF) so turn_on will need to send command
-      stub(DataPointManagerMock, :read_direct, fn
-        n when n == devices.auto_manual -> {:ok, %{state: 1}}
-        n when n == devices.on_off_coil -> {:ok, %{state: 1}}
-        _ -> {:ok, %{state: 0}}
-      end)
-
-      opts = [
-        name: name,
-        on_off_coil: devices.on_off_coil,
-        auto_manual: devices.auto_manual,
-        inverted: true
-      ]
-
-      {:ok, _pid} = Siren.start(opts)
-      Process.sleep(50)
-
-      # Expect inverted: turn ON sends coil value 0
-      expect(DataPointManagerMock, :command, fn _n, :set_state, %{state: 0} ->
-        {:ok, :success}
-      end)
-
-      Siren.turn_on(name)
-      Process.sleep(50)
-
-      status = Siren.status(name)
-      assert status.inverted == true
-    end
-
-    test "inverted wiring: coil ON (1) = siren OFF", %{devices: devices} do
-      name = "test_siren_inverted_off_#{System.unique_integer([:positive])}"
-
-      # Start with coil = 1 (siren OFF for inverted)
-      stub(DataPointManagerMock, :read_direct, fn
-        n when n == devices.auto_manual -> {:ok, %{state: 1}}
-        n when n == devices.on_off_coil -> {:ok, %{state: 1}}
-        _ -> {:ok, %{state: 0}}
-      end)
-
-      opts = [
-        name: name,
-        on_off_coil: devices.on_off_coil,
-        auto_manual: devices.auto_manual,
-        inverted: true
-      ]
-
-      {:ok, pid} = Siren.start(opts)
-      Process.sleep(50)
-
-      # First turn on (sends 0 for inverted)
-      expect(DataPointManagerMock, :command, fn _n, :set_state, %{state: 0} ->
-        {:ok, :success}
-      end)
-
-      Siren.turn_on(name)
-      Process.sleep(50)
-
-      # Update stub to show siren is now ON (coil = 0 for inverted)
-      stub(DataPointManagerMock, :read_direct, fn
-        n when n == devices.auto_manual -> {:ok, %{state: 1}}
-        n when n == devices.on_off_coil -> {:ok, %{state: 0}}
-        _ -> {:ok, %{state: 0}}
-      end)
-
-      # Trigger a poll to pick up new stub values
-      send(pid, :poll)
-      Process.sleep(100)
-
-      # Turn off sends 1 for inverted
-      expect(DataPointManagerMock, :command, fn _n, :set_state, %{state: 1} ->
-        {:ok, :success}
-      end)
-
-      Siren.turn_off(name)
-      Process.sleep(50)
-    end
-  end
+  # Note: Inverted wiring tests removed — inversion is now handled at the
+  # DataPointManager level (data point `inverted` flag), not in controllers.
+  # See data_point_manager_test.exs for inversion tests.
 
   describe "interlock integration" do
     test "turn_on is blocked when interlocked", %{devices: devices} do
@@ -386,7 +316,8 @@ defmodule PouCon.Equipment.Controllers.SirenTest do
       opts = [
         name: name,
         on_off_coil: devices.on_off_coil,
-        auto_manual: devices.auto_manual
+        auto_manual: devices.auto_manual,
+        running_feedback: devices.running_feedback
       ]
 
       {:ok, _pid} = Siren.start(opts)
@@ -417,7 +348,7 @@ defmodule PouCon.Equipment.Controllers.SirenTest do
         _ -> {:ok, %{state: 0}}
       end)
 
-      opts = [name: name, on_off_coil: coil, auto_manual: am]
+      opts = [name: name, on_off_coil: coil, auto_manual: am, running_feedback: "test_rf_#{id}"]
 
       {:ok, _pid} = Siren.start(opts)
       Process.sleep(50)
@@ -435,7 +366,7 @@ defmodule PouCon.Equipment.Controllers.SirenTest do
 
       stub(DataPointManagerMock, :read_direct, fn _ -> {:ok, %{state: 0}} end)
 
-      opts = [name: name, on_off_coil: coil, auto_manual: am]
+      opts = [name: name, on_off_coil: coil, auto_manual: am, running_feedback: "test_rf_#{id}"]
 
       {:ok, _pid} = Siren.start(opts)
       Process.sleep(50)

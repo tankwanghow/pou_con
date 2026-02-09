@@ -169,6 +169,8 @@ defmodule PouCon.Hardware.DataPointManagerTest do
       assert Map.has_key?(device, :value_type)
       assert Map.has_key?(device, :min_valid)
       assert Map.has_key?(device, :max_valid)
+      # Digital output inversion
+      assert Map.has_key?(device, :inverted)
     end
 
     test "RuntimeDataPoint fields default to nil or default values" do
@@ -190,6 +192,7 @@ defmodule PouCon.Hardware.DataPointManagerTest do
       assert device.value_type == nil
       assert device.min_valid == nil
       assert device.max_valid == nil
+      assert device.inverted == false
     end
 
     test "RuntimeDataPoint can be created with values" do
@@ -277,6 +280,46 @@ defmodule PouCon.Hardware.DataPointManagerTest do
 
       result = DataPointManager.get_cached_data("error_device_456")
       assert {:ok, {:error, :timeout}} = result
+    end
+  end
+
+  describe "apply_data_point_conversion/2 digital inversion" do
+    test "inverts digital state when data point is inverted" do
+      dp = %RuntimeDataPoint{name: "inv_coil", type: "DO", inverted: true}
+
+      # Raw 0 from hardware becomes logical 1 (equipment ON)
+      result = DataPointManager.apply_data_point_conversion(%{state: 0}, dp)
+      assert result.state == 1
+
+      # Raw 1 from hardware becomes logical 0 (equipment OFF)
+      result = DataPointManager.apply_data_point_conversion(%{state: 1}, dp)
+      assert result.state == 0
+    end
+
+    test "does not invert digital state when not inverted" do
+      dp = %RuntimeDataPoint{name: "normal_coil", type: "DO", inverted: false}
+
+      result = DataPointManager.apply_data_point_conversion(%{state: 0}, dp)
+      assert result.state == 0
+
+      result = DataPointManager.apply_data_point_conversion(%{state: 1}, dp)
+      assert result.state == 1
+    end
+
+    test "passes through non-digital data unchanged even when inverted" do
+      dp = %RuntimeDataPoint{name: "sensor", type: "AI", inverted: true}
+
+      # Non-state data (e.g., temperature map) passes through unchanged
+      data = %{temperature: 25.5, humidity: 60}
+      result = DataPointManager.apply_data_point_conversion(data, dp)
+      assert result == data
+    end
+
+    test "does not invert when inverted defaults to false" do
+      dp = %RuntimeDataPoint{name: "default_coil", type: "DO"}
+
+      result = DataPointManager.apply_data_point_conversion(%{state: 0}, dp)
+      assert result.state == 0
     end
   end
 end

@@ -87,7 +87,15 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
         <%= for {id, data_point} <- @streams.data_points do %>
           <div id={id} class="flex flex-row text-center border-b py-2 text-xs">
             <div class="w-[15%]">{data_point.name}</div>
-            <div class="w-[6%]">{data_point.type}</div>
+            <div class="w-[6%]">
+              {data_point.type}
+              <span
+                :if={data_point.inverted}
+                class="text-orange-500 text-[10px] font-bold ml-0.5"
+              >
+                INV
+              </span>
+            </div>
             <div class="w-[9%]">{data_point.port_path}</div>
             <div class="w-[10%]">
               {data_point.slave_id}/{data_point.register}/{data_point.channel}

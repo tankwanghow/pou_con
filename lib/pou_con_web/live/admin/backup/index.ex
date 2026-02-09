@@ -444,8 +444,7 @@ defmodule PouConWeb.Live.Admin.Backup.Index do
 
       <div class="p-3 bg-amber-500/20 border border-amber-500/40 rounded">
         <p class="text-sm text-amber-800">
-          <strong>Confirm:</strong>
-          Selected tables will be cleared and replaced with the backup data.
+          <strong>Confirm:</strong> Selected tables will be cleared and replaced with the backup data.
           The application may need to be restarted after restore.
         </p>
       </div>

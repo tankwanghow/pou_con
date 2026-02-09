@@ -227,6 +227,7 @@ defmodule Mix.Tasks.Backup do
         ip_address: p.ip_address,
         s7_rack: p.s7_rack,
         s7_slot: p.s7_slot,
+        tcp_port: p.tcp_port,
         description: p.description,
         inserted_at: p.inserted_at,
         updated_at: p.updated_at
@@ -257,6 +258,7 @@ defmodule Mix.Tasks.Backup do
         log_interval: d.log_interval,
         color_zones: d.color_zones,
         byte_order: d.byte_order,
+        inverted: d.inverted,
         inserted_at: d.inserted_at,
         updated_at: d.updated_at
       }

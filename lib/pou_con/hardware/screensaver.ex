@@ -34,6 +34,7 @@ defmodule PouCon.Hardware.Screensaver do
     "backlight"
   ]
 
+  @default_timeout 300
   @screen_timeout_script "/opt/pou_con/scripts/set_screen_timeout.sh"
   @on_screen_script "/opt/pou_con/scripts/on_screen.sh"
   @off_screen_script "/opt/pou_con/scripts/off_screen.sh"
@@ -89,12 +90,12 @@ defmodule PouCon.Hardware.Screensaver do
             end
 
           nil ->
-            # No swayidle configuration means timeout is disabled
-            {:ok, 0}
+            # No swayidle configuration — use default
+            {:ok, @default_timeout}
         end
 
       {:error, _} ->
-        {:ok, 0}
+        {:ok, @default_timeout}
     end
   end
 
@@ -142,7 +143,10 @@ defmodule PouCon.Hardware.Screensaver do
         end
 
       nil ->
-        Logger.warning("Screensaver: set_screen_timeout.sh timed out (10s). Likely sudo password prompt hanging.")
+        Logger.warning(
+          "Screensaver: set_screen_timeout.sh timed out (10s). Likely sudo password prompt hanging."
+        )
+
         {:error, "Timeout: script took too long. Check sudo configuration."}
     end
   end

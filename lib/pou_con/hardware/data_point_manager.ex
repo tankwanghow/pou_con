@@ -108,7 +108,9 @@ defmodule PouCon.Hardware.DataPointManager do
       min_valid: nil,
       max_valid: nil,
       # Zone-based color system
-      color_zones: nil
+      color_zones: nil,
+      # Digital output inversion for NC relay wiring
+      inverted: false
     ]
   end
 
@@ -255,6 +257,9 @@ defmodule PouCon.Hardware.DataPointManager do
   def handle_call({:simulate_input, device_name, value}, _from, state) do
     case get_data_point_and_connection(state, device_name) do
       {:ok, dev, conn_pid, protocol} ->
+        # Invert value for NC (normally closed) wiring, same as command path
+        value = if dev.inverted && value in [0, 1], do: 1 - value, else: value
+
         cond do
           dev.port_path == "virtual" ->
             # For virtual devices, write to DB state via Virtual module
@@ -434,6 +439,7 @@ defmodule PouCon.Hardware.DataPointManager do
           result =
             try do
               dispatch_info = get_io_module(write_fn)
+              command = maybe_invert_write_command(dev, {action, params})
 
               call_io_write(
                 dispatch_info,
@@ -441,7 +447,7 @@ defmodule PouCon.Hardware.DataPointManager do
                 protocol_str,
                 sid,
                 reg,
-                {action, params},
+                command,
                 dev
               )
             catch
@@ -772,6 +778,7 @@ defmodule PouCon.Hardware.DataPointManager do
 
     # No central polling - equipment controllers self-poll via read_direct()
     # which updates the cache. StatusBroadcaster handles UI refresh notifications.
+    set_inverted_do_defaults(state)
     {:ok, state}
   end
 
@@ -840,7 +847,9 @@ defmodule PouCon.Hardware.DataPointManager do
           min_valid: d.min_valid,
           max_valid: d.max_valid,
           # Zone-based color system
-          color_zones: parse_color_zones(d.color_zones)
+          color_zones: parse_color_zones(d.color_zones),
+          # Digital output inversion
+          inverted: d.inverted == true
         }
       end)
       |> Map.new(&{&1.name, &1})
@@ -856,6 +865,54 @@ defmodule PouCon.Hardware.DataPointManager do
       # Empty initially - all data points will be polled on first tick
       last_polled: %{}
     }
+  end
+
+  # In simulation mode, set raw value to 1 for inverted digital outputs.
+  # NC (normally closed) relays are energized (raw 1) during normal operation,
+  # so inverted DOs should start as logical OFF rather than logical ON.
+  defp set_inverted_do_defaults(state) do
+    simulating? =
+      Application.get_env(:pou_con, :modbus_adapter) ==
+        PouCon.Hardware.Modbus.SimulatedAdapter
+
+    if simulating? do
+      state.data_points
+      |> Enum.filter(fn {_name, dp} -> dp.inverted == true end)
+      |> Enum.each(fn {name, dev} ->
+        case Map.fetch(state.ports, dev.port_path) do
+          {:ok, %{connection_pid: pid, protocol: protocol}} when pid != nil ->
+            set_inverted_raw_value(dev, pid, protocol, name)
+
+          _ ->
+            :ok
+        end
+      end)
+    end
+  end
+
+  defp set_inverted_raw_value(dev, pid, "s7", name) do
+    byte_addr = dev.register
+    bit = (dev.channel || 1) - 1
+
+    if dev.read_fn == :read_digital_output do
+      PouCon.Hardware.S7.SimulatedAdapter.set_output_bit(pid, byte_addr, bit, 1)
+    else
+      PouCon.Hardware.S7.SimulatedAdapter.set_input_bit(pid, byte_addr, bit, 1)
+    end
+
+    Logger.debug("[DataPointManager] Set inverted default for #{name} (S7)")
+  end
+
+  defp set_inverted_raw_value(dev, pid, _modbus, name) do
+    address = dev.register + (dev.channel || 1) - 1
+
+    if dev.read_fn == :read_digital_output do
+      PouCon.Hardware.Modbus.SimulatedAdapter.set_coil(pid, dev.slave_id, address, 1)
+    else
+      PouCon.Hardware.Modbus.SimulatedAdapter.set_input(pid, dev.slave_id, address, 1)
+    end
+
+    Logger.debug("[DataPointManager] Set inverted default for #{name} (Modbus)")
   end
 
   # Determine 5th parameter for data point read functions
@@ -1056,13 +1113,26 @@ defmodule PouCon.Hardware.DataPointManager do
         })
       end
     else
-      # No value_type set - pass through data unchanged
-      # This is for digital I/O and other non-sensor data points
-      data
+      # No value_type set - digital I/O and other non-sensor data points
+      # Apply inversion for NC relay wiring
+      maybe_invert_digital(data, data_point)
     end
   end
 
   def apply_data_point_conversion(data, _data_point), do: data
+
+  # Invert digital state for NC (normally closed) relay wiring
+  defp maybe_invert_digital(%{state: v} = data, %{inverted: true}) when v in [0, 1],
+    do: %{data | state: 1 - v}
+
+  defp maybe_invert_digital(data, _), do: data
+
+  # Invert write command for NC relay wiring
+  defp maybe_invert_write_command(%{inverted: true}, {:set_state, %{state: v} = p})
+       when v in [0, 1],
+       do: {:set_state, %{p | state: 1 - v}}
+
+  defp maybe_invert_write_command(_, command), do: command
 
   # Parse color_zones JSON string into list of zone maps
   defp parse_color_zones(nil), do: []

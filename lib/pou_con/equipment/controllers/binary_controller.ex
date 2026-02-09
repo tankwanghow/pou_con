@@ -184,7 +184,7 @@ defmodule PouCon.Equipment.Controllers.BinaryController do
             name: name,
             title: Keyword.get(opts, :title, name),
             data_points: data_points,
-            inverted: Keyword.get(opts, :inverted, false) == true,
+            inverted: DataPoints.is_inverted?(data_points[:on_off_coil]),
             poll_interval_ms: Keyword.get(opts, :poll_interval_ms) || @default_poll_interval,
             is_auto_manual_virtual_di: is_virtual,
             mode: initial_mode
@@ -253,19 +253,12 @@ defmodule PouCon.Equipment.Controllers.BinaryController do
       def handle_continue(:initial_poll, state) do
         new_state = poll_and_update(state)
 
-        # For inverted (NC wiring) equipment: ensure OFF state after reboot
-        #
-        # During power failure, NC relay de-energizes (coil=0) causing NC contact
-        # to close, which turns equipment ON. After system reboots, the equipment
-        # is still ON but commanded_on is false. We need to actively sync the coil
-        # to turn the equipment OFF. Automation controllers (EnvironmentController,
-        # AlarmController, etc.) will then turn them ON as needed based on their logic.
-        #
-        # This ensures predictable startup behavior: inverted equipment starts OFF,
-        # then automation takes over control.
+        # Ensure OFF state after reboot if hardware reports ON but we haven't commanded it.
+        # For inverted (NC) wiring, the DataPointManager handles coil inversion transparently,
+        # so actual_on == true means the equipment is logically ON regardless of wiring.
         new_state =
-          if new_state.inverted and new_state.actual_on and not new_state.commanded_on do
-            Logger.info("[#{new_state.name}] Startup sync: turning OFF inverted equipment")
+          if new_state.actual_on and not new_state.commanded_on do
+            Logger.info("[#{new_state.name}] Startup sync: turning OFF equipment")
             sync_coil(new_state)
           else
             new_state
@@ -467,13 +460,9 @@ defmodule PouCon.Equipment.Controllers.BinaryController do
 
       defp sync_coil(state), do: poll_and_update(state)
 
-      defp calculate_coil_value(commanded_on, inverted) do
-        case {commanded_on, inverted} do
-          {true, false} -> 1
-          {false, false} -> 0
-          {true, true} -> 0
-          {false, true} -> 1
-        end
+      # Logical value only — DataPointManager handles NC inversion
+      defp calculate_coil_value(commanded_on, _inverted) do
+        if(commanded_on, do: 1, else: 0)
       end
 
       # ════════════════════════════════════════════════════════════════
@@ -550,7 +539,8 @@ defmodule PouCon.Equipment.Controllers.BinaryController do
             {:ok, %{:state => mode_state}} = mode_res
             {:ok, %{:state => trip_state}} = trip_res
 
-            actual_on = if state.inverted, do: coil_state == 0, else: coil_state == 1
+            # DataPointManager already inverts for NC wiring
+            actual_on = coil_state == 1
 
             is_running =
               if unquote(has_running_feedback) do
@@ -589,9 +579,8 @@ defmodule PouCon.Equipment.Controllers.BinaryController do
                       # and send command to turn off if equipment is on
                       if actual_on do
                         Logger.info("[#{state.name}] Mode switch sync: turning OFF equipment")
-                        coil_value = if state.inverted, do: 1, else: 0
                         on_off_coil = state.data_points[:on_off_coil]
-                        @data_point_manager.command(on_off_coil, :set_state, %{state: coil_value})
+                        @data_point_manager.command(on_off_coil, :set_state, %{state: 0})
                       end
 
                       false

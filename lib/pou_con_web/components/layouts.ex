@@ -68,21 +68,19 @@ defmodule PouConWeb.Layouts do
       id="sidebar"
       class="fixed top-0 left-0 h-full w-72 bg-base-100 shadow-xl z-50 transform -translate-x-full transition-transform duration-300 ease-in-out overflow-y-auto"
     >
-      <div class="p-4 border-b border-base-300 bg-base-200 flex justify-between items-center">
+      <div class="px-4 py-2 border-b border-base-300 bg-base-200 flex justify-between items-center">
         <h2 class="text-lg font-semibold text-base-content">Menu</h2>
+        <%!-- Theme Toggle --%>
+      <div class="p-2 border-b border-base-300 flex justify-center">
+        <.theme_toggle />
+      </div>
         <button onclick="closeSidebar()" class="p-1 rounded hover:bg-base-300">
           <.icon name="hero-x-mark" class="w-5 h-5" />
         </button>
       </div>
 
-      <%!-- Theme Toggle --%>
-      <div class="p-2 border-b border-base-300 flex justify-center">
-        <.theme_toggle />
-      </div>
-
       <nav class="p-2">
         <.sidebar_link icon="hero-home-solid" title="Dashboard" color="gray" href="/" />
-        <.sidebar_link icon="hero-book-open-solid" title="User Guide" color="blue" href="/help" />
 
         <%!-- Control & Schedules (Admin only) --%>
         <%= if @current_role == :admin do %>
@@ -126,13 +124,6 @@ defmodule PouConWeb.Layouts do
               color="cyan"
               href="/admin/tasks"
             />
-          </div>
-
-          <%!-- Configuration (Admin only) --%>
-          <div class="mb-4">
-            <h3 class="px-3 py-1 text-xs font-semibold text-base-content/60 uppercase">
-              Configuration
-            </h3>
             <.sidebar_link
               icon="hero-shield-check-solid"
               title="Interlocks"
@@ -145,6 +136,13 @@ defmodule PouConWeb.Layouts do
               color="red"
               href="/admin/alarm"
             />
+          </div>
+
+          <%!-- Configuration (Admin only) --%>
+          <div class="mb-4">
+            <h3 class="px-3 py-1 text-xs font-semibold text-base-content/60 uppercase">
+              Configuration
+            </h3>
             <.sidebar_link icon="hero-signal-solid" title="Ports" color="orange" href="/admin/ports" />
             <.sidebar_link
               icon="hero-cube-solid"
@@ -165,7 +163,12 @@ defmodule PouConWeb.Layouts do
               color="cyan"
               href="/admin/simulation"
             />
-            <.sidebar_link icon="hero-eye-solid" title="Raw Viewer" color="teal" href="/admin/raw-viewer" />
+            <.sidebar_link
+              icon="hero-eye-solid"
+              title="Raw Viewer"
+              color="teal"
+              href="/admin/raw-viewer"
+            />
           </div>
 
           <%!-- System (Admin only) --%>
@@ -203,6 +206,7 @@ defmodule PouConWeb.Layouts do
               href="/admin/screensaver"
             />
           </div>
+          <.sidebar_link icon="hero-book-open-solid" title="User Guide" color="blue" href="/help" />
         <% end %>
 
         <%!-- Auth --%>

@@ -4,6 +4,7 @@ defmodule PouCon.Hardware.Ports.Port do
 
   ## Protocols
   - `modbus_rtu` - Serial RS485 Modbus RTU (default)
+  - `modbus_tcp` - Modbus TCP over Ethernet (default port 502)
   - `s7` - Siemens S7 protocol over TCP/IP (port 102)
   - `virtual` - Simulated devices for testing
 
@@ -12,6 +13,10 @@ defmodule PouCon.Hardware.Ports.Port do
   ### Modbus RTU
   - device_path: Serial port path (e.g., "/dev/ttyUSB0")
   - speed, parity, data_bits, stop_bits: Serial parameters
+
+  ### Modbus TCP
+  - ip_address: Device IP address
+  - tcp_port: TCP port number (default 502)
 
   ### S7
   - ip_address: PLC IP address
@@ -22,7 +27,7 @@ defmodule PouCon.Hardware.Ports.Port do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @protocols ~w(modbus_rtu s7 virtual)
+  @protocols ~w(modbus_rtu modbus_tcp s7 virtual)
 
   schema "ports" do
     # Common fields
@@ -41,6 +46,9 @@ defmodule PouCon.Hardware.Ports.Port do
     field :s7_rack, :integer, default: 0
     field :s7_slot, :integer, default: 1
 
+    # Modbus TCP fields
+    field :tcp_port, :integer
+
     has_many :data_points, PouCon.Equipment.Schemas.DataPoint, foreign_key: :port_path
     timestamps()
   end
@@ -57,7 +65,8 @@ defmodule PouCon.Hardware.Ports.Port do
       :description,
       :ip_address,
       :s7_rack,
-      :s7_slot
+      :s7_slot,
+      :tcp_port
     ])
     |> validate_required([:protocol])
     |> validate_inclusion(:protocol, @protocols)
@@ -75,6 +84,15 @@ defmodule PouCon.Hardware.Ports.Port do
         changeset
         |> validate_required([:device_path])
 
+      "modbus_tcp" ->
+        changeset
+        |> validate_required([:ip_address, :tcp_port])
+        |> validate_format(:ip_address, ~r/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/,
+          message: "must be a valid IP address"
+        )
+        |> validate_number(:tcp_port, greater_than: 0, less_than_or_equal_to: 65535)
+        |> put_device_path_from_ip_and_port()
+
       "s7" ->
         changeset
         |> validate_required([:ip_address])
@@ -89,6 +107,18 @@ defmodule PouCon.Hardware.Ports.Port do
 
       _ ->
         changeset
+    end
+  end
+
+  # For Modbus TCP, use tcp://ip:port as device_path for uniqueness
+  defp put_device_path_from_ip_and_port(changeset) do
+    ip = get_field(changeset, :ip_address)
+    port = get_field(changeset, :tcp_port)
+
+    case {ip, port} do
+      {nil, _} -> changeset
+      {_, nil} -> changeset
+      {ip, port} -> put_change(changeset, :device_path, "tcp://#{ip}:#{port}")
     end
   end
 
@@ -110,6 +140,10 @@ defmodule PouCon.Hardware.Ports.Port do
   @doc "Check if port uses Modbus RTU protocol"
   def modbus_rtu?(%__MODULE__{protocol: "modbus_rtu"}), do: true
   def modbus_rtu?(_), do: false
+
+  @doc "Check if port uses Modbus TCP protocol"
+  def modbus_tcp?(%__MODULE__{protocol: "modbus_tcp"}), do: true
+  def modbus_tcp?(_), do: false
 
   @doc "Check if port is virtual (simulated)"
   def virtual?(%__MODULE__{protocol: "virtual"}), do: true

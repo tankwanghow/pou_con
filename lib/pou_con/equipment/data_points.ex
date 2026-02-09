@@ -142,6 +142,17 @@ defmodule PouCon.Equipment.DataPoints do
   end
 
   @doc """
+  Checks if a data point has inverted (NC relay) wiring.
+  Returns false if data point not found.
+  """
+  def is_inverted?(name) when is_binary(name) do
+    case get_data_point_by_name(name) do
+      %DataPoint{inverted: true} -> true
+      _ -> false
+    end
+  end
+
+  @doc """
   Validates that all data points in a list have matching color_zones.
   Returns {:ok, color_zones} if all match, or {:error, reason} if they don't.
 

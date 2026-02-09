@@ -168,6 +168,14 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
 
           <.input field={@form[:description]} type="text" label="Description" />
 
+          <div :if={@form[:type].value == "DO"} class="mt-1">
+            <.input
+              field={@form[:inverted]}
+              type="checkbox"
+              label="Inverted (NC relay wiring — coil OFF = equipment ON)"
+            />
+          </div>
+
           <%!-- Tabs for Analog Input (AI) type: Conversion, Color Zones, Logging --%>
           <%!-- For other types: only Logging section --%>
           <%= if @form[:type].value == "AI" do %>

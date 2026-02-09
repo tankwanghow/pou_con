@@ -356,7 +356,9 @@ defmodule PouConWeb.Live.Admin.RawViewer.Index do
             <tr>
               <td class="font-mono">{@start_address + idx}</td>
               <td class="font-mono">{value}</td>
-              <td class="font-mono">{"0x#{String.pad_leading(Integer.to_string(value, 16), 4, "0")}"}</td>
+              <td class="font-mono">
+                {"0x#{String.pad_leading(Integer.to_string(value, 16), 4, "0")}"}
+              </td>
               <td class="font-mono">{to_signed_16(value)}</td>
             </tr>
           <% end %>
@@ -383,7 +385,9 @@ defmodule PouConWeb.Live.Admin.RawViewer.Index do
             <tr>
               <td class="font-mono">{@start_byte + idx}</td>
               <td class="font-mono">{value}</td>
-              <td class="font-mono">{"0x#{String.pad_leading(Integer.to_string(value, 16), 2, "0")}"}</td>
+              <td class="font-mono">
+                {"0x#{String.pad_leading(Integer.to_string(value, 16), 2, "0")}"}
+              </td>
               <td class="font-mono">{String.pad_leading(Integer.to_string(value, 2), 8, "0")}</td>
             </tr>
           <% end %>
@@ -414,7 +418,9 @@ defmodule PouConWeb.Live.Admin.RawViewer.Index do
               <td class="font-mono">{s7_word_addr(@start_byte, idx)}</td>
               <td class="font-mono">{value}</td>
               <td class="font-mono">{to_signed_16(value)}</td>
-              <td class="font-mono">{"0x#{String.pad_leading(Integer.to_string(value, 16), 4, "0")}"}</td>
+              <td class="font-mono">
+                {"0x#{String.pad_leading(Integer.to_string(value, 16), 4, "0")}"}
+              </td>
             </tr>
           <% end %>
         </tbody>
@@ -446,7 +452,9 @@ defmodule PouConWeb.Live.Admin.RawViewer.Index do
               <td class="font-mono">{unsigned}</td>
               <td class="font-mono">{signed}</td>
               <td class="font-mono">{float_val}</td>
-              <td class="font-mono">{"0x#{String.pad_leading(Integer.to_string(unsigned, 16), 8, "0")}"}</td>
+              <td class="font-mono">
+                {"0x#{String.pad_leading(Integer.to_string(unsigned, 16), 8, "0")}"}
+              </td>
             </tr>
           <% end %>
         </tbody>
@@ -622,7 +630,9 @@ defmodule PouConWeb.Live.Admin.RawViewer.Index do
   # ------------------------------------------------------------------ #
 
   defp maybe_update_port(socket, nil), do: socket
-  defp maybe_update_port(socket, ""), do: assign(socket, selected_port: nil, selected_protocol: nil, results: nil, error: nil)
+
+  defp maybe_update_port(socket, ""),
+    do: assign(socket, selected_port: nil, selected_protocol: nil, results: nil, error: nil)
 
   defp maybe_update_port(socket, device_path) do
     port_changed = socket.assigns.selected_port != device_path

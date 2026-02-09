@@ -176,7 +176,10 @@ defmodule PouCon.Backup do
   end
 
   @log_table_keys [
-    :equipment_events, :data_point_logs, :flock_logs, :task_completions
+    :equipment_events,
+    :data_point_logs,
+    :flock_logs,
+    :task_completions
   ]
 
   # Clear in reverse order to respect foreign keys, only for selected config tables.

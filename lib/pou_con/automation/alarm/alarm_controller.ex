@@ -18,6 +18,8 @@ defmodule PouCon.Automation.Alarm.AlarmController do
   alias PouCon.Equipment.Controllers.Siren
   alias PouCon.Logging.EquipmentLogger
 
+  @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
+
   @default_poll_interval 2000
 
   defmodule State do
@@ -351,31 +353,30 @@ defmodule PouCon.Automation.Alarm.AlarmController do
   end
 
   defp evaluate_sensor_condition(condition) do
-    case EquipmentCommands.get_status(condition.source_name) do
-      {:error, _} ->
-        false
+    # Read data point value directly from DataPointManager
+    # instead of going through the sensor controller
+    case @data_point_manager.read_direct(condition.source_name) do
+      {:ok, %{value: value}} when is_number(value) ->
+        compare_threshold(value, condition)
 
-      status when is_map(status) ->
-        # Sensors report temperature/humidity/value in their status
-        value =
-          Map.get(status, :temperature) ||
-            Map.get(status, :humidity) ||
-            Map.get(status, :value) ||
-            Map.get(status, :reading)
-
-        if is_number(value) && is_number(condition.threshold) do
-          case condition.condition do
-            "above" -> value > condition.threshold
-            "below" -> value < condition.threshold
-            "equals" -> abs(value - condition.threshold) < 0.1
-            _ -> false
-          end
-        else
-          false
-        end
+      {:ok, %{state: value}} when is_number(value) ->
+        compare_threshold(value / 1, condition)
 
       _ ->
         false
+    end
+  end
+
+  defp compare_threshold(value, condition) do
+    if is_number(condition.threshold) do
+      case condition.condition do
+        "above" -> value > condition.threshold
+        "below" -> value < condition.threshold
+        "equals" -> abs(value - condition.threshold) < 0.1
+        _ -> false
+      end
+    else
+      false
     end
   end
 

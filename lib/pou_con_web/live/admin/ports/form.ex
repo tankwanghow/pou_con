@@ -6,6 +6,7 @@ defmodule PouConWeb.Live.Admin.Ports.Form do
 
   @protocol_options [
     {"Modbus RTU (Serial RS485)", "modbus_rtu"},
+    {"Modbus TCP (Ethernet)", "modbus_tcp"},
     {"Siemens S7 (TCP/IP)", "s7"},
     {"Virtual (DB)", "virtual"}
   ]
@@ -71,6 +72,34 @@ defmodule PouConWeb.Live.Admin.Ports.Form do
                 <.input field={@form[:stop_bits]} type="number" label="Stop bits" placeholder="1" />
               </div>
             </div>
+          </div>
+        <% end %>
+
+        <%!-- Modbus TCP fields --%>
+        <%= if @selected_protocol == "modbus_tcp" do %>
+          <div class="mt-4 p-4 bg-purple-50 rounded-lg">
+            <h3 class="text-sm font-semibold text-purple-700 mb-3">Modbus TCP Settings</h3>
+            <div class="flex gap-2">
+              <div class="w-2/3">
+                <.input
+                  field={@form[:ip_address]}
+                  type="text"
+                  label="IP Address"
+                  placeholder="192.168.1.100"
+                />
+              </div>
+              <div class="w-1/3">
+                <.input
+                  field={@form[:tcp_port]}
+                  type="number"
+                  label="TCP Port"
+                  placeholder="502"
+                />
+              </div>
+            </div>
+            <p class="mt-2 text-xs text-purple-600">
+              Standard Modbus TCP port is 502. Some gateways use 4001-4004.
+            </p>
           </div>
         <% end %>
 

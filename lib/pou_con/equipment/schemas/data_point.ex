@@ -92,6 +92,10 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
     # nil = log on change, 0 = no logging, > 0 = interval in seconds
     field :log_interval, :integer
 
+    # Digital output inversion for NC (normally closed) relay wiring
+    # When true: coil OFF (0) = equipment ON, coil ON (1) = equipment OFF
+    field :inverted, :boolean, default: false
+
     belongs_to :port, PouCon.Hardware.Ports.Port,
       foreign_key: :port_path,
       references: :device_path,
@@ -124,7 +128,9 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
       # Zone-based color system
       :color_zones,
       # Logging
-      :log_interval
+      :log_interval,
+      # Digital output inversion
+      :inverted
     ])
     |> validate_number(:log_interval, greater_than_or_equal_to: 0)
     |> validate_color_zones()

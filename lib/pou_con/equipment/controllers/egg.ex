@@ -156,7 +156,7 @@ defmodule PouCon.Equipment.Controllers.Egg do
         mode: :auto,
         error: nil,
         is_auto_manual_virtual_di: is_virtual,
-        inverted: opts[:inverted] == true,
+        inverted: DataPoints.is_inverted?(on_off_coil),
         poll_interval_ms: opts[:poll_interval_ms] || @default_poll_interval
       }
 
@@ -175,16 +175,11 @@ defmodule PouCon.Equipment.Controllers.Egg do
   def handle_continue(:initial_poll, state) do
     new_state = poll_and_update(state)
 
-    # For inverted (NC wiring) equipment: ensure OFF state after reboot
-    #
-    # During power failure, NC relay de-energizes (coil=0) causing NC contact
-    # to close, which turns equipment ON. After system reboots, the equipment
-    # is still ON but commanded_on is false. We need to actively sync the coil
-    # to turn the equipment OFF. Automation controllers (EggCollectionScheduler)
-    # will then turn them ON as needed based on schedules.
+    # Ensure OFF state after reboot if hardware reports ON but we haven't commanded it.
+    # For inverted (NC) wiring, the DataPointManager handles coil inversion transparently.
     new_state =
-      if new_state.inverted and new_state.actual_on and not new_state.commanded_on do
-        Logger.info("[#{new_state.name}] Startup sync: turning OFF inverted equipment")
+      if new_state.actual_on and not new_state.commanded_on do
+        Logger.info("[#{new_state.name}] Startup sync: turning OFF equipment")
         sync_coil(new_state)
       else
         new_state
@@ -285,15 +280,8 @@ defmodule PouCon.Equipment.Controllers.Egg do
         end
       end
 
-      # Normal (NO): coil ON (1) = equipment ON, coil OFF (0) = equipment OFF
-      # Inverted (NC): coil OFF (0) = equipment ON, coil ON (1) = equipment OFF
-      coil_value =
-        case {target, state.inverted} do
-          {true, false} -> 1
-          {false, false} -> 0
-          {true, true} -> 0
-          {false, true} -> 1
-        end
+      # Logical value only — DataPointManager handles NC inversion
+      coil_value = if(target, do: 1, else: 0)
 
       case @data_point_manager.command(state.on_off_coil, :set_state, %{state: coil_value}) do
         {:ok, :success} ->
@@ -358,9 +346,8 @@ defmodule PouCon.Equipment.Controllers.Egg do
             {:ok, %{:state => fb_state}} = fb_res
             {:ok, %{:state => mode_state}} = mode_res
 
-            # Normal (NO): coil ON (1) = equipment ON, coil OFF (0) = equipment OFF
-            # Inverted (NC): coil OFF (0) = equipment ON, coil ON (1) = equipment OFF
-            actual_on = if state.inverted, do: coil_state == 0, else: coil_state == 1
+            # DataPointManager already inverts for NC wiring
+            actual_on = coil_state == 1
             is_running = fb_state == 1
             mode = if mode_state == 1, do: :auto, else: :manual
 
@@ -385,11 +372,10 @@ defmodule PouCon.Equipment.Controllers.Egg do
               end
 
             # If mode switched to AUTO and equipment is on, send command to turn off
-            # This handles inverted equipment correctly (sends coil=1 for inverted)
+            # DataPointManager handles NC inversion transparently
             if mode_switched_to_auto and actual_on do
               Logger.info("[#{state.name}] Mode switch sync: turning OFF equipment")
-              coil_value = if state.inverted, do: 1, else: 0
-              @data_point_manager.command(state.on_off_coil, :set_state, %{state: coil_value})
+              @data_point_manager.command(state.on_off_coil, :set_state, %{state: 0})
             end
 
             updated = %State{

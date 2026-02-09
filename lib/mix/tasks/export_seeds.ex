@@ -55,6 +55,7 @@ defmodule Mix.Tasks.ExportSeeds do
           ip_address: p.ip_address,
           s7_rack: p.s7_rack,
           s7_slot: p.s7_slot,
+          tcp_port: p.tcp_port,
           description: p.description
         }
       )
@@ -85,7 +86,8 @@ defmodule Mix.Tasks.ExportSeeds do
           unit: d.unit,
           value_type: d.value_type,
           min_valid: d.min_valid,
-          max_valid: d.max_valid
+          max_valid: d.max_valid,
+          inverted: d.inverted
         }
       )
       |> Repo.all()

@@ -180,7 +180,7 @@ defmodule PouCon.Equipment.Schemas.Equipment do
     do: [:on_off_coil, :running_feedback, :auto_manual, :manual_switch]
 
   defp required_keys_for_type("light"), do: [:on_off_coil, :auto_manual]
-  defp required_keys_for_type("siren"), do: [:on_off_coil, :auto_manual]
+  defp required_keys_for_type("siren"), do: [:on_off_coil, :auto_manual, :running_feedback]
   defp required_keys_for_type("dung"), do: [:on_off_coil, :running_feedback]
   defp required_keys_for_type("dung_horz"), do: [:on_off_coil, :running_feedback]
   defp required_keys_for_type("dung_exit"), do: [:on_off_coil, :running_feedback]

@@ -48,7 +48,9 @@ defmodule PouConWeb.Components.Summaries.PowerMeterSummaryComponent do
     <div class="p-2 flex flex-col items-center">
       <div class="flex items-center gap-1 mb-1">
         <PowerMeterComponent.power_meter_icon class={"w-5 h-5 brightness-150 #{Shared.text_color(@meter.main_color)}"} />
-        <span class={[Shared.text_color(@meter.main_color), "text-sm font-medium"]}>{@meter.title}</span>
+        <span class={[Shared.text_color(@meter.main_color), "text-sm font-medium"]}>
+          {@meter.title}
+        </span>
       </div>
       <div class="flex gap-3">
         <%= for {label, value, color, _bold} <- @meter.rows do %>

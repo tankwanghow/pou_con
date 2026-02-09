@@ -26,9 +26,7 @@ defmodule PouCon.Logging.CleanupTask do
 
   @impl true
   def init(state) do
-    Logger.info(
-      "CleanupTask started - retention: #{@event_retention_days} days events/logs"
-    )
+    Logger.info("CleanupTask started - retention: #{@event_retention_days} days events/logs")
 
     schedule_cleanup()
     {:ok, state}

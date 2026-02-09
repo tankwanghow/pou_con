@@ -493,12 +493,29 @@ defmodule PouCon.Hardware.S7.Adapter do
     Snapex7.Client.connect_to(client_pid, ip: ip, rack: rack, slot: slot)
   end
 
-  # Safely execute a Snapex7 call, handling timeouts and connection failures
-  # Returns {result, new_state} where result is {:ok, data} or {:error, reason}
+  # Safely execute a Snapex7 call, handling timeouts, errors, and connection failures.
+  # Returns {result, new_state} where result is {:ok, data} or {:error, reason}.
+  #
+  # When the PLC is powered off, Snapex7 may return {:error, "Remote Server Error"}
+  # as a normal return value (NOT an exit). We must detect this and trigger reconnection,
+  # otherwise the adapter stays in connected state with a broken TCP session.
   defp safe_call(state, fun) do
     try do
-      result = fun.()
-      {result, state}
+      case fun.() do
+        {:ok, _} = ok ->
+          {ok, state}
+
+        :ok ->
+          {:ok, state}
+
+        {:error, reason} ->
+          Logger.warning(
+            "[S7.Adapter] Operation error on #{state.ip}: #{inspect(reason)}, reconnecting"
+          )
+
+          schedule_reconnect(state)
+          {{:error, :timeout}, mark_disconnected(state)}
+      end
     catch
       :exit, :port_timed_out ->
         Logger.warning("[S7.Adapter] Operation timed out on #{state.ip}, marking disconnected")
@@ -508,7 +525,7 @@ defmodule PouCon.Hardware.S7.Adapter do
       :exit, reason ->
         Logger.warning("[S7.Adapter] Operation failed on #{state.ip}: #{inspect(reason)}")
         schedule_reconnect(state)
-        {{:error, {:exit, reason}}, mark_disconnected(state)}
+        {{:error, :timeout}, mark_disconnected(state)}
     end
   end
 

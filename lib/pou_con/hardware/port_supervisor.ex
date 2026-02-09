@@ -4,6 +4,7 @@ defmodule PouCon.Hardware.PortSupervisor do
 
   Supports:
   - Modbus RTU master processes (RS485 serial)
+  - Modbus TCP client processes (Ethernet)
   - S7 protocol connections (Siemens PLCs/ET200SP)
   """
 
@@ -13,6 +14,10 @@ defmodule PouCon.Hardware.PortSupervisor do
   # Get adapter module at runtime (allows swapping real/simulated via SIMULATE_DEVICES env)
   defp s7_adapter do
     Application.get_env(:pou_con, :s7_adapter, PouCon.Hardware.S7.Adapter)
+  end
+
+  defp simulated? do
+    PouCon.Utils.Modbus.adapter() == PouCon.Hardware.Modbus.SimulatedAdapter
   end
 
   def start_link(_arg) do
@@ -30,6 +35,7 @@ defmodule PouCon.Hardware.PortSupervisor do
   def start_connection(port) do
     case port.protocol do
       "modbus_rtu" -> start_modbus_master(port)
+      "modbus_tcp" -> start_modbus_tcp(port)
       "s7" -> start_s7_connection(port)
       "virtual" -> {:ok, nil}
       _ -> {:error, :unknown_protocol}
@@ -42,6 +48,7 @@ defmodule PouCon.Hardware.PortSupervisor do
   def stop_connection(pid, protocol) when is_pid(pid) do
     case protocol do
       "modbus_rtu" -> stop_modbus_master(pid)
+      "modbus_tcp" -> stop_modbus_tcp(pid)
       "s7" -> stop_s7_connection(pid)
       _ -> DynamicSupervisor.terminate_child(__MODULE__, pid)
     end
@@ -98,6 +105,87 @@ defmodule PouCon.Hardware.PortSupervisor do
 
     # Always terminate the child to clean up the supervisor
     DynamicSupervisor.terminate_child(__MODULE__, pid)
+  end
+
+  # ------------------------------------------------------------------ #
+  # Modbus TCP
+  # ------------------------------------------------------------------ #
+
+  def start_modbus_tcp(port) do
+    Logger.info("[PortSupervisor] Starting Modbus TCP connection to #{port.ip_address}:#{port.tcp_port}")
+
+    if simulated?() do
+      # In simulation mode, use the same delegation layer as RTU —
+      # SimulatedAdapter is protocol-agnostic (no real TCP connection).
+      spec =
+        {PouCon.Utils.Modbus,
+         ip: port.ip_address,
+         tcp_port: port.tcp_port || 502,
+         name: modbus_tcp_process_name(port.ip_address, port.tcp_port)}
+
+      case DynamicSupervisor.start_child(__MODULE__, spec) do
+        {:ok, pid} ->
+          Logger.info("[PortSupervisor] Modbus TCP (simulated) started: #{inspect(pid)}")
+          {:ok, pid}
+
+        {:error, reason} = err ->
+          Logger.error("[PortSupervisor] Modbus TCP (simulated) failed: #{inspect(reason)}")
+          err
+      end
+    else
+      ip_tuple = parse_ip!(port.ip_address)
+
+      spec =
+        {PouCon.Hardware.Modbus.TcpAdapter,
+         ip: ip_tuple,
+         tcp_port: port.tcp_port || 502,
+         timeout: 2000,
+         name: modbus_tcp_process_name(port.ip_address, port.tcp_port)}
+
+      case DynamicSupervisor.start_child(__MODULE__, spec) do
+        {:ok, pid} ->
+          Logger.info("[PortSupervisor] Modbus TCP connection started: #{inspect(pid)}")
+          {:ok, pid}
+
+        {:error, reason} = err ->
+          Logger.error("[PortSupervisor] Modbus TCP connection failed: #{inspect(reason)}")
+          err
+      end
+    end
+  end
+
+  def stop_modbus_tcp(pid) do
+    Logger.info("[PortSupervisor] Stopping Modbus TCP connection #{inspect(pid)}")
+
+    stop_module =
+      if simulated?(),
+        do: PouCon.Utils.Modbus,
+        else: PouCon.Hardware.Modbus.TcpAdapter
+
+    try do
+      stop_module.close(pid)
+    catch
+      _, _ -> :ok
+    end
+
+    try do
+      stop_module.stop(pid)
+    catch
+      _, _ -> :ok
+    end
+
+    DynamicSupervisor.terminate_child(__MODULE__, pid)
+  end
+
+  defp parse_ip!(ip_string) do
+    ip_string
+    |> String.split(".")
+    |> Enum.map(&String.to_integer/1)
+    |> List.to_tuple()
+  end
+
+  defp modbus_tcp_process_name(ip, port) do
+    :"modbus_tcp_#{String.replace(ip, ".", "_")}_#{port}"
   end
 
   # ------------------------------------------------------------------ #

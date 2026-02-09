@@ -231,7 +231,6 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
     {:reply, {state.avg_temp, state.avg_humidity}, state}
   end
 
-
   # ------------------------------------------------------------------ #
   # Private - Averages Calculation
   # ------------------------------------------------------------------ #

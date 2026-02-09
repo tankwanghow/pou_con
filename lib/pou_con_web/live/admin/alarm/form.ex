@@ -3,29 +3,25 @@ defmodule PouConWeb.Live.Admin.Alarm.Form do
 
   alias PouCon.Automation.Alarm.AlarmRules
   alias PouCon.Automation.Alarm.Schemas.{AlarmRule, AlarmCondition}
-  alias PouCon.Equipment.Devices
+  alias PouCon.Equipment.{DataPoints, Devices}
 
   @impl true
   def mount(params, _session, socket) do
     equipment = Devices.list_equipment()
     sirens = Enum.filter(equipment, &(&1.type == "siren"))
 
-    sensors =
-      Enum.filter(
-        equipment,
-        &(&1.type in ["temp_sensor", "humidity_sensor", "co2_sensor", "nh3_sensor"])
-      )
+    # Sensor conditions use data points directly (AI type)
+    sensor_data_points =
+      DataPoints.list_data_points()
+      |> Enum.filter(&(&1.type == "AI"))
 
     other_equipment =
-      Enum.reject(
-        equipment,
-        &(&1.type in ["siren", "temp_sensor", "humidity_sensor", "co2_sensor", "nh3_sensor"])
-      )
+      Enum.reject(equipment, &(&1.type == "siren"))
 
     socket =
       socket
       |> assign(:sirens, sirens)
-      |> assign(:sensors, sensors)
+      |> assign(:sensor_data_points, sensor_data_points)
       |> assign(:other_equipment, other_equipment)
 
     case params do
@@ -226,7 +222,7 @@ defmodule PouConWeb.Live.Admin.Alarm.Form do
       <.header>
         {@page_title}
         <:actions>
-          <.link navigate={~p"/admin/alarm"} class="text-sm text-gray-500 hover:text-gray-700">
+          <.link navigate={~p"/admin/alarm"} class="text-sm text-base-content/50 hover:text-base-content/70">
             ← Back to list
           </.link>
         </:actions>
@@ -237,22 +233,22 @@ defmodule PouConWeb.Live.Admin.Alarm.Form do
           <.input field={@form[:name]} label="Rule Name" placeholder="e.g., High Temperature Alert" />
         </div>
 
-        <div class="border rounded p-3 bg-gray-50">
+        <div class="border border-base-300 rounded p-3 bg-base-200">
           <div class="flex justify-between items-center mb-2">
-            <label class="block text-sm font-medium text-gray-700">Sirens to Trigger</label>
+            <label class="block text-sm font-medium text-base-content/70">Sirens to Trigger</label>
             <div class="flex gap-2">
               <button
                 type="button"
                 phx-click="select_all_sirens"
-                class="text-xs text-blue-600 hover:text-blue-800"
+                class="text-xs text-blue-500 hover:text-blue-400"
               >
                 Select All
               </button>
-              <span class="text-gray-300">|</span>
+              <span class="text-base-content/30">|</span>
               <button
                 type="button"
                 phx-click="clear_all_sirens"
-                class="text-xs text-gray-600 hover:text-gray-800"
+                class="text-xs text-base-content/60 hover:text-base-content"
               >
                 Clear All
               </button>
@@ -268,7 +264,7 @@ defmodule PouConWeb.Live.Admin.Alarm.Form do
                   "px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
                   if(siren.name in @selected_sirens,
                     do: "bg-red-500 text-white border-red-600",
-                    else: "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                    else: "bg-base-100 text-base-content border-base-300 hover:bg-base-300"
                   )
                 ]}
               >
@@ -279,7 +275,9 @@ defmodule PouConWeb.Live.Admin.Alarm.Form do
           <%= if Enum.empty?(@selected_sirens) do %>
             <p class="text-red-500 text-xs mt-1">At least one siren must be selected</p>
           <% else %>
-            <p class="text-gray-500 text-xs mt-1">{length(@selected_sirens)} siren(s) selected</p>
+            <p class="text-base-content/50 text-xs mt-1">
+              {length(@selected_sirens)} siren(s) selected
+            </p>
           <% end %>
         </div>
 
@@ -328,9 +326,9 @@ defmodule PouConWeb.Live.Admin.Alarm.Form do
           </div>
         </div>
 
-        <div class="border-t pt-4 mt-4">
+        <div class="border-t border-base-300 pt-4 mt-4">
           <div class="flex justify-between items-center mb-2">
-            <h3 class="text-lg font-semibold">Conditions</h3>
+            <h3 class="text-lg font-semibold text-base-content">Conditions</h3>
             <button
               type="button"
               phx-click="add_condition"
@@ -341,20 +339,20 @@ defmodule PouConWeb.Live.Admin.Alarm.Form do
           </div>
 
           <%= if Enum.empty?(@conditions) do %>
-            <p class="text-gray-500 italic">
+            <p class="text-base-content/50 italic">
               No conditions added yet. Click "Add Condition" to create one.
             </p>
           <% else %>
             <div class="space-y-2">
               <%= for {condition, index} <- Enum.with_index(@conditions) do %>
-                <div class="flex items-center gap-2 p-2 bg-gray-50 rounded border">
+                <div class="flex items-center gap-2 p-2 bg-base-200 rounded border border-base-300">
                   <select
                     phx-change="update_condition"
                     name={"cond_#{index}_source_type"}
-                    class="px-2 py-1 border rounded text-sm"
+                    class="px-2 py-1 border border-base-300 rounded text-sm bg-base-100 text-base-content"
                   >
                     <option value="sensor" selected={condition.source_type == "sensor"}>
-                      Sensor
+                      Data Point
                     </option>
                     <option value="equipment" selected={condition.source_type == "equipment"}>
                       Equipment
@@ -364,13 +362,13 @@ defmodule PouConWeb.Live.Admin.Alarm.Form do
                   <select
                     phx-change="update_condition"
                     name={"cond_#{index}_source_name"}
-                    class="px-2 py-1 border rounded text-sm flex-1"
+                    class="px-2 py-1 border border-base-300 rounded text-sm flex-1 bg-base-100 text-base-content"
                   >
                     <option value="">Select...</option>
                     <%= if condition.source_type == "sensor" do %>
-                      <%= for s <- @sensors do %>
-                        <option value={s.name} selected={condition.source_name == s.name}>
-                          {s.title || s.name}
+                      <%= for dp <- @sensor_data_points do %>
+                        <option value={dp.name} selected={condition.source_name == dp.name}>
+                          {dp.name}{if dp.description, do: " - #{dp.description}", else: ""}
                         </option>
                       <% end %>
                     <% else %>
@@ -385,7 +383,7 @@ defmodule PouConWeb.Live.Admin.Alarm.Form do
                   <select
                     phx-change="update_condition"
                     name={"cond_#{index}_condition"}
-                    class="px-2 py-1 border rounded text-sm"
+                    class="px-2 py-1 border border-base-300 rounded text-sm bg-base-100 text-base-content"
                   >
                     <%= if condition.source_type == "sensor" do %>
                       <option value="above" selected={condition.condition == "above"}>above</option>
@@ -412,7 +410,7 @@ defmodule PouConWeb.Live.Admin.Alarm.Form do
                       name={"cond_#{index}_threshold"}
                       value={condition.threshold}
                       placeholder="Threshold"
-                      class="px-2 py-1 border rounded text-sm w-20"
+                      class="px-2 py-1 border border-base-300 rounded text-sm w-20 bg-base-100 text-base-content"
                     />
                   <% end %>
 
@@ -436,7 +434,7 @@ defmodule PouConWeb.Live.Admin.Alarm.Form do
           </.button>
           <.link
             navigate={~p"/admin/alarm"}
-            class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+            class="px-4 py-2 bg-base-200 text-base-content rounded hover:bg-base-300"
           >
             Cancel
           </.link>
