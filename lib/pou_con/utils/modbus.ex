@@ -1,11 +1,11 @@
 defmodule PouCon.Utils.Modbus do
   @moduledoc """
   Context functionality for Modbus interactions.
-  Delegates to the configured adapter (Real or Simulated).
+  Delegates to the configured adapter (RTU, TCP, or Simulated).
   """
 
   def adapter do
-    Application.get_env(:pou_con, :modbus_adapter, PouCon.Hardware.Modbus.RealAdapter)
+    Application.get_env(:pou_con, :modbus_adapter, PouCon.Hardware.Modbus.RtuAdapter)
   end
 
   def child_spec(opts) do

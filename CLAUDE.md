@@ -181,7 +181,7 @@ Controllers are registered in the Registry under their name and can be accessed 
 
 The system uses a behaviour-based adapter pattern for hardware communication:
 
-- **Production**: `PouCon.Hardware.Modbus.RealAdapter` - actual Modbus RTU/TCP
+- **Production**: `PouCon.Hardware.Modbus.RtuAdapter` - actual Modbus RTU
 - **Development/Test**: `PouCon.Hardware.Modbus.SimulatedAdapter` - in-memory simulation
 
 Adapter selection is controlled by `SIMULATE_DEVICES=1` environment variable (see `config/config.exs`).

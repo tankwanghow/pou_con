@@ -20,7 +20,7 @@ if System.get_env("SIMULATE_DEVICES") == "1" do
   config :pou_con, :modbus_adapter, PouCon.Hardware.Modbus.SimulatedAdapter
   config :pou_con, :s7_adapter, PouCon.Hardware.S7.SimulatedAdapter
 else
-  config :pou_con, :modbus_adapter, PouCon.Hardware.Modbus.RealAdapter
+  config :pou_con, :modbus_adapter, PouCon.Hardware.Modbus.RtuAdapter
   config :pou_con, :s7_adapter, PouCon.Hardware.S7.Adapter
 end
 

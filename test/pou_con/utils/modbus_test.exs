@@ -13,8 +13,8 @@ defmodule PouCon.Utils.ModbusTest do
 
   describe "adapter/0" do
     test "returns configured adapter from application env" do
-      # Default should be RealAdapter
-      assert Modbus.adapter() == PouCon.Hardware.Modbus.RealAdapter
+      # Default should be RtuAdapter
+      assert Modbus.adapter() == PouCon.Hardware.Modbus.RtuAdapter
     end
   end
 

@@ -1,24 +1,24 @@
-defmodule PouCon.Hardware.Modbus.RealAdapterTest do
+defmodule PouCon.Hardware.Modbus.RtuAdapterTest do
   use ExUnit.Case, async: false
 
-  alias PouCon.Hardware.Modbus.RealAdapter
+  alias PouCon.Hardware.Modbus.RtuAdapter
 
   describe "behavior implementation" do
     test "implements Adapter behavior" do
       behaviours =
-        RealAdapter.module_info(:attributes)
+        RtuAdapter.module_info(:attributes)
         |> Keyword.get(:behaviour, [])
 
       assert PouCon.Hardware.Modbus.Adapter in behaviours
     end
 
     test "module is defined and loaded" do
-      assert Code.ensure_loaded?(RealAdapter)
+      assert Code.ensure_loaded?(RtuAdapter)
     end
   end
 
   describe "module structure" do
-    # Note: These are structural tests only, as RealAdapter requires actual hardware
+    # Note: These are structural tests only, as RtuAdapter requires actual hardware
     # Full integration tests should be done with real Modbus devices
     # The adapter implements the Adapter behavior by delegating to Modbux.Rtu.Master
 

@@ -74,7 +74,7 @@ DataPointManager determines protocol from the Port record:
 
 | Port Type | Adapter | Transport |
 |-----------|---------|-----------|
-| `"modbus_rtu"` | `Modbus.RealAdapter` | RS485 serial via `circuits_uart` |
+| `"modbus_rtu"` | `Modbus.RtuAdapter` | RS485 serial via `circuits_uart` |
 | `"modbus_tcp"` | `Modbus.TcpAdapter` | TCP/IP socket |
 | `"s7"` | `S7.Adapter` | TCP/IP to Siemens PLC |
 | `"virtual"` | In-memory GenServer | No hardware |
@@ -219,7 +219,7 @@ if System.get_env("SIMULATE_DEVICES") == "1" do
   config :pou_con, :modbus_adapter, PouCon.Hardware.Modbus.SimulatedAdapter
   config :pou_con, :s7_adapter, PouCon.Hardware.S7.SimulatedAdapter
 else
-  config :pou_con, :modbus_adapter, PouCon.Hardware.Modbus.RealAdapter
+  config :pou_con, :modbus_adapter, PouCon.Hardware.Modbus.RtuAdapter
   config :pou_con, :s7_adapter, PouCon.Hardware.S7.Adapter
 end
 ```
@@ -286,7 +286,7 @@ This lets tests use `Mox.stub/3` and `Mox.expect/3` for precise control.
 - `lib/pou_con/hardware/port_supervisor.ex` — Manages protocol connections
 - `lib/pou_con/equipment/schemas/data_point.ex` — DataPoint schema
 - `lib/pou_con/hardware/data_point_tree_parser.ex` — JSON→keyword parser
-- `lib/pou_con/hardware/modbus/real_adapter.ex` — Modbus RTU adapter
+- `lib/pou_con/hardware/modbus/rtu_adapter.ex` — Modbus RTU adapter
 - `lib/pou_con/hardware/modbus/tcp_adapter.ex` — Modbus TCP adapter
 - `lib/pou_con/hardware/s7/adapter.ex` — Siemens S7 adapter
 - `lib/pou_con/hardware/modbus/simulated_adapter.ex` — Modbus simulation (dev)

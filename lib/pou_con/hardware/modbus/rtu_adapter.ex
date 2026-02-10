@@ -1,4 +1,4 @@
-defmodule PouCon.Hardware.Modbus.RealAdapter do
+defmodule PouCon.Hardware.Modbus.RtuAdapter do
   @behaviour PouCon.Hardware.Modbus.Adapter
 
   @impl true

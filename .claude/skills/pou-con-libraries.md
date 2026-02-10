@@ -221,7 +221,7 @@ Repo.transaction(fn -> ... end, timeout: 300_000)  # 5 minutes
 
 ## Key Files
 
-- `lib/pou_con/hardware/modbus/real_adapter.ex` — Modbux RTU wrapper
+- `lib/pou_con/hardware/modbus/rtu_adapter.ex` — Modbux RTU wrapper
 - `lib/pou_con/hardware/modbus/tcp_adapter.ex` — Modbux TCP wrapper with auto-reconnect
 - `lib/pou_con/hardware/s7/adapter.ex` — Snapex7 wrapper with backoff retry
 - `lib/pou_con/hardware/s7/adapter_behaviour.ex` — S7 adapter behaviour
