@@ -744,13 +744,20 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   # Private - Reality Scanning
   # ------------------------------------------------------------------ #
 
-  # Scan all active fans and categorize by mode and commanded state.
+  # Scan all active fans and categorize by mode and hardware state.
   # Returns {auto_on, auto_off} where:
-  # - auto_on: fan names in AUTO mode that are commanded ON and healthy
-  # - auto_off: fan names in AUTO mode that are NOT commanded ON and healthy
-  # Fans with :on_but_not_running error are excluded from both lists —
-  # they've failed to start (past debounce), so the controller will seek
-  # a replacement and FailsafeValidator will flag the shortage.
+  # - auto_on: fan names in AUTO mode that are physically running
+  # - auto_off: fan names in AUTO mode that are NOT running and available
+  # Excluded errors (unusable fans):
+  # - :on_but_not_running — failed to start, seek replacement
+  # - :timeout — communication lost, can't control
+  # - :invalid_data — unreliable state
+  # - :tripped — motor protection triggered
+  # Included errors (still controllable):
+  # - :off_but_running — IS running, keep retrying OFF command
+  # - :command_failed — transient, clears on next poll
+  @excluded_fan_errors [:on_but_not_running, :timeout, :invalid_data, :tripped]
+
   defp scan_fan_states do
     PouCon.Equipment.Devices.list_equipment()
     |> Enum.filter(&(&1.type == "fan" and &1.active))
@@ -758,8 +765,8 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       try do
         status = Fan.status(eq.name)
 
-        if status[:mode] == :auto and status[:error] != :on_but_not_running do
-          if status[:commanded_on] do
+        if status[:mode] == :auto and status[:error] not in @excluded_fan_errors do
+          if status[:is_running] do
             {[eq.name | on_acc], off_acc}
           else
             {on_acc, [eq.name | off_acc]}
@@ -775,7 +782,8 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
     end)
   end
 
-  # Scan all active pumps in AUTO mode that are commanded ON.
+  # Scan all active pumps in AUTO mode that are physically running.
+  # Same error exclusion logic as fans.
   defp scan_auto_pumps_on do
     PouCon.Equipment.Devices.list_equipment()
     |> Enum.filter(&(&1.type == "pump" and &1.active))
@@ -783,7 +791,8 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       try do
         status = Pump.status(eq.name)
 
-        if status[:mode] == :auto and status[:commanded_on] do
+        if status[:mode] == :auto and status[:error] not in @excluded_fan_errors and
+             status[:is_running] do
           [eq.name | acc]
         else
           acc
@@ -805,7 +814,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       status = Fan.status(name)
 
       if status[:mode] == :auto do
-        if not status[:commanded_on] do
+        if not status[:is_running] do
           Fan.turn_on(name)
 
           EquipmentLogger.log_start(name, "auto", "auto_control", %{
@@ -833,7 +842,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       status = Fan.status(name)
 
       if status[:mode] == :auto do
-        if status[:commanded_on] do
+        if status[:is_running] do
           Fan.turn_off(name)
 
           EquipmentLogger.log_stop(name, "auto", "auto_control", "on", %{
@@ -860,7 +869,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
     try do
       status = Pump.status(name)
 
-      if status[:mode] == :auto and not status[:commanded_on] do
+      if status[:mode] == :auto and not status[:is_running] do
         Pump.turn_on(name)
         Logger.info("[Environment] Turning ON pump: #{name} (humidity: #{state.avg_humidity}%)")
 
@@ -872,7 +881,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
 
         true
       else
-        status[:commanded_on]
+        status[:is_running]
       end
     rescue
       _ -> false
@@ -886,7 +895,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       status = Pump.status(name)
 
       if status[:mode] == :auto do
-        if status[:commanded_on] do
+        if status[:is_running] do
           Pump.turn_off(name)
 
           Logger.info(

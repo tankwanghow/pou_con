@@ -154,8 +154,16 @@ defmodule PouCon.Automation.Lighting.LightScheduler do
   end
 
   # Check if current_time is within the range [on_time, off_time)
+  # Handles overnight schedules where on_time > off_time (e.g., 18:00 → 06:00)
   defp time_in_range?(current_time, on_time, off_time) do
-    Time.compare(current_time, on_time) in [:eq, :gt] and
-      Time.compare(current_time, off_time) == :lt
+    if Time.compare(on_time, off_time) in [:eq, :gt] do
+      # Overnight: ON when time >= on_time OR time < off_time
+      Time.compare(current_time, on_time) in [:eq, :gt] or
+        Time.compare(current_time, off_time) == :lt
+    else
+      # Same-day: ON when on_time <= time < off_time
+      Time.compare(current_time, on_time) in [:eq, :gt] and
+        Time.compare(current_time, off_time) == :lt
+    end
   end
 end
