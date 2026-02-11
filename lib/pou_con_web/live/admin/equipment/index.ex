@@ -27,6 +27,14 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
                 class="flex-1 px-3 py-1 text-sm border border-base-300 rounded-lg bg-base-100 text-base-content focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </form>
+            <button
+              :if={!@readonly}
+              phx-click="reload_system"
+              data-confirm="Reload system? This will reconnect all ports and restart all controllers."
+              class="ml-2 border border-blue-500/30 bg-blue-500/20 text-blue-500 font-medium px-2 py-1 rounded hover:bg-blue-500/30 transition-colors"
+            >
+              <.icon name="hero-arrow-path" class="w-4 h-4" /> Reload
+            </button>
             <.btn_link
               :if={!@readonly}
               to={~p"/admin/equipment/new"}
@@ -217,6 +225,15 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
   end
 
   @impl true
+  def handle_event("reload_system", _, socket) do
+    PouCon.Hardware.DataPointManager.reload()
+    PouCon.Equipment.EquipmentLoader.reload_controllers()
+
+    {:noreply,
+     put_flash(socket, :info, "System reloaded. All ports reconnected and controllers restarted.")}
+  end
+
+  @impl true
   def handle_event("delete", %{"id" => id}, socket) do
     equipment = Devices.get_equipment!(id)
     {:ok, _} = Devices.delete_equipment(equipment)
@@ -235,10 +252,13 @@ defmodule PouConWeb.Live.Admin.Equipment.Index do
 
     case Devices.update_equipment(equipment, %{active: not equipment.active}) do
       {:ok, updated_equipment} ->
-        # Reload controllers to reflect the change
-        PouCon.Equipment.EquipmentLoader.reload_controllers()
-
-        {:noreply, stream_insert(socket, :equipment, updated_equipment)}
+        {:noreply,
+         socket
+         |> put_flash(
+           :info,
+           "Equipment #{if updated_equipment.active, do: "activated", else: "deactivated"}. Reload system to apply."
+         )
+         |> stream_insert(:equipment, updated_equipment)}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Failed to update equipment status")}

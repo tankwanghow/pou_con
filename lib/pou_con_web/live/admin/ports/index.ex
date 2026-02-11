@@ -15,7 +15,17 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
       <.header>
         Listing Ports
         <:actions>
-          <.btn_link :if={!@readonly} to={~p"/admin/ports/new"} label="New Port" color="amber" />
+          <div class="flex items-center">
+            <button
+              :if={!@readonly}
+              phx-click="reload_system"
+              data-confirm="Reload system? This will reconnect all ports and restart all controllers."
+              class="ml-2 border border-blue-500/30 bg-blue-500/20 text-blue-500 font-medium px-2 py-1 rounded hover:bg-blue-500/30 transition-colors"
+            >
+              <.icon name="hero-arrow-path" class="w-4 h-4" /> Reload
+            </button>
+            <.btn_link :if={!@readonly} to={~p"/admin/ports/new"} label="New Port" color="amber" />
+          </div>
         </:actions>
       </.header>
 
@@ -233,6 +243,15 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
          |> put_flash(:error, "Failed to reconnect: #{inspect(reason)}")
          |> assign(:port_statuses, load_port_statuses())}
     end
+  end
+
+  @impl true
+  def handle_event("reload_system", _, socket) do
+    PouCon.Hardware.DataPointManager.reload()
+    PouCon.Equipment.EquipmentLoader.reload_controllers()
+
+    {:noreply,
+     put_flash(socket, :info, "System reloaded. All ports reconnected and controllers restarted.")}
   end
 
   @impl true

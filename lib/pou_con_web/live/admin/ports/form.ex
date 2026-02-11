@@ -227,11 +227,9 @@ defmodule PouConWeb.Live.Admin.Ports.Form do
   defp save_port(socket, :edit, port_params) do
     case Ports.update_port(socket.assigns.port, port_params) do
       {:ok, port} ->
-        PouCon.Hardware.DataPointManager.reload()
-
         {:noreply,
          socket
-         |> put_flash(:info, "Port updated successfully")
+         |> put_flash(:info, "Port updated. Reload system to apply changes.")
          |> push_navigate(to: return_path(socket.assigns.return_to, port))}
 
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -242,11 +240,9 @@ defmodule PouConWeb.Live.Admin.Ports.Form do
   defp save_port(socket, :new, port_params) do
     case Ports.create_port(port_params) do
       {:ok, port} ->
-        PouCon.Hardware.DataPointManager.reload()
-
         {:noreply,
          socket
-         |> put_flash(:info, "Port created successfully")
+         |> put_flash(:info, "Port created. Reload system to apply changes.")
          |> push_navigate(to: return_path(socket.assigns.return_to, port))}
 
       {:error, %Ecto.Changeset{} = changeset} ->

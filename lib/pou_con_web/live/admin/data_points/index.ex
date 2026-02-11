@@ -27,6 +27,14 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
                 class="flex-1 px-3 py-1 text-sm border border-base-300 rounded-lg bg-base-100 text-base-content focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </form>
+            <button
+              :if={!@readonly}
+              phx-click="reload_system"
+              data-confirm="Reload system? This will reconnect all ports and restart all controllers."
+              class="ml-2 border border-blue-500/30 bg-blue-500/20 text-blue-500 font-medium px-2 py-1 rounded hover:bg-blue-500/30 transition-colors"
+            >
+              <.icon name="hero-arrow-path" class="w-4 h-4" /> Reload
+            </button>
             <.btn_link
               :if={!@readonly}
               to={~p"/admin/data_points/new"}
@@ -229,6 +237,15 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
        list_data_points(socket.assigns.sort_field, socket.assigns.sort_order, ""),
        reset: true
      )}
+  end
+
+  @impl true
+  def handle_event("reload_system", _, socket) do
+    PouCon.Hardware.DataPointManager.reload()
+    PouCon.Equipment.EquipmentLoader.reload_controllers()
+
+    {:noreply,
+     put_flash(socket, :info, "System reloaded. All ports reconnected and controllers restarted.")}
   end
 
   @impl true

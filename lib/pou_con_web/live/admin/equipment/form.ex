@@ -384,12 +384,10 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
   defp save_equipment(socket, :edit, equipment_params) do
     case Devices.update_equipment(socket.assigns.equipment, equipment_params) do
       {:ok, _equipment} ->
-        PouCon.Equipment.EquipmentLoader.reload_controllers()
-
         {:noreply,
          socket
-         |> put_flash(:info, "Equipment updated successfully")
-         |> push_event("go-back", %{})}
+         |> put_flash(:info, "Equipment updated. Reload system to apply changes.")
+         |> push_navigate(to: ~p"/admin/equipment")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, form: to_form(changeset))}
@@ -399,12 +397,10 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
   defp save_equipment(socket, :new, equipment_params) do
     case Devices.create_equipment(equipment_params) do
       {:ok, _equipment} ->
-        PouCon.Equipment.EquipmentLoader.reload_controllers()
-
         {:noreply,
          socket
-         |> put_flash(:info, "Equipment created successfully")
-         |> push_event("go-back", %{})}
+         |> put_flash(:info, "Equipment created. Reload system to apply changes.")
+         |> push_navigate(to: ~p"/admin/equipment")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, form: to_form(changeset))}

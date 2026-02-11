@@ -491,14 +491,10 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
   defp save_data_point(socket, :edit, params) do
     case DataPoints.update_data_point(socket.assigns.data_point, params) do
       {:ok, _data_point} ->
-        PouCon.Hardware.DataPointManager.reload()
-        # Reload equipment controllers - data point type changes affect is_virtual? checks
-        PouCon.Equipment.EquipmentLoader.reload_controllers()
-
         {:noreply,
          socket
-         |> put_flash(:info, "Data point updated successfully")
-         |> push_event("go-back", %{})}
+         |> put_flash(:info, "Data point updated. Reload system to apply changes.")
+         |> push_navigate(to: ~p"/admin/data_points")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, form: to_form(changeset))}
@@ -508,14 +504,10 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
   defp save_data_point(socket, :new, params) do
     case DataPoints.create_data_point(params) do
       {:ok, _data_point} ->
-        PouCon.Hardware.DataPointManager.reload()
-        # Reload equipment controllers in case new data point is referenced
-        PouCon.Equipment.EquipmentLoader.reload_controllers()
-
         {:noreply,
          socket
-         |> put_flash(:info, "Data point created successfully")
-         |> push_event("go-back", %{})}
+         |> put_flash(:info, "Data point created. Reload system to apply changes.")
+         |> push_navigate(to: ~p"/admin/data_points")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, form: to_form(changeset))}
