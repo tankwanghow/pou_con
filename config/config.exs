@@ -18,6 +18,8 @@ config :pou_con, :data_point_manager, PouCon.Hardware.DataPointManager
 
 if System.get_env("SIMULATE_DEVICES") == "1" do
   config :pou_con, :modbus_adapter, PouCon.Hardware.Modbus.SimulatedAdapter
+  config :pou_con, :modbus_tcp_adapter, PouCon.Hardware.Modbus.SimulatedAdapter
+  config :pou_con, :rtu_over_tcp_adapter, PouCon.Hardware.Modbus.SimulatedAdapter
   config :pou_con, :s7_adapter, PouCon.Hardware.S7.SimulatedAdapter
 else
   config :pou_con, :modbus_adapter, PouCon.Hardware.Modbus.RtuAdapter

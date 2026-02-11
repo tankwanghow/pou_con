@@ -6,7 +6,8 @@ defmodule PouConWeb.Live.Admin.Ports.Form do
 
   @protocol_options [
     {"Modbus RTU (Serial RS485)", "modbus_rtu"},
-    {"Modbus TCP (Ethernet)", "modbus_tcp"},
+    {"Modbus TCP (Gateway/Native)", "modbus_tcp"},
+    {"RTU over TCP (Serial Server)", "rtu_over_tcp"},
     {"Siemens S7 (TCP/IP)", "s7"},
     {"Virtual (DB)", "virtual"}
   ]
@@ -98,7 +99,35 @@ defmodule PouConWeb.Live.Admin.Ports.Form do
               </div>
             </div>
             <p class="mt-2 text-xs text-purple-600">
-              Standard Modbus TCP port is 502. Some gateways use 4001-4004.
+              For Modbus TCP gateways and native TCP devices. Standard port is 502.
+            </p>
+          </div>
+        <% end %>
+
+        <%!-- RTU-over-TCP fields --%>
+        <%= if @selected_protocol == "rtu_over_tcp" do %>
+          <div class="mt-4 p-4 bg-orange-50 rounded-lg">
+            <h3 class="text-sm font-semibold text-orange-700 mb-3">RTU-over-TCP Settings</h3>
+            <div class="flex gap-2">
+              <div class="w-2/3">
+                <.input
+                  field={@form[:ip_address]}
+                  type="text"
+                  label="IP Address"
+                  placeholder="192.168.1.100"
+                />
+              </div>
+              <div class="w-1/3">
+                <.input
+                  field={@form[:tcp_port]}
+                  type="number"
+                  label="TCP Port"
+                  placeholder="4001"
+                />
+              </div>
+            </div>
+            <p class="mt-2 text-xs text-orange-600">
+              For raw serial servers (Anybus, USR-TCP232, etc.) that bridge TCP to RS485 without protocol conversion.
             </p>
           </div>
         <% end %>

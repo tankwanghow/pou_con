@@ -21,6 +21,7 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
   - `"uint32"` - Unsigned 32-bit (2 registers)
   - `"int32"` - Signed 32-bit (2 registers)
   - `"float32"` - IEEE 754 float (2 registers)
+  - `"uint64"` - Unsigned 64-bit (4 registers)
 
   ## Device Configuration
 
@@ -80,9 +81,9 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
 
   # Modbus RTU/TCP - Input Registers
   def read_analog_input(conn, protocol, slave_id, register, data_type_or_opts)
-      when protocol in [:modbus_rtu, :modbus_tcp] do
+      when protocol in [:modbus_rtu, :modbus_tcp, :rtu_over_tcp] do
     {data_type, byte_order} = normalize_type_and_order(data_type_or_opts)
-    read_modbus_register(conn, :input, slave_id, register, data_type, byte_order)
+    read_modbus_register(conn, protocol, :input, slave_id, register, data_type, byte_order)
   end
 
   # S7 - Peripheral Input Word
@@ -100,9 +101,9 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
   def read_analog_output(conn, protocol, slave_id, register, data_type_or_opts \\ :uint16)
 
   def read_analog_output(conn, protocol, slave_id, register, data_type_or_opts)
-      when protocol in [:modbus_rtu, :modbus_tcp] do
+      when protocol in [:modbus_rtu, :modbus_tcp, :rtu_over_tcp] do
     {data_type, byte_order} = normalize_type_and_order(data_type_or_opts)
-    read_modbus_register(conn, :holding, slave_id, register, data_type, byte_order)
+    read_modbus_register(conn, protocol, :holding, slave_id, register, data_type, byte_order)
   end
 
   def read_analog_output(conn, :s7, _slave_id, word_address, data_type_or_opts) do
@@ -146,9 +147,9 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
         {:set_value, %{value: value}},
         data_type_or_opts
       )
-      when protocol in [:modbus_rtu, :modbus_tcp] do
+      when protocol in [:modbus_rtu, :modbus_tcp, :rtu_over_tcp] do
     {data_type, byte_order} = normalize_type_and_order(data_type_or_opts)
-    write_modbus_register(conn, slave_id, register, value, data_type, byte_order)
+    write_modbus_register(conn, protocol, slave_id, register, value, data_type, byte_order)
   end
 
   def write_analog_output(
@@ -209,10 +210,10 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
   # Modbus Implementation
   # ------------------------------------------------------------------ #
 
-  defp read_modbus_register(conn, register_type, slave_id, register, data_type, byte_order) do
+  defp read_modbus_register(conn, protocol, register_type, slave_id, register, data_type, byte_order) do
     {cmd, _count} = modbus_read_params(register_type, data_type, slave_id, register)
 
-    case PouCon.Utils.Modbus.request(conn, cmd) do
+    case PouCon.Utils.Modbus.request(conn, cmd, protocol) do
       {:ok, values} ->
         decoded = decode_modbus_value(values, data_type, byte_order)
         {:ok, %{value: decoded, raw: decoded}}
@@ -228,19 +229,27 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
     {{cmd_atom, slave_id, register, count}, count}
   end
 
-  defp write_modbus_register(conn, slave_id, register, value, data_type, byte_order) do
+  defp write_modbus_register(conn, protocol, slave_id, register, value, data_type, byte_order) do
     encoded = encode_modbus_value(value, data_type, byte_order)
 
     case encoded do
       [single] ->
-        case PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register, single}) do
+        case PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register, single}, protocol) do
           :ok -> {:ok, :success}
           error -> error
         end
 
       [word1, word2] ->
-        with :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register, word1}),
-             :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register + 1, word2}) do
+        with :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register, word1}, protocol),
+             :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register + 1, word2}, protocol) do
+          {:ok, :success}
+        end
+
+      [w1, w2, w3, w4] ->
+        with :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register, w1}, protocol),
+             :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register + 1, w2}, protocol),
+             :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register + 2, w3}, protocol),
+             :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register + 3, w4}, protocol) do
           {:ok, :success}
         end
 
@@ -290,6 +299,7 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
   defp register_count(:uint32), do: 2
   defp register_count(:int32), do: 2
   defp register_count(:float32), do: 2
+  defp register_count(:uint64), do: 4
   defp register_count(_), do: 1
 
   # Modbus decoding (list of 16-bit values)
@@ -345,6 +355,17 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
     rescue
       _ -> nil
     end
+  end
+
+  # 64-bit unsigned values (4 registers) - for energy meters
+  @doc false
+  def decode_modbus_value([w1, w2, w3, w4], :uint64, "high_low") do
+    Bitwise.bsl(w1, 48) + Bitwise.bsl(w2, 32) + Bitwise.bsl(w3, 16) + w4
+  end
+
+  @doc false
+  def decode_modbus_value([w1, w2, w3, w4], :uint64, "low_high") do
+    Bitwise.bsl(w4, 48) + Bitwise.bsl(w3, 32) + Bitwise.bsl(w2, 16) + w1
   end
 
   # Fallback
@@ -413,6 +434,31 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
     rescue
       _ -> {:error, :encoding_failed}
     end
+  end
+
+  # 64-bit unsigned encode
+  @doc false
+  def encode_modbus_value(value, :uint64, "high_low") when is_number(value) do
+    v = round(value)
+
+    [
+      Bitwise.bsr(v, 48) |> Bitwise.band(0xFFFF),
+      Bitwise.bsr(v, 32) |> Bitwise.band(0xFFFF),
+      Bitwise.bsr(v, 16) |> Bitwise.band(0xFFFF),
+      Bitwise.band(v, 0xFFFF)
+    ]
+  end
+
+  @doc false
+  def encode_modbus_value(value, :uint64, "low_high") when is_number(value) do
+    v = round(value)
+
+    [
+      Bitwise.band(v, 0xFFFF),
+      Bitwise.bsr(v, 16) |> Bitwise.band(0xFFFF),
+      Bitwise.bsr(v, 32) |> Bitwise.band(0xFFFF),
+      Bitwise.bsr(v, 48) |> Bitwise.band(0xFFFF)
+    ]
   end
 
   # Fallback

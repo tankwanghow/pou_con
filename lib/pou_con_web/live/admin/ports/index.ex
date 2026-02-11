@@ -131,6 +131,10 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
         <span class="px-2 py-1 text-xs font-bold rounded bg-purple-500/20 text-purple-500 border border-purple-500/30">
           Modbus TCP
         </span>
+      <% "rtu_over_tcp" -> %>
+        <span class="px-2 py-1 text-xs font-bold rounded bg-orange-500/20 text-orange-500 border border-orange-500/30">
+          RTU/TCP
+        </span>
       <% "s7" -> %>
         <span class="px-2 py-1 text-xs font-bold rounded bg-blue-500/20 text-blue-500 border border-blue-500/30">
           Siemens S7
@@ -156,6 +160,8 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
         <div class="font-mono">{@port.device_path}</div>
       <% "modbus_tcp" -> %>
         <div class="font-mono">{@port.ip_address}:{@port.tcp_port}</div>
+      <% "rtu_over_tcp" -> %>
+        <div class="font-mono">{@port.ip_address}:{@port.tcp_port}</div>
       <% "s7" -> %>
         <div class="font-mono">{@port.ip_address}</div>
       <% "virtual" -> %>
@@ -175,6 +181,8 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
         <div>{@port.speed} baud</div>
         <div>{@port.parity}/{@port.data_bits}/{@port.stop_bits}</div>
       <% "modbus_tcp" -> %>
+        <div>Port: {@port.tcp_port}</div>
+      <% "rtu_over_tcp" -> %>
         <div>Port: {@port.tcp_port}</div>
       <% "s7" -> %>
         <div>Rack: {@port.s7_rack || 0}</div>

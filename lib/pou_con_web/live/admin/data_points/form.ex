@@ -197,7 +197,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
                       field={@form[:value_type]}
                       type="text"
                       label="Data Type"
-                      placeholder="int16, uint16, uint32"
+                      placeholder="int16, uint16, uint32, uint64"
                     />
                   </div>
                   <div class="w-1/5">

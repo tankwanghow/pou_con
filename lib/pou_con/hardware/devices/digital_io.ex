@@ -62,11 +62,11 @@ defmodule PouCon.Hardware.Devices.DigitalIO do
   def read_digital_input(conn, protocol, slave_id, register, channel \\ nil)
 
   def read_digital_input(conn, protocol, slave_id, register, channel)
-      when protocol in [:modbus_rtu, :modbus_tcp] do
+      when protocol in [:modbus_rtu, :modbus_tcp, :rtu_over_tcp] do
     # Calculate actual address: register is base, channel is 1-indexed
     address = if channel, do: register * 8 + (channel - 1), else: register
 
-    case PouCon.Utils.Modbus.request(conn, {:ri, slave_id, address, 1}) do
+    case PouCon.Utils.Modbus.request(conn, {:ri, slave_id, address, 1}, protocol) do
       {:ok, [value]} ->
         {:ok, %{state: value}}
 
@@ -99,11 +99,11 @@ defmodule PouCon.Hardware.Devices.DigitalIO do
   def read_digital_output(conn, protocol, slave_id, register, channel \\ nil)
 
   def read_digital_output(conn, protocol, slave_id, register, channel)
-      when protocol in [:modbus_rtu, :modbus_tcp] do
+      when protocol in [:modbus_rtu, :modbus_tcp, :rtu_over_tcp] do
     # Calculate actual address: register is base, channel is 1-indexed
     address = if channel, do: register * 8 + (channel - 1), else: register
 
-    case PouCon.Utils.Modbus.request(conn, {:rc, slave_id, address, 1}) do
+    case PouCon.Utils.Modbus.request(conn, {:rc, slave_id, address, 1}, protocol) do
       {:ok, [value]} ->
         {:ok, %{state: value}}
 
@@ -155,11 +155,11 @@ defmodule PouCon.Hardware.Devices.DigitalIO do
         {:set_state, %{state: value}},
         channel
       )
-      when protocol in [:modbus_rtu, :modbus_tcp] and value in [0, 1] do
+      when protocol in [:modbus_rtu, :modbus_tcp, :rtu_over_tcp] and value in [0, 1] do
     # Calculate actual coil address
     address = if channel, do: register * 8 + (channel - 1), else: register
 
-    case PouCon.Utils.Modbus.request(conn, {:fc, slave_id, address, value}) do
+    case PouCon.Utils.Modbus.request(conn, {:fc, slave_id, address, value}, protocol) do
       :ok ->
         {:ok, :success}
 

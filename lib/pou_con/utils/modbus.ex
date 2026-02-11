@@ -30,6 +30,26 @@ defmodule PouCon.Utils.Modbus do
     adapter().request(pid, cmd)
   end
 
+  def request(pid, cmd, :modbus_tcp) do
+    tcp_adapter().request(pid, cmd)
+  end
+
+  def request(pid, cmd, :rtu_over_tcp) do
+    rtu_over_tcp_adapter().request(pid, cmd)
+  end
+
+  def request(pid, cmd, _protocol) do
+    adapter().request(pid, cmd)
+  end
+
+  defp tcp_adapter do
+    Application.get_env(:pou_con, :modbus_tcp_adapter, PouCon.Hardware.Modbus.TcpAdapter)
+  end
+
+  defp rtu_over_tcp_adapter do
+    Application.get_env(:pou_con, :rtu_over_tcp_adapter, PouCon.Hardware.Modbus.RtuOverTcpAdapter)
+  end
+
   def close(pid) do
     adapter().close(pid)
   end

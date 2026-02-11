@@ -952,6 +952,7 @@ defmodule PouCon.Hardware.DataPointManager do
   defp parse_value_type("int32"), do: :int32
   defp parse_value_type("uint32"), do: :uint32
   defp parse_value_type("float32"), do: :float32
+  defp parse_value_type("uint64"), do: :uint64
   defp parse_value_type(_), do: :uint16
 
   # Call I/O read function
@@ -1043,6 +1044,7 @@ defmodule PouCon.Hardware.DataPointManager do
   # Helper to get protocol atom from string
   defp protocol_atom("modbus_rtu"), do: :modbus_rtu
   defp protocol_atom("modbus_tcp"), do: :modbus_tcp
+  defp protocol_atom("rtu_over_tcp"), do: :rtu_over_tcp
   defp protocol_atom("s7"), do: :s7
   defp protocol_atom("virtual"), do: :virtual
   defp protocol_atom(_), do: :modbus_rtu

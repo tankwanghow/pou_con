@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**PouCon** is an industrial automation and control system for poultry farms built with Elixir and Phoenix LiveView. It provides real-time hardware monitoring and control for poultry farm equipment through Modbus RTU/TCP protocol communication. The system runs on embedded hardware (Raspberry Pi) with SQLite database for persistence.
+**PouCon** is an industrial automation and control system for poultry farms built with Elixir and Phoenix LiveView. It provides real-time hardware monitoring and control for poultry farm equipment through Modbus RTU, Modbus TCP, RTU-over-TCP, and Siemens S7 protocol communication. The system runs on embedded hardware (Raspberry Pi) with SQLite database for persistence.
 
 ## Common Commands
 
@@ -181,12 +181,24 @@ Controllers are registered in the Registry under their name and can be accessed 
 
 The system uses a behaviour-based adapter pattern for hardware communication:
 
-- **Production**: `PouCon.Hardware.Modbus.RtuAdapter` - actual Modbus RTU
+- **Modbus RTU**: `PouCon.Hardware.Modbus.RtuAdapter` - RS485 serial via `circuits_uart`
+- **Modbus TCP**: `PouCon.Hardware.Modbus.TcpAdapter` - Modbus TCP protocol (MBAP header) for gateways and native TCP devices
+- **RTU-over-TCP**: `PouCon.Hardware.Modbus.RtuOverTcpAdapter` - Modbus RTU frames over raw TCP socket for serial servers (e.g., Anybus AB7701)
 - **Development/Test**: `PouCon.Hardware.Modbus.SimulatedAdapter` - in-memory simulation
 
 Adapter selection is controlled by `SIMULATE_DEVICES=1` environment variable (see `config/config.exs`).
 
-The DeviceManager polls devices every 1 second and maintains an ETS cache (`:device_cache`) that controllers query for current state.
+**Modbus TCP Hardware Types** (important for purchasing decisions):
+
+| Hardware Type | PouCon Protocol | What It Does |
+|---|---|---|
+| **Modbus TCP Gateway** (e.g., Waveshare RS485-to-ETH, MOXA MGate) | `modbus_tcp` | Converts Modbus TCP ↔ RTU automatically |
+| **Native Modbus TCP Device** (e.g., Ethernet PLCs) | `modbus_tcp` | Speaks Modbus TCP directly, no serial port |
+| **Raw Serial Server** (e.g., Anybus SS, USR-TCP232) | `rtu_over_tcp` | Transparent TCP-to-serial bridge, NO protocol conversion |
+
+When buying Modbus-over-Ethernet hardware, look for products labeled **"Modbus TCP to RTU Gateway"** or **"Modbus Protocol Converter"** to use with `modbus_tcp`. Products labeled **"Serial Server"** or **"Serial Device Server"** require `rtu_over_tcp`.
+
+The DeviceManager maintains an ETS cache (`:data_point_cache`) that controllers query for current state.
 
 ### Protocol Flexibility and Multi-Protocol Support
 
@@ -203,14 +215,16 @@ The hardware abstraction layer provides complete isolation:
 
 #### Protocol Support Matrix
 
+**Already Implemented:**
+
+1. **Modbus RTU** - RS485 serial, the baseline protocol
+2. **Modbus TCP** - Ethernet transport with MBAP header framing (for gateways and native TCP devices)
+3. **RTU-over-TCP** - RTU frames over raw TCP socket (for serial servers like Anybus SS, USR-TCP232)
+4. **Siemens S7** - S7comm protocol over TCP/IP (for ET200SP, S7-1200/1500 PLCs)
+
 **Minimal Changes (1-2 days, adapter only):**
 
-1. **Modbus TCP/IP** - Ethernet transport, same registers as RTU
-   - Change: Add TCP adapter, update port schema to support IP addresses
-   - Physical: Ethernet cables replace RS485
-   - Benefits: Faster, more devices, easier wiring
-
-2. **Modbus ASCII** - RS232/RS485, ASCII hex framing
+1. **Modbus ASCII** - RS232/RS485, ASCII hex framing
    - Change: New adapter using ASCII framing library
    - Physical: Same RS485 wiring as current RTU
    - Benefits: Human-readable frames for debugging
@@ -275,52 +289,47 @@ The hardware abstraction layer provides complete isolation:
 
 #### Physical Layer Comparison
 
-| Wiring Type | Distance | Devices | Speed | Change Effort | Use Case |
-|-------------|----------|---------|-------|---------------|----------|
-| RS485 (current) | 1200m | 32-247 | 115 kbps | N/A | Current Modbus RTU |
-| Ethernet | 100m | Unlimited | 1 Gbps | Minimal | Modbus TCP, OPC UA |
-| GPIO | 0.1m | ~20 | Instant | Minimal | Direct Pi control |
-| WiFi | 50m | 254 | 600 Mbps | Moderate | IoT devices, REST APIs |
-| CANbus | 1000m | 32 | 1 Mbps | Moderate | Agriculture equipment |
-| LoRa | 10km | 1000s | 50 kbps | Significant | Remote sensors |
+| Wiring Type | Distance | Devices | Speed | Status | Use Case |
+|-------------|----------|---------|-------|--------|----------|
+| RS485 | 1200m | 32-247 | 115 kbps | **Done** | Modbus RTU (direct serial) |
+| Ethernet (MBAP) | 100m | Unlimited | 1 Gbps | **Done** | Modbus TCP gateways/native devices |
+| Ethernet (RTU) | 100m | Unlimited | 1 Gbps | **Done** | RTU-over-TCP via serial servers |
+| Ethernet (S7) | 100m | Unlimited | 1 Gbps | **Done** | Siemens S7 PLCs |
+| GPIO | 0.1m | ~20 | Instant | Planned | Direct Pi control |
+| WiFi | 50m | 254 | 600 Mbps | Planned | IoT devices, REST APIs |
+| CANbus | 1000m | 32 | 1 Mbps | Planned | Agriculture equipment |
+| LoRa | 10km | 1000s | 50 kbps | Planned | Remote sensors |
 
 #### Multi-Protocol Deployment Strategy
 
 The system can run **multiple protocols simultaneously**:
 
 ```elixir
-# config/config.exs - Multiple adapters configured
-config :pou_con, :adapters, %{
-  modbus_rtu: PouCon.Hardware.Modbus.RtuAdapter,
-  modbus_tcp: PouCon.Hardware.Modbus.TcpAdapter,
-  gpio: PouCon.Hardware.GPIO.Adapter,
-  http: PouCon.Hardware.HTTP.Adapter,
-  opcua: PouCon.Hardware.OpcUa.Adapter
-}
+# config/config.exs - Adapter selection (real vs simulated)
+# Non-simulated mode uses these defaults:
+#   modbus_adapter      → RtuAdapter      (RS485 serial)
+#   modbus_tcp_adapter  → TcpAdapter      (Modbus TCP with MBAP)
+#   rtu_over_tcp_adapter → RtuOverTcpAdapter (RTU frames over TCP)
+#   s7_adapter          → S7.Adapter      (Siemens S7comm)
 
-# Database schema supports protocol selection per port
-schema "ports" do
-  field :protocol, :string  # "modbus_rtu", "modbus_tcp", "gpio", etc.
-  field :device_path, :string  # for serial protocols
-  field :ip_address, :string   # for network protocols
-  field :tcp_port, :integer    # for TCP protocols
-  # ... protocol-specific fields
-end
-
-# PortSupervisor routes to correct adapter
+# PortSupervisor routes to the correct adapter per port protocol
 def start_connection(port) do
-  adapter = get_adapter_for_protocol(port.protocol)
-  opts = build_protocol_specific_opts(port)
-  adapter.start_link(opts)
+  case port.protocol do
+    "modbus_rtu"   -> start_modbus_master(port)   # RS485 serial
+    "modbus_tcp"   -> start_modbus_tcp(port)       # MBAP over TCP
+    "rtu_over_tcp" -> start_rtu_over_tcp(port)     # RTU frames over TCP
+    "s7"           -> start_s7_connection(port)     # S7comm
+    "virtual"      -> {:ok, nil}                    # DB-backed simulation
+  end
 end
 ```
 
-**Example Multi-Protocol Setup:**
-- RS485 Modbus RTU for legacy PLCs (fans, pumps)
-- Modbus TCP for new Ethernet-connected PLCs
-- GPIO for simple relays and lights
-- HTTP REST for WiFi temperature sensors
-- All managed by the same DeviceManager, all equipment controllers unchanged
+**Example Multi-Protocol Setup (currently working):**
+- RS485 Modbus RTU for Waveshare digital I/O modules and direct sensors
+- Modbus TCP for Modbus TCP gateways and native TCP devices
+- RTU-over-TCP for sensors/devices connected via raw serial servers (Anybus, USR-TCP232)
+- Siemens S7 for ET200SP and S7-1200/1500 PLCs
+- All managed by the same DataPointManager, all equipment controllers unchanged
 
 #### Impact of Protocol Changes
 
@@ -341,19 +350,21 @@ end
 
 Based on poultry farm use case and implementation effort:
 
-1. **Modbus TCP** (Highest Priority)
-   - Effort: 1 day
-   - Benefit: Modern PLCs, faster, easier wiring
+1. ~~**Modbus TCP**~~ — **Done.** `TcpAdapter` for gateways/native devices
+2. ~~**RTU-over-TCP**~~ — **Done.** `RtuOverTcpAdapter` for raw serial servers
+3. ~~**Siemens S7**~~ — **Done.** `S7.Adapter` for ET200SP and S7-1200/1500
 
-2. **GPIO** (Simple Devices)
+**Next priorities:**
+
+1. **GPIO** (Simple Devices)
    - Effort: 1 day
    - Benefit: Direct Pi control, zero cost, instant response
 
-3. **HTTP/REST** (IoT Integration)
+2. **HTTP/REST** (IoT Integration)
    - Effort: 2 days
    - Benefit: WiFi sensors, vendor integration, modern devices
 
-4. **OPC UA** (Enterprise PLCs)
+3. **OPC UA** (Enterprise PLCs)
    - Effort: 5 days
    - Benefit: Industry standard, secure, future-proof
 
@@ -479,7 +490,7 @@ For auto-control and schedulers, use metadata to include context:
 
 Equipment → Device Tree → Devices → Ports
 
-1. **Port**: Serial port or TCP connection (e.g., `/dev/ttyUSB0`, `192.168.1.100:502`)
+1. **Port**: Serial port or TCP connection (e.g., `/dev/ttyUSB0`, `tcp://192.168.1.100:502`, `tcp://192.168.1.100:2001`)
 2. **Device**: Modbus slave at specific address with register mappings
 3. **Device Tree**: JSON structure defining equipment's I/O components
 4. **Equipment**: High-level entity (fan_1, pump_2) with type and title
@@ -671,9 +682,26 @@ LiveView pages use function components from `lib/pou_con_web/components/` for re
 
 - Designed for Raspberry Pi or similar embedded Linux systems
 - Expects serial ports at `/dev/ttyUSB*` for Modbus RTU
-- Supports Modbus TCP for network-connected devices
+- Supports Modbus TCP for gateways and native TCP devices (default port 502)
+- Supports RTU-over-TCP for raw serial servers (e.g., Anybus AB7701, USR-TCP232) — sends RTU frames with CRC16 over TCP socket
+- Supports Siemens S7 for ET200SP and S7-1200/1500 PLCs (default port 102)
 - Phoenix runs on port 4000 (configurable via `PORT` env var)
 - Use `MIX_ENV=prod mix release` for production builds
 - Database and logs persist across restarts
 - **System Time Management**: Run `sudo bash setup_sudo.sh` once during deployment to enable web-based time setting (required for RTC battery failure recovery)
 - I am using https://www.waveshare.com/wiki/Modbus_RTU_IO_8CH as my digital IO module, https://my.cytron.io/c-sensors-connectivities/p-industrial-grade-rs485-temperature-humidity-sensor as my sensor, the electrical panel with relays, contactors, poultry house limit switch, motors and power supply are provided by contractor. My job is to read data from field and send on/off signal to the relay using my Digital IO module.
+
+### Supported Communication Protocols
+
+| Protocol | Port Config | Use Case | Adapter |
+|---|---|---|---|
+| `modbus_rtu` | device_path, speed, parity | RS485 serial devices (Waveshare IO, sensors) | `RtuAdapter` |
+| `modbus_tcp` | ip_address, tcp_port (default 502) | Modbus TCP gateways, native TCP devices | `TcpAdapter` |
+| `rtu_over_tcp` | ip_address, tcp_port (e.g., 2001) | Raw serial servers (Anybus SS, USR-TCP232) | `RtuOverTcpAdapter` |
+| `s7` | ip_address, s7_rack, s7_slot | Siemens ET200SP, S7-1200/1500 PLCs | `S7.Adapter` |
+| `virtual` | (none) | DB-backed simulation for testing | `SimulatedAdapter` |
+
+**Choosing between `modbus_tcp` and `rtu_over_tcp`:**
+- If the Ethernet device **converts** Modbus TCP ↔ RTU (labeled "gateway" or "protocol converter") → use `modbus_tcp`
+- If the Ethernet device **passes bytes through** without conversion (labeled "serial server" or "serial device server") → use `rtu_over_tcp`
+- If the device **speaks Modbus TCP natively** (no serial port on the device) → use `modbus_tcp`

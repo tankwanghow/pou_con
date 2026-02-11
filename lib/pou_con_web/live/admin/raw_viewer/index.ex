@@ -119,7 +119,7 @@ defmodule PouConWeb.Live.Admin.RawViewer.Index do
           </div>
 
           <%!-- Protocol-specific fields --%>
-          <%= if @selected_protocol == "modbus_rtu" do %>
+          <%= if @selected_protocol in ["modbus_rtu", "modbus_tcp", "rtu_over_tcp"] do %>
             <div class="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg space-y-4">
               <h3 class="text-lg font-semibold">Modbus Settings</h3>
               <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -276,11 +276,11 @@ defmodule PouConWeb.Live.Admin.RawViewer.Index do
               </span>
             </h3>
 
-            <%= if @selected_protocol == "modbus_rtu" and @function_code in ["fc01", "fc02"] do %>
+            <%= if @selected_protocol in ["modbus_rtu", "modbus_tcp", "rtu_over_tcp"] and @function_code in ["fc01", "fc02"] do %>
               <.modbus_bit_table results={@results} start_address={@start_address} />
             <% end %>
 
-            <%= if @selected_protocol == "modbus_rtu" and @function_code in ["fc03", "fc04"] do %>
+            <%= if @selected_protocol in ["modbus_rtu", "modbus_tcp", "rtu_over_tcp"] and @function_code in ["fc03", "fc04"] do %>
               <.modbus_register_table results={@results} start_address={@start_address} />
             <% end %>
 
@@ -511,7 +511,8 @@ defmodule PouConWeb.Live.Admin.RawViewer.Index do
 
   defp validate_and_read(%{selected_port: nil}), do: {:error, "No port selected"}
 
-  defp validate_and_read(%{selected_protocol: "modbus_rtu"} = assigns) do
+  defp validate_and_read(%{selected_protocol: protocol} = assigns)
+       when protocol in ["modbus_rtu", "modbus_tcp", "rtu_over_tcp"] do
     %{
       selected_port: device_path,
       slave_id: slave_id,
@@ -536,7 +537,7 @@ defmodule PouConWeb.Live.Admin.RawViewer.Index do
         {:error, "Maximum 2000 coils per read (FC01/FC02)"}
 
       true ->
-        do_modbus_read(device_path, slave_id, fc, start_addr, count)
+        do_modbus_read(device_path, slave_id, fc, start_addr, count, protocol)
     end
   end
 
@@ -566,7 +567,7 @@ defmodule PouConWeb.Live.Admin.RawViewer.Index do
 
   defp validate_and_read(_), do: {:error, "Unknown protocol"}
 
-  defp do_modbus_read(device_path, slave_id, fc, start_addr, count) do
+  defp do_modbus_read(device_path, slave_id, fc, start_addr, count, protocol) do
     with {:ok, pid} <- get_connection_pid(device_path) do
       cmd =
         case fc do
@@ -576,7 +577,8 @@ defmodule PouConWeb.Live.Admin.RawViewer.Index do
           "fc04" -> {:rir, slave_id, start_addr, count}
         end
 
-      task = Task.async(fn -> PouCon.Utils.Modbus.request(pid, cmd) end)
+      protocol_atom = String.to_existing_atom(protocol)
+      task = Task.async(fn -> PouCon.Utils.Modbus.request(pid, cmd, protocol_atom) end)
 
       case Task.yield(task, 5_000) || Task.shutdown(task) do
         {:ok, {:ok, values}} when is_list(values) ->
@@ -660,10 +662,14 @@ defmodule PouConWeb.Live.Admin.RawViewer.Index do
   defp to_signed_16(value), do: value
 
   defp protocol_label("modbus_rtu"), do: "Modbus RTU"
+  defp protocol_label("modbus_tcp"), do: "Modbus TCP"
+  defp protocol_label("rtu_over_tcp"), do: "RTU over TCP"
   defp protocol_label("s7"), do: "Siemens S7"
   defp protocol_label(other), do: other
 
   defp protocol_badge_color("modbus_rtu"), do: "bg-blue-500/20 text-blue-600"
+  defp protocol_badge_color("modbus_tcp"), do: "bg-cyan-500/20 text-cyan-600"
+  defp protocol_badge_color("rtu_over_tcp"), do: "bg-orange-500/20 text-orange-600"
   defp protocol_badge_color("s7"), do: "bg-purple-500/20 text-purple-600"
   defp protocol_badge_color(_), do: "bg-gray-500/20 text-gray-500"
 
