@@ -118,6 +118,19 @@ defmodule PouConWeb.Components.Summaries.FeedingSummaryComponent do
     }
   end
 
+  defp calculate_display_data(%{error: :not_running}) do
+    %{
+      is_error: false,
+      is_moving: false,
+      mode: :auto,
+      state_text: "OFFLINE",
+      at_front: false,
+      at_back: false,
+      color: "gray",
+      target_limit: nil
+    }
+  end
+
   defp calculate_display_data(status) do
     {color, text} =
       cond do
@@ -157,6 +170,19 @@ defmodule PouConWeb.Components.Summaries.FeedingSummaryComponent do
   end
 
   defp calculate_feed_in_display_data(%{error: :invalid_data}) do
+    %{
+      is_error: false,
+      is_moving: false,
+      mode: :auto,
+      state_text: "OFFLINE",
+      at_front: false,
+      at_back: false,
+      color: "gray",
+      target_limit: nil
+    }
+  end
+
+  defp calculate_feed_in_display_data(%{error: :not_running}) do
     %{
       is_error: false,
       is_moving: false,

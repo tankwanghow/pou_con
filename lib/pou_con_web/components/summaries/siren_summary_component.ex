@@ -125,6 +125,19 @@ defmodule PouConWeb.Components.Summaries.SirenSummaryComponent do
     }
   end
 
+  defp calculate_display_data(%{error: :not_running}, _is_muted) do
+    %{
+      is_offline: true,
+      is_error: true,
+      is_running: false,
+      is_muted: false,
+      mode: :auto,
+      state_text: "OFFLINE",
+      color: "gray",
+      anim_class: ""
+    }
+  end
+
   defp calculate_display_data(status, is_muted) do
     is_running = status.is_running
     has_error = not is_nil(status.error)

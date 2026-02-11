@@ -68,6 +68,18 @@ defmodule PouConWeb.Components.Summaries.EggSummaryComponent do
     }
   end
 
+  defp calculate_display_data(%{error: :not_running}) do
+    %{
+      is_offline: true,
+      is_error: false,
+      is_running: false,
+      mode: :auto,
+      state_text: "OFFLINE",
+      color: "gray",
+      anim_class: ""
+    }
+  end
+
   defp calculate_display_data(status) do
     is_running = status.is_running
     has_error = not is_nil(status.error)

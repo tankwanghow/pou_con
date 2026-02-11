@@ -117,6 +117,17 @@ defmodule PouConWeb.Components.Summaries.DungSummaryComponent do
     }
   end
 
+  defp calculate_dung_display_data(%{error: :not_running}, _) do
+    %{
+      is_offline: true,
+      is_error: false,
+      is_running: false,
+      state_text: "OFFLINE",
+      color: "gray",
+      anim_class: ""
+    }
+  end
+
   defp calculate_dung_display_data(status, animation) do
     is_running = status.is_running
     has_error = not is_nil(status.error)

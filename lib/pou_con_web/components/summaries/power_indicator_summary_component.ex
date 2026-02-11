@@ -79,6 +79,16 @@ defmodule PouConWeb.Components.Summaries.PowerIndicatorSummaryComponent do
     }
   end
 
+  defp calculate_display_data(%{error: :not_running}) do
+    %{
+      is_offline: true,
+      is_error: true,
+      is_on: false,
+      state_text: "OFFLINE",
+      color: "gray"
+    }
+  end
+
   defp calculate_display_data(status) do
     is_on = Map.get(status, :is_on, false)
     has_error = not is_nil(status.error)
