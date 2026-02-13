@@ -176,10 +176,10 @@ defmodule PouCon.Hardware.DataPointManager do
   def get_port_statuses, do: GenServer.call(__MODULE__, :get_port_statuses)
 
   @doc """
-  Manually reconnect a disconnected port.
-  Only works for ports with status :disconnected or :error.
+  Reload a single port: stop existing connection, restart it, and clear error history.
+  Works regardless of current port status (connected, disconnected, or error).
   """
-  def reconnect_port(device_path), do: GenServer.call(__MODULE__, {:reconnect_port, device_path})
+  def reload_port(device_path), do: GenServer.call(__MODULE__, {:reload_port, device_path})
 
   # ------------------------------------------------------------------ #
   # Port & Device Management
@@ -512,23 +512,42 @@ defmodule PouCon.Hardware.DataPointManager do
   end
 
   @impl GenServer
-  def handle_call({:reconnect_port, device_path}, _from, state) do
+  def handle_call({:reload_port, device_path}, _from, state) do
     case Map.get(state.ports, device_path) do
       nil ->
         {:reply, {:error, :not_found}, state}
 
-      %RuntimePort{status: :connected, connection_pid: pid} when pid != nil ->
-        {:reply, {:error, :already_connected}, state}
+      %RuntimePort{protocol: "virtual"} ->
+        {:reply, {:error, :virtual_port}, state}
 
       %RuntimePort{db_port: nil} ->
         {:reply, {:error, :no_db_port}, state}
 
       %RuntimePort{db_port: db_port} = port ->
-        Logger.info("[DataPointManager] Attempting to reconnect port #{device_path}")
+        Logger.info("[DataPointManager] Reloading port #{device_path}")
 
+        # Stop existing connection if alive
+        if port.connection_pid do
+          PouCon.Hardware.PortSupervisor.stop_connection(port.connection_pid, port.protocol)
+        end
+
+        # Small delay to allow OS to release the port
+        Process.sleep(500)
+
+        # Clear skipped_slaves and failure_counts for this port
+        new_skipped =
+          state.skipped_slaves
+          |> Enum.reject(fn {path, _sid} -> path == device_path end)
+          |> MapSet.new()
+
+        new_counts =
+          state.failure_counts
+          |> Enum.reject(fn {{path, _sid}, _count} -> path == device_path end)
+          |> Map.new()
+
+        # Restart connection
         case PouCon.Hardware.PortSupervisor.start_connection(db_port) do
           {:ok, pid} ->
-            # Monitor the new connection
             ref = if pid, do: Process.monitor(pid), else: nil
 
             new_port = %RuntimePort{
@@ -539,22 +558,36 @@ defmodule PouCon.Hardware.DataPointManager do
                 error_reason: nil
             }
 
-            new_state = %{state | ports: Map.put(state.ports, device_path, new_port)}
-            Logger.info("[DataPointManager] Port #{device_path} reconnected successfully")
-            {:reply, {:ok, :reconnected}, new_state}
+            new_state = %{
+              state
+              | ports: Map.put(state.ports, device_path, new_port),
+                skipped_slaves: new_skipped,
+                failure_counts: new_counts
+            }
+
+            Logger.info("[DataPointManager] Port #{device_path} reloaded successfully")
+            {:reply, {:ok, :reloaded}, new_state}
 
           {:error, reason} ->
             Logger.error(
-              "[DataPointManager] Failed to reconnect port #{device_path}: #{inspect(reason)}"
+              "[DataPointManager] Failed to reload port #{device_path}: #{inspect(reason)}"
             )
 
             new_port = %RuntimePort{
               port
-              | status: :error,
+              | connection_pid: nil,
+                monitor_ref: nil,
+                status: :error,
                 error_reason: inspect(reason)
             }
 
-            new_state = %{state | ports: Map.put(state.ports, device_path, new_port)}
+            new_state = %{
+              state
+              | ports: Map.put(state.ports, device_path, new_port),
+                skipped_slaves: new_skipped,
+                failure_counts: new_counts
+            }
+
             {:reply, {:error, reason}, new_state}
         end
     end

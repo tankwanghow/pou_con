@@ -210,7 +210,15 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
   # Modbus Implementation
   # ------------------------------------------------------------------ #
 
-  defp read_modbus_register(conn, protocol, register_type, slave_id, register, data_type, byte_order) do
+  defp read_modbus_register(
+         conn,
+         protocol,
+         register_type,
+         slave_id,
+         register,
+         data_type,
+         byte_order
+       ) do
     {cmd, _count} = modbus_read_params(register_type, data_type, slave_id, register)
 
     case PouCon.Utils.Modbus.request(conn, cmd, protocol) do
@@ -241,15 +249,19 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
 
       [word1, word2] ->
         with :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register, word1}, protocol),
-             :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register + 1, word2}, protocol) do
+             :ok <-
+               PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register + 1, word2}, protocol) do
           {:ok, :success}
         end
 
       [w1, w2, w3, w4] ->
         with :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register, w1}, protocol),
-             :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register + 1, w2}, protocol),
-             :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register + 2, w3}, protocol),
-             :ok <- PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register + 3, w4}, protocol) do
+             :ok <-
+               PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register + 1, w2}, protocol),
+             :ok <-
+               PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register + 2, w3}, protocol),
+             :ok <-
+               PouCon.Utils.Modbus.request(conn, {:phr, slave_id, register + 3, w4}, protocol) do
           {:ok, :success}
         end
 

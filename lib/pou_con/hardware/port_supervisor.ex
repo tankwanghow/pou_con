@@ -114,7 +114,9 @@ defmodule PouCon.Hardware.PortSupervisor do
   # ------------------------------------------------------------------ #
 
   def start_modbus_tcp(port) do
-    Logger.info("[PortSupervisor] Starting Modbus TCP connection to #{port.ip_address}:#{port.tcp_port}")
+    Logger.info(
+      "[PortSupervisor] Starting Modbus TCP connection to #{port.ip_address}:#{port.tcp_port}"
+    )
 
     if simulated?() do
       # In simulation mode, use the same delegation layer as RTU —

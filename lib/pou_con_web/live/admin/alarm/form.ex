@@ -222,7 +222,10 @@ defmodule PouConWeb.Live.Admin.Alarm.Form do
       <.header>
         {@page_title}
         <:actions>
-          <.link navigate={~p"/admin/alarm"} class="text-sm text-base-content/50 hover:text-base-content/70">
+          <.link
+            navigate={~p"/admin/alarm"}
+            class="text-sm text-base-content/50 hover:text-base-content/70"
+          >
             ← Back to list
           </.link>
         </:actions>

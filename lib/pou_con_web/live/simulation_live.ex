@@ -186,15 +186,12 @@ defmodule PouConWeb.SimulationLive do
 
   @impl true
   def handle_event("reconnect_port", %{"device_path" => device_path}, socket) do
-    case DataPointManager.reconnect_port(device_path) do
-      {:ok, :reconnected} ->
+    case DataPointManager.reload_port(device_path) do
+      {:ok, :reloaded} ->
         {:noreply,
          socket
          |> put_flash(:info, "Port #{device_path} reconnected")
          |> assign(:port_statuses, DataPointManager.get_port_statuses())}
-
-      {:error, :already_connected} ->
-        {:noreply, put_flash(socket, :info, "Port is already connected")}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to reconnect: #{inspect(reason)}")}

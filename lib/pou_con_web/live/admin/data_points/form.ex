@@ -142,16 +142,24 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
               <.input field={@form[:port_path]} type="select" label="Port" options={@ports} />
             </div>
             <div class="w-1/4">
-              <.input field={@form[:slave_id]} type="number" label="Slave ID" />
+              <.input
+                field={@form[:slave_id]}
+                type="number"
+                label={slave_id_label(@selected_protocol)}
+              />
             </div>
           </div>
 
           <div class="flex gap-1">
             <div class="w-1/8">
-              <.input field={@form[:register]} type="number" label="Register" />
+              <.input
+                field={@form[:register]}
+                type="number"
+                label={register_label(@selected_protocol)}
+              />
             </div>
             <div class="w-1/8">
-              <.input field={@form[:channel]} type="number" label="Channel" />
+              <.input field={@form[:channel]} type="number" label={channel_label(@selected_protocol)} />
             </div>
             <div class="w-3/8">
               <.input field={@form[:read_fn]} type="text" label="Read Function" />
@@ -162,8 +170,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
           </div>
 
           <p class="text-xs text-base-content/60 mb-2">
-            Digital: read_digital_input, read_digital_output, write_digital_output |
-            Analog: read_analog_input, read_analog_output, write_analog_output
+            {function_help_text(@selected_protocol)}
           </p>
 
           <.input field={@form[:description]} type="text" label="Description" />
@@ -357,9 +364,13 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
 
   @impl true
   def mount(params, _session, socket) do
+    all_ports = PouCon.Hardware.Ports.Ports.list_ports()
+    port_protocols = Map.new(all_ports, &{&1.device_path, &1.protocol})
+
     {:ok,
      socket
-     |> assign(:ports, PouCon.Hardware.Ports.Ports.list_ports() |> Enum.map(& &1.device_path))
+     |> assign(:ports, Enum.map(all_ports, & &1.device_path))
+     |> assign(:port_protocols, port_protocols)
      |> assign(:valid_colors, @valid_colors)
      |> assign(:tabs, @tabs)
      |> assign(:active_tab, :conversion)
@@ -375,6 +386,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
     |> assign(:data_point, data_point)
     |> assign(:form, to_form(DataPoints.change_data_point(data_point)))
     |> assign(:color_zones, zones)
+    |> assign(:selected_protocol, protocol_for_port(socket, data_point.port_path))
   end
 
   defp apply_action(socket, :new, %{"id" => id}) do
@@ -389,6 +401,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
       to_form(DataPoints.change_data_point(data_point, %{name: "#{data_point.name} Copy"}))
     )
     |> assign(:color_zones, zones)
+    |> assign(:selected_protocol, protocol_for_port(socket, data_point.port_path))
   end
 
   defp apply_action(socket, :new, _params) do
@@ -399,6 +412,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
     |> assign(:data_point, data_point)
     |> assign(:form, to_form(DataPoints.change_data_point(data_point)))
     |> assign(:color_zones, [])
+    |> assign(:selected_protocol, "modbus_rtu")
   end
 
   @impl true
@@ -408,6 +422,13 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
 
   def handle_event("validate", %{"data_point" => params}, socket) do
     changeset = DataPoints.change_data_point(socket.assigns.data_point, params)
+
+    socket =
+      case Map.get(params, "port_path") do
+        nil -> socket
+        port_path -> assign(socket, :selected_protocol, protocol_for_port(socket, port_path))
+      end
+
     {:noreply, assign(socket, :form, to_form(changeset, action: :validate))}
   end
 
@@ -512,5 +533,37 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, form: to_form(changeset))}
     end
+  end
+
+  # ============================================================================
+  # Protocol-aware label helpers
+  # ============================================================================
+
+  defp protocol_for_port(socket, port_path) do
+    Map.get(socket.assigns.port_protocols, port_path, "modbus_rtu")
+  end
+
+  defp slave_id_label("s7"), do: "Unit (n/a)"
+  defp slave_id_label("virtual"), do: "Group"
+  defp slave_id_label(_), do: "Slave ID"
+
+  defp register_label("s7"), do: "Byte/Word Addr"
+  defp register_label(_), do: "Register"
+
+  defp channel_label("s7"), do: "Bit (1-8)"
+  defp channel_label(_), do: "Channel"
+
+  defp function_help_text("s7") do
+    "Digital: read_digital_input (%IB), read_digital_output (%QB), write_digital_output (%QB) | " <>
+      "Analog: read_analog_input (%PIW), read_analog_output (%PIW), write_analog_output (%PQW)"
+  end
+
+  defp function_help_text("virtual") do
+    "read_virtual_digital_output, write_virtual_digital_output"
+  end
+
+  defp function_help_text(_) do
+    "Digital: read_digital_input (FC02), read_digital_output (FC01), write_digital_output (FC05) | " <>
+      "Analog: read_analog_input (FC04), read_analog_output (FC03), write_analog_output (FC06)"
   end
 end

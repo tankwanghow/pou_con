@@ -62,16 +62,16 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
             </div>
             <div class="w-[30%] text-sm">{port.description}</div>
             <div class="w-[20%] flex justify-center gap-1">
-              <%= if status.status in [:disconnected, :error] do %>
-                <button
-                  phx-click="reconnect"
-                  phx-value-device_path={port.device_path}
-                  class="p-2 border-1 rounded-xl border-emerald-500/30 bg-emerald-500/20 hover:bg-emerald-500/30"
-                  title="Reconnect"
-                >
-                  <.icon name="hero-arrow-path-mini" class="text-emerald-500" />
-                </button>
-              <% end %>
+              <button
+                :if={port.protocol != "virtual" && !@readonly}
+                phx-click="reload_port"
+                phx-value-device_path={port.device_path}
+                data-confirm="Reload this port? The connection will be restarted."
+                class="p-2 border-1 rounded-xl border-emerald-500/30 bg-emerald-500/20 hover:bg-emerald-500/30"
+                title="Reload port"
+              >
+                <.icon name="hero-arrow-path-mini" class="text-emerald-500" />
+              </button>
               <.link
                 :if={!@readonly}
                 navigate={~p"/admin/ports/#{port.id}/edit"}
@@ -226,21 +226,18 @@ defmodule PouConWeb.Live.Admin.Ports.Index do
   end
 
   @impl true
-  def handle_event("reconnect", %{"device_path" => device_path}, socket) do
-    case DataPointManager.reconnect_port(device_path) do
-      {:ok, :reconnected} ->
+  def handle_event("reload_port", %{"device_path" => device_path}, socket) do
+    case DataPointManager.reload_port(device_path) do
+      {:ok, :reloaded} ->
         {:noreply,
          socket
-         |> put_flash(:info, "Port #{device_path} reconnected successfully")
+         |> put_flash(:info, "Port #{device_path} reloaded successfully")
          |> assign(:port_statuses, load_port_statuses())}
-
-      {:error, :already_connected} ->
-        {:noreply, put_flash(socket, :info, "Port is already connected")}
 
       {:error, reason} ->
         {:noreply,
          socket
-         |> put_flash(:error, "Failed to reconnect: #{inspect(reason)}")
+         |> put_flash(:error, "Failed to reload port: #{inspect(reason)}")
          |> assign(:port_statuses, load_port_statuses())}
     end
   end

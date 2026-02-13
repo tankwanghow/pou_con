@@ -76,9 +76,7 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
 
     case connect_tcp(ip, tcp_port, timeout) do
       {:ok, socket} ->
-        Logger.info(
-          "[RtuOverTcpAdapter] Connected to #{format_ip(ip)}:#{tcp_port}"
-        )
+        Logger.info("[RtuOverTcpAdapter] Connected to #{format_ip(ip)}:#{tcp_port}")
 
         {:ok, %{socket: socket, ip: ip, tcp_port: tcp_port, timeout: timeout}}
 

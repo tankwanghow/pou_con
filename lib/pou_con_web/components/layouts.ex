@@ -71,9 +71,9 @@ defmodule PouConWeb.Layouts do
       <div class="px-4 py-2 border-b border-base-300 bg-base-200 flex justify-between items-center">
         <h2 class="text-lg font-semibold text-base-content">Menu</h2>
         <%!-- Theme Toggle --%>
-      <div class="p-2 border-b border-base-300 flex justify-center">
-        <.theme_toggle />
-      </div>
+        <div class="p-2 border-b border-base-300 flex justify-center">
+          <.theme_toggle />
+        </div>
         <button onclick="closeSidebar()" class="p-1 rounded hover:bg-base-300">
           <.icon name="hero-x-mark" class="w-5 h-5" />
         </button>

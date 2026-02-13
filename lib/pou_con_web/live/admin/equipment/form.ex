@@ -65,7 +65,6 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
       :if={@parsed != []}
       class="font-sans -mt-2 mb-2 p-3 bg-base-200 rounded-lg border border-base-300"
     >
-      <div class="text-xs text-base-content/60 uppercase mb-2 font-medium">Data Points (Live)</div>
       <div class="space-y-1">
         <%= for {key, values} <- @parsed do %>
           <div class="flex items-center gap-2 text-sm">
@@ -197,69 +196,74 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
             <.input field={@form[:active]} type="checkbox" label="Active" />
           </div>
         </div>
-        <div class="w-full font-mono">
-          <.input field={@form[:data_point_tree]} type="textarea" label="Data Point Tree" rows="7" />
-          <% type = @form[:type].value %>
-          <% required = if type, do: required_keys_for_type(type), else: [] %>
-          <% optional = if type, do: optional_keys_for_type(type), else: [] %>
-          <% is_generic = type && is_generic_sensor_type?(type) %>
-          <%= if is_generic do %>
-            <div class="font-sans mb-2 -mt-2 text-sm text-base-content/60">
-              Any key: data_point_name pairs (e.g., temperature: temp_dp_1)
-            </div>
-          <% else %>
-            <%= if required != [] or optional != [] do %>
-              <div class="font-sans mb-2 -mt-2 text-sm">
-                <%= if required != [] do %>
-                  <div>
-                    <span class="text-base-content/70">Required:</span>
-                    <span class="text-base-content/50">{Enum.join(required, ", ")}</span>
-                  </div>
-                <% end %>
-                <%= if optional != [] do %>
-                  <div>
-                    <span class="text-base-content/70">Optional:</span>
-                    <span class="text-base-content/50">{Enum.join(optional, ", ")}</span>
-                  </div>
-                <% end %>
+        <div class="flex gap-2">
+          <div class="w-[50%] font-mono">
+            <.input field={@form[:data_point_tree]} type="textarea" label="Data Point Tree" rows="10" />
+            <% type = @form[:type].value %>
+            <% required = if type, do: required_keys_for_type(type), else: [] %>
+            <% optional = if type, do: optional_keys_for_type(type), else: [] %>
+            <% is_generic = type && is_generic_sensor_type?(type) %>
+            <%= if is_generic do %>
+              <div class="font-sans mb-2 -mt-2 text-sm text-base-content/60">
+                Any key: data_point_name pairs (e.g., temperature: temp_dp_1)
+              </div>
+            <% else %>
+              <%= if required != [] or optional != [] do %>
+                <div class="font-sans mb-2 -mt-2 text-sm">
+                  <%= if required != [] do %>
+                    <div>
+                      <span class="text-base-content/70">Required:</span>
+                      <span class="text-base-content/50">{Enum.join(required, ", ")}</span>
+                    </div>
+                  <% end %>
+                  <%= if optional != [] do %>
+                    <div>
+                      <span class="text-base-content/70">Optional:</span>
+                      <span class="text-base-content/50">{Enum.join(optional, ", ")}</span>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+          <div class="w-[50%]">
+            <%!-- AverageSensor color_zones validation errors --%>
+            <%= if @color_zones_errors != [] do %>
+              <div class="font-sans -mt-2 mb-2 p-3 bg-red-50 rounded-lg border border-red-200">
+                <div class="text-sm font-medium text-red-700 mb-1">
+                  Color Zones Mismatch
+                </div>
+                <div class="text-xs text-red-600">
+                  All data points in a sensor group must have identical color zones configuration.
+                </div>
+                <ul class="mt-2 space-y-1">
+                  <%= for {group, error} <- @color_zones_errors do %>
+                    <li class="text-sm text-red-700">
+                      <span class="font-medium">{group}:</span>
+                      <%= case error do %>
+                        <% {:not_found, names} -> %>
+                          <span class="text-red-600">
+                            Data points not found: {Enum.join(names, ", ")}
+                          </span>
+                        <% {:mismatched, names} -> %>
+                          <span class="text-red-600">
+                            Mismatched zones in: {Enum.join(names, ", ")}
+                          </span>
+                      <% end %>
+                    </li>
+                  <% end %>
+                </ul>
               </div>
             <% end %>
-          <% end %>
-
-          <%!-- AverageSensor color_zones validation errors --%>
-          <%= if @color_zones_errors != [] do %>
-            <div class="font-sans -mt-2 mb-2 p-3 bg-red-50 rounded-lg border border-red-200">
-              <div class="text-sm font-medium text-red-700 mb-1">
-                Color Zones Mismatch
-              </div>
-              <div class="text-xs text-red-600">
-                All data points in a sensor group must have identical color zones configuration.
-              </div>
-              <ul class="mt-2 space-y-1">
-                <%= for {group, error} <- @color_zones_errors do %>
-                  <li class="text-sm text-red-700">
-                    <span class="font-medium">{group}:</span>
-                    <%= case error do %>
-                      <% {:not_found, names} -> %>
-                        <span class="text-red-600">
-                          Data points not found: {Enum.join(names, ", ")}
-                        </span>
-                      <% {:mismatched, names} -> %>
-                        <span class="text-red-600">
-                          Mismatched zones in: {Enum.join(names, ", ")}
-                        </span>
-                    <% end %>
-                  </li>
-                <% end %>
-              </ul>
+            <div class="text-xs text-base-content/60 uppercase mb-4 font-medium">
+              Data Points (Live)
             </div>
-          <% end %>
-
-          <.data_point_links
-            data_point_tree={@form[:data_point_tree].value}
-            data_point_map={@data_point_map}
-            data_point_cache={@data_point_cache}
-          />
+            <.data_point_links
+              data_point_tree={@form[:data_point_tree].value}
+              data_point_map={@data_point_map}
+              data_point_cache={@data_point_cache}
+            />
+          </div>
         </div>
         <footer>
           <.button phx-disable-with="Saving..." variant="primary">Save Equipment</.button>

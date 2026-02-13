@@ -35,9 +35,7 @@ defmodule PouCon.Hardware.Modbus.TcpAdapter do
       {:ok, pid} ->
         case Modbux.Tcp.Client.connect(pid) do
           :ok ->
-            Logger.info(
-              "[TcpAdapter] Connected to #{format_ip(ip)}:#{tcp_port}"
-            )
+            Logger.info("[TcpAdapter] Connected to #{format_ip(ip)}:#{tcp_port}")
 
             {:ok, pid}
 
