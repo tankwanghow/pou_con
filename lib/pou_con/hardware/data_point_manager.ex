@@ -1002,9 +1002,11 @@ defmodule PouCon.Hardware.DataPointManager do
     }
   end
 
-  # In simulation mode, set raw value to 1 for inverted digital outputs.
-  # NC (normally closed) relays are energized (raw 1) during normal operation,
-  # so inverted DOs should start as logical OFF rather than logical ON.
+  # In simulation mode, set raw value to 1 for inverted digital I/O.
+  # NC (normally closed) wiring means the raw signal is HIGH during normal operation:
+  # - DO: relay coil energized (raw 1) = NC contact open = equipment OFF
+  # - DI: sensor contact closed (raw 1) = NC contact closed = sensor inactive
+  # After inversion, raw 1 → logical 0 (OFF), matching real-world default state.
   defp set_inverted_do_defaults(state) do
     simulating? =
       Application.get_env(:pou_con, :modbus_adapter) ==

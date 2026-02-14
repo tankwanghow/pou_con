@@ -175,11 +175,15 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
 
           <.input field={@form[:description]} type="text" label="Description" />
 
-          <div :if={@form[:type].value == "DO"} class="mt-1">
+          <div :if={@form[:type].value in ["DO", "DI"]} class="mt-1">
             <.input
               field={@form[:inverted]}
               type="checkbox"
-              label="Inverted (NC relay wiring — coil OFF = equipment ON)"
+              label={
+                if @form[:type].value == "DO",
+                  do: "Inverted (NC relay wiring — coil OFF = equipment ON)",
+                  else: "Inverted (NC sensor wiring — signal LOW = active)"
+              }
             />
           </div>
 
