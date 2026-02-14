@@ -90,10 +90,23 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
   end
 
   @impl GenServer
+  def handle_call({:request, cmd}, _from, %{socket: nil} = state) do
+    # Socket is nil (previous reconnect failed) — try to reconnect
+    case reconnect(state) do
+      {:ok, new_socket} ->
+        result = execute_request(new_socket, cmd, state.timeout)
+        {:reply, result, %{state | socket: new_socket}}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
+  end
+
   def handle_call({:request, cmd}, _from, state) do
     case execute_request(state.socket, cmd, state.timeout) do
-      {:error, :closed} ->
+      {:error, closed} when closed in [:closed, :enotconn, :einval] ->
         Logger.warning("[RtuOverTcpAdapter] Connection closed, reconnecting...")
+        safe_close(state.socket)
 
         case reconnect(state) do
           {:ok, new_socket} ->
@@ -101,7 +114,7 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
             {:reply, result, %{state | socket: new_socket}}
 
           {:error, reason} ->
-            {:reply, {:error, reason}, state}
+            {:reply, {:error, reason}, %{state | socket: nil}}
         end
 
       result ->
@@ -111,7 +124,7 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
 
   @impl GenServer
   def handle_call(:close, _from, state) do
-    :gen_tcp.close(state.socket)
+    safe_close(state.socket)
     {:reply, :ok, %{state | socket: nil}}
   end
 
@@ -122,12 +135,32 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
 
   def terminate(_reason, _state), do: :ok
 
+  defp safe_close(socket) when is_port(socket) do
+    try do
+      :gen_tcp.close(socket)
+    catch
+      _, _ -> :ok
+    end
+  end
+
+  defp safe_close(_), do: :ok
+
   # ------------------------------------------------------------------ #
   # Connection Management
   # ------------------------------------------------------------------ #
 
   defp connect_tcp(ip, tcp_port, timeout) do
-    :gen_tcp.connect(ip, tcp_port, [:binary, active: false, packet: :raw], timeout)
+    opts = [
+      :binary,
+      active: false,
+      packet: :raw,
+      keepalive: true,
+      nodelay: true,
+      send_timeout: 5_000,
+      send_timeout_close: true
+    ]
+
+    :gen_tcp.connect(ip, tcp_port, opts, timeout)
   end
 
   defp reconnect(%{ip: ip, tcp_port: tcp_port, timeout: timeout}) do

@@ -120,6 +120,10 @@ defmodule PouCon.Hardware.DataPointManager do
   @modbus_timeout 3000
   @max_consecutive_timeouts 3
 
+  # Auto-reconnect backoff constants (matches S7 adapter pattern)
+  @initial_reconnect_delay 5_000
+  @max_reconnect_delay 60_000
+
   # ------------------------------------------------------------------ #
   # Client API
   # ------------------------------------------------------------------ #
@@ -562,7 +566,8 @@ defmodule PouCon.Hardware.DataPointManager do
               state
               | ports: Map.put(state.ports, device_path, new_port),
                 skipped_slaves: new_skipped,
-                failure_counts: new_counts
+                failure_counts: new_counts,
+                reconnect_counts: Map.delete(state.reconnect_counts, device_path)
             }
 
             Logger.info("[DataPointManager] Port #{device_path} reloaded successfully")
@@ -760,17 +765,21 @@ defmodule PouCon.Hardware.DataPointManager do
   end
 
   # ------------------------------------------------------------------ #
-  # Process Monitoring - Handle port disconnection
+  # Process Monitoring - Handle port disconnection with auto-reconnect
   # ------------------------------------------------------------------ #
   @impl GenServer
   def handle_info({:DOWN, ref, :process, _pid, reason}, state) do
     # Find the port that this monitor belongs to
     case Enum.find(state.ports, fn {_path, port} -> port.monitor_ref == ref end) do
+      {_device_path, %RuntimePort{protocol: "virtual"}} ->
+        # Virtual ports don't have real connections — skip reconnect
+        {:noreply, state}
+
       {device_path, %RuntimePort{} = port} ->
         Logger.warning("[DataPointManager] Port #{device_path} disconnected: #{inspect(reason)}")
 
-        # Mark port as disconnected - DO NOT auto-reconnect
-        # Operator must manually reconnect via UI
+        retry_count = Map.get(state.reconnect_counts, device_path, 0)
+
         new_port = %RuntimePort{
           port
           | connection_pid: nil,
@@ -780,11 +789,94 @@ defmodule PouCon.Hardware.DataPointManager do
         }
 
         new_ports = Map.put(state.ports, device_path, new_port)
-        {:noreply, %{state | ports: new_ports}}
+
+        # Schedule auto-reconnect with exponential backoff
+        delay = calculate_reconnect_delay(retry_count)
+
+        Logger.info(
+          "[DataPointManager] Scheduling auto-reconnect for #{device_path} in #{div(delay, 1000)}s " <>
+            "(attempt #{retry_count + 1})"
+        )
+
+        Process.send_after(self(), {:auto_reconnect, device_path}, delay)
+
+        new_reconnect_counts = Map.put(state.reconnect_counts, device_path, retry_count + 1)
+
+        {:noreply,
+         %{state | ports: new_ports, reconnect_counts: new_reconnect_counts}}
 
       nil ->
         # Unknown monitor, ignore
         {:noreply, state}
+    end
+  end
+
+  @impl GenServer
+  def handle_info({:auto_reconnect, device_path}, state) do
+    case Map.get(state.ports, device_path) do
+      %RuntimePort{status: :connected} ->
+        # Already reconnected (e.g., manual reload happened) — clear retry count
+        {:noreply, %{state | reconnect_counts: Map.delete(state.reconnect_counts, device_path)}}
+
+      %RuntimePort{db_port: nil} ->
+        Logger.warning("[DataPointManager] Cannot auto-reconnect #{device_path}: no DB port config")
+        {:noreply, state}
+
+      %RuntimePort{db_port: db_port} = port ->
+        Logger.info("[DataPointManager] Auto-reconnecting port #{device_path}...")
+
+        case PouCon.Hardware.PortSupervisor.start_connection(db_port) do
+          {:ok, pid} ->
+            ref = if pid, do: Process.monitor(pid), else: nil
+
+            new_port = %RuntimePort{
+              port
+              | connection_pid: pid,
+                monitor_ref: ref,
+                status: :connected,
+                error_reason: nil
+            }
+
+            # Clear skipped slaves and failure counts for this port
+            new_skipped =
+              state.skipped_slaves
+              |> Enum.reject(fn {path, _sid} -> path == device_path end)
+              |> MapSet.new()
+
+            new_counts =
+              state.failure_counts
+              |> Enum.reject(fn {{path, _sid}, _count} -> path == device_path end)
+              |> Map.new()
+
+            Logger.info("[DataPointManager] Port #{device_path} auto-reconnected successfully")
+
+            {:noreply,
+             %{
+               state
+               | ports: Map.put(state.ports, device_path, new_port),
+                 skipped_slaves: new_skipped,
+                 failure_counts: new_counts,
+                 reconnect_counts: Map.delete(state.reconnect_counts, device_path)
+             }}
+
+          {:error, reason} ->
+            retry_count = Map.get(state.reconnect_counts, device_path, 0)
+            delay = calculate_reconnect_delay(retry_count)
+
+            Logger.warning(
+              "[DataPointManager] Auto-reconnect failed for #{device_path}: #{inspect(reason)}. " <>
+                "Retrying in #{div(delay, 1000)}s (attempt #{retry_count + 1})"
+            )
+
+            Process.send_after(self(), {:auto_reconnect, device_path}, delay)
+
+            new_reconnect_counts = Map.put(state.reconnect_counts, device_path, retry_count + 1)
+            {:noreply, %{state | reconnect_counts: new_reconnect_counts}}
+        end
+
+      nil ->
+        # Port was removed from config — stop retrying
+        {:noreply, %{state | reconnect_counts: Map.delete(state.reconnect_counts, device_path)}}
     end
   end
 
@@ -796,6 +888,13 @@ defmodule PouCon.Hardware.DataPointManager do
   defp format_disconnect_reason(:shutdown), do: "Process shutdown"
   defp format_disconnect_reason({:shutdown, reason}), do: "Shutdown: #{inspect(reason)}"
   defp format_disconnect_reason(reason), do: inspect(reason)
+
+  # Exponential backoff: 5s, 10s, 20s, 40s, 60s (capped)
+  defp calculate_reconnect_delay(retry_count) do
+    base = @initial_reconnect_delay * :math.pow(2, min(retry_count, 5))
+    jitter = :rand.uniform(max(1, round(base * 0.2)))
+    round(min(base + jitter, @max_reconnect_delay))
+  end
 
   # ------------------------------------------------------------------ #
   # State Loading
@@ -896,7 +995,10 @@ defmodule PouCon.Hardware.DataPointManager do
       # Track last poll time per data point name
       # Format: %{ "data_point_name" => monotonic_time_ms }
       # Empty initially - all data points will be polled on first tick
-      last_polled: %{}
+      last_polled: %{},
+      # Auto-reconnect retry counts per port path
+      # Format: %{ "device_path" => integer_count }
+      reconnect_counts: %{}
     }
   end
 
