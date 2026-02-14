@@ -337,6 +337,23 @@ li.hg-candidate-box-list-item:active {
   max-width: none;
 }
 
+/* Bigger keys for the default keyboard */
+.simple-keyboard .hg-button {
+  height: 50px;
+  width: 50px;
+  font-size: 18px;
+  padding: 8px 12px;
+}
+
+@media (max-width: 600px) {
+  .simple-keyboard .hg-button {
+    height: 44px;
+    width: 44px;
+    font-size: 16px;
+    padding: 6px 8px;
+  }
+}
+
 /* Dark theme overrides for simple-keyboard */
 [data-theme="dark"] .hg-theme-default {
   background-color: #1f2937;

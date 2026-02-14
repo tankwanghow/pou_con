@@ -123,13 +123,6 @@ Hooks.SimpleKeyboard = {
             'A S D F G H J K L : " {enter}',
             '{shift} Z X C V B N M < > ? {shift}',
             '{arrowleft} {arrowup} {space} {arrowdown} {arrowright}'
-          ],
-          numeric: [
-            '7 8 9',
-            '4 5 6',
-            '1 2 3',
-            '0 . -',
-            '{tab} {bksp}'
           ]
         },
         display: {
@@ -177,13 +170,6 @@ Hooks.SimpleKeyboard = {
           if (button === '{shift}') {
             const newLayout = currentLayout === 'shift' ? 'default' : 'shift';
             window.keyboard.setOptions({ layoutName: newLayout });
-          }
-
-          // Handle layer switches
-          if (button === '{numbers}') {
-            window.keyboard.setOptions({ layoutName: 'numbers' });
-          } else if (button === '{abc}') {
-            window.keyboard.setOptions({ layoutName: 'default' });
           }
 
           // Handle enter key - insert newline for textareas, submit for other inputs
@@ -261,12 +247,8 @@ Hooks.SimpleKeyboard = {
 
     // Show and bind keyboard on focus
     inputElement.addEventListener("focus", () => {
-      // Switch layout based on input type
-      const isNumeric = inputElement.type === 'number';
-      const layoutName = isNumeric ? 'numeric' : 'default';
-
-      // Set current inputName, sync value, and switch layout
-      window.keyboard.setOptions({ inputName: this.inputName, layoutName: layoutName });
+      // Set current inputName, sync value, and switch to default layout
+      window.keyboard.setOptions({ inputName: this.inputName, layoutName: 'default' });
       window.keyboard.setInput(inputElement.value);
       // Sync browser caret position to SimpleKeyboard on focus
       if (inputElement.selectionStart != null) {
@@ -449,7 +431,7 @@ function showKeyboard(keyboardContainer) {
   keyboardContainer.style.display = "block";
   keyboardContainer.style.position = "fixed";
   keyboardContainer.style.bottom = "0px";
-  keyboardContainer.style.width = "50vw";
+  keyboardContainer.style.width = "70vw";
   keyboardContainer.style.left = "50%";
   keyboardContainer.style.transform = "translateX(-50%)";
 
