@@ -49,3 +49,6 @@ npm-debug.log
 
 priv/house_id
 priv/ssl
+
+*.py
+*.dxf
