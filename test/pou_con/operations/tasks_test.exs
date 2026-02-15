@@ -427,7 +427,8 @@ defmodule PouCon.Operations.TasksTest do
         %TaskCompletion{}
         |> TaskCompletion.changeset(%{
           task_template_id: template.id,
-          completed_at: yesterday_datetime
+          completed_at: yesterday_datetime,
+          house_id: "test"
         })
         |> PouCon.Repo.insert()
 
@@ -446,7 +447,8 @@ defmodule PouCon.Operations.TasksTest do
         %TaskCompletion{}
         |> TaskCompletion.changeset(%{
           task_template_id: template.id,
-          completed_at: datetime
+          completed_at: datetime,
+          house_id: "test"
         })
         |> PouCon.Repo.insert()
 
@@ -539,7 +541,8 @@ defmodule PouCon.Operations.TasksTest do
         %TaskCompletion{}
         |> TaskCompletion.changeset(%{
           task_template_id: template.id,
-          completed_at: datetime
+          completed_at: datetime,
+          house_id: "test"
         })
         |> PouCon.Repo.insert()
 
@@ -586,7 +589,8 @@ defmodule PouCon.Operations.TasksTest do
         %TaskCompletion{}
         |> TaskCompletion.changeset(%{
           task_template_id: template.id,
-          completed_at: datetime
+          completed_at: datetime,
+          house_id: "test"
         })
         |> PouCon.Repo.insert()
 

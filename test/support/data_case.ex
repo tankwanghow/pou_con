@@ -37,7 +37,32 @@ defmodule PouCon.DataCase do
   """
   def setup_sandbox(tags) do
     pid = Ecto.Adapters.SQL.Sandbox.start_owner!(PouCon.Repo, shared: not tags[:async])
-    on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
+
+    on_exit(fn ->
+      # Stop any equipment controller GenServers before releasing the sandbox.
+      # Controllers call Repo during init/handle_continue, and if they outlive
+      # the sandbox owner, their orphaned DB queries cause SQLite "Database busy"
+      # errors in subsequent tests.
+      stop_registered_controllers()
+      Ecto.Adapters.SQL.Sandbox.stop_owner(pid)
+    end)
+  end
+
+  defp stop_registered_controllers do
+    # Use DynamicSupervisor.terminate_child to prevent restarts.
+    # GenServer.stop alone would trigger the DynamicSupervisor's aggressive
+    # restart policy (max_restarts: 1_000_000), causing an infinite loop of
+    # restarts hitting the DB after the sandbox is gone.
+    PouCon.EquipmentControllerRegistry
+    |> Registry.select([{{:"$1", :"$2", :"$3"}, [], [:"$2"]}])
+    |> Enum.each(fn controller_pid ->
+      DynamicSupervisor.terminate_child(
+        PouCon.Equipment.EquipmentControllerSupervisor,
+        controller_pid
+      )
+    end)
+  rescue
+    ArgumentError -> :ok
   end
 
   @doc """

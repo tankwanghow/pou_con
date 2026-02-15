@@ -8,7 +8,9 @@ import Config
 config :pou_con, PouCon.Repo,
   database: Path.expand("../pou_con_test.db", __DIR__),
   pool: Ecto.Adapters.SQL.Sandbox,
-  pool_size: 10
+  pool_size: 5,
+  busy_timeout: 5000,
+  journal_mode: :wal
 
 config :pou_con, :data_point_manager, PouCon.DataPointManagerMock
 # We don't run a server during test. If one is required,

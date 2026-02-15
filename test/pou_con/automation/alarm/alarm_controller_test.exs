@@ -1,5 +1,7 @@
 defmodule PouCon.Automation.Alarm.AlarmControllerTest do
-  use PouCon.DataCase
+  use PouCon.DataCase, async: false
+  import Mox
+  import PouCon.AutomationTestHelpers
 
   alias PouCon.Automation.Alarm.AlarmController
   alias PouCon.Automation.Alarm.AlarmRules
@@ -8,21 +10,19 @@ defmodule PouCon.Automation.Alarm.AlarmControllerTest do
   # Short poll interval for faster tests
   @test_poll_interval 50
 
-  setup do
-    # PubSub is already started by the application in test environment
-    # Just ensure it's running, don't try to start it again
-    case Process.whereis(PouCon.PubSub) do
-      nil ->
-        # Only start if not already running
-        {:ok, _} = Phoenix.PubSub.Supervisor.start_link(name: PouCon.PubSub)
+  setup :verify_on_exit!
 
-      _pid ->
-        :ok
-    end
+  setup do
+    setup_automation_test()
 
     # Clean up any existing rules
     Repo.delete_all(AlarmCondition)
     Repo.delete_all(AlarmRule)
+
+    on_exit(fn ->
+      stop_genserver(AlarmController)
+      Ecto.Adapters.SQL.Sandbox.mode(PouCon.Repo, :manual)
+    end)
 
     :ok
   end
@@ -34,8 +34,7 @@ defmodule PouCon.Automation.Alarm.AlarmControllerTest do
     end
 
     test "loads rules on startup" do
-      # Create a rule before starting
-      {:ok, _rule} = create_test_rule("Test Rule", ["siren_1"])
+      create_alarm_rule!("Test Rule", ["siren_1"])
 
       {:ok, _pid} = start_supervised({AlarmController, poll_interval_ms: @test_poll_interval})
       Process.sleep(100)
@@ -62,8 +61,6 @@ defmodule PouCon.Automation.Alarm.AlarmControllerTest do
 
   describe "rule evaluation - logic modes" do
     test "applies 'any' logic (OR) - triggers when any condition is true" do
-      # Since we can't easily mock EquipmentCommands in this test,
-      # we verify the logic function directly
       assert apply_logic("any", [true, false]) == true
       assert apply_logic("any", [false, false]) == false
       assert apply_logic("any", [true, true]) == true
@@ -76,53 +73,484 @@ defmodule PouCon.Automation.Alarm.AlarmControllerTest do
     end
   end
 
-  describe "acknowledge/1" do
-    test "marks alarm as acknowledged" do
-      {:ok, rule} = create_test_rule("Ack Test", ["siren_1"])
+  describe "sensor condition evaluation with real DataPointManagerMock" do
+    test "triggers alarm when sensor value exceeds threshold" do
+      # Create siren controller
+      {siren_name, _pid, _devs} = start_siren!(name: "alarm_siren_1")
+
+      # Stub siren in AUTO mode and running
+      stub_read_direct(fn
+        n when n == "alarm_siren_1_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+
+      wait_for_init()
+
+      # Create alarm rule with sensor condition
+      rule =
+        create_alarm_rule!("High Temp", [siren_name],
+          conditions: [
+            %{
+              source_type: "sensor",
+              source_name: "temp_sensor_1",
+              condition: "above",
+              threshold: 30.0
+            }
+          ]
+        )
+
+      # Stub sensor to return high temperature
+      stub(PouCon.DataPointManagerMock, :read_direct, fn
+        "temp_sensor_1" -> {:ok, %{value: 35.0}}
+        n when n == "alarm_siren_1_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
 
       {:ok, _pid} = start_supervised({AlarmController, poll_interval_ms: @test_poll_interval})
+      Process.sleep(200)
+
+      status = AlarmController.status()
+      assert rule.id in status.active_alarms
+    end
+
+    test "does not trigger when sensor value is below threshold" do
+      {siren_name, _pid, _devs} = start_siren!(name: "alarm_siren_2")
+      stub_read_direct(fn
+        "alarm_siren_2_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+      wait_for_init()
+
+      rule =
+        create_alarm_rule!("High Temp 2", [siren_name],
+          conditions: [
+            %{
+              source_type: "sensor",
+              source_name: "temp_sensor_2",
+              condition: "above",
+              threshold: 30.0
+            }
+          ]
+        )
+
+      # Stub sensor to return normal temperature
+      stub(PouCon.DataPointManagerMock, :read_direct, fn
+        "temp_sensor_2" -> {:ok, %{value: 25.0}}
+        "alarm_siren_2_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+
+      {:ok, _pid} = start_supervised({AlarmController, poll_interval_ms: @test_poll_interval})
+      Process.sleep(200)
+
+      status = AlarmController.status()
+      refute rule.id in status.active_alarms
+    end
+
+    test "triggers alarm on 'below' condition" do
+      {siren_name, _pid, _devs} = start_siren!(name: "alarm_siren_3")
+      stub_read_direct(fn
+        "alarm_siren_3_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+      wait_for_init()
+
+      rule =
+        create_alarm_rule!("Low Temp", [siren_name],
+          conditions: [
+            %{
+              source_type: "sensor",
+              source_name: "temp_sensor_3",
+              condition: "below",
+              threshold: 20.0
+            }
+          ]
+        )
+
+      stub(PouCon.DataPointManagerMock, :read_direct, fn
+        "temp_sensor_3" -> {:ok, %{value: 15.0}}
+        "alarm_siren_3_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+
+      {:ok, _pid} = start_supervised({AlarmController, poll_interval_ms: @test_poll_interval})
+      Process.sleep(200)
+
+      status = AlarmController.status()
+      assert rule.id in status.active_alarms
+    end
+  end
+
+  describe "equipment condition evaluation with real controllers" do
+    test "triggers alarm when equipment is off" do
+      {siren_name, _pid, _devs} = start_siren!(name: "eq_alarm_siren")
+      {fan_name, _pid, _devs} = start_fan!(name: "eq_alarm_fan")
+
+      # Fan in AUTO mode, NOT running (all state: 0)
+      stub_read_direct(fn
+        "eq_alarm_siren_am" -> {:ok, %{state: 1}}
+        "eq_alarm_fan_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+      wait_for_init()
+
+      rule =
+        create_alarm_rule!("Fan Off Alarm", [siren_name],
+          conditions: [
+            %{
+              source_type: "equipment",
+              source_name: fan_name,
+              condition: "off"
+            }
+          ]
+        )
+
+      {:ok, _pid} = start_supervised({AlarmController, poll_interval_ms: @test_poll_interval})
+      Process.sleep(200)
+
+      status = AlarmController.status()
+      assert rule.id in status.active_alarms
+    end
+
+    test "does not trigger when equipment is running" do
+      {siren_name, _pid, _devs} = start_siren!(name: "eq_alarm_siren2")
+      {fan_name, _pid, _devs} = start_fan!(name: "eq_alarm_fan2")
+
+      # Fan in AUTO mode and running
+      stub_read_direct(fn
+        "eq_alarm_siren2_am" -> {:ok, %{state: 1}}
+        "eq_alarm_fan2_am" -> {:ok, %{state: 1}}
+        "eq_alarm_fan2_coil" -> {:ok, %{state: 1}}
+        "eq_alarm_fan2_fb" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+      wait_for_init()
+
+      rule =
+        create_alarm_rule!("Fan Off Alarm 2", [siren_name],
+          conditions: [
+            %{
+              source_type: "equipment",
+              source_name: fan_name,
+              condition: "off"
+            }
+          ]
+        )
+
+      {:ok, _pid} = start_supervised({AlarmController, poll_interval_ms: @test_poll_interval})
+      Process.sleep(200)
+
+      status = AlarmController.status()
+      refute rule.id in status.active_alarms
+    end
+  end
+
+  describe "auto-clear behavior" do
+    test "auto-clears alarm when conditions return to normal" do
+      {siren_name, _pid, _devs} = start_siren!(name: "ac_siren")
+      stub_read_direct(fn
+        "ac_siren_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+      wait_for_init()
+
+      rule =
+        create_alarm_rule!("Auto Clear Test", [siren_name],
+          auto_clear: true,
+          conditions: [
+            %{
+              source_type: "sensor",
+              source_name: "ac_temp",
+              condition: "above",
+              threshold: 30.0
+            }
+          ]
+        )
+
+      # Start with alarm triggered (high temp)
+      stub(PouCon.DataPointManagerMock, :read_direct, fn
+        "ac_temp" -> {:ok, %{value: 35.0}}
+        "ac_siren_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+
+      {:ok, _pid} = start_supervised({AlarmController, poll_interval_ms: @test_poll_interval})
+      Process.sleep(200)
+
+      status = AlarmController.status()
+      assert rule.id in status.active_alarms
+
+      # Temperature drops below threshold
+      stub(PouCon.DataPointManagerMock, :read_direct, fn
+        "ac_temp" -> {:ok, %{value: 25.0}}
+        "ac_siren_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+
+      Process.sleep(200)
+
+      status = AlarmController.status()
+      refute rule.id in status.active_alarms
+    end
+  end
+
+  describe "AND/OR logic with actual conditions" do
+    test "AND logic requires all conditions true" do
+      {siren_name, _pid, _devs} = start_siren!(name: "and_siren")
+      stub_read_direct(fn
+        "and_siren_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+      wait_for_init()
+
+      rule =
+        create_alarm_rule!("AND Rule", [siren_name],
+          logic: "all",
+          conditions: [
+            %{
+              source_type: "sensor",
+              source_name: "and_temp",
+              condition: "above",
+              threshold: 30.0
+            },
+            %{
+              source_type: "sensor",
+              source_name: "and_hum",
+              condition: "above",
+              threshold: 80.0
+            }
+          ]
+        )
+
+      # Only temp is high, humidity is normal -> should NOT trigger
+      stub(PouCon.DataPointManagerMock, :read_direct, fn
+        "and_temp" -> {:ok, %{value: 35.0}}
+        "and_hum" -> {:ok, %{value: 50.0}}
+        "and_siren_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+
+      {:ok, _pid} = start_supervised({AlarmController, poll_interval_ms: @test_poll_interval})
+      Process.sleep(200)
+
+      status = AlarmController.status()
+      refute rule.id in status.active_alarms
+    end
+
+    test "AND logic triggers when all conditions true" do
+      {siren_name, _pid, _devs} = start_siren!(name: "and_siren2")
+      stub_read_direct(fn
+        "and_siren2_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+      wait_for_init()
+
+      rule =
+        create_alarm_rule!("AND Rule 2", [siren_name],
+          logic: "all",
+          conditions: [
+            %{
+              source_type: "sensor",
+              source_name: "and2_temp",
+              condition: "above",
+              threshold: 30.0
+            },
+            %{
+              source_type: "sensor",
+              source_name: "and2_hum",
+              condition: "above",
+              threshold: 80.0
+            }
+          ]
+        )
+
+      # Both conditions met
+      stub(PouCon.DataPointManagerMock, :read_direct, fn
+        "and2_temp" -> {:ok, %{value: 35.0}}
+        "and2_hum" -> {:ok, %{value: 90.0}}
+        "and_siren2_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+
+      {:ok, _pid} = start_supervised({AlarmController, poll_interval_ms: @test_poll_interval})
+      Process.sleep(200)
+
+      status = AlarmController.status()
+      assert rule.id in status.active_alarms
+    end
+
+    test "OR logic triggers when any condition true" do
+      {siren_name, _pid, _devs} = start_siren!(name: "or_siren")
+      stub_read_direct(fn
+        "or_siren_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+      wait_for_init()
+
+      rule =
+        create_alarm_rule!("OR Rule", [siren_name],
+          logic: "any",
+          conditions: [
+            %{
+              source_type: "sensor",
+              source_name: "or_temp",
+              condition: "above",
+              threshold: 30.0
+            },
+            %{
+              source_type: "sensor",
+              source_name: "or_hum",
+              condition: "above",
+              threshold: 80.0
+            }
+          ]
+        )
+
+      # Only temp is high -> should trigger with OR
+      stub(PouCon.DataPointManagerMock, :read_direct, fn
+        "or_temp" -> {:ok, %{value: 35.0}}
+        "or_hum" -> {:ok, %{value: 50.0}}
+        "or_siren_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+
+      {:ok, _pid} = start_supervised({AlarmController, poll_interval_ms: @test_poll_interval})
+      Process.sleep(200)
+
+      status = AlarmController.status()
+      assert rule.id in status.active_alarms
+    end
+  end
+
+  describe "acknowledge/1" do
+    test "acknowledges active alarm and tracks it" do
+      {siren_name, _pid, _devs} = start_siren!(name: "ack_siren")
+      stub_read_direct(fn
+        "ack_siren_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+      wait_for_init()
+
+      rule =
+        create_alarm_rule!("Ack Test", [siren_name],
+          auto_clear: false,
+          conditions: [
+            %{
+              source_type: "sensor",
+              source_name: "ack_temp",
+              condition: "above",
+              threshold: 30.0
+            }
+          ]
+        )
+
+      stub(PouCon.DataPointManagerMock, :read_direct, fn
+        "ack_temp" -> {:ok, %{value: 35.0}}
+        "ack_siren_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+
+      {:ok, _pid} = start_supervised({AlarmController, poll_interval_ms: @test_poll_interval})
+      Process.sleep(200)
+
+      # Verify alarm is active
+      status = AlarmController.status()
+      assert rule.id in status.active_alarms
+
+      # Acknowledge
+      AlarmController.acknowledge(rule.id)
       Process.sleep(100)
 
-      # Manually trigger alarm state (simulating internal state)
-      # In real scenario, this would be triggered by conditions
-      AlarmController.acknowledge(rule.id)
-      Process.sleep(50)
-
-      # Verify acknowledge was processed (no crash)
       status = AlarmController.status()
-      assert is_list(status.acknowledged)
+      assert rule.id in status.acknowledged
     end
   end
 
   describe "mute/1 and unmute/1" do
-    test "mutes an alarm and tracks expiry" do
-      {:ok, rule} = create_test_rule("Mute Test", ["siren_1"])
+    test "mutes active alarm and tracks expiry" do
+      {siren_name, _pid, _devs} = start_siren!(name: "mute_siren")
+      stub_read_direct(fn
+        "mute_siren_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+      wait_for_init()
+
+      rule =
+        create_alarm_rule!("Mute Test", [siren_name],
+          max_mute_minutes: 30,
+          conditions: [
+            %{
+              source_type: "sensor",
+              source_name: "mute_temp",
+              condition: "above",
+              threshold: 30.0
+            }
+          ]
+        )
+
+      stub(PouCon.DataPointManagerMock, :read_direct, fn
+        "mute_temp" -> {:ok, %{value: 35.0}}
+        "mute_siren_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
 
       {:ok, _pid} = start_supervised({AlarmController, poll_interval_ms: @test_poll_interval})
+      Process.sleep(200)
+
+      # Mute the active alarm
+      AlarmController.mute(rule.id)
       Process.sleep(100)
 
-      # Mute the rule (even if not active, shouldn't crash)
-      AlarmController.mute(rule.id)
-      Process.sleep(50)
-
-      # Verify mute was processed
       expiry = AlarmController.get_mute_expiry(rule.id)
-      # May be nil if alarm wasn't active, but call shouldn't crash
-      assert is_nil(expiry) or is_struct(expiry, DateTime)
+      assert %DateTime{} = expiry
+
+      status = AlarmController.status()
+      assert Map.has_key?(status.muted, rule.id)
     end
 
-    test "unmutes an alarm" do
-      {:ok, rule} = create_test_rule("Unmute Test", ["siren_1"])
+    test "unmutes alarm and re-triggers if still in alarm state" do
+      {siren_name, _pid, _devs} = start_siren!(name: "unmute_siren")
+      stub_read_direct(fn
+        "unmute_siren_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+      wait_for_init()
+
+      rule =
+        create_alarm_rule!("Unmute Test", [siren_name],
+          max_mute_minutes: 30,
+          conditions: [
+            %{
+              source_type: "sensor",
+              source_name: "unmute_temp",
+              condition: "above",
+              threshold: 30.0
+            }
+          ]
+        )
+
+      stub(PouCon.DataPointManagerMock, :read_direct, fn
+        "unmute_temp" -> {:ok, %{value: 35.0}}
+        "unmute_siren_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
 
       {:ok, _pid} = start_supervised({AlarmController, poll_interval_ms: @test_poll_interval})
+      Process.sleep(200)
+
+      # Mute then unmute
+      AlarmController.mute(rule.id)
       Process.sleep(100)
+      assert AlarmController.get_mute_expiry(rule.id) != nil
 
       AlarmController.unmute(rule.id)
-      Process.sleep(50)
+      Process.sleep(100)
 
-      # Should not crash
+      assert AlarmController.get_mute_expiry(rule.id) == nil
+
+      # Alarm should still be active
       status = AlarmController.status()
-      assert is_map(status.muted)
+      assert rule.id in status.active_alarms
     end
   end
 
@@ -134,10 +562,8 @@ defmodule PouCon.Automation.Alarm.AlarmControllerTest do
       initial_status = AlarmController.status()
       assert initial_status.rules_count == 0
 
-      # Create a new rule
-      {:ok, _rule} = create_test_rule("New Rule", ["siren_1"])
+      create_alarm_rule!("New Rule", ["siren_1"])
 
-      # Reload
       AlarmController.reload_rules()
       Process.sleep(100)
 
@@ -151,7 +577,6 @@ defmodule PouCon.Automation.Alarm.AlarmControllerTest do
       {:ok, _pid} = start_supervised({AlarmController, poll_interval_ms: @test_poll_interval})
       Process.sleep(100)
 
-      # Create rule (triggers PubSub broadcast)
       {:ok, _rule} = AlarmRules.create_rule(%{name: "PubSub Rule", siren_names: ["siren_1"]})
       Process.sleep(100)
 
@@ -168,7 +593,6 @@ defmodule PouCon.Automation.Alarm.AlarmControllerTest do
       initial_status = AlarmController.status()
       assert initial_status.rules_count == 1
 
-      # Delete rule
       {:ok, _} = AlarmRules.delete_rule(rule)
       Process.sleep(100)
 
@@ -178,20 +602,17 @@ defmodule PouCon.Automation.Alarm.AlarmControllerTest do
   end
 
   describe "condition evaluation helpers" do
-    test "evaluate_sensor_condition logic" do
-      # Test threshold comparisons
+    test "threshold comparisons" do
       assert evaluate_threshold("above", 35.0, 30.0) == true
       assert evaluate_threshold("above", 25.0, 30.0) == false
       assert evaluate_threshold("below", 25.0, 30.0) == true
       assert evaluate_threshold("below", 35.0, 30.0) == false
       assert evaluate_threshold("equals", 30.0, 30.0) == true
-      # Within 0.1 tolerance
       assert evaluate_threshold("equals", 30.05, 30.0) == true
       assert evaluate_threshold("equals", 30.2, 30.0) == false
     end
 
-    test "evaluate_equipment_condition logic" do
-      # Test equipment state checks
+    test "equipment state checks" do
       assert evaluate_equipment_state("off", %{is_running: false}) == true
       assert evaluate_equipment_state("off", %{is_running: true}) == false
       assert evaluate_equipment_state("not_running", %{is_running: false}) == true
@@ -204,53 +625,15 @@ defmodule PouCon.Automation.Alarm.AlarmControllerTest do
   # Helper Functions
   # ——————————————————————————————————————————————————————————————
 
-  defp create_test_rule(name, siren_names) do
-    %AlarmRule{}
-    |> AlarmRule.changeset(%{
-      name: name,
-      siren_names: siren_names,
-      logic: "any",
-      auto_clear: true,
-      enabled: true
-    })
-    |> Repo.insert()
-  end
-
-  # Helper for creating rules with conditions - used in integration test scenarios
-  # Kept for future tests that need to verify condition evaluation with real equipment
-  defp _create_test_rule_with_conditions(name, siren_names, logic, conditions) do
-    {:ok, rule} =
-      %AlarmRule{}
-      |> AlarmRule.changeset(%{
-        name: name,
-        siren_names: siren_names,
-        logic: logic,
-        auto_clear: true,
-        enabled: true
-      })
-      |> Repo.insert()
-
-    Enum.each(conditions, fn condition_attrs ->
-      %AlarmCondition{}
-      |> AlarmCondition.changeset(Map.put(condition_attrs, :alarm_rule_id, rule.id))
-      |> Repo.insert!()
-    end)
-
-    {:ok, Repo.preload(rule, :conditions, force: true)}
-  end
-
-  # Logic evaluation helper (mirrors internal function)
   defp apply_logic("any", results), do: Enum.any?(results, & &1)
   defp apply_logic("all", results), do: Enum.all?(results, & &1)
   defp apply_logic(_, results), do: Enum.any?(results, & &1)
 
-  # Threshold evaluation helper
   defp evaluate_threshold("above", value, threshold), do: value > threshold
   defp evaluate_threshold("below", value, threshold), do: value < threshold
   defp evaluate_threshold("equals", value, threshold), do: abs(value - threshold) < 0.1
   defp evaluate_threshold(_, _, _), do: false
 
-  # Equipment state evaluation helper
   defp evaluate_equipment_state("off", status) do
     is_on = Map.get(status, :is_on)
     is_running = Map.get(status, :is_running)
