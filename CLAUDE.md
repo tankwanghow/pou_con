@@ -385,7 +385,7 @@ PouCon has a comprehensive logging system designed for embedded deployment with 
 
 **Logging Integration Pattern:**
 
-All equipment controllers follow a 4-location integration pattern (see `LOGGING_INTEGRATION_GUIDE.md`):
+All equipment controllers follow a 4-location integration pattern:
 1. Interlock blocks (when safety rules prevent operation)
 2. State changes (commanded vs actual state sync)
 3. Command failures (Modbus write errors)
@@ -474,7 +474,7 @@ test/                  # Mirror of lib/ structure
 
 ### Integrating Logging into Controllers
 
-Follow the pattern in `LOGGING_INTEGRATION_GUIDE.md`:
+Follow the logging integration pattern:
 
 1. Add alias: `alias PouCon.Logging.EquipmentLogger`
 2. Log interlock blocks with "interlock" triggered_by
