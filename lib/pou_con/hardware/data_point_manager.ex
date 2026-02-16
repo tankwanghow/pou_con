@@ -183,7 +183,7 @@ defmodule PouCon.Hardware.DataPointManager do
   Reload a single port: stop existing connection, restart it, and clear error history.
   Works regardless of current port status (connected, disconnected, or error).
   """
-  def reload_port(device_path), do: GenServer.call(__MODULE__, {:reload_port, device_path})
+  def reload_port(device_path), do: GenServer.call(__MODULE__, {:reload_port, device_path}, 15_000)
 
   # ------------------------------------------------------------------ #
   # Port & Device Management

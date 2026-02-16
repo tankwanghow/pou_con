@@ -782,8 +782,10 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
     end)
   end
 
-  # Scan all active pumps in AUTO mode that are physically running.
-  # Same error exclusion logic as fans.
+  # Scan all active pumps in AUTO mode that have been commanded on.
+  # Unlike fans, pumps use commanded_on (not is_running) so the system
+  # knows it already sent the ON command and moves on to the next pump.
+  # The pump controller itself handles error detection (on_but_not_running, tripped, etc.).
   defp scan_auto_pumps_on do
     PouCon.Equipment.Devices.list_equipment()
     |> Enum.filter(&(&1.type == "pump" and &1.active))
@@ -791,8 +793,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       try do
         status = Pump.status(eq.name)
 
-        if status[:mode] == :auto and status[:error] not in @excluded_fan_errors and
-             status[:is_running] do
+        if status[:mode] == :auto and status[:commanded_on] do
           [eq.name | acc]
         else
           acc
@@ -869,7 +870,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
     try do
       status = Pump.status(name)
 
-      if status[:mode] == :auto and not status[:is_running] do
+      if status[:mode] == :auto do
         Pump.turn_on(name)
         Logger.info("[Environment] Turning ON pump: #{name} (humidity: #{state.avg_humidity}%)")
 
@@ -881,7 +882,7 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
 
         true
       else
-        status[:is_running]
+        false
       end
     rescue
       _ -> false
@@ -895,23 +896,19 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       status = Pump.status(name)
 
       if status[:mode] == :auto do
-        if status[:is_running] do
-          Pump.turn_off(name)
+        Pump.turn_off(name)
 
-          Logger.info(
-            "[Environment] Turning OFF pump: #{name} (humidity: #{state.avg_humidity}%)"
-          )
+        Logger.info(
+          "[Environment] Turning OFF pump: #{name} (humidity: #{state.avg_humidity}%)"
+        )
 
-          EquipmentLogger.log_stop(name, "auto", "auto_control", "on", %{
-            "humidity" => state.avg_humidity,
-            "humidity_override" => state.humidity_override,
-            "reason" => "humidity_control"
-          })
+        EquipmentLogger.log_stop(name, "auto", "auto_control", "on", %{
+          "humidity" => state.avg_humidity,
+          "humidity_override" => state.humidity_override,
+          "reason" => "humidity_control"
+        })
 
-          :success
-        else
-          :success
-        end
+        :success
       else
         :manual_mode
       end

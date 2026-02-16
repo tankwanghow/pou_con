@@ -82,6 +82,10 @@ defmodule PouCon.Hardware.PortSupervisor do
         Logger.info("[PortSupervisor] Modbus RTU connection started: #{inspect(pid)}")
         {:ok, pid}
 
+      {:error, {:already_started, pid}} ->
+        Logger.info("[PortSupervisor] Modbus RTU connection already exists: #{inspect(pid)}, reusing")
+        {:ok, pid}
+
       {:error, reason} = err ->
         Logger.error("[PortSupervisor] Modbus RTU connection failed: #{inspect(reason)}")
         err
@@ -132,6 +136,10 @@ defmodule PouCon.Hardware.PortSupervisor do
           Logger.info("[PortSupervisor] Modbus TCP (simulated) started: #{inspect(pid)}")
           {:ok, pid}
 
+        {:error, {:already_started, pid}} ->
+          Logger.info("[PortSupervisor] Modbus TCP (simulated) already exists: #{inspect(pid)}, reusing")
+          {:ok, pid}
+
         {:error, reason} = err ->
           Logger.error("[PortSupervisor] Modbus TCP (simulated) failed: #{inspect(reason)}")
           err
@@ -149,6 +157,10 @@ defmodule PouCon.Hardware.PortSupervisor do
       case DynamicSupervisor.start_child(__MODULE__, spec) do
         {:ok, pid} ->
           Logger.info("[PortSupervisor] Modbus TCP connection started: #{inspect(pid)}")
+          {:ok, pid}
+
+        {:error, {:already_started, pid}} ->
+          Logger.info("[PortSupervisor] Modbus TCP connection already exists: #{inspect(pid)}, reusing")
           {:ok, pid}
 
         {:error, reason} = err ->
@@ -202,6 +214,10 @@ defmodule PouCon.Hardware.PortSupervisor do
           Logger.info("[PortSupervisor] RTU-over-TCP (simulated) started: #{inspect(pid)}")
           {:ok, pid}
 
+        {:error, {:already_started, pid}} ->
+          Logger.info("[PortSupervisor] RTU-over-TCP (simulated) already exists: #{inspect(pid)}, reusing")
+          {:ok, pid}
+
         {:error, reason} = err ->
           Logger.error("[PortSupervisor] RTU-over-TCP (simulated) failed: #{inspect(reason)}")
           err
@@ -219,6 +235,10 @@ defmodule PouCon.Hardware.PortSupervisor do
       case DynamicSupervisor.start_child(__MODULE__, spec) do
         {:ok, pid} ->
           Logger.info("[PortSupervisor] RTU-over-TCP connection started: #{inspect(pid)}")
+          {:ok, pid}
+
+        {:error, {:already_started, pid}} ->
+          Logger.info("[PortSupervisor] RTU-over-TCP connection already exists: #{inspect(pid)}, reusing")
           {:ok, pid}
 
         {:error, reason} = err ->
