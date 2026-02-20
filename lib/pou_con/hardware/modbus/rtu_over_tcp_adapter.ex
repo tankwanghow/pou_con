@@ -98,8 +98,8 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
 
   def handle_call({:request, cmd}, _from, state) do
     case execute_request(state.socket, cmd, state.timeout) do
-      {:error, closed} when closed in [:closed, :enotconn, :einval] ->
-        Logger.warning("[RtuOverTcpAdapter] Connection closed, scheduling reconnect...")
+      {:error, reason} when reason in [:closed, :enotconn, :einval, :timeout, :etimedout] ->
+        Logger.warning("[RtuOverTcpAdapter] Socket unusable (#{inspect(reason)}), reconnecting...")
         safe_close(state.socket)
         schedule_reconnect(0)
         {:reply, {:error, :disconnected}, %{state | socket: nil}}

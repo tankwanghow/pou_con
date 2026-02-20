@@ -721,7 +721,8 @@ defmodule PouCon.Hardware.DataPointManager do
       device_path: db_port.device_path,
       protocol: db_port.protocol || "modbus_rtu",
       connection_pid: connection_pid,
-      description: db_port.description
+      description: db_port.description,
+      db_port: db_port
     }
 
     {:noreply, %{state | ports: Map.put(state.ports, port.device_path, port)}}
