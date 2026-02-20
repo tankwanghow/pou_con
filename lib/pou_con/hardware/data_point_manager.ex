@@ -650,7 +650,11 @@ defmodule PouCon.Hardware.DataPointManager do
     {{:ok, cached_data}, %{state | failure_counts: new_counts}}
   end
 
-  # Handle timeout - track consecutive failures, skip slave after threshold
+  # Handle timeout/disconnected - track consecutive failures, skip slave after threshold
+  defp handle_read_result(state, {:error, :disconnected}, data_point) do
+    handle_read_result(state, {:error, :timeout}, data_point)
+  end
+
   defp handle_read_result(state, {:error, :timeout} = error, data_point) do
     %{port_path: port_path, slave_id: slave_id, name: name} = data_point
     :ets.insert(:data_point_cache, {name, error})

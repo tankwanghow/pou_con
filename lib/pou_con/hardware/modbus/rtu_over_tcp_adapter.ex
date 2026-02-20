@@ -24,6 +24,7 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
   require Logger
 
   @default_timeout 2000
+  @max_reconnect_delay 30_000
 
   # ------------------------------------------------------------------ #
   # Child Spec
@@ -90,32 +91,18 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
   end
 
   @impl GenServer
-  def handle_call({:request, cmd}, _from, %{socket: nil} = state) do
-    # Socket is nil (previous reconnect failed) — try to reconnect
-    case reconnect(state) do
-      {:ok, new_socket} ->
-        result = execute_request(new_socket, cmd, state.timeout)
-        {:reply, result, %{state | socket: new_socket}}
-
-      {:error, reason} ->
-        {:reply, {:error, reason}, state}
-    end
+  def handle_call({:request, _cmd}, _from, %{socket: nil} = state) do
+    # Socket is nil — return error immediately, reconnect is already scheduled
+    {:reply, {:error, :disconnected}, state}
   end
 
   def handle_call({:request, cmd}, _from, state) do
     case execute_request(state.socket, cmd, state.timeout) do
       {:error, closed} when closed in [:closed, :enotconn, :einval] ->
-        Logger.warning("[RtuOverTcpAdapter] Connection closed, reconnecting...")
+        Logger.warning("[RtuOverTcpAdapter] Connection closed, scheduling reconnect...")
         safe_close(state.socket)
-
-        case reconnect(state) do
-          {:ok, new_socket} ->
-            result = execute_request(new_socket, cmd, state.timeout)
-            {:reply, result, %{state | socket: new_socket}}
-
-          {:error, reason} ->
-            {:reply, {:error, reason}, %{state | socket: nil}}
-        end
+        schedule_reconnect(0)
+        {:reply, {:error, :disconnected}, %{state | socket: nil}}
 
       result ->
         {:reply, result, state}
@@ -126,6 +113,24 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
   def handle_call(:close, _from, state) do
     safe_close(state.socket)
     {:reply, :ok, %{state | socket: nil}}
+  end
+
+  @impl GenServer
+  def handle_info(:reconnect, %{socket: socket} = state) when not is_nil(socket) do
+    # Already reconnected, skip
+    {:noreply, state}
+  end
+
+  def handle_info(:reconnect, state) do
+    case reconnect(state) do
+      {:ok, new_socket} ->
+        {:noreply, %{state | socket: new_socket, reconnect_delay: nil}}
+
+      {:error, _reason} ->
+        delay = min((state[:reconnect_delay] || 1000) * 2, @max_reconnect_delay)
+        schedule_reconnect(delay)
+        {:noreply, Map.put(state, :reconnect_delay, delay)}
+    end
   end
 
   @impl GenServer
@@ -161,6 +166,10 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
     ]
 
     :gen_tcp.connect(ip, tcp_port, opts, timeout)
+  end
+
+  defp schedule_reconnect(delay) do
+    Process.send_after(self(), :reconnect, delay)
   end
 
   defp reconnect(%{ip: ip, tcp_port: tcp_port, timeout: timeout}) do
