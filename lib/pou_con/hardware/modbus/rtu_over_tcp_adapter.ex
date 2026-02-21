@@ -78,7 +78,8 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
     # Return immediately without blocking — connect asynchronously so a
     # unreachable device does not delay startup of other ports.
     schedule_reconnect(0)
-    {:ok, %{socket: nil, ip: ip, tcp_port: tcp_port, timeout: timeout}}
+
+    {:ok, %{socket: nil, ip: ip, tcp_port: tcp_port, timeout: timeout, reconnect_delay: nil}}
   end
 
   @impl GenServer
@@ -94,6 +95,14 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
         safe_close(state.socket)
         schedule_reconnect(0)
         {:reply, {:error, :disconnected}, %{state | socket: nil}}
+
+      # Any other error (bad CRC, unknown FC, desync) — close socket to flush
+      # stale bytes and prevent permanent stream desync
+      {:error, reason} = error ->
+        Logger.warning("[RtuOverTcpAdapter] Request error (#{inspect(reason)}), closing socket to prevent desync")
+        safe_close(state.socket)
+        schedule_reconnect(0)
+        {:reply, error, %{state | socket: nil}}
 
       result ->
         {:reply, result, state}
@@ -118,9 +127,9 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
         {:noreply, %{state | socket: new_socket, reconnect_delay: nil}}
 
       {:error, _reason} ->
-        delay = min((state[:reconnect_delay] || 1000) * 2, @max_reconnect_delay)
+        delay = min((state.reconnect_delay || 1000) * 2, @max_reconnect_delay)
         schedule_reconnect(delay)
-        {:noreply, Map.put(state, :reconnect_delay, delay)}
+        {:noreply, %{state | reconnect_delay: delay}}
     end
   end
 
@@ -156,7 +165,37 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
       send_timeout_close: true
     ]
 
-    :gen_tcp.connect(ip, tcp_port, opts, timeout)
+    case :gen_tcp.connect(ip, tcp_port, opts, timeout) do
+      {:ok, socket} ->
+        # Tune TCP keepalive: probe after 60s idle, every 10s, give up after 5 fails
+        # Detects half-open connections in ~110s instead of Linux default ~2 hours
+        :inet.setopts(socket, [{:keepidle, 60}, {:keepintvl, 10}, {:keepcnt, 5}])
+
+        # Drain any stale bytes left in the serial server's TCP buffer from
+        # a previous session (e.g., late RS485 responses buffered during reconnect)
+        drain_stale_bytes(socket)
+
+        {:ok, socket}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Read and discard any bytes already waiting in the socket buffer
+  defp drain_stale_bytes(socket) do
+    case :gen_tcp.recv(socket, 0, 0) do
+      {:ok, data} ->
+        Logger.warning("[RtuOverTcpAdapter] Drained #{byte_size(data)} stale bytes after connect")
+        drain_stale_bytes(socket)
+
+      {:error, :timeout} ->
+        # No data waiting — buffer is clean
+        :ok
+
+      {:error, _} ->
+        :ok
+    end
   end
 
   defp schedule_reconnect(delay) do
@@ -246,12 +285,14 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
   # ------------------------------------------------------------------ #
 
   defp receive_response(socket, cmd, timeout) do
+    deadline = System.monotonic_time(:millisecond) + timeout
+
     # Phase 1: Read slave_id + function_code (2 bytes)
-    with {:ok, <<_slave_id, fc>>} <- recv_exact(socket, 2, timeout) do
+    with {:ok, <<slave_id, fc>>} <- recv_exact(socket, 2, deadline) do
       cond do
         # Exception response: FC has error bit set
         Bitwise.band(fc, 0x80) != 0 ->
-          case recv_exact(socket, 3, timeout) do
+          case recv_exact(socket, 3, deadline) do
             {:ok, <<exception_code, _crc::little-16>>} ->
               {:error, {:modbus_exception, exception_code}}
 
@@ -261,15 +302,30 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
 
         # Read responses (FC01-04): variable length
         fc in [0x01, 0x02, 0x03, 0x04] ->
-          with {:ok, <<byte_count>>} <- recv_exact(socket, 1, timeout),
-               {:ok, data_and_crc} <- recv_exact(socket, byte_count + 2, timeout) do
+          with {:ok, <<byte_count>>} <- recv_exact(socket, 1, deadline),
+               {:ok, data_and_crc} <- recv_exact(socket, byte_count + 2, deadline) do
             data = binary_part(data_and_crc, 0, byte_count)
-            parse_read_data(fc, data, cmd)
+            received_crc = :binary.decode_unsigned(binary_part(data_and_crc, byte_count, 2), :little)
+
+            # Validate CRC over the entire response frame (slave_id + fc + byte_count + data)
+            frame = <<slave_id, fc, byte_count>> <> data
+            expected_crc = crc16(frame)
+
+            if received_crc == expected_crc do
+              parse_read_data(fc, data, cmd)
+            else
+              Logger.warning(
+                "[RtuOverTcpAdapter] CRC mismatch: got 0x#{Integer.to_string(received_crc, 16)}" <>
+                  ", expected 0x#{Integer.to_string(expected_crc, 16)}"
+              )
+
+              {:error, :crc_mismatch}
+            end
           end
 
         # Write responses (FC05/06/16): fixed 6 bytes remaining
         fc in [0x05, 0x06, 0x10] ->
-          case recv_exact(socket, 6, timeout) do
+          case recv_exact(socket, 6, deadline) do
             {:ok, _rest} -> :ok
             {:error, reason} -> {:error, reason}
           end
@@ -300,29 +356,36 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
   end
 
   # ------------------------------------------------------------------ #
-  # TCP Receive Helper
+  # TCP Receive Helper (deadline-based)
   # ------------------------------------------------------------------ #
 
-  # Receive exactly `count` bytes, handling partial reads
-  defp recv_exact(socket, count, timeout) do
-    recv_exact(socket, count, timeout, <<>>)
+  # Receive exactly `count` bytes using an absolute deadline (monotonic ms)
+  # so that fragmented reads share a single total timeout budget.
+  defp recv_exact(socket, count, deadline) do
+    recv_exact(socket, count, deadline, <<>>)
   end
 
-  defp recv_exact(_socket, 0, _timeout, acc), do: {:ok, acc}
+  defp recv_exact(_socket, 0, _deadline, acc), do: {:ok, acc}
 
-  defp recv_exact(socket, remaining, timeout, acc) do
-    case :gen_tcp.recv(socket, remaining, timeout) do
-      {:ok, data} ->
-        received = byte_size(data)
+  defp recv_exact(socket, remaining, deadline, acc) do
+    remaining_ms = deadline - System.monotonic_time(:millisecond)
 
-        if received >= remaining do
-          {:ok, acc <> data}
-        else
-          recv_exact(socket, remaining - received, timeout, acc <> data)
-        end
+    if remaining_ms <= 0 do
+      {:error, :timeout}
+    else
+      case :gen_tcp.recv(socket, remaining, remaining_ms) do
+        {:ok, data} ->
+          received = byte_size(data)
 
-      {:error, reason} ->
-        {:error, reason}
+          if received >= remaining do
+            {:ok, acc <> data}
+          else
+            recv_exact(socket, remaining - received, deadline, acc <> data)
+          end
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     end
   end
 

@@ -72,7 +72,15 @@ defmodule PouCon.Hardware.Modbus.TcpAdapter do
     # unreachable device does not delay startup of other ports.
     schedule_reconnect(0)
 
-    {:ok, %{socket: nil, ip: ip, tcp_port: tcp_port, timeout: timeout, transaction_id: 0}}
+    {:ok,
+     %{
+       socket: nil,
+       ip: ip,
+       tcp_port: tcp_port,
+       timeout: timeout,
+       transaction_id: 0,
+       reconnect_delay: nil
+     }}
   end
 
   @impl GenServer
@@ -90,6 +98,14 @@ defmodule PouCon.Hardware.Modbus.TcpAdapter do
         safe_close(state.socket)
         schedule_reconnect(0)
         {:reply, {:error, :disconnected}, %{state | socket: nil}}
+
+      # Any other error (transaction mismatch, malformed response) — close socket
+      # to prevent potential stream desync from stale MBAP frames
+      {:error, reason} = error ->
+        Logger.warning("[TcpAdapter] Request error (#{inspect(reason)}), closing socket to prevent desync")
+        safe_close(state.socket)
+        schedule_reconnect(0)
+        {:reply, error, %{state | socket: nil}}
 
       result ->
         {:reply, result, state}
@@ -115,7 +131,7 @@ defmodule PouCon.Hardware.Modbus.TcpAdapter do
         {:noreply, %{state | socket: socket, reconnect_delay: nil}}
 
       {:error, reason} ->
-        delay = min((state[:reconnect_delay] || 1000) * 2, @max_reconnect_delay)
+        delay = min((state.reconnect_delay || 1000) * 2, @max_reconnect_delay)
 
         Logger.error(
           "[TcpAdapter] Connection failed to #{format_ip(state.ip)}:#{state.tcp_port}" <>
@@ -123,7 +139,7 @@ defmodule PouCon.Hardware.Modbus.TcpAdapter do
         )
 
         schedule_reconnect(delay)
-        {:noreply, Map.put(state, :reconnect_delay, delay)}
+        {:noreply, %{state | reconnect_delay: delay}}
     end
   end
 
@@ -149,7 +165,16 @@ defmodule PouCon.Hardware.Modbus.TcpAdapter do
       send_timeout_close: true
     ]
 
-    :gen_tcp.connect(ip, tcp_port, opts, timeout)
+    case :gen_tcp.connect(ip, tcp_port, opts, timeout) do
+      {:ok, socket} ->
+        # Tune TCP keepalive: probe after 60s idle, every 10s, give up after 5 fails
+        # Detects half-open connections in ~110s instead of Linux default ~2 hours
+        :inet.setopts(socket, [{:keepidle, 60}, {:keepintvl, 10}, {:keepcnt, 5}])
+        {:ok, socket}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   defp schedule_reconnect(delay) do
@@ -247,11 +272,13 @@ defmodule PouCon.Hardware.Modbus.TcpAdapter do
   # ------------------------------------------------------------------ #
 
   defp receive_response(socket, cmd, tx_id, timeout) do
+    deadline = System.monotonic_time(:millisecond) + timeout
+
     # Read MBAP header (7 bytes): tx_id (2) | proto (2) | length (2) | unit_id (1)
     with {:ok, <<^tx_id::big-16, _proto::big-16, length::big-16, _unit_id>>} <-
-           recv_exact(socket, 7, timeout) do
+           recv_exact(socket, 7, deadline) do
       pdu_length = length - 1
-      read_pdu(socket, cmd, pdu_length, timeout)
+      read_pdu(socket, cmd, pdu_length, deadline)
     else
       {:ok, _unexpected_header} ->
         {:error, :mbap_transaction_mismatch}
@@ -261,8 +288,8 @@ defmodule PouCon.Hardware.Modbus.TcpAdapter do
     end
   end
 
-  defp read_pdu(socket, cmd, pdu_length, timeout) do
-    with {:ok, <<fc, rest::binary>>} <- recv_exact(socket, pdu_length, timeout) do
+  defp read_pdu(socket, cmd, pdu_length, deadline) do
+    with {:ok, <<fc, rest::binary>>} <- recv_exact(socket, pdu_length, deadline) do
       cond do
         # Exception response: FC with error bit set
         Bitwise.band(fc, 0x80) != 0 ->
@@ -308,26 +335,36 @@ defmodule PouCon.Hardware.Modbus.TcpAdapter do
   defp parse_read_response(_fc, _data, _cmd), do: {:error, :malformed_response}
 
   # ------------------------------------------------------------------ #
-  # TCP Receive Helper
+  # TCP Receive Helper (deadline-based)
   # ------------------------------------------------------------------ #
 
-  defp recv_exact(socket, count, timeout), do: recv_exact(socket, count, timeout, <<>>)
+  # Receive exactly `count` bytes using an absolute deadline (monotonic ms)
+  # so that fragmented reads share a single total timeout budget.
+  defp recv_exact(socket, count, deadline) do
+    recv_exact(socket, count, deadline, <<>>)
+  end
 
-  defp recv_exact(_socket, 0, _timeout, acc), do: {:ok, acc}
+  defp recv_exact(_socket, 0, _deadline, acc), do: {:ok, acc}
 
-  defp recv_exact(socket, remaining, timeout, acc) do
-    case :gen_tcp.recv(socket, remaining, timeout) do
-      {:ok, data} ->
-        received = byte_size(data)
+  defp recv_exact(socket, remaining, deadline, acc) do
+    remaining_ms = deadline - System.monotonic_time(:millisecond)
 
-        if received >= remaining do
-          {:ok, acc <> data}
-        else
-          recv_exact(socket, remaining - received, timeout, acc <> data)
-        end
+    if remaining_ms <= 0 do
+      {:error, :timeout}
+    else
+      case :gen_tcp.recv(socket, remaining, remaining_ms) do
+        {:ok, data} ->
+          received = byte_size(data)
 
-      {:error, reason} ->
-        {:error, reason}
+          if received >= remaining do
+            {:ok, acc <> data}
+          else
+            recv_exact(socket, remaining - received, deadline, acc <> data)
+          end
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     end
   end
 
