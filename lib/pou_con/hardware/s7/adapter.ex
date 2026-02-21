@@ -49,6 +49,16 @@ defmodule PouCon.Hardware.S7.Adapter do
   # Client API
   # ------------------------------------------------------------------ #
 
+  def child_spec(opts) do
+    %{
+      id: {__MODULE__, opts[:name] || opts[:ip]},
+      start: {__MODULE__, :start_link, [opts]},
+      type: :worker,
+      restart: :temporary,
+      shutdown: 500
+    }
+  end
+
   def start_link(opts) do
     name = opts[:name] || __MODULE__
     GenServer.start_link(__MODULE__, opts, name: name)

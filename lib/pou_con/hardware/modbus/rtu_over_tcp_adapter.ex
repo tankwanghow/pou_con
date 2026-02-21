@@ -35,7 +35,7 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
       id: {__MODULE__, opts[:name] || opts[:ip]},
       start: {__MODULE__, :start_link, [opts]},
       type: :worker,
-      restart: :permanent,
+      restart: :temporary,
       shutdown: 500
     }
   end
@@ -75,19 +75,10 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
     tcp_port = opts[:tcp_port] || 502
     timeout = opts[:timeout] || @default_timeout
 
-    case connect_tcp(ip, tcp_port, timeout) do
-      {:ok, socket} ->
-        Logger.info("[RtuOverTcpAdapter] Connected to #{format_ip(ip)}:#{tcp_port}")
-
-        {:ok, %{socket: socket, ip: ip, tcp_port: tcp_port, timeout: timeout}}
-
-      {:error, reason} ->
-        Logger.error(
-          "[RtuOverTcpAdapter] Connection failed to #{format_ip(ip)}:#{tcp_port}: #{inspect(reason)}"
-        )
-
-        {:stop, reason}
-    end
+    # Return immediately without blocking — connect asynchronously so a
+    # unreachable device does not delay startup of other ports.
+    schedule_reconnect(0)
+    {:ok, %{socket: nil, ip: ip, tcp_port: tcp_port, timeout: timeout}}
   end
 
   @impl GenServer
