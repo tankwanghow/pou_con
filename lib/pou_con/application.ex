@@ -13,17 +13,18 @@ defmodule PouCon.Application do
   │  2. ScreenAlert              (Critical alert display + screen)  │
   │  3. SystemTimeValidator      (RTC battery failure detection)    │
   │  4. PortSupervisor           (Serial port connections)          │
-  │  5. DataPointManager         (Modbus polling engine + ETS)      │
-  │  6. Registry                 (Controller name registration)     │
-  │  7. DynamicSupervisor        (Controller process supervisor)    │
-  │  8. Ecto.Migrator            (Database migrations)              │
-  │  9. Phoenix.PubSub           (Real-time event broadcast)        │
-  │ 10. TaskSupervisor           (Async logging writes)             │
-  │ 11. InterlockController      (Safety chain rules)               │
-  │ 12. EquipmentLoader          (Spawns all controllers)           │
-  │ 13. Logging Services         (DataPointLogger)                  │
-  │ 14. Automation Services      (Environment, Light, Egg, Feeding) │
-  │ 15. Phoenix.Endpoint         (Web UI - always last)             │
+  │  5. PortWorkerSupervisor     (Per-port GenServer isolation)     │
+  │  6. DataPointManager         (Modbus routing engine + ETS)      │
+  │  7. Registry                 (Controller name registration)     │
+  │  8. DynamicSupervisor        (Controller process supervisor)    │
+  │  9. Ecto.Migrator            (Database migrations)              │
+  │ 10. Phoenix.PubSub           (Real-time event broadcast)        │
+  │ 11. TaskSupervisor           (Async logging writes)             │
+  │ 12. InterlockController      (Safety chain rules)               │
+  │ 13. EquipmentLoader          (Spawns all controllers)           │
+  │ 14. Logging Services         (DataPointLogger)                  │
+  │ 15. Automation Services      (Environment, Light, Egg, Feeding) │
+  │ 16. Phoenix.Endpoint         (Web UI - always last)             │
   └─────────────────────────────────────────────────────────────────┘
   ```
 
@@ -97,6 +98,13 @@ defmodule PouCon.Application do
         end ++
         [
           PouCon.Hardware.PortSupervisor,
+
+          # Per-port GenServer isolation — each port gets its own PortWorker
+          # Started BEFORE DataPointManager so it can register children during init
+          {DynamicSupervisor,
+           name: PouCon.Hardware.PortWorkerSupervisor,
+           strategy: :one_for_one},
+
           PouCon.Hardware.DataPointManager,
 
           # ——————————————————————————————————————————

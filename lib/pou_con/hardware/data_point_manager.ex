@@ -31,6 +31,7 @@ defmodule PouCon.Hardware.DataPointManager do
 
   alias PouCon.Equipment.Schemas.DataPoint
   alias PouCon.Hardware.Ports.Port
+  alias PouCon.Hardware.PortWorker
 
   alias PouCon.Hardware.Devices.{
     DigitalIO,
@@ -118,7 +119,6 @@ defmodule PouCon.Hardware.DataPointManager do
   # Constants
   # ------------------------------------------------------------------ #
   @modbus_timeout 3000
-  @max_consecutive_timeouts 3
 
   # Auto-reconnect backoff constants (matches S7 adapter pattern)
   @initial_reconnect_delay 5_000
@@ -426,47 +426,46 @@ defmodule PouCon.Hardware.DataPointManager do
   end
 
   @impl GenServer
-  def handle_call({:command, device_name, action, params}, _from, state) do
+  def handle_call({:command, device_name, action, params}, from, state) do
     case get_data_point_and_connection(state, device_name) do
       # No write function - can't write
       {:ok, %RuntimeDataPoint{write_fn: nil}, _, _} ->
         {:reply, {:error, :no_write_function}, state}
 
-      # Custom module write function
-      {:ok, dev, conn_pid, protocol_str} ->
-        %{write_fn: write_fn, slave_id: sid, register: reg, port_path: port_path} = dev
+      # Virtual device: handle synchronously (no PortWorker for virtual ports)
+      {:ok, dev, conn_pid, protocol_str} when dev.port_path == "virtual" ->
+        result =
+          try do
+            dispatch_info = get_io_module(dev.write_fn)
+            command = maybe_invert_write_command(dev, {action, params})
+            call_io_write(dispatch_info, conn_pid, protocol_str, dev.slave_id, dev.register, command, dev)
+          catch
+            :exit, reason ->
+              if reason == :timeout do
+                Logger.error("[#{device_name}] Command timeout")
+                {:error, :command_timeout}
+              else
+                Logger.error("[#{device_name}] Command exception: #{inspect(reason)}")
+                {:error, :command_exception}
+              end
+          end
 
-        # Check if we are currently skipping this slave due to timeout
-        if MapSet.member?(state.skipped_slaves, {port_path, sid}) do
-          {:reply, {:error, :device_offline_skipped}, state}
-        else
+        {:reply, result, state}
+
+      # Real hardware: dispatch to PortWorker via Task (non-blocking)
+      {:ok, dev, conn_pid, protocol_str} ->
+        Task.start(fn ->
           result =
             try do
-              dispatch_info = get_io_module(write_fn)
-              command = maybe_invert_write_command(dev, {action, params})
-
-              call_io_write(
-                dispatch_info,
-                conn_pid,
-                protocol_str,
-                sid,
-                reg,
-                command,
-                dev
-              )
+              PortWorker.write(dev.port_path, dev, conn_pid, protocol_str, action, params)
             catch
-              :exit, reason ->
-                if reason == :timeout do
-                  Logger.error("[#{device_name}] Command timeout")
-                  {:error, :command_timeout}
-                else
-                  Logger.error("[#{device_name}] Command exception: #{inspect(reason)}")
-                  {:error, :command_exception}
-                end
+              :exit, _ -> {:error, :disconnected}
             end
 
-          {:reply, result, state}
-        end
+          GenServer.reply(from, result)
+        end)
+
+        {:noreply, state}
 
       {:error, _} = err ->
         {:reply, err, state}
@@ -538,17 +537,6 @@ defmodule PouCon.Hardware.DataPointManager do
         # Small delay to allow OS to release the port
         Process.sleep(500)
 
-        # Clear skipped_slaves and failure_counts for this port
-        new_skipped =
-          state.skipped_slaves
-          |> Enum.reject(fn {path, _sid} -> path == device_path end)
-          |> MapSet.new()
-
-        new_counts =
-          state.failure_counts
-          |> Enum.reject(fn {{path, _sid}, _count} -> path == device_path end)
-          |> Map.new()
-
         # Restart connection
         case PouCon.Hardware.PortSupervisor.start_connection(db_port) do
           {:ok, pid} ->
@@ -562,11 +550,12 @@ defmodule PouCon.Hardware.DataPointManager do
                 error_reason: nil
             }
 
+            # Reset failure tracking in the PortWorker for this port
+            PortWorker.reset(device_path)
+
             new_state = %{
               state
               | ports: Map.put(state.ports, device_path, new_port),
-                skipped_slaves: new_skipped,
-                failure_counts: new_counts,
                 reconnect_counts: Map.delete(state.reconnect_counts, device_path)
             }
 
@@ -588,9 +577,7 @@ defmodule PouCon.Hardware.DataPointManager do
 
             new_state = %{
               state
-              | ports: Map.put(state.ports, device_path, new_port),
-                skipped_slaves: new_skipped,
-                failure_counts: new_counts
+              | ports: Map.put(state.ports, device_path, new_port)
             }
 
             {:reply, {:error, reason}, new_state}
@@ -616,7 +603,7 @@ defmodule PouCon.Hardware.DataPointManager do
   end
 
   @impl GenServer
-  def handle_call({:read_direct, device_name}, _from, state) do
+  def handle_call({:read_direct, device_name}, from, state) do
     case Map.get(state.data_points, device_name) do
       nil ->
         {:reply, {:error, :not_found}, state}
@@ -624,91 +611,31 @@ defmodule PouCon.Hardware.DataPointManager do
       %{read_fn: nil} ->
         {:reply, {:error, :no_read_function}, state}
 
+      # Virtual device: read synchronously (no PortWorker for virtual ports)
+      %{port_path: "virtual"} = data_point ->
+        port = Map.get(state.ports, data_point.port_path)
+        conn_pid = port && port.connection_pid
+        result = do_virtual_read(conn_pid, data_point)
+        {:reply, result, state}
+
+      # Real hardware: dispatch to PortWorker via Task (non-blocking)
       data_point ->
-        %{port_path: port_path, slave_id: slave_id} = data_point
+        port = Map.get(state.ports, data_point.port_path)
+        conn_pid = port && port.connection_pid
+        protocol = if port, do: protocol_atom(port.protocol), else: :modbus_rtu
 
-        # Check if this slave is skipped due to consecutive timeouts
-        if MapSet.member?(state.skipped_slaves, {port_path, slave_id}) do
-          :ets.insert(:data_point_cache, {device_name, {:error, :timeout}})
-          {:reply, {:error, :timeout}, state}
-        else
-          result = do_read_direct(state, data_point)
-          {reply, new_state} = handle_read_result(state, result, data_point)
-          {:reply, reply, new_state}
-        end
-    end
-  end
+        Task.start(fn ->
+          result =
+            try do
+              PortWorker.read(data_point.port_path, data_point, conn_pid, protocol)
+            catch
+              :exit, _ -> {:error, :disconnected}
+            end
 
-  # Handle successful read - reset failure count, update cache
-  defp handle_read_result(state, {:ok, data}, data_point) do
-    %{port_path: port_path, slave_id: slave_id, name: name} = data_point
-    cached_data = apply_data_point_conversion(data, data_point)
-    :ets.insert(:data_point_cache, {name, cached_data})
+          GenServer.reply(from, result)
+        end)
 
-    # Reset failure count on success
-    new_counts = Map.delete(state.failure_counts, {port_path, slave_id})
-    {{:ok, cached_data}, %{state | failure_counts: new_counts}}
-  end
-
-  # Handle timeout/disconnected - track consecutive failures, skip slave after threshold
-  defp handle_read_result(state, {:error, :disconnected}, data_point) do
-    handle_read_result(state, {:error, :timeout}, data_point)
-  end
-
-  defp handle_read_result(state, {:error, :timeout} = error, data_point) do
-    %{port_path: port_path, slave_id: slave_id, name: name} = data_point
-    :ets.insert(:data_point_cache, {name, error})
-
-    current_count = Map.get(state.failure_counts, {port_path, slave_id}, 0) + 1
-
-    if current_count >= @max_consecutive_timeouts do
-      Logger.error(
-        "[#{name}] Slave #{slave_id} on #{port_path} reached #{@max_consecutive_timeouts} timeouts. Skipping until reload."
-      )
-
-      new_state = %{
-        state
-        | skipped_slaves: MapSet.put(state.skipped_slaves, {port_path, slave_id}),
-          failure_counts: Map.put(state.failure_counts, {port_path, slave_id}, current_count)
-      }
-
-      {error, new_state}
-    else
-      Logger.warning(
-        "[#{name}] Timeout #{current_count}/#{@max_consecutive_timeouts} for slave #{slave_id} on #{port_path}"
-      )
-
-      new_state = %{
-        state
-        | failure_counts: Map.put(state.failure_counts, {port_path, slave_id}, current_count)
-      }
-
-      {error, new_state}
-    end
-  end
-
-  # Handle other errors - just cache and return
-  defp handle_read_result(state, {:error, _} = error, data_point) do
-    :ets.insert(:data_point_cache, {data_point.name, error})
-    {error, state}
-  end
-
-  # Direct read from hardware (used by equipment self-polling)
-  defp do_read_direct(state, data_point) do
-    %{port_path: port_path, slave_id: slave_id, read_fn: read_fn, register: register} = data_point
-
-    port = Map.get(state.ports, port_path)
-    conn_pid = if port, do: port.connection_pid, else: nil
-    protocol = if port, do: protocol_atom(port.protocol), else: :modbus_rtu
-
-    fifth_param = get_fifth_param(data_point)
-
-    try do
-      dispatch_info = get_io_module(read_fn)
-      call_io_read(dispatch_info, conn_pid, protocol, slave_id, register, fifth_param)
-    catch
-      :exit, reason ->
-        if reason == :timeout, do: {:error, :timeout}, else: {:error, :read_exception}
+        {:noreply, state}
     end
   end
 
@@ -749,24 +676,29 @@ defmodule PouCon.Hardware.DataPointManager do
     # This handles auto-restarted processes we may have lost track of
     PouCon.Hardware.PortSupervisor.stop_all_children()
 
+    # Stop all PortWorkers before reload (fresh workers will be created by load_state_from_db)
+    DynamicSupervisor.which_children(PouCon.Hardware.PortWorkerSupervisor)
+    |> Enum.each(fn {_, pid, _, _} ->
+      DynamicSupervisor.terminate_child(PouCon.Hardware.PortWorkerSupervisor, pid)
+    end)
+
     # Small delay to allow OS to release serial ports
     Process.sleep(1000)
 
-    # Reload from DB, this effectively clears failure_counts and skips
+    # Reload from DB — this starts fresh PortWorkers and clears all failure tracking
     {:noreply, load_state_from_db()}
   end
 
   @impl GenServer
   def handle_cast({:skip_slave, port_path, slave_id}, state) do
-    {:noreply, %{state | skipped_slaves: MapSet.put(state.skipped_slaves, {port_path, slave_id})}}
+    PortWorker.skip_slave(port_path, slave_id)
+    {:noreply, state}
   end
 
   @impl GenServer
   def handle_cast({:unskip_slave, port_path, slave_id}, state) do
-    new_skipped = MapSet.delete(state.skipped_slaves, {port_path, slave_id})
-    # Also reset failure count when manually unskipping
-    new_counts = Map.delete(state.failure_counts, {port_path, slave_id})
-    {:noreply, %{state | skipped_slaves: new_skipped, failure_counts: new_counts}}
+    PortWorker.unskip_slave(port_path, slave_id)
+    {:noreply, state}
   end
 
   # ------------------------------------------------------------------ #
@@ -842,16 +774,8 @@ defmodule PouCon.Hardware.DataPointManager do
                 error_reason: nil
             }
 
-            # Clear skipped slaves and failure counts for this port
-            new_skipped =
-              state.skipped_slaves
-              |> Enum.reject(fn {path, _sid} -> path == device_path end)
-              |> MapSet.new()
-
-            new_counts =
-              state.failure_counts
-              |> Enum.reject(fn {{path, _sid}, _count} -> path == device_path end)
-              |> Map.new()
+            # Reset failure tracking in the PortWorker for this port
+            PortWorker.reset(device_path)
 
             Logger.info("[DataPointManager] Port #{device_path} auto-reconnected successfully")
 
@@ -859,8 +783,6 @@ defmodule PouCon.Hardware.DataPointManager do
              %{
                state
                | ports: Map.put(state.ports, device_path, new_port),
-                 skipped_slaves: new_skipped,
-                 failure_counts: new_counts,
                  reconnect_counts: Map.delete(state.reconnect_counts, device_path)
              }}
 
@@ -960,6 +882,16 @@ defmodule PouCon.Hardware.DataPointManager do
         end
       end)
 
+    # Start one PortWorker per non-virtual port for isolated read/write serialization
+    Enum.each(runtime_ports, fn {port_path, _port} ->
+      if port_path != "virtual" do
+        DynamicSupervisor.start_child(
+          PouCon.Hardware.PortWorkerSupervisor,
+          {PouCon.Hardware.PortWorker, port_path}
+        )
+      end
+    end)
+
     runtime_data_points =
       DataPoint
       |> Repo.all()
@@ -994,9 +926,6 @@ defmodule PouCon.Hardware.DataPointManager do
     %{
       ports: runtime_ports,
       data_points: runtime_data_points,
-      skipped_slaves: MapSet.new(),
-      # Format: %{ {port_path, slave_id} => integer_count }
-      failure_counts: %{},
       # Track last poll time per data point name
       # Format: %{ "data_point_name" => monotonic_time_ms }
       # Empty initially - all data points will be polled on first tick
@@ -1057,14 +986,38 @@ defmodule PouCon.Hardware.DataPointManager do
     Logger.debug("[DataPointManager] Set inverted default for #{name} (Modbus)")
   end
 
+  # Direct read for virtual devices (no PortWorker, no blocking)
+  defp do_virtual_read(conn_pid, data_point) do
+    %{slave_id: slave_id, register: register, read_fn: read_fn} = data_point
+
+    try do
+      dispatch_info = get_io_module(read_fn)
+      fifth_param = get_fifth_param(data_point)
+
+      case call_io_read(dispatch_info, conn_pid, :virtual, slave_id, register, fifth_param) do
+        {:ok, data} ->
+          cached_data = apply_data_point_conversion(data, data_point)
+          :ets.insert(:data_point_cache, {data_point.name, cached_data})
+          {:ok, cached_data}
+
+        {:error, _} = error ->
+          :ets.insert(:data_point_cache, {data_point.name, error})
+          error
+      end
+    catch
+      :exit, _ ->
+        {:error, :read_exception}
+    end
+  end
+
   # Determine 5th parameter for data point read functions
   # New version with byte_order support
-  defp get_fifth_param(%{
-         read_fn: read_fn,
-         channel: channel,
-         value_type: value_type,
-         byte_order: byte_order
-       }) do
+  def get_fifth_param(%{
+        read_fn: read_fn,
+        channel: channel,
+        value_type: value_type,
+        byte_order: byte_order
+      }) do
     case read_fn do
       :read_analog_input ->
         %{type: parse_value_type(value_type), byte_order: byte_order || "high_low"}
@@ -1079,7 +1032,7 @@ defmodule PouCon.Hardware.DataPointManager do
   end
 
   # Fallback for data points without byte_order field (backward compatibility)
-  defp get_fifth_param(%{read_fn: read_fn, channel: channel, value_type: value_type}) do
+  def get_fifth_param(%{read_fn: read_fn, channel: channel, value_type: value_type}) do
     case read_fn do
       :read_analog_input -> %{type: parse_value_type(value_type), byte_order: "high_low"}
       :read_analog_output -> %{type: parse_value_type(value_type), byte_order: "high_low"}
@@ -1100,7 +1053,7 @@ defmodule PouCon.Hardware.DataPointManager do
   # Call I/O read function
   # Unified modules: module.fn(conn, protocol, slave_id, register, opts)
   # opts = channel for DigitalIO, data_type for AnalogIO
-  defp call_io_read({module, fn_name}, conn_pid, protocol, slave_id, register, opts) do
+  def call_io_read({module, fn_name}, conn_pid, protocol, slave_id, register, opts) do
     if conn_pid do
       Task.async(fn ->
         apply(module, fn_name, [conn_pid, protocol, slave_id, register, opts])
@@ -1112,7 +1065,7 @@ defmodule PouCon.Hardware.DataPointManager do
   end
 
   # Legacy modules (Virtual): module.fn(conn, slave_id, register, channel)
-  defp call_io_read({module, fn_name, :legacy}, conn_pid, _protocol, slave_id, register, channel) do
+  def call_io_read({module, fn_name, :legacy}, conn_pid, _protocol, slave_id, register, channel) do
     if conn_pid do
       Task.async(fn ->
         apply(module, fn_name, [conn_pid, slave_id, register, channel])
@@ -1125,7 +1078,7 @@ defmodule PouCon.Hardware.DataPointManager do
 
   # Call I/O write function
   # Unified modules: module.fn(conn, protocol, slave_id, register, command, opts)
-  defp call_io_write({module, fn_name}, conn_pid, protocol_str, slave_id, register, command, dev) do
+  def call_io_write({module, fn_name}, conn_pid, protocol_str, slave_id, register, command, dev) do
     protocol = protocol_atom(protocol_str)
     fifth_param = get_fifth_param(dev)
 
@@ -1140,15 +1093,15 @@ defmodule PouCon.Hardware.DataPointManager do
   end
 
   # Legacy modules (Virtual): module.fn(conn, slave_id, register, command, channel)
-  defp call_io_write(
-         {module, fn_name, :legacy},
-         conn_pid,
-         _protocol_str,
-         slave_id,
-         register,
-         command,
-         dev
-       ) do
+  def call_io_write(
+        {module, fn_name, :legacy},
+        conn_pid,
+        _protocol_str,
+        slave_id,
+        register,
+        command,
+        dev
+      ) do
     channel = dev.channel
 
     if conn_pid do
@@ -1167,7 +1120,7 @@ defmodule PouCon.Hardware.DataPointManager do
   # All modules use unified calling convention with protocol parameter
   # Call signature: module.fn(conn, protocol, slave_id, register, opts)
   # ------------------------------------------------------------------ #
-  defp get_io_module(fn_name) do
+  def get_io_module(fn_name) do
     case fn_name do
       # Digital I/O - works with Modbus RTU/TCP and S7
       :read_digital_input -> {DigitalIO, :read_digital_input}
@@ -1184,12 +1137,12 @@ defmodule PouCon.Hardware.DataPointManager do
   end
 
   # Helper to get protocol atom from string
-  defp protocol_atom("modbus_rtu"), do: :modbus_rtu
-  defp protocol_atom("modbus_tcp"), do: :modbus_tcp
-  defp protocol_atom("rtu_over_tcp"), do: :rtu_over_tcp
-  defp protocol_atom("s7"), do: :s7
-  defp protocol_atom("virtual"), do: :virtual
-  defp protocol_atom(_), do: :modbus_rtu
+  def protocol_atom("modbus_rtu"), do: :modbus_rtu
+  def protocol_atom("modbus_tcp"), do: :modbus_tcp
+  def protocol_atom("rtu_over_tcp"), do: :rtu_over_tcp
+  def protocol_atom("s7"), do: :s7
+  def protocol_atom("virtual"), do: :virtual
+  def protocol_atom(_), do: :modbus_rtu
 
   # ------------------------------------------------------------------ #
   # Utility
@@ -1272,11 +1225,11 @@ defmodule PouCon.Hardware.DataPointManager do
   defp maybe_invert_digital(data, _), do: data
 
   # Invert write command for NC relay wiring
-  defp maybe_invert_write_command(%{inverted: true}, {:set_state, %{state: v} = p})
-       when v in [0, 1],
-       do: {:set_state, %{p | state: 1 - v}}
+  def maybe_invert_write_command(%{inverted: true}, {:set_state, %{state: v} = p})
+      when v in [0, 1],
+      do: {:set_state, %{p | state: 1 - v}}
 
-  defp maybe_invert_write_command(_, command), do: command
+  def maybe_invert_write_command(_, command), do: command
 
   # Parse color_zones JSON string into list of zone maps
   defp parse_color_zones(nil), do: []
