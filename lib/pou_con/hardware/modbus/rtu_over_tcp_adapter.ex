@@ -171,9 +171,9 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
         # Detects half-open connections in ~110s instead of Linux default ~2 hours
         :inet.setopts(socket, [{:keepidle, 60}, {:keepintvl, 10}, {:keepcnt, 5}])
 
-        # Drain any stale bytes left in the serial server's TCP buffer from
-        # a previous session (e.g., late RS485 responses buffered during reconnect)
-        drain_stale_bytes(socket)
+        # Some serial servers (e.g., Anybus SS) use Telnet framing on their TCP
+        # ports. Handle the initial negotiation before sending Modbus data.
+        handle_telnet_negotiation(socket)
 
         {:ok, socket}
 
@@ -182,7 +182,70 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
     end
   end
 
-  # Read and discard any bytes already waiting in the socket buffer
+  # ------------------------------------------------------------------ #
+  # Telnet Negotiation Handling
+  # ------------------------------------------------------------------ #
+
+  # Serial servers like Anybus use ser2net which wraps TCP connections in
+  # Telnet protocol. On connect they send WILL/DO/DONT options that must
+  # be acknowledged once, then drained to avoid an infinite negotiation loop.
+  defp handle_telnet_negotiation(socket) do
+    case :gen_tcp.recv(socket, 0, 1_000) do
+      {:ok, <<0xFF, _::binary>> = data} ->
+        response = build_telnet_response(data)
+
+        if byte_size(response) > 0 do
+          :gen_tcp.send(socket, response)
+          Logger.info("[RtuOverTcpAdapter] Telnet negotiation: responded to #{byte_size(data)} bytes")
+        end
+
+        # Drain follow-up negotiations without responding to break the loop
+        drain_telnet(socket)
+
+      {:ok, data} ->
+        # Non-Telnet stale bytes
+        Logger.warning("[RtuOverTcpAdapter] Drained #{byte_size(data)} stale bytes after connect")
+        drain_stale_bytes(socket)
+
+      {:error, :timeout} ->
+        # No Telnet negotiation — plain TCP serial server
+        :ok
+
+      {:error, _} ->
+        :ok
+    end
+  end
+
+  # Build Telnet responses: WILL→DO, DO→WILL, DONT→WONT
+  defp build_telnet_response(data), do: build_telnet_response(data, <<>>)
+
+  defp build_telnet_response(<<0xFF, 0xFB, opt, rest::binary>>, acc),
+    do: build_telnet_response(rest, acc <> <<0xFF, 0xFD, opt>>)
+
+  defp build_telnet_response(<<0xFF, 0xFD, opt, rest::binary>>, acc),
+    do: build_telnet_response(rest, acc <> <<0xFF, 0xFB, opt>>)
+
+  defp build_telnet_response(<<0xFF, 0xFE, opt, rest::binary>>, acc),
+    do: build_telnet_response(rest, acc <> <<0xFF, 0xFC, opt>>)
+
+  defp build_telnet_response(<<0xFF, 0xFC, opt, rest::binary>>, acc),
+    do: build_telnet_response(rest, acc <> <<0xFF, 0xFE, opt>>)
+
+  defp build_telnet_response(<<_, rest::binary>>, acc),
+    do: build_telnet_response(rest, acc)
+
+  defp build_telnet_response(<<>>, acc), do: acc
+
+  # Silently drain follow-up Telnet negotiation without responding to break the loop
+  defp drain_telnet(socket) do
+    case :gen_tcp.recv(socket, 0, 500) do
+      {:ok, _data} -> drain_telnet(socket)
+      {:error, :timeout} -> :ok
+      {:error, _} -> :ok
+    end
+  end
+
+  # Read and discard any stale bytes in the socket buffer
   defp drain_stale_bytes(socket) do
     case :gen_tcp.recv(socket, 0, 0) do
       {:ok, data} ->
@@ -190,7 +253,6 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
         drain_stale_bytes(socket)
 
       {:error, :timeout} ->
-        # No data waiting — buffer is clean
         :ok
 
       {:error, _} ->
@@ -285,53 +347,93 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
   # ------------------------------------------------------------------ #
 
   defp receive_response(socket, cmd, timeout) do
+    expected_slave_id = elem(cmd, 1)
     deadline = System.monotonic_time(:millisecond) + timeout
 
     # Phase 1: Read slave_id + function_code (2 bytes)
     with {:ok, <<slave_id, fc>>} <- recv_exact(socket, 2, deadline) do
-      cond do
-        # Exception response: FC has error bit set
-        Bitwise.band(fc, 0x80) != 0 ->
-          case recv_exact(socket, 3, deadline) do
-            {:ok, <<exception_code, _crc::little-16>>} ->
-              {:error, {:modbus_exception, exception_code}}
+      # Validate slave ID matches the request
+      if slave_id != expected_slave_id do
+        Logger.warning(
+          "[RtuOverTcpAdapter] Slave ID mismatch: expected #{expected_slave_id}, got #{slave_id}"
+        )
 
-            {:error, reason} ->
-              {:error, reason}
-          end
+        {:error, :slave_id_mismatch}
+      else
+        cond do
+          # Exception response: FC has error bit set
+          Bitwise.band(fc, 0x80) != 0 ->
+            case recv_exact(socket, 3, deadline) do
+              {:ok, <<exception_code, crc_lo, crc_hi>>} ->
+                received_crc = crc_lo + Bitwise.bsl(crc_hi, 8)
+                frame = <<slave_id, fc, exception_code>>
+                expected_crc = crc16(frame)
 
-        # Read responses (FC01-04): variable length
-        fc in [0x01, 0x02, 0x03, 0x04] ->
-          with {:ok, <<byte_count>>} <- recv_exact(socket, 1, deadline),
-               {:ok, data_and_crc} <- recv_exact(socket, byte_count + 2, deadline) do
-            data = binary_part(data_and_crc, 0, byte_count)
-            received_crc = :binary.decode_unsigned(binary_part(data_and_crc, byte_count, 2), :little)
+                if received_crc == expected_crc do
+                  {:error, {:modbus_exception, exception_code}}
+                else
+                  Logger.warning(
+                    "[RtuOverTcpAdapter] CRC mismatch on exception response: " <>
+                      "got 0x#{Integer.to_string(received_crc, 16)}, expected 0x#{Integer.to_string(expected_crc, 16)}"
+                  )
 
-            # Validate CRC over the entire response frame (slave_id + fc + byte_count + data)
-            frame = <<slave_id, fc, byte_count>> <> data
-            expected_crc = crc16(frame)
+                  {:error, :crc_mismatch}
+                end
 
-            if received_crc == expected_crc do
-              parse_read_data(fc, data, cmd)
-            else
-              Logger.warning(
-                "[RtuOverTcpAdapter] CRC mismatch: got 0x#{Integer.to_string(received_crc, 16)}" <>
-                  ", expected 0x#{Integer.to_string(expected_crc, 16)}"
-              )
-
-              {:error, :crc_mismatch}
+              {:error, reason} ->
+                {:error, reason}
             end
-          end
 
-        # Write responses (FC05/06/16): fixed 6 bytes remaining
-        fc in [0x05, 0x06, 0x10] ->
-          case recv_exact(socket, 6, deadline) do
-            {:ok, _rest} -> :ok
-            {:error, reason} -> {:error, reason}
-          end
+          # Read responses (FC01-04): variable length
+          fc in [0x01, 0x02, 0x03, 0x04] ->
+            with {:ok, <<byte_count>>} <- recv_exact(socket, 1, deadline),
+                 {:ok, data_and_crc} <- recv_exact(socket, byte_count + 2, deadline) do
+              data = binary_part(data_and_crc, 0, byte_count)
+              received_crc = :binary.decode_unsigned(binary_part(data_and_crc, byte_count, 2), :little)
 
-        true ->
-          {:error, {:unknown_function_code, fc}}
+              # Validate CRC over the entire response frame (slave_id + fc + byte_count + data)
+              frame = <<slave_id, fc, byte_count>> <> data
+              expected_crc = crc16(frame)
+
+              if received_crc == expected_crc do
+                parse_read_data(fc, data, cmd)
+              else
+                Logger.warning(
+                  "[RtuOverTcpAdapter] CRC mismatch: got 0x#{Integer.to_string(received_crc, 16)}" <>
+                    ", expected 0x#{Integer.to_string(expected_crc, 16)}"
+                )
+
+                {:error, :crc_mismatch}
+              end
+            end
+
+          # Write responses (FC05/06/16): fixed 6 bytes remaining (addr + value/count + CRC)
+          fc in [0x05, 0x06, 0x10] ->
+            case recv_exact(socket, 6, deadline) do
+              {:ok, rest} ->
+                echo_data = binary_part(rest, 0, 4)
+                received_crc = :binary.decode_unsigned(binary_part(rest, 4, 2), :little)
+                frame = <<slave_id, fc>> <> echo_data
+                expected_crc = crc16(frame)
+
+                if received_crc == expected_crc do
+                  :ok
+                else
+                  Logger.warning(
+                    "[RtuOverTcpAdapter] CRC mismatch on write response: " <>
+                      "got 0x#{Integer.to_string(received_crc, 16)}, expected 0x#{Integer.to_string(expected_crc, 16)}"
+                  )
+
+                  {:error, :crc_mismatch}
+                end
+
+              {:error, reason} ->
+                {:error, reason}
+            end
+
+          true ->
+            {:error, {:unknown_function_code, fc}}
+        end
       end
     end
   end
