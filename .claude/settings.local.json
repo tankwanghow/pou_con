@@ -112,7 +112,11 @@
       "WebFetch(domain:www.aggsoft.com)",
       "WebFetch(domain:www.omadanetworks.com)",
       "Bash(sort:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "WebFetch(domain:www.lcautomation.com)",
+      "WebFetch(domain:192.168.0.3)",
+      "WebFetch(domain:forum.hms-networks.com)",
+      "WebFetch(domain:www.anybus.com)"
     ],
     "deny": [],
     "ask": []

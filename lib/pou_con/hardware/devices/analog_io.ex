@@ -226,6 +226,10 @@ defmodule PouCon.Hardware.Devices.AnalogIO do
         decoded = decode_modbus_value(values, data_type, byte_order)
         {:ok, %{value: decoded, raw: decoded}}
 
+      :ok ->
+        # Write-style response received for a read request — stream desync
+        {:error, :desync}
+
       {:error, reason} ->
         {:error, reason}
     end
