@@ -30,9 +30,9 @@ defmodule PouConWeb.Components.Summaries.PowerMeterSummaryComponent do
     <div
       phx-click="navigate"
       phx-target={@myself}
-      class="bg-base-100 shadow-md rounded-xl border border-base-300 transition-all cursor-pointer hover:shadow-lg"
+      class="bg-base-100"
     >
-      <div class="flex flex-wrap">
+      <div class="flex flex-wrap gap-1">
         <.power_meter_item :for={meter <- @power_meters} meter={meter} />
       </div>
     </div>
@@ -45,7 +45,7 @@ defmodule PouConWeb.Components.Summaries.PowerMeterSummaryComponent do
 
   defp power_meter_item(assigns) do
     ~H"""
-    <div class="p-2 flex flex-col items-center">
+    <div class="p-2 flex flex-col items-center shadow-md rounded-xl border border-base-300 transition-all cursor-pointer hover:shadow-lg">
       <div class="flex items-center gap-1 mb-1">
         <PowerMeterComponent.power_meter_icon class={"w-5 h-5 brightness-150 #{Shared.text_color(@meter.main_color)}"} />
         <span class={[Shared.text_color(@meter.main_color), "text-sm font-medium"]}>

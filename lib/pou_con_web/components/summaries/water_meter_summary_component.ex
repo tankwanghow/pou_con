@@ -48,7 +48,7 @@ defmodule PouConWeb.Components.Summaries.WaterMeterSummaryComponent do
     <div class="p-2 flex flex-col items-center justify-center">
       <div class={[Shared.text_color(@eq.main_color), "text-sm"]}>{@eq.title}</div>
       <div class="flex items-center gap-1">
-        <WaterMeterComponent.water_meter_icon class={"w-9 h-15 #{Shared.text_color(@eq.main_color)}"} />
+        <WaterMeterComponent.water_meter_icon class={"w-9 h-9 #{Shared.text_color(@eq.main_color)}"} />
         <div class="flex flex-col space-y-0.5">
           <%= for {label, value, color, _bold} <- @eq.rows do %>
             <div class="flex items-baseline gap-1">

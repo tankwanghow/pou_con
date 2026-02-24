@@ -257,7 +257,7 @@ defmodule PouConWeb.Live.Dashboard.Index do
           id="pumps"
           pumps={pumps}
         />
-        
+
     <!-- Environment Status Summary -->
         <.live_component
           module={PouConWeb.Components.Summaries.EnvStatusSummaryComponent}
