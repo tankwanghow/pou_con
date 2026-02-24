@@ -4,10 +4,9 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
 
   Feeding Cycle Requirements:
   1. Check each feeding equipment individually based on its limit switch states
-  2. Move to back only if: time matches AND front_limit is ON AND back_limit is OFF
-  3. Move to front only if: time matches AND front_limit is OFF AND back_limit is ON
-  4. ALL feeding equipment can move_to_back only if FeedIn bucket is full and filling has stopped
-  5. Skip feeding buckets in MANUAL mode or with errors
+  2. Move to back only if: time matches AND not already at back_limit AND FeedIn is not filling
+  3. Move to front only if: time matches AND not already at front_limit AND FeedIn is not filling
+  4. Skip feeding buckets in MANUAL mode or with errors
 
   Note: FeedIn filling is handled by FeedInController (separate process)
   """
@@ -163,14 +162,14 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
     if schedule.move_to_back_limit_time do
       back_time = %{schedule.move_to_back_limit_time | second: 0, microsecond: {0, 0}}
 
-      if Time.compare(current_minute, back_time) == :eq and front_limit and not back_limit do
-        # Time matches, front limit is ON, back limit is OFF
-        # Check if FeedIn is ready
-        case check_feedin_ready() do
+      if Time.compare(current_minute, back_time) == :eq and not back_limit do
+        # Time matches, not already at back limit
+        # Check if FeedIn is not currently filling
+        case check_feedin_not_filling() do
           :ok ->
             Logger.info(
               "FeedingScheduler: Moving #{equipment_name} to BACK (schedule ##{schedule.id}, " <>
-                "front_limit=ON, back_limit=OFF)"
+                "back_limit=OFF)"
             )
 
             Feeding.move_to_back_limit(equipment_name)
@@ -194,26 +193,35 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
     if schedule.move_to_front_limit_time do
       front_time = %{schedule.move_to_front_limit_time | second: 0, microsecond: {0, 0}}
 
-      if Time.compare(current_minute, front_time) == :eq and not front_limit and back_limit do
-        # Time matches, front limit is OFF, back limit is ON
-        Logger.info(
-          "FeedingScheduler: Moving #{equipment_name} to FRONT (schedule ##{schedule.id}, " <>
-            "front_limit=OFF, back_limit=ON)"
-        )
+      if Time.compare(current_minute, front_time) == :eq and not front_limit do
+        # Time matches, not already at front limit
+        # Check if FeedIn is not currently filling
+        case check_feedin_not_filling() do
+          :ok ->
+            Logger.info(
+              "FeedingScheduler: Moving #{equipment_name} to FRONT (schedule ##{schedule.id}, " <>
+                "front_limit=OFF)"
+            )
 
-        Feeding.move_to_front_limit(equipment_name)
+            Feeding.move_to_front_limit(equipment_name)
 
-        # Log schedule-triggered action
-        EquipmentLogger.log_start(equipment_name, "auto", "schedule", %{
-          "schedule_id" => schedule.id,
-          "action" => "move_to_front",
-          "move_to_front_time" => Time.to_string(schedule.move_to_front_limit_time)
-        })
+            # Log schedule-triggered action
+            EquipmentLogger.log_start(equipment_name, "auto", "schedule", %{
+              "schedule_id" => schedule.id,
+              "action" => "move_to_front",
+              "move_to_front_time" => Time.to_string(schedule.move_to_front_limit_time)
+            })
+
+          {:error, reason} ->
+            Logger.warning(
+              "FeedingScheduler: Skipping #{equipment_name} move to front - #{reason}"
+            )
+        end
       end
     end
   end
 
-  defp check_feedin_ready do
+  defp check_feedin_not_filling do
     # Find FeedIn equipment
     feed_in_equipment =
       Devices.list_equipment()
@@ -234,20 +242,14 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
         nil ->
           {:error, "FeedIn controller not ready"}
 
-        %{bucket_full: true, is_running: false} ->
-          :ok
-
-        %{bucket_full: false} ->
-          {:error, "FeedIn bucket is not full"}
-
         %{is_running: true} ->
           {:error, "FeedIn is still filling"}
 
         _ ->
-          {:error, "FeedIn status unknown"}
+          :ok
       end
     else
-      Logger.warning("FeedingScheduler: No FeedIn equipment found, allowing move")
+      # No FeedIn equipment configured, allow movement
       :ok
     end
   end
