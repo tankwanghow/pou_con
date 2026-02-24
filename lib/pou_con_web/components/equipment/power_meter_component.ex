@@ -20,13 +20,14 @@ defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
      |> assign(:equipment, equipment)
      |> assign(:equipment_id, equipment.id)
      |> assign(:status, status)
-     |> assign(:display, display_data)}
+     |> assign(:display, display_data)
+     |> assign(:visible, has_significant_values?(status))}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <div>
+    <div :if={@visible}>
       <Shared.equipment_card is_error={@display.is_error}>
         <Shared.equipment_header
           title={@equipment.title || "Power Meter"}
@@ -95,6 +96,17 @@ defmodule PouConWeb.Components.Equipment.PowerMeterComponent do
 
   # Metadata keys to exclude from display
   @metadata_keys [:name, :title, :error, :error_message, :thresholds]
+
+  # Hide component when all numeric values are negligible (≤ 0.05)
+  defp has_significant_values?(status) do
+    status
+    |> Map.drop(@metadata_keys)
+    |> Map.values()
+    |> Enum.any?(fn
+      v when is_number(v) -> abs(v) > 0.05
+      _ -> false
+    end)
+  end
 
   @doc """
   Calculates display data for power meter status.
