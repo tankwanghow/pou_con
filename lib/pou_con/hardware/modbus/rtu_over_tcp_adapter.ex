@@ -91,18 +91,17 @@ defmodule PouCon.Hardware.Modbus.RtuOverTcpAdapter do
   def handle_call({:request, cmd}, _from, state) do
     case execute_request(state.socket, cmd, state.timeout) do
       {:error, reason} when reason in [:closed, :enotconn, :einval, :timeout, :etimedout] ->
-        Logger.warning("[RtuOverTcpAdapter] Socket unusable (#{inspect(reason)}), reconnecting...")
+        Logger.warning("[RtuOverTcpAdapter] Socket unusable (#{inspect(reason)}), stopping for auto-reconnect")
         safe_close(state.socket)
-        schedule_reconnect(0)
-        {:reply, {:error, :disconnected}, %{state | socket: nil}}
+        {:stop, :normal, {:error, :disconnected}, %{state | socket: nil}}
 
-      # Any other error (bad CRC, unknown FC, desync) — close socket to flush
-      # stale bytes and prevent permanent stream desync
+      # Any other error (bad CRC, unknown FC, desync) — stop process so
+      # DataPointManager detects :DOWN, resets PortWorker skipped_slaves,
+      # and starts a fresh connection with a clean socket buffer
       {:error, reason} = error ->
-        Logger.warning("[RtuOverTcpAdapter] Request error (#{inspect(reason)}), closing socket to prevent desync")
+        Logger.warning("[RtuOverTcpAdapter] Request error (#{inspect(reason)}), stopping to prevent desync")
         safe_close(state.socket)
-        schedule_reconnect(0)
-        {:reply, error, %{state | socket: nil}}
+        {:stop, :normal, error, %{state | socket: nil}}
 
       result ->
         {:reply, result, state}

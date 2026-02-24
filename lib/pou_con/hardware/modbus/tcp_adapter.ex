@@ -94,18 +94,17 @@ defmodule PouCon.Hardware.Modbus.TcpAdapter do
 
     case execute_request(state.socket, cmd, tx_id, state.timeout) do
       {:error, reason} when reason in [:closed, :enotconn, :einval, :timeout, :etimedout] ->
-        Logger.warning("[TcpAdapter] Socket unusable (#{inspect(reason)}), reconnecting...")
+        Logger.warning("[TcpAdapter] Socket unusable (#{inspect(reason)}), stopping for auto-reconnect")
         safe_close(state.socket)
-        schedule_reconnect(0)
-        {:reply, {:error, :disconnected}, %{state | socket: nil}}
+        {:stop, :normal, {:error, :disconnected}, %{state | socket: nil}}
 
-      # Any other error (transaction mismatch, malformed response) — close socket
-      # to prevent potential stream desync from stale MBAP frames
+      # Any other error (transaction mismatch, malformed response) — stop process so
+      # DataPointManager detects :DOWN, resets PortWorker skipped_slaves,
+      # and starts a fresh connection with a clean socket buffer
       {:error, reason} = error ->
-        Logger.warning("[TcpAdapter] Request error (#{inspect(reason)}), closing socket to prevent desync")
+        Logger.warning("[TcpAdapter] Request error (#{inspect(reason)}), stopping to prevent desync")
         safe_close(state.socket)
-        schedule_reconnect(0)
-        {:reply, error, %{state | socket: nil}}
+        {:stop, :normal, error, %{state | socket: nil}}
 
       result ->
         {:reply, result, state}
