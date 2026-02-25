@@ -66,6 +66,10 @@ config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id]
 
+# RingLogger backend for in-memory log viewing via UI
+config :logger, backends: [:console, RingLogger]
+config :logger, RingLogger, max_size: 5000
+
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 

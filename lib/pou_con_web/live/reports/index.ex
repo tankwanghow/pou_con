@@ -15,6 +15,7 @@ defmodule PouConWeb.Live.Reports.Index do
   alias PouCon.Logging.{EquipmentLogger, DataPointLogger}
   alias PouCon.Equipment.{Devices, DataPoints}
 
+
   @impl true
   def mount(_params, _session, socket) do
     equipment_list = Devices.list_equipment()
@@ -38,6 +39,9 @@ defmodule PouConWeb.Live.Reports.Index do
       |> assign(:filter_mode, "all")
       |> assign(:filter_hours, "24")
       |> assign(:efficiency_days, "7")
+      |> assign(:log_level, "all")
+      |> assign(:log_search, "")
+      |> assign(:log_count, "200")
       |> load_data()
 
     {:ok, socket}
@@ -79,12 +83,24 @@ defmodule PouConWeb.Live.Reports.Index do
     {:noreply, socket}
   end
 
+  def handle_event("filter_system_logs", params, socket) do
+    socket =
+      socket
+      |> assign(:log_level, params["level"] || "all")
+      |> assign(:log_search, params["search"] || "")
+      |> assign(:log_count, params["count"] || "200")
+      |> load_data()
+
+    {:noreply, socket}
+  end
+
   defp load_data(socket) do
     case socket.assigns.view_mode do
       "events" -> load_events(socket)
       "data_points" -> load_data_point_logs(socket)
       "errors" -> load_errors(socket)
       "efficiency" -> load_efficiency(socket)
+      "system_logs" -> load_system_logs(socket)
       _ -> socket
     end
   end
@@ -147,6 +163,37 @@ defmodule PouConWeb.Live.Reports.Index do
     assign(socket, :errors, errors)
   end
 
+  defp load_system_logs(socket) do
+    count = String.to_integer(socket.assigns.log_count)
+    level = socket.assigns.log_level
+    search = socket.assigns.log_search
+
+    logs =
+      RingLogger.get(0)
+      |> Enum.filter(fn entry ->
+        level == "all" or normalize_level(entry.level) == level
+      end)
+      |> Enum.map(fn entry ->
+        %{
+          level: normalize_level(entry.level),
+          message: entry.message,
+          timestamp: format_log_timestamp(entry.timestamp)
+        }
+      end)
+      |> then(fn logs ->
+        if search != "" do
+          term = String.downcase(search)
+          Enum.filter(logs, fn log -> String.contains?(String.downcase(log.message), term) end)
+        else
+          logs
+        end
+      end)
+      |> Enum.take(-count)
+      |> Enum.reverse()
+
+    assign(socket, :system_logs, logs)
+  end
+
   defp load_efficiency(socket) do
     days = String.to_integer(socket.assigns.efficiency_days)
     timezone = PouCon.Auth.get_timezone()
@@ -197,6 +244,13 @@ defmodule PouConWeb.Live.Reports.Index do
           class={"px-4 py-2 rounded " <> if @view_mode == "efficiency", do: "bg-purple-600 text-white", else: "bg-gray-700 text-gray-300"}
         >
           Efficiency
+        </button>
+        <button
+          phx-click="change_view"
+          phx-value-view="system_logs"
+          class={"px-4 py-2 rounded " <> if @view_mode == "system_logs", do: "bg-amber-600 text-white", else: "bg-gray-700 text-gray-300"}
+        >
+          System Logs
         </button>
       </div>
 
@@ -486,6 +540,87 @@ defmodule PouConWeb.Live.Reports.Index do
           <% end %>
         </div>
       <% end %>
+
+      <%!-- System Logs View --%>
+      <%= if @view_mode == "system_logs" do %>
+        <div class="bg-gray-400 p-4 rounded-lg mb-4">
+          <h3 class="text-lg font-semibold mb-3">System Logs (In-Memory)</h3>
+          <.form for={%{}} phx-change="filter_system_logs" class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block text-sm mb-1">Log Level</label>
+              <select
+                name="level"
+                class="w-full bg-gray-900 border-gray-600 rounded text-white p-2"
+              >
+                <option value="all" selected={@log_level == "all"}>All Levels</option>
+                <option value="debug" selected={@log_level == "debug"}>Debug</option>
+                <option value="info" selected={@log_level == "info"}>Info</option>
+                <option value="warning" selected={@log_level == "warning"}>Warning</option>
+                <option value="error" selected={@log_level == "error"}>Error</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm mb-1">Search</label>
+              <input
+                type="text"
+                name="search"
+                value={@log_search}
+                placeholder="Filter by message..."
+                class="w-full bg-gray-900 border-gray-600 rounded text-white p-2"
+                phx-debounce="300"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm mb-1">Show Last</label>
+              <select
+                name="count"
+                class="w-full bg-gray-900 border-gray-600 rounded text-white p-2"
+              >
+                <option value="100" selected={@log_count == "100"}>100 entries</option>
+                <option value="200" selected={@log_count == "200"}>200 entries</option>
+                <option value="500" selected={@log_count == "500"}>500 entries</option>
+                <option value="1000" selected={@log_count == "1000"}>1000 entries</option>
+                <option value="5000" selected={@log_count == "5000"}>5000 entries</option>
+              </select>
+            </div>
+          </.form>
+        </div>
+
+        <div class="bg-gray-900 rounded-lg overflow-hidden font-mono text-xs">
+          <div class="max-h-[70vh] overflow-y-auto">
+            <table class="w-full">
+              <thead class="bg-amber-700 sticky top-0">
+                <tr>
+                  <th class="p-2 text-left w-44">Time</th>
+                  <th class="p-2 text-left w-20">Level</th>
+                  <th class="p-2 text-left">Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                <%= for log <- @system_logs do %>
+                  <tr class={"border-t border-gray-800 " <> log_row_bg(log.level)}>
+                    <td class="p-2 text-gray-400 whitespace-nowrap">{log.timestamp}</td>
+                    <td class="p-2">
+                      <span class={log_level_badge(log.level)}>{log.level}</span>
+                    </td>
+                    <td class="p-2 text-gray-200 break-all whitespace-pre-wrap">{log.message}</td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+            <%= if @system_logs == [] do %>
+              <div class="p-8 text-center text-gray-500">
+                No log entries found.
+              </div>
+            <% end %>
+          </div>
+          <div class="bg-gray-800 p-2 text-gray-400 text-right">
+            {length(@system_logs)} entries shown
+          </div>
+        </div>
+      <% end %>
     </Layouts.app>
     """
   end
@@ -551,4 +686,27 @@ defmodule PouConWeb.Live.Reports.Index do
   end
 
   defp to_local(other), do: other
+
+  # System log helpers
+
+  defp normalize_level(:warn), do: "warning"
+  defp normalize_level(level) when is_atom(level), do: Atom.to_string(level)
+  defp normalize_level(level), do: level
+
+  defp format_log_timestamp({{y, mo, d}, {h, mi, s, _ms}}) do
+    NaiveDateTime.new!(y, mo, d, h, mi, s)
+    |> Calendar.strftime("%d-%m-%Y %H:%M:%S")
+  end
+
+  defp format_log_timestamp(_), do: "-"
+
+  defp log_level_badge("error"), do: "px-2 py-0.5 rounded bg-rose-600 text-white"
+  defp log_level_badge("warning"), do: "px-2 py-0.5 rounded bg-amber-600 text-white"
+  defp log_level_badge("info"), do: "px-2 py-0.5 rounded bg-blue-600 text-white"
+  defp log_level_badge("debug"), do: "px-2 py-0.5 rounded bg-gray-600 text-white"
+  defp log_level_badge(_), do: "px-2 py-0.5 rounded bg-gray-600 text-white"
+
+  defp log_row_bg("error"), do: "bg-rose-900/30"
+  defp log_row_bg("warning"), do: "bg-amber-900/20"
+  defp log_row_bg(_), do: ""
 end
