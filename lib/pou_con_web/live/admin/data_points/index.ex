@@ -76,24 +76,31 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
         />
         <.sort_link
           field={:read_fn}
-          label="Read fn"
+          label="R/W Fn"
           sort_field={@sort_field}
           sort_order={@sort_order}
-          width="w-[22%]"
+          width="w-[21%]"
         />
         <.sort_link
-          field={:write_fn}
-          label="Write fn"
+          field={:unit}
+          label="Unit"
           sort_field={@sort_field}
           sort_order={@sort_order}
-          width="w-[22%]"
+          width="w-[8%]"
+        />
+        <.sort_link
+          field={:log_interval}
+          label="Log Int"
+          sort_field={@sort_field}
+          sort_order={@sort_order}
+          width="w-[8%]"
         />
         <div class="w-[16%]">Action</div>
       </div>
 
       <div id="data_points_list" phx-update="stream">
         <%= for {id, data_point} <- @streams.data_points do %>
-          <div id={id} class="flex flex-row text-center border-b py-2 text-xs">
+          <div id={id} class="flex flex-row text-center items-center border-b py-2 text-xs">
             <div class="w-[15%]">{data_point.name}</div>
             <div class="w-[6%]">
               {data_point.type}
@@ -108,8 +115,45 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
             <div class="w-[10%]">
               {data_point.slave_id}/{data_point.register}/{data_point.channel}
             </div>
-            <div class="w-[22%]">{data_point.read_fn}</div>
-            <div class="w-[22%]">{data_point.write_fn}</div>
+            <div class="w-[21%] text-left pl-2">
+              <span :if={data_point.read_fn}>R: {data_point.read_fn}</span>
+              <span :if={data_point.write_fn}>
+                <br :if={data_point.read_fn} />W: {data_point.write_fn}
+              </span>
+            </div>
+            <div class="w-[8%]">
+              <%= if @readonly do %>
+                {data_point.unit}
+              <% else %>
+                <input
+                  type="text"
+                  value={data_point.unit}
+                  phx-blur="inline_save"
+                  phx-keydown="inline_save"
+                  phx-key="Enter"
+                  phx-value-id={data_point.id}
+                  phx-value-field="unit"
+                  class="w-full text-center text-xs px-1 py-0.5 border border-base-300 rounded bg-base-100 text-base-content focus:ring-1 focus:ring-blue-500"
+                />
+              <% end %>
+            </div>
+            <div class="w-[8%]">
+              <%= if @readonly do %>
+                {format_log_interval(data_point.log_interval)}
+              <% else %>
+                <input
+                  type="number"
+                  value={data_point.log_interval}
+                  phx-blur="inline_save"
+                  phx-keydown="inline_save"
+                  phx-key="Enter"
+                  phx-value-id={data_point.id}
+                  phx-value-field="log_interval"
+                  placeholder="nil"
+                  class="w-full text-center text-xs px-1 py-0.5 border border-base-300 rounded bg-base-100 text-base-content focus:ring-1 focus:ring-blue-500"
+                />
+              <% end %>
+            </div>
             <div :if={!@readonly} class="w-[16%] flex justify-center gap-2">
               <.link
                 navigate={~p"/admin/data_points/#{data_point.id}/edit"}
@@ -259,6 +303,30 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
   def handle_event("copy", %{"id" => id}, socket) do
     {:noreply, push_navigate(socket, to: ~p"/admin/data_points/new?id=#{id}")}
   end
+
+  @impl true
+  def handle_event("inline_save", %{"id" => id, "field" => field, "value" => value}, socket) do
+    data_point = DataPoints.get_data_point!(id)
+
+    value = parse_inline_value(field, value)
+    attrs = %{field => value}
+
+    case DataPoints.update_data_point(data_point, attrs) do
+      {:ok, updated} ->
+        {:noreply, stream_insert(socket, :data_points, updated)}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to update #{field}.")}
+    end
+  end
+
+  defp parse_inline_value("log_interval", ""), do: nil
+  defp parse_inline_value("log_interval", value), do: String.to_integer(value)
+  defp parse_inline_value(_field, value), do: value
+
+  defp format_log_interval(nil), do: "on chg"
+  defp format_log_interval(0), do: "off"
+  defp format_log_interval(n), do: "#{n}s"
 
   defp list_data_points(sort_field, sort_order, filter) do
     DataPoints.list_data_points(sort_field: sort_field, sort_order: sort_order, filter: filter)
