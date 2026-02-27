@@ -628,8 +628,8 @@ else
 fi
 
 # Copy setup_sudo.sh for system time management (if it exists)
-if [ -f "setup_sudo.sh" ]; then
-    cp setup_sudo.sh "$PACKAGE_DIR/"
+if [ -f "scripts/setup_sudo.sh" ]; then
+    cp scripts/setup_sudo.sh "$PACKAGE_DIR/"
     chmod +x "$PACKAGE_DIR/setup_sudo.sh"
 fi
 

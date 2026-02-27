@@ -19,5 +19,10 @@ config :logger, level: :info
 # Save to: assets/vendor/bin/tailwindcss-linux-arm64
 config :tailwind, path: Path.expand("../assets/vendor/bin/tailwindcss-linux-arm64", __DIR__)
 
+# Use local esbuild binary to avoid download issues during Docker builds
+# Download from: https://registry.npmjs.org/@esbuild/linux-arm64/-/linux-arm64-0.25.4.tgz
+# Extract bin/esbuild and save to: assets/vendor/bin/esbuild-linux-arm64
+config :esbuild, path: Path.expand("../assets/vendor/bin/esbuild-linux-arm64", __DIR__)
+
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.
