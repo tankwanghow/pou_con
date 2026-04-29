@@ -143,8 +143,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
          {:ok, fwd_feedback} <- fetch_required(opts, :fwd_feedback),
          {:ok, rev_feedback} <- fetch_required(opts, :rev_feedback),
          {:ok, front_limit} <- fetch_required(opts, :front_limit),
-         {:ok, back_limit} <- fetch_required(opts, :back_limit),
-         {:ok, pulse_sensor} <- fetch_required(opts, :pulse_sensor) do
+         {:ok, back_limit} <- fetch_required(opts, :back_limit) do
       # Check if auto_manual data point is virtual (software-controlled mode)
       is_auto_manual_virtual_di = DataPoints.is_virtual?(auto_manual)
 
@@ -157,7 +156,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
         rev_feedback: rev_feedback,
         front_limit: front_limit,
         back_limit: back_limit,
-        pulse_sensor: pulse_sensor,
+        pulse_sensor: opts[:pulse_sensor],
         auto_manual: auto_manual,
         trip: opts[:trip],
         is_auto_manual_virtual_di: is_auto_manual_virtual_di,
@@ -211,28 +210,9 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   @impl GenServer
   def handle_cast({:command_move, target}, %State{} = state)
       when target in [:to_back_limit, :to_front_limit] do
-    already_at_limit? =
-      case target do
-        :to_back_limit -> state.at_back_limit
-        :to_front_limit -> state.at_front_limit
-      end
-
-    cond do
-      already_at_limit? ->
-        Logger.warning("[#{state.name}] Already at #{target} — ignoring")
-        {:noreply, state}
-
-      state.commanded_target == target ->
-        {:noreply, state}
-
-      true ->
+    case command_blocked_reason(state, target) do
+      nil ->
         activate_coil(state, target)
-
-        # Only log if in MANUAL mode (automation controllers handle auto mode logging with metadata)
-        if state.mode == :manual do
-          action = if target == :to_back_limit, do: "move_to_back", else: "move_to_front"
-          EquipmentLogger.log_start(state.name, "manual", "user", %{"action" => action})
-        end
 
         new_state = %State{
           state
@@ -242,6 +222,13 @@ defmodule PouCon.Equipment.Controllers.Feeding do
         }
 
         {:noreply, new_state}
+
+      :already_commanded ->
+        {:noreply, state}
+
+      reason ->
+        Logger.warning("[#{state.name}] Move #{target} blocked: #{reason}")
+        {:noreply, state}
     end
   end
 
@@ -291,6 +278,11 @@ defmodule PouCon.Equipment.Controllers.Feeding do
     trip_res =
       if state.trip, do: @data_point_manager.read_direct(state.trip), else: {:ok, %{state: 0}}
 
+    pulse_res =
+      if state.pulse_sensor,
+        do: @data_point_manager.read_direct(state.pulse_sensor),
+        else: {:ok, :no_sensor}
+
     inputs = [
       @data_point_manager.read_direct(state.to_back_limit),
       @data_point_manager.read_direct(state.to_front_limit),
@@ -298,7 +290,7 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       @data_point_manager.read_direct(state.rev_feedback),
       @data_point_manager.read_direct(state.front_limit),
       @data_point_manager.read_direct(state.back_limit),
-      @data_point_manager.read_direct(state.pulse_sensor),
+      pulse_res,
       @data_point_manager.read_direct(state.auto_manual),
       trip_res
     ]
@@ -331,18 +323,24 @@ defmodule PouCon.Equipment.Controllers.Feeding do
               {:ok, %{:state => rev_fb}},
               {:ok, %{:state => f_lim}},
               {:ok, %{:state => b_lim}},
-              {:ok, %{:state => pulse}},
+              {:ok, pulse_result},
               {:ok, %{:state => mode_val}},
               {:ok, %{:state => trip_state}}
             ] = inputs
 
-            is_moving = pulse == 1
             fwd_engaged = fwd_fb == 1
             rev_engaged = rev_fb == 1
             is_tripped = trip_state == 1
             mode = if mode_val == 1, do: :auto, else: :manual
             at_front = f_lim == 1
             at_back = b_lim == 1
+
+            # is_moving: use pulse sensor if available, otherwise infer from contactor feedback
+            is_moving =
+              case pulse_result do
+                :no_sensor -> fwd_engaged or rev_engaged
+                %{state: pulse} -> pulse == 1
+              end
 
             # Infer commanded_target from hardware coil states
             inferred_target =
@@ -371,7 +369,6 @@ defmodule PouCon.Equipment.Controllers.Feeding do
                 at_back_limit: at_back,
                 commanded_target: inferred_target,
                 command_timestamp: new_timestamp
-                # Note: error is preserved, cleared by detect_errors when conditions resolve
             }
 
             {updated, nil}
@@ -382,13 +379,12 @@ defmodule PouCon.Equipment.Controllers.Feeding do
           end
       end
 
-    # Stop if limit reached while moving
+    # Clear coil when limit reached (housekeeping — hardwired circuit already stopped motor)
     %State{} =
       state_after_limits =
-      if base_state.is_moving && limit_hit_in_direction?(base_state) do
-        Logger.info("[#{state.name}] Limit reached → auto-stop")
+      if base_state.commanded_target != nil && limit_hit_in_direction?(base_state) do
+        Logger.info("[#{state.name}] Limit reached → clearing coil")
 
-        # Only log if in MANUAL mode (automation controllers handle auto mode logging)
         if base_state.mode == :manual do
           limit = if base_state.commanded_target == :to_back_limit, do: "back", else: "front"
 
@@ -426,16 +422,9 @@ defmodule PouCon.Equipment.Controllers.Feeding do
         state_after_limits.is_tripped ->
           :tripped
 
-        state_after_limits.is_moving && state_after_limits.commanded_target == nil ->
-          :moving_without_target
-
         # Commanded but contactor not engaged (after grace period)
         state_after_limits.commanded_target != nil && !contactor_engaged? && !grace_active? ->
           :contactor_failure
-
-        # Contactor engaged but no movement detected (mechanical stall)
-        contactor_engaged? && !state_after_limits.is_moving && !grace_active? ->
-          :mechanical_stall
 
         true ->
           nil
@@ -452,6 +441,21 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   defp poll_and_update(nil) do
     Logger.error("Feeding: poll_and_update called with nil state!")
     %State{name: "recovered", error: :crashed_previously}
+  end
+
+  defp command_blocked_reason(%State{} = state, target) do
+    cond do
+      state.mode != :auto -> :not_in_auto_mode
+      state.error == :tripped -> :motor_tripped
+      state.error == :contactor_failure -> :contactor_failure
+      state.error == :timeout -> :sensor_timeout
+      state.error == :invalid_data -> :invalid_data
+      state.error == :crashed_previously -> :crashed_previously
+      target == :to_back_limit and state.at_back_limit -> :already_at_back_limit
+      target == :to_front_limit and state.at_front_limit -> :already_at_front_limit
+      state.commanded_target == target -> :already_commanded
+      true -> nil
+    end
   end
 
   defp limit_hit_in_direction?(state) do
@@ -489,8 +493,6 @@ defmodule PouCon.Equipment.Controllers.Feeding do
             :invalid_data -> "invalid_data"
             :tripped -> "motor_tripped"
             :contactor_failure -> "contactor_failure"
-            :mechanical_stall -> "mechanical_stall"
-            :moving_without_target -> "moving_without_target"
             :crashed_previously -> "crashed_previously"
             _ -> "unknown_error"
           end
@@ -547,8 +549,6 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   defp error_message(:invalid_data), do: "INVALID DATA"
   defp error_message(:tripped), do: "MOTOR TRIPPED"
   defp error_message(:contactor_failure), do: "CONTACTOR NOT ENGAGED"
-  defp error_message(:mechanical_stall), do: "STALL (No Pulse Detected)"
-  defp error_message(:moving_without_target), do: "MOVING WITHOUT TARGET"
   defp error_message(:crashed_previously), do: "RECOVERED FROM CRASH"
   defp error_message(_), do: "UNKNOWN ERROR"
 end
