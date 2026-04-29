@@ -116,7 +116,14 @@
       "WebFetch(domain:www.lcautomation.com)",
       "WebFetch(domain:192.168.0.3)",
       "WebFetch(domain:forum.hms-networks.com)",
-      "WebFetch(domain:www.anybus.com)"
+      "WebFetch(domain:www.anybus.com)",
+      "Bash(git:*)",
+      "Read(//home/tankwanghow/.mix/**)",
+      "Read(//home/tankwanghow/**)",
+      "Read(//opt/**)",
+      "Bash(find / -name \"mix\" -type f)",
+      "Bash(export PATH=\"/home/tankwanghow/.local/share/mise/installs/elixir/1.19.5-otp-28/bin:/home/tankwanghow/.local/share/mise/installs/erlang/28.0/bin:$PATH\")",
+      "Bash(export PATH=\"/home/tankwanghow/.local/share/mise/installs/elixir/1.19.5-otp-28/bin:/home/tankwanghow/.local/share/mise/installs/erlang/28.3.1/bin:$PATH\")"
     ],
     "deny": [],
     "ask": []

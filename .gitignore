@@ -46,6 +46,7 @@ npm-debug.log
 *.tar.gz
 /assets/vendor/bin/tailwindcss-linux-arm64
 /assets/vendor/bin/esbuild-linux-arm64
+/.claude/
 /plans/
 
 priv/house_id
