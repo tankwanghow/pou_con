@@ -70,7 +70,8 @@ defmodule PouCon.MixProject do
       {:tzdata, "~> 1.1"},
       {:mox, "~> 1.0", only: :test},
       {:number, "~> 1.0"},
-      {:earmark, "~> 1.4"}
+      {:earmark, "~> 1.4"},
+      {:logger_backends, "~> 1.0"}
     ]
   end
 
