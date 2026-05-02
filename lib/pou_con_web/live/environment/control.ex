@@ -103,7 +103,9 @@ defmodule PouConWeb.Live.Environment.Control do
     case Configs.update_config(config_params) do
       {:ok, config} ->
         FailsafeValidator.check_now()
-        config = Map.update(config, :environment_poll_interval_ms, 0, fn ms -> div(ms || 0, 1000) end)
+
+        config =
+          Map.update(config, :environment_poll_interval_ms, 0, fn ms -> div(ms || 0, 1000) end)
 
         {:noreply,
          socket
@@ -134,13 +136,17 @@ defmodule PouConWeb.Live.Environment.Control do
 
     current =
       cond do
-        is_number(current_raw) -> current_raw / 1
+        is_number(current_raw) ->
+          current_raw / 1
+
         is_binary(current_raw) and current_raw != "" ->
           case Float.parse(current_raw) do
             {num, _} -> num
             :error -> 0.0
           end
-        true -> 0.0
+
+        true ->
+          0.0
       end
 
     raw = if dir == "up", do: current + step, else: max(0, current - step)
@@ -244,13 +250,17 @@ defmodule PouConWeb.Live.Environment.Control do
 
     display =
       cond do
-        is_number(value) -> value
+        is_number(value) ->
+          value
+
         is_binary(value) and value != "" ->
           case Float.parse(value) do
             {num, _} -> if trunc(num) == num, do: trunc(num), else: num
             :error -> 0
           end
-        true -> 0
+
+        true ->
+          0
       end
 
     assigns = assign(assigns, display: display)
@@ -354,7 +364,7 @@ defmodule PouConWeb.Live.Environment.Control do
           </div>
 
     <!-- All 5 Steps -->
-          <div class="grid grid-cols-3 gap-2 mt-2">
+          <div class="grid grid-cols-3 gap-2 mt-1">
             <%= for n <- 1..6 do %>
               <% temp_raw = Map.get(@config, String.to_atom("step_#{n}_temp")) %>
               <% {temp_value, is_active} =
@@ -440,15 +450,17 @@ defmodule PouConWeb.Live.Environment.Control do
                   {if pumps_on, do: "Pumps ON", else: "Pumps OFF"}
                 </label>
                 <div :if={is_active} class="text-center text-sm text-base-content/70 italic">
-                  {temp_value}°C → {@failsafe_status.expected}+{extra_fans} fans{if pumps_on, do: " + Pumps"}
+                  {temp_value}°C → {@failsafe_status.expected}+{extra_fans} fans{if pumps_on,
+                    do: " + Pumps"}
                 </div>
               </div>
             <% end %>
           </div>
-
-          <.button type="submit" class="w-full btn btn-success text-xl py-4 mt-2">
-            Save Configuration
-          </.button>
+          <div class="w-full flex mt-2 justify-center">
+            <.button type="submit" class="btn btn-warning text-4xl py-8 px-16">
+              Save Configuration
+            </.button>
+          </div>
         </.form>
       </div>
 
@@ -457,13 +469,17 @@ defmodule PouConWeb.Live.Environment.Control do
         <% current_raw = Map.get(@config, field_atom) || 0 %>
         <% current_display =
           cond do
-            is_number(current_raw) -> current_raw
+            is_number(current_raw) ->
+              current_raw
+
             is_binary(current_raw) and current_raw != "" ->
               case Float.parse(current_raw) do
                 {num, _} -> num
                 :error -> 0
               end
-            true -> 0
+
+            true ->
+              0
           end %>
         <% errors =
           if Phoenix.Component.used_input?(@form[field_atom]),

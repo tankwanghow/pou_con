@@ -172,7 +172,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
 
 
 
-                  <input type="hidden" name={@form[:enabled].name} value="false" />
+                  <input type="hidden" name={@form[:enabled].name} value={to_string(@form[:enabled].value in [true, "true"])} />
                   <button
                     type="button"
                     phx-click="toggle_enabled"

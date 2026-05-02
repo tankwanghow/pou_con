@@ -62,12 +62,16 @@ echo "=== Step 1: Building ARM Release (Quick Mode) ==="
 rm -rf output
 mkdir -p output
 
-# Recreate buildx builder fresh to prevent export-phase hangs
-echo "Recreating buildx builder..."
-docker buildx stop multiarch 2>/dev/null || true
-docker buildx rm multiarch 2>/dev/null || true
-docker buildx create --name multiarch --driver docker-container --use
-docker buildx inspect --bootstrap
+# Reuse existing buildx builder to preserve Docker layer cache
+# Only create if it doesn't exist
+if ! docker buildx inspect multiarch &>/dev/null; then
+    echo "Creating buildx builder..."
+    docker buildx create --name multiarch --driver docker-container --use
+    docker buildx inspect --bootstrap
+else
+    echo "Reusing existing buildx builder (preserving cache)..."
+    docker buildx use multiarch
+fi
 
 echo "Starting ARM64 quick build (timeout: 30 minutes)..."
 timeout 1800 docker buildx build \
