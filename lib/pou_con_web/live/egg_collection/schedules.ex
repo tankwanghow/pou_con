@@ -59,6 +59,19 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
     {:noreply, assign(socket, schedules: schedules)}
   end
 
+  def handle_event("toggle_enabled", _, socket) do
+    current = socket.assigns.form[:enabled].value in [true, "true"]
+
+    changeset =
+      (socket.assigns.editing_schedule || %Schedule{})
+      |> EggCollectionSchedules.change_schedule(
+        Map.put(socket.assigns.form.params || %{}, "enabled", to_string(!current))
+      )
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, form: to_form(changeset))}
+  end
+
   def handle_event("toggle_schedule", %{"id" => id}, socket) do
     schedule = EggCollectionSchedules.get_schedule!(String.to_integer(id))
     {:ok, _} = EggCollectionSchedules.toggle_schedule(schedule)
@@ -116,72 +129,83 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
     ~H"""
     <Layouts.app
       flash={@flash}
-      class="xs:w-full lg:w-3/4 xl:w-4/5"
       current_role={@current_role}
       critical_alerts={assigns[:critical_alerts] || []}
     >
-      <!-- Schedule Management -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Schedule Form -->
-        <div>
-          <h2 class="text-lg font-semibold mb-2">
-            {if @editing_schedule, do: "Edit Schedule", else: "New Schedule"}
-          </h2>
+      <div class="p-2">
+        <!-- Schedule Management -->
+        <div class="grid grid-cols-2 gap-2">
+          <!-- Schedule Form -->
+          <div>
+            <h2 class="text-lg font-semibold mb-2">
+              {if @editing_schedule, do: "Edit Schedule", else: "New Schedule"}
+            </h2>
 
-          <.form for={@form} phx-change="validate_schedule" phx-submit="save_schedule">
-            <div class="grid grid-cols-2 gap-2">
-              
-    <!-- Start Time -->
-              <div>
-                <label class="block text-sm font-medium">Start Time</label>
-                <.input type="time" field={@form[:start_time]} required />
-              </div>
-              
-    <!-- Stop Time -->
-              <div>
-                <label class="block text-sm font-medium ">Stop Time</label>
-                <.input type="time" field={@form[:stop_time]} required />
-              </div>
-              <!-- Egg Collection Equipment -->
-              <div>
-                <label class="block text-sm font-medium">Egg Row</label>
-                <.input
-                  type="select"
-                  field={@form[:equipment_id]}
-                  options={Enum.map(@egg_equipment, &{&1.title || &1.name, &1.id})}
-                  prompt="Select Egg Row"
-                  required
-                />
-              </div>
-              <!-- Enabled Checkbox -->
-              <div class="flex items-center">
-                <label class="flex items-center gap-2">
-                  <.input type="checkbox" field={@form[:enabled]} />
-                  <span class="text-sm">Enabled</span>
-                </label>
-              </div>
-              
-    <!-- Buttons -->
-              <div class="flex gap-2 items-center">
-                <.button type="submit">
-                  {if @editing_schedule, do: "Update", else: "Create"}
-                </.button>
-                <%= if @editing_schedule do %>
-                  <.button
-                    type="button"
-                    phx-click="cancel_edit"
-                    class="text-rose-400 bg-rose-200 hover:bg-rose-800 py-1 px-2 rounded"
+            <.form for={@form} phx-change="validate_schedule" phx-submit="save_schedule">
+              <div class="flex gap-2">
+                <div class="grow mr-2">
+                  <.glove_time_picker field={@form[:start_time]} label="Start" />
+                </div>
+                <div class="grow">
+                  <.glove_time_picker field={@form[:stop_time]} label="Stop" />
+                </div>
+
+                <div class="flex flex-col gap-1 grow">
+                  <select
+                    name={@form[:equipment_id].name}
+                    id={@form[:equipment_id].id}
+                    class="h-10 rounded-lg bg-base-200 text-base-content border border-base-300 px-2 text-xl mb-2"
+                    required
                   >
-                    Cancel
-                  </.button>
-                <% end %>
+                    <option value="">Select Egg Row</option>
+                    <%= for eq <- @egg_equipment do %>
+                      <option
+                        value={eq.id}
+                        selected={
+                          to_string(@form[:equipment_id].value) == to_string(eq.id)
+                        }
+                      >
+                        {eq.title || eq.name}
+                      </option>
+                    <% end %>
+                  </select>
+
+                  <input type="hidden" name={@form[:enabled].name} value="false" />
+                  <button
+                    type="button"
+                    phx-click="toggle_enabled"
+                    class={[
+                      "px-4 py-3 font-semibold rounded-lg",
+                      if(@form[:enabled].value in [true, "true"],
+                        do: "bg-green-600 hover:bg-green-700 text-white",
+                        else: "bg-gray-600 hover:bg-gray-700 text-white"
+                      )
+                    ]}
+                  >
+                    {if @form[:enabled].value in [true, "true"], do: "Enabled", else: "Disabled"}
+                  </button>
+                  <button
+                    type="submit"
+                    class="px-4 py-3 font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {if @editing_schedule, do: "Update", else: "Create"}
+                  </button>
+                  <%= if @editing_schedule do %>
+                    <button
+                      type="button"
+                      phx-click="cancel_edit"
+                      class="px-4 py-3 font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white"
+                    >
+                      Cancel
+                    </button>
+                  <% end %>
+                </div>
               </div>
-            </div>
-          </.form>
-        </div>
-        
-    <!-- Schedule List -->
-        <div>
+            </.form>
+          </div>
+
+          <!-- Schedule List -->
+          <div>
           <%= if Enum.empty?(@schedules) do %>
             <p class="text-gray-400 text-sm italic">No schedules configured yet.</p>
           <% else %>
@@ -246,17 +270,18 @@ defmodule PouConWeb.Live.EggCollection.Schedules do
               </div>
             <% end %>
           <% end %>
+          </div>
         </div>
-      </div>
 
-      <div class="mt-6 p-4 bg-blue-900 border border-blue-600 rounded-lg">
-        <h3 class="font-semibold mb-2">📝 How Schedules Work</h3>
-        <ul class="text-sm space-y-1 text-gray-300">
-          <li>• Schedules only run when egg collection is in <strong>AUTO</strong> mode</li>
-          <li>• If equipment is in MANUAL mode, schedules will be skipped</li>
-          <li>• Schedules are checked every minute</li>
-          <li>• Toggle the checkmark to enable/disable a schedule</li>
-        </ul>
+        <div class="mt-6 p-4 bg-blue-900 border border-blue-600 rounded-lg">
+          <h3 class="font-semibold mb-2">📝 How Schedules Work</h3>
+          <ul class="text-sm space-y-1 text-gray-300">
+            <li>• Schedules only run when egg collection is in <strong>AUTO</strong> mode</li>
+            <li>• If equipment is in MANUAL mode, schedules will be skipped</li>
+            <li>• Schedules are checked every minute</li>
+            <li>• Toggle the checkmark to enable/disable a schedule</li>
+          </ul>
+        </div>
       </div>
     </Layouts.app>
     """

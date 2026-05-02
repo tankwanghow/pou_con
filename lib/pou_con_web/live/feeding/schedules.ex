@@ -59,6 +59,19 @@ defmodule PouConWeb.Live.Feeding.Schedules do
     {:noreply, assign(socket, schedules: schedules)}
   end
 
+  def handle_event("toggle_enabled", _, socket) do
+    current = socket.assigns.form[:enabled].value in [true, "true"]
+
+    changeset =
+      (socket.assigns.editing_schedule || %Schedule{})
+      |> FeedingSchedules.change_schedule(
+        Map.put(socket.assigns.form.params || %{}, "enabled", to_string(!current))
+      )
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, form: to_form(changeset))}
+  end
+
   def handle_event("toggle_schedule", %{"id" => id}, socket) do
     schedule = FeedingSchedules.get_schedule!(String.to_integer(id))
     {:ok, _} = FeedingSchedules.toggle_schedule(schedule)
@@ -122,7 +135,7 @@ defmodule PouConWeb.Live.Feeding.Schedules do
       <div class="p-2">
 
     <!-- Schedule Management -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="grid grid-cols-2 gap-2">
           <!-- Schedule Form -->
           <div>
             <h2 class="text-lg font-semibold mb-2">
@@ -130,68 +143,67 @@ defmodule PouConWeb.Live.Feeding.Schedules do
             </h2>
 
             <.form for={@form} phx-change="validate_schedule" phx-submit="save_schedule">
-              <div class="grid grid-cols-8 gap-1">
-                <!-- Move to Back Limit Time -->
-                <div class="col-span-4">
-                  <label class="block text-sm font-medium">
-                    To Back
-                  </label>
-                  <.input type="time" field={@form[:move_to_back_limit_time]} />
+              <div class="flex gap-2">
+                <div class="grow mr-2">
+                  <.glove_time_picker field={@form[:move_to_back_limit_time]} label="To Back" />
+                </div>
+                <div class="grow">
+                  <.glove_time_picker field={@form[:move_to_front_limit_time]} label="To Front" />
                 </div>
 
-    <!-- Move to Front Limit Time -->
-                <div class="col-span-4">
-                  <label class="block text-sm font-medium">
-                    To Front
-                  </label>
-                  <.input type="time" field={@form[:move_to_front_limit_time]} />
-                </div>
-
-    <!-- FeedIn Trigger Bucket -->
-                <div class="col-span-8">
-                  <label class="block text-sm font-medium">
-                    Bucket that trigger filling
-                  </label>
-                  <.input
-                    type="select"
-                    field={@form[:feedin_front_limit_bucket_id]}
-                    options={Enum.map(@feeding_equipment, &{&1.title || &1.name, &1.id})}
-                    prompt="None - Don't enable FeedIn"
-                  />
-                </div>
-
-    <!-- Enabled Checkbox -->
-                <div class="flex gap-3">
-                  <div class="flex items-center col-span-2">
-                    <label class="flex items-center gap-2">
-                      <.input type="checkbox" field={@form[:enabled]} />
-                      <span class="text-sm">Enabled</span>
-                    </label>
-                  </div>
-
-    <!-- Buttons -->
-                  <div class="flex gap-2 items-center col-span-2">
-                    <.button type="submit">
-                      {if @editing_schedule, do: "Update", else: "Create"}
-                    </.button>
-                    <%= if @editing_schedule do %>
-                      <.button
-                        type="button"
-                        phx-click="cancel_edit"
-                        class="text-rose-400 bg-rose-200 hover:bg-rose-800 py-1 px-2 rounded"
+                <div class="flex flex-col gap-1 grow">
+                  <select
+                    name={@form[:feedin_front_limit_bucket_id].name}
+                    id={@form[:feedin_front_limit_bucket_id].id}
+                    class="h-10 rounded-lg bg-base-200 border border-base-300 px-2 text-xl mb-2"
+                  >
+                    <option value="">No Filling Bucket</option>
+                    <%= for eq <- @feeding_equipment do %>
+                      <option
+                        value={eq.id}
+                        selected={
+                          to_string(@form[:feedin_front_limit_bucket_id].value) == to_string(eq.id)
+                        }
                       >
-                        Cancel
-                      </.button>
+                        {eq.title || eq.name}
+                      </option>
                     <% end %>
-                  </div>
+                  </select>
+
+
+
+                  <input type="hidden" name={@form[:enabled].name} value="false" />
+                  <button
+                    type="button"
+                    phx-click="toggle_enabled"
+                    class={[
+                      "px-4 py-3 font-semibold rounded-lg",
+                      if(@form[:enabled].value in [true, "true"],
+                        do: "bg-green-600 hover:bg-green-700 text-white",
+                        else: "bg-gray-600 hover:bg-gray-700 text-white"
+                      )
+                    ]}
+                  >
+                    {if @form[:enabled].value in [true, "true"], do: "Enabled", else: "Disabled"}
+                  </button>
+                  <button
+                    type="submit"
+                    class="px-4 py-3 font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {if @editing_schedule, do: "Update", else: "Create"}
+                  </button>
+                  <%= if @editing_schedule do %>
+                    <button
+                      type="button"
+                      phx-click="cancel_edit"
+                      class="px-4 py-3 font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white"
+                    >
+                      Cancel
+                    </button>
+                  <% end %>
                 </div>
               </div>
             </.form>
-
-            <div class="mt-4 p-3 bg-blue-700 border border-blue-600 rounded text-xs text-white">
-              <strong>Note:</strong>
-              Each schedule affects ALL feeding buckets simultaneously. At least one time must be set (Back or Front).
-            </div>
           </div>
 
     <!-- Schedule List -->

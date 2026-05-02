@@ -59,6 +59,19 @@ defmodule PouConWeb.Live.Lighting.Schedules do
     {:noreply, assign(socket, schedules: schedules)}
   end
 
+  def handle_event("toggle_enabled", _, socket) do
+    current = socket.assigns.form[:enabled].value in [true, "true"]
+
+    changeset =
+      (socket.assigns.editing_schedule || %Schedule{})
+      |> LightSchedules.change_schedule(
+        Map.put(socket.assigns.form.params || %{}, "enabled", to_string(!current))
+      )
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, form: to_form(changeset))}
+  end
+
   def handle_event("toggle_schedule", %{"id" => id}, socket) do
     schedule = LightSchedules.get_schedule!(String.to_integer(id))
     {:ok, _} = LightSchedules.toggle_schedule(schedule)
@@ -116,74 +129,83 @@ defmodule PouConWeb.Live.Lighting.Schedules do
     ~H"""
     <Layouts.app
       flash={@flash}
-      class="xs:w-full lg:w-3/4 xl:w-4/5"
       current_role={@current_role}
       critical_alerts={assigns[:critical_alerts] || []}
     >
-      <!-- Schedule Management -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <!-- Schedule Form -->
-        <div>
-          <h2 class="text-lg font-semibold mb-2">
-            {if @editing_schedule, do: "Edit Schedule", else: "New Schedule"}
-          </h2>
+      <div class="p-2">
+        <!-- Schedule Management -->
+        <div class="grid grid-cols-2 gap-2">
+          <!-- Schedule Form -->
+          <div>
+            <h2 class="text-lg font-semibold mb-2">
+              {if @editing_schedule, do: "Edit Schedule", else: "New Schedule"}
+            </h2>
 
-          <.form for={@form} phx-change="validate_schedule" phx-submit="save_schedule">
-            <div class="grid grid-cols-2 gap-2">
-              
-    <!-- On Time -->
-              <div>
-                <label class="block text-sm font-medium">On Time</label>
-                <.input type="time" field={@form[:on_time]} required />
-              </div>
-              
-    <!-- Off Time -->
-              <div>
-                <label class="block text-sm font-medium">Off Time</label>
-                <.input type="time" field={@form[:off_time]} required />
-              </div>
-              
-    <!-- Light -->
-              <div>
-                <label class="block text-sm font-medium">Light</label>
-                <.input
-                  type="select"
-                  field={@form[:equipment_id]}
-                  options={Enum.map(@light_equipment, &{&1.title || &1.name, &1.id})}
-                  prompt="Select light row"
-                  required
-                />
-              </div>
-              
-    <!-- Enabled Checkbox -->
-              <div class="flex items-center">
-                <label class="flex items-center gap-2">
-                  <.input type="checkbox" field={@form[:enabled]} />
-                  <span class="text-sm">Enabled</span>
-                </label>
-              </div>
-              
-    <!-- Buttons -->
-              <div class="flex gap-2 items-center">
-                <.button type="submit">
-                  {if @editing_schedule, do: "Update", else: "Create"}
-                </.button>
-                <%= if @editing_schedule do %>
-                  <.button
-                    type="button"
-                    phx-click="cancel_edit"
-                    class="text-rose-400 bg-rose-200 hover:bg-rose-800 py-1 px-2 rounded"
+            <.form for={@form} phx-change="validate_schedule" phx-submit="save_schedule">
+              <div class="flex gap-2">
+                <div class="grow mr-2">
+                  <.glove_time_picker field={@form[:on_time]} label="On Time" />
+                </div>
+                <div class="grow">
+                  <.glove_time_picker field={@form[:off_time]} label="Off Time" />
+                </div>
+
+                <div class="flex flex-col gap-1 grow">
+                  <select
+                    name={@form[:equipment_id].name}
+                    id={@form[:equipment_id].id}
+                    class="h-10 rounded-lg bg-base-200 border border-base-300 px-2 text-xl mb-2"
+                    required
                   >
-                    Cancel
-                  </.button>
-                <% end %>
+                    <option value="">Select Light</option>
+                    <%= for eq <- @light_equipment do %>
+                      <option
+                        value={eq.id}
+                        selected={
+                          to_string(@form[:equipment_id].value) == to_string(eq.id)
+                        }
+                      >
+                        {eq.title || eq.name}
+                      </option>
+                    <% end %>
+                  </select>
+
+                  <input type="hidden" name={@form[:enabled].name} value="false" />
+                  <button
+                    type="button"
+                    phx-click="toggle_enabled"
+                    class={[
+                      "px-4 py-3 font-semibold rounded-lg",
+                      if(@form[:enabled].value in [true, "true"],
+                        do: "bg-green-600 hover:bg-green-700 text-white",
+                        else: "bg-gray-600 hover:bg-gray-700 text-white"
+                      )
+                    ]}
+                  >
+                    {if @form[:enabled].value in [true, "true"], do: "Enabled", else: "Disabled"}
+                  </button>
+                  <button
+                    type="submit"
+                    class="px-4 py-3 font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {if @editing_schedule, do: "Update", else: "Create"}
+                  </button>
+                  <%= if @editing_schedule do %>
+                    <button
+                      type="button"
+                      phx-click="cancel_edit"
+                      class="px-4 py-3 font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white"
+                    >
+                      Cancel
+                    </button>
+                  <% end %>
+                </div>
               </div>
-            </div>
-          </.form>
-        </div>
-        
-    <!-- Schedule List -->
-        <div>
+            </.form>
+          </div>
+
+          <!-- Schedule List -->
+          <div>
           <%= if Enum.empty?(@schedules) do %>
             <p class="text-gray-400 text-sm italic">No schedules configured yet.</p>
           <% else %>
@@ -248,17 +270,18 @@ defmodule PouConWeb.Live.Lighting.Schedules do
               </div>
             <% end %>
           <% end %>
+          </div>
         </div>
-      </div>
 
-      <div class="mt-6 p-4 bg-blue-900 border border-blue-600 rounded-lg">
-        <h3 class="font-semibold mb-2">📝 How Schedules Work</h3>
-        <ul class="text-sm space-y-1 text-gray-300">
-          <li>• Schedules only run when lights are in <strong>AUTO</strong> mode</li>
-          <li>• If a light is in MANUAL mode, schedules will be skipped</li>
-          <li>• Schedules are checked every minute</li>
-          <li>• Toggle the checkmark to enable/disable a schedule</li>
-        </ul>
+        <div class="mt-6 p-4 bg-blue-900 border border-blue-600 rounded-lg">
+          <h3 class="font-semibold mb-2">📝 How Schedules Work</h3>
+          <ul class="text-sm space-y-1 text-gray-300">
+            <li>• Schedules only run when lights are in <strong>AUTO</strong> mode</li>
+            <li>• If a light is in MANUAL mode, schedules will be skipped</li>
+            <li>• Schedules are checked every minute</li>
+            <li>• Toggle the checkmark to enable/disable a schedule</li>
+          </ul>
+        </div>
       </div>
     </Layouts.app>
     """
