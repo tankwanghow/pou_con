@@ -270,6 +270,144 @@ defmodule PouConWeb.CoreComponents do
     """
   end
 
+  @doc """
+  Glove-friendly time picker with large +/- step buttons.
+
+  Renders a hidden `<input>` bound to the form field plus big touch targets
+  for incrementing/decrementing hours and minutes. The JS hook updates the
+  hidden input and dispatches an "input" event so the surrounding form's
+  `phx-change` validates as normal.
+
+  Submits values in `HH:MM` format — interchangeable with `<.input type="time" />`.
+
+  ## Examples
+
+      <.glove_time_picker field={@form[:on_time]} label="ON time" />
+      <.glove_time_picker field={@form[:move_to_back_limit_time]} step_minutes={1} />
+  """
+  attr :field, Phoenix.HTML.FormField, required: true
+  attr :label, :string, default: nil
+  attr :step_minutes, :integer, default: 1
+  attr :class, :string, default: nil
+
+  def glove_time_picker(assigns) do
+    {hour, minute} = parse_glove_time(assigns.field.value)
+
+    errors =
+      if Phoenix.Component.used_input?(assigns.field),
+        do: assigns.field.errors,
+        else: []
+
+    assigns =
+      assigns
+      |> assign(:hour, hour)
+      |> assign(:minute, minute)
+      |> assign(:value_str, "#{pad2(hour)}:#{pad2(minute)}")
+      |> assign(:errors, Enum.map(errors, &translate_error/1))
+
+    ~H"""
+    <div class={["fieldset mb-2", @class]}>
+      <span :if={@label} class="label mb-1 block text-2xl">{@label}</span>
+      <div
+        id={"gtp-" <> @field.id}
+        phx-hook="GloveTimePicker"
+        data-step={@step_minutes}
+        class="select-none"
+      >
+        <input
+          type="hidden"
+          name={@field.name}
+          id={@field.id}
+          value={@value_str}
+          data-glove-time-input
+        />
+
+        <div class="flex items-stretch">
+          <div class="flex-1 flex flex-col gap-1">
+            <button
+              type="button"
+              data-glove-action="inc-hour"
+              aria-label="Increase hour"
+              class="h-8 text-xl font-bold rounded-lg bg-base-300 hover:bg-base-content/20 active:bg-primary active:text-primary-content touch-manipulation"
+            >
+              ▲
+            </button>
+            <div
+              data-glove-display="hour"
+              class="h-10 flex items-center justify-center text-2xl font-mono font-bold bg-base-200 rounded-lg"
+            >
+              {pad2(@hour)}
+            </div>
+            <button
+              type="button"
+              data-glove-action="dec-hour"
+              aria-label="Decrease hour"
+              class="h-8 text-xl font-bold rounded-lg bg-base-300 hover:bg-base-content/20 active:bg-primary active:text-primary-content touch-manipulation"
+            >
+              ▼
+            </button>
+            <div class="text-center text-xs text-base-content/60">HOUR</div>
+          </div>
+
+          <div class="text-2xl font-bold flex items-center px-1 pb-6">:</div>
+
+          <div class="flex-1 flex flex-col gap-1">
+            <button
+              type="button"
+              data-glove-action="inc-minute"
+              aria-label="Increase minute"
+              class="h-8 text-xl font-bold rounded-lg bg-base-300 hover:bg-base-content/20 active:bg-primary active:text-primary-content touch-manipulation"
+            >
+              ▲
+            </button>
+            <div
+              data-glove-display="minute"
+              class="h-10 flex items-center justify-center text-2xl font-mono font-bold bg-base-200 rounded-lg"
+            >
+              {pad2(@minute)}
+            </div>
+            <button
+              type="button"
+              data-glove-action="dec-minute"
+              aria-label="Decrease minute"
+              class="h-8 text-xl font-bold rounded-lg bg-base-300 hover:bg-base-content/20 active:bg-primary active:text-primary-content touch-manipulation"
+            >
+              ▼
+            </button>
+            <div class="text-center text-xs text-base-content/60">MIN ±{@step_minutes}</div>
+          </div>
+        </div>
+      </div>
+      <.error :for={msg <- @errors}>{msg}</.error>
+    </div>
+    """
+  end
+
+  defp parse_glove_time(nil), do: {0, 0}
+  defp parse_glove_time(%Time{hour: h, minute: m}), do: {h, m}
+
+  defp parse_glove_time(value) when is_binary(value) do
+    case String.split(value, ":") do
+      [h, m | _] ->
+        with {hi, _} <- Integer.parse(h),
+             {mi, _} <- Integer.parse(m) do
+          {clamp(hi, 0, 23), clamp(mi, 0, 59)}
+        else
+          _ -> {0, 0}
+        end
+
+      _ ->
+        {0, 0}
+    end
+  end
+
+  defp parse_glove_time(_), do: {0, 0}
+
+  defp clamp(n, lo, hi), do: n |> max(lo) |> min(hi)
+
+  defp pad2(n) when is_integer(n) and n >= 0 and n < 10, do: "0#{n}"
+  defp pad2(n) when is_integer(n), do: "#{n}"
+
   # Helper used by inputs to generate form errors
   defp error(assigns) do
     ~H"""

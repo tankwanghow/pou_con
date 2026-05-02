@@ -220,8 +220,7 @@ defmodule PouCon.System do
     schedulers = [
       {PouCon.Automation.Lighting.LightScheduler, :reload_schedules},
       {PouCon.Automation.EggCollection.EggCollectionScheduler, :reload_schedules},
-      {PouCon.Automation.Feeding.FeedingScheduler, :reload_schedules},
-      {PouCon.Automation.Feeding.FeedInController, :reload_schedules}
+      {PouCon.Automation.Feeding.FeedingScheduler, :reload_schedules}
     ]
 
     Enum.each(schedulers, fn {module, function} ->

@@ -178,11 +178,8 @@ defmodule PouCon.Application do
             # Egg collection scheduler - automated egg collection based on schedules
             PouCon.Automation.EggCollection.EggCollectionScheduler,
 
-            # Feeding scheduler - automated feeding cycle based on schedules
+            # Feeding scheduler - automated feeding cycle + FeedIn fill triggers
             PouCon.Automation.Feeding.FeedingScheduler,
-
-            # FeedIn controller - automated FeedIn filling trigger monitoring
-            PouCon.Automation.Feeding.FeedInController,
 
             # Alarm controller - triggers sirens based on sensor/equipment conditions
             PouCon.Automation.Alarm.AlarmController

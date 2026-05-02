@@ -117,7 +117,6 @@ PORT=4000 MIX_ENV=prod DATABASE_PATH=./pou_con_prod.db SECRET_KEY_BASE=<key> mix
 │  - Schedulers (Light, Egg, Feeding)             │
 │  - InterlockController (safety chains)          │
 │  - AlarmController (condition-based alerts)     │
-│  - FeedInController (filling triggers)          │
 └─────────────────────────────────────────────────┘
                     ↕ Query/Command
 ┌─────────────────────────────────────────────────┐

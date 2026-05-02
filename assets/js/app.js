@@ -93,6 +93,56 @@ Hooks.FillCurrentTime = {
 };
 
 
+Hooks.GloveTimePicker = {
+  mounted() {
+    this.step = parseInt(this.el.dataset.step || "5", 10);
+    if (isNaN(this.step) || this.step < 1) this.step = 5;
+
+    // Event delegation: one listener on the container survives child re-renders
+    this.handler = (e) => {
+      const btn = e.target.closest('[data-glove-action]');
+      if (!btn || !this.el.contains(btn)) return;
+      e.preventDefault();
+      this.applyAction(btn.dataset.gloveAction);
+    };
+    this.el.addEventListener('click', this.handler);
+  },
+
+  destroyed() {
+    if (this.handler) this.el.removeEventListener('click', this.handler);
+  },
+
+  applyAction(action) {
+    const input = this.el.querySelector('[data-glove-time-input]');
+    if (!input) return;
+
+    const parts = (input.value || "00:00").split(":");
+    let h = parseInt(parts[0], 10);
+    let m = parseInt(parts[1], 10);
+    if (isNaN(h)) h = 0;
+    if (isNaN(m)) m = 0;
+
+    switch (action) {
+      case 'inc-hour':   h = (h + 1) % 24; break;
+      case 'dec-hour':   h = (h + 23) % 24; break;
+      case 'inc-minute': m = (m + this.step) % 60; break;
+      case 'dec-minute': m = (m + 60 - this.step) % 60; break;
+      default: return;
+    }
+
+    const pad = n => String(n).padStart(2, '0');
+    input.value = `${pad(h)}:${pad(m)}`;
+
+    const hourEl = this.el.querySelector('[data-glove-display="hour"]');
+    const minEl  = this.el.querySelector('[data-glove-display="minute"]');
+    if (hourEl) hourEl.textContent = pad(h);
+    if (minEl)  minEl.textContent  = pad(m);
+
+    // Trigger form's phx-change so the parent LiveView validates
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+};
+
 Hooks.SimpleKeyboard = {
   mounted() {
     const keyboardContainer = document.querySelector(".simple-keyboard");

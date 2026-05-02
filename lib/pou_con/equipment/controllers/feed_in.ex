@@ -21,16 +21,20 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   - `actual_on` - What the hardware reports (motor running)
   - `is_running` - Motor running feedback
   - `bucket_full` - Level switch indicates hopper is full
-  - `mode` - `:auto` (FeedInController allowed) or `:manual` (user control only)
+  - `mode` - `:auto` (FeedingScheduler allowed) or `:manual` (user control only)
 
   ## Automatic Operation
 
-  The FeedInController monitors feeders and triggers filling when:
-  1. A feeder reaches its front limit (hopper may need refill)
-  2. The hopper level switch shows not full
-  3. The feed-in is in `:auto` mode
+  Fills are started by `PouCon.Automation.Feeding.FeedingScheduler`, which
+  watches the configured trigger bucket's front-limit edge and calls
+  `turn_on/1` after a settle delay when:
+  1. A schedule's `move_to_front_limit_time` has fired and the trigger
+     bucket has reached its front limit
+  2. The feed-in is in `:auto` mode, not running, and not tripped
+  3. The hopper level switch is not full
 
-  Filling stops automatically when `full_switch` triggers.
+  Stop is hardwired (full-limit switch in series with the contactor coil)
+  — the contactor drops out automatically when the hopper is full.
 
   ## Error Detection
 
