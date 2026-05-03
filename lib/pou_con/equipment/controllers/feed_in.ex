@@ -34,7 +34,10 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   3. The hopper level switch is not full
 
   Stop is hardwired (full-limit switch in series with the contactor coil)
-  — the contactor drops out automatically when the hopper is full.
+  — the contactor drops out automatically when the hopper is full. As a
+  software safety net, every `turn_on/2` arms a max-fill timer; if the
+  hopper-full path doesn't fire within the configured minutes, the
+  controller forces `commanded_on=false` and writes the coil low itself.
 
   ## Error Detection
 
@@ -68,6 +71,9 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   # With 500ms poll interval, 3 counts = 1.5s grace period for physical response
   @error_debounce_threshold 3
 
+  # Default max-fill safety timeout in minutes (used when caller doesn't pass one)
+  @default_max_fill_minutes 30
+
   defmodule State do
     defstruct [
       :name,
@@ -93,7 +99,9 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
       inverted: false,
       poll_interval_ms: 500,
       # Consecutive mismatch error count for debouncing
-      error_count: 0
+      error_count: 0,
+      # Max-fill safety timer (cancellable Process timer ref); cleared when not running
+      fill_timeout_ref: nil
     ]
   end
 
@@ -118,7 +126,15 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
     end
   end
 
-  def turn_on(name), do: GenServer.cast(Helpers.via(name), :turn_on)
+  @doc """
+  Request a fill. `max_fill_minutes` is a safety upper-bound (1..120). If the
+  hopper-full signal doesn't stop the fill within that window, the controller
+  forces it off itself.
+  """
+  def turn_on(name, max_fill_minutes \\ @default_max_fill_minutes)
+      when is_integer(max_fill_minutes) and max_fill_minutes > 0 and max_fill_minutes <= 120,
+      do: GenServer.cast(Helpers.via(name), {:turn_on, max_fill_minutes})
+
   def turn_off(name), do: GenServer.cast(Helpers.via(name), :turn_off)
   def status(name), do: GenServer.call(Helpers.via(name), :status)
 
@@ -191,12 +207,30 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
     {:noreply, new_state}
   end
 
+  def handle_info(:fill_timeout, %State{commanded_on: true} = state) do
+    Logger.warning("[#{state.name}] Max-fill timer expired — forcing OFF as safety stop")
+
+    EquipmentLogger.log_stop(state.name, mode_str(state.mode), "max_fill_timeout", "on")
+
+    new_state =
+      state
+      |> Map.put(:fill_timeout_ref, nil)
+      |> Map.put(:commanded_on, false)
+      |> sync_coil()
+
+    {:noreply, new_state}
+  end
+
+  def handle_info(:fill_timeout, state) do
+    {:noreply, %{state | fill_timeout_ref: nil}}
+  end
+
   defp schedule_poll(interval_ms) do
     Process.send_after(self(), :poll, interval_ms)
   end
 
   @impl GenServer
-  def handle_cast(:turn_on, state) do
+  def handle_cast({:turn_on, max_fill_minutes}, state) do
     can_start =
       try do
         case InterlockController.can_start?(state.name) do
@@ -210,7 +244,12 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
       end
 
     if can_start do
-      {:noreply, sync_coil(%{state | commanded_on: true})}
+      armed_state =
+        state
+        |> arm_fill_timer(max_fill_minutes)
+        |> Map.put(:commanded_on, true)
+
+      {:noreply, sync_coil(armed_state)}
     else
       Logger.warning("[#{state.name}] Turn ON blocked by interlock rules")
 
@@ -232,13 +271,13 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
     end
   end
 
-  @impl GenServer
-  def handle_cast(:turn_off, state), do: {:noreply, sync_coil(%{state | commanded_on: false})}
+  def handle_cast(:turn_off, state) do
+    {:noreply, state |> cancel_fill_timer() |> Map.put(:commanded_on, false) |> sync_coil()}
+  end
 
   # ——————————————————————————————————————————————————————————————
   # Set Mode (Virtual Mode Only)
   # ——————————————————————————————————————————————————————————————
-  @impl GenServer
   def handle_cast({:set_mode, mode}, %{is_auto_manual_virtual_di: true} = state) do
     mode_value = if mode == :auto, do: 1, else: 0
 
@@ -460,10 +499,29 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
     coil_value = if(cmd, do: 1, else: 0)
 
     @data_point_manager.command(coil, :set_state, %{state: coil_value})
-    state
+
+    # Any time we drive the coil OFF, the safety timer is no longer needed
+    if cmd, do: state, else: cancel_fill_timer(state)
   end
 
+  defp sync_coil(%State{commanded_on: false} = state), do: cancel_fill_timer(state)
   defp sync_coil(state), do: state
+
+  defp arm_fill_timer(%State{} = state, max_fill_minutes) do
+    state = cancel_fill_timer(state)
+    ref = Process.send_after(self(), :fill_timeout, max_fill_minutes * 60_000)
+    %{state | fill_timeout_ref: ref}
+  end
+
+  defp cancel_fill_timer(%State{fill_timeout_ref: nil} = state), do: state
+
+  defp cancel_fill_timer(%State{fill_timeout_ref: ref} = state) do
+    Process.cancel_timer(ref)
+    %{state | fill_timeout_ref: nil}
+  end
+
+  defp mode_str(:manual), do: "manual"
+  defp mode_str(_), do: "auto"
 
   defp log_error_transition(name, old_error, new_error, current_state) do
     # Determine mode from current state

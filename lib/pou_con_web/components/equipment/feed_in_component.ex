@@ -128,7 +128,7 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
   # ——————————————————————————————————————————————————————————————
   @impl true
   def handle_event("turn_on", _, socket) do
-    FeedIn.turn_on(socket.assigns.device_name)
+    FeedIn.turn_on(socket.assigns.device_name, 30)
     {:noreply, socket}
   end
 

@@ -265,7 +265,8 @@ defmodule Seeds do
         id: row["id"],
         move_to_back_limit_time: parse_time(row["move_to_back_limit_time"]),
         move_to_front_limit_time: parse_time(row["move_to_front_limit_time"]),
-        feedin_front_limit_bucket_id: row["feedin_front_limit_bucket_id"],
+        trigger_fill: row["trigger_fill"] || false,
+        max_fill_minutes: row["max_fill_minutes"] || 30,
         enabled: row["enabled"]
       }
       |> with_timestamps()

@@ -13,7 +13,6 @@ defmodule PouCon.Automation.Feeding.FeedingSchedules do
   """
   def list_schedules do
     Schedule
-    |> preload(:feedin_front_limit_bucket)
     |> order_by([s], s.id)
     |> Repo.all()
   end
@@ -24,7 +23,6 @@ defmodule PouCon.Automation.Feeding.FeedingSchedules do
   def list_enabled_schedules do
     Schedule
     |> where([s], s.enabled == true)
-    |> preload(:feedin_front_limit_bucket)
     |> order_by([s], s.id)
     |> Repo.all()
   end
@@ -32,11 +30,7 @@ defmodule PouCon.Automation.Feeding.FeedingSchedules do
   @doc """
   Gets a single schedule.
   """
-  def get_schedule!(id) do
-    Schedule
-    |> preload(:feedin_front_limit_bucket)
-    |> Repo.get!(id)
-  end
+  def get_schedule!(id), do: Repo.get!(Schedule, id)
 
   @doc """
   Creates a schedule.

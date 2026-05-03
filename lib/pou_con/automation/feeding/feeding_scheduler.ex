@@ -1,38 +1,39 @@
 defmodule PouCon.Automation.Feeding.FeedingScheduler do
   @moduledoc """
-  GenServer that periodically (1s tick) drives feeding automation:
+  GenServer that drives feeding automation on a 1s tick.
 
-  - Issues `move_to_back_limit` and `move_to_front_limit` commands at the
-    times configured on each schedule.
-  - Owns the FeedIn fill trigger state machine: when a schedule fires its
-    `move_to_front_limit_time` and a `feedin_front_limit_bucket` is
-    configured, the scheduler watches that bucket's front-limit for an
-    OFF→ON edge and then starts FeedIn filling after a settle delay.
+  ## Cycle (system-wide, all feeding buckets treated as a unit)
 
-  Per-schedule fill state machine:
+      idle (at front | at back | position error)
+        ↓ move_to_back_limit_time fires
+      moving to back
+        ↓ all buckets at_back
+      idle, at back
+        ↓ move_to_front_limit_time fires
+      moving to front
+        ↓ all buckets at_front
+      idle, at front
+        ↓ (if schedule wants fill: armed; once all at_front, fire FeedIn.turn_on)
+      filling
+        ↓ FeedIn stops (hardwired full-limit switch in series with contactor)
+      idle, at front
 
-      :idle
-        ↓ (current_minute matches move_to_front_limit_time AND
-        ↓  feedin_front_limit_bucket_id is set)
-      :waiting_front_limit_signal
-        ↓ (trigger bucket at_front edge: false → true)
-      :pending_fill
-        ↓ (@fill_settle_delay_ms elapsed AND FeedIn pre-check passes)
-      :verifying_fill_started
-        ↓ (@verify_fill_started_ms elapsed)
-      :idle
+  ## Fill arming
 
-  Timeouts:
-  - `:waiting_front_limit_signal` → `:idle` after @waiting_timeout_ms
-    (logs a warning).
+  When a schedule's `move_to_front_limit_time` fires AND the schedule has
+  `trigger_fill: true`, the scheduler arms a fill. Fill is issued as soon
+  as **every** feeding bucket reports `at_front: true` with
+  `mode: :auto, error: nil`, AND the FeedIn precheck passes. There is no
+  settle delay.
 
-  Reboot recovery is fail-closed: all schedules start in `:idle`. On init,
-  any schedule whose `move_to_front_limit_time` was within the last
-  @catchup_window_ms is logged for operator awareness — no automatic fill
-  recovery is performed.
+  Arm times out after 30 minutes if the all-at-front condition isn't met
+  (fail closed — operator must intervene).
 
   FeedIn stop is hardwired (full-limit switch in series with the contactor
-  coil). The scheduler never issues `FeedIn.turn_off`.
+  coil). The scheduler never issues `FeedIn.turn_off`. As a software safety
+  net, each `FeedIn.turn_on/2` call passes the schedule's `max_fill_minutes`;
+  the FeedIn controller forces itself off after that window if the
+  hopper-full path hasn't already stopped it.
   """
 
   use GenServer
@@ -45,13 +46,15 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
   alias PouCon.Logging.EquipmentLogger
 
   @check_interval :timer.seconds(1)
-  @fill_settle_delay_ms :timer.seconds(30)
-  @waiting_timeout_ms :timer.minutes(30)
-  @verify_fill_started_ms :timer.seconds(5)
-  @catchup_window_ms :timer.minutes(2)
+  @arm_timeout_ms :timer.minutes(30)
 
   defmodule State do
-    defstruct schedules: [], fill_states: %{}
+    defstruct schedules: [],
+              armed_fill_until_mono: nil,
+              armed_for_schedule_id: nil,
+              last_armed_minute: nil,
+              last_seen_phase: nil,
+              previous_phase: nil
   end
 
   # ——————————————————————————————————————————————————————————————
@@ -70,10 +73,41 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
     GenServer.cast(__MODULE__, :reload_schedules)
   end
 
-  # Legacy compatibility - schedule_updated now calls reload_schedules
   def schedule_updated do
     Logger.info("FeedingScheduler: Schedule updated, reloading schedules")
     reload_schedules()
+  end
+
+  @doc """
+  Returns the scheduler's previous/current/next phase for UI display.
+
+  Shape:
+
+      %{
+        previous: phase | nil,
+        current:  phase,
+        next:     %{label: String.t(), time: Time.t() | nil}
+      }
+
+  `phase` is `%{phase: atom}`, with values:
+  `:idle_at_front | :idle_at_back | :idle_position_error |
+   :moving_to_back | :moving_to_front | :filling`.
+
+  `previous` is the most recent *different* phase the scheduler observed
+  since process start. It is `nil` until the phase changes once. State is
+  in-memory only; reboots reset it.
+  """
+  def get_timeline do
+    try do
+      GenServer.call(__MODULE__, :get_timeline, 1000)
+    catch
+      :exit, _ ->
+        %{
+          previous: nil,
+          current: %{phase: :unknown},
+          next: %{label: "scheduler offline", time: nil}
+        }
+    end
   end
 
   # ——————————————————————————————————————————————————————————————
@@ -84,9 +118,8 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
   def init(_opts) do
     Logger.info("FeedingScheduler started")
     schedules = load_schedules()
-    log_recent_front_moves(schedules)
     schedule_next_check()
-    {:ok, %State{schedules: schedules, fill_states: %{}}}
+    {:ok, %State{schedules: schedules}}
   end
 
   @impl true
@@ -98,22 +131,30 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
 
   @impl true
   def handle_cast(:check_schedules, state) do
-    new_state = tick(state)
-    {:noreply, new_state}
+    {:noreply, tick(state)}
   end
 
   @impl true
   def handle_cast(:reload_schedules, %State{} = state) do
     Logger.info("FeedingScheduler: Reloading schedules from database")
-    schedules = load_schedules()
-    new_ids = MapSet.new(schedules, & &1.id)
+    {:noreply, %State{state | schedules: load_schedules()}}
+  end
 
-    fill_states =
-      state.fill_states
-      |> Enum.filter(fn {id, _} -> MapSet.member?(new_ids, id) end)
-      |> Map.new()
+  @impl true
+  def handle_call(:get_timeline, _from, %State{} = state) do
+    timezone = Auth.get_timezone()
+    now = DateTime.now!(timezone)
+    current_time = DateTime.to_time(now)
 
-    {:noreply, %State{state | schedules: schedules, fill_states: fill_states}}
+    current = compute_phase()
+
+    timeline = %{
+      previous: state.previous_phase && %{phase: state.previous_phase},
+      current: current,
+      next: compute_next(current.phase, state.schedules, current_time)
+    }
+
+    {:reply, timeline, state}
   end
 
   # ——————————————————————————————————————————————————————————————
@@ -130,27 +171,6 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
     schedules
   end
 
-  defp log_recent_front_moves(schedules) do
-    timezone = Auth.get_timezone()
-    now = DateTime.now!(timezone) |> DateTime.to_time()
-
-    Enum.each(schedules, fn schedule ->
-      front_time = schedule.move_to_front_limit_time
-
-      if not is_nil(front_time) and not is_nil(schedule.feedin_front_limit_bucket_id) do
-        diff_ms = Time.diff(now, front_time, :millisecond)
-
-        if diff_ms >= 0 and diff_ms <= @catchup_window_ms do
-          Logger.info(
-            "FeedingScheduler: Catch-up — schedule ##{schedule.id} " <>
-              "move_to_front_limit_time #{Time.to_string(front_time)} was " <>
-              "#{div(diff_ms, 1000)}s ago. Failing closed; no automatic fill recovery."
-          )
-        end
-      end
-    end)
-  end
-
   defp tick(%State{} = state) do
     timezone = Auth.get_timezone()
     current_datetime = DateTime.now!(timezone)
@@ -162,41 +182,34 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
       "FeedingScheduler checking schedules at #{Time.to_string(current_minute)} (#{timezone})"
     )
 
+    state
+    |> fire_move_commands(current_minute)
+    |> maybe_arm_for_fill(current_minute, now_mono)
+    |> maybe_clear_armed_timeout(now_mono)
+    |> maybe_fire_fill(now_mono)
+    |> update_phase_history()
+  end
+
+  # ——————————————————————————————————————————————————————————————
+  # Move commands
+  # ——————————————————————————————————————————————————————————————
+
+  defp fire_move_commands(%State{} = state, current_minute) do
     feeding_equipment =
       Devices.list_equipment()
       |> Enum.filter(&(&1.type == "feeding"))
 
-    for equipment <- feeding_equipment do
+    Enum.each(feeding_equipment, fn equipment ->
       check_equipment_schedules(equipment, state.schedules, current_minute)
-    end
+    end)
 
-    fill_states =
-      Enum.reduce(state.schedules, state.fill_states, fn schedule, acc ->
-        current = Map.get(acc, schedule.id, default_fill_state())
-        next = advance_fill_state(schedule, current, current_minute, now_mono)
-        Map.put(acc, schedule.id, next)
-      end)
-
-    %State{state | fill_states: fill_states}
+    state
   end
-
-  # ——————————————————————————————————————————————————————————————
-  # Movement scheduling (per equipment)
-  # ——————————————————————————————————————————————————————————————
 
   defp check_equipment_schedules(equipment, schedules, current_minute) do
     name = equipment.name
 
-    status =
-      try do
-        Feeding.status(name)
-      catch
-        :exit, _ ->
-          Logger.debug("FeedingScheduler: Controller #{name} not available yet")
-          nil
-      end
-
-    case status do
+    case feeding_status_safe(name) do
       nil ->
         :ok
 
@@ -206,84 +219,64 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
       %{error: error} when error != nil ->
         Logger.debug("FeedingScheduler: Skipping #{name} - has error: #{inspect(error)}")
 
-      %{mode: :auto, at_front: front_limit, at_back: back_limit} = status ->
-        for schedule <- schedules do
-          check_schedule_for_equipment(
-            schedule,
-            name,
-            status,
-            current_minute,
-            front_limit,
-            back_limit
-          )
-        end
+      %{mode: :auto, at_front: front_limit, at_back: back_limit} ->
+        Enum.each(schedules, fn schedule ->
+          check_schedule_for_equipment(schedule, name, current_minute, front_limit, back_limit)
+        end)
 
       _ ->
         Logger.warning("FeedingScheduler: Unknown status for #{name}")
     end
   end
 
-  defp check_schedule_for_equipment(
-         schedule,
-         equipment_name,
-         _status,
-         current_minute,
-         front_limit,
-         back_limit
-       ) do
-    if schedule.move_to_back_limit_time do
-      back_time = %{schedule.move_to_back_limit_time | second: 0, microsecond: {0, 0}}
+  defp check_schedule_for_equipment(schedule, name, current_minute, front_limit, back_limit) do
+    if schedule.move_to_back_limit_time &&
+         time_match?(schedule.move_to_back_limit_time, current_minute) &&
+         not back_limit do
+      case check_feedin_not_filling() do
+        :ok ->
+          Logger.info(
+            "FeedingScheduler: Moving #{name} to BACK (schedule ##{schedule.id}, back_limit=OFF)"
+          )
 
-      if Time.compare(current_minute, back_time) == :eq and not back_limit do
-        case check_feedin_not_filling() do
-          :ok ->
-            Logger.info(
-              "FeedingScheduler: Moving #{equipment_name} to BACK (schedule ##{schedule.id}, " <>
-                "back_limit=OFF)"
-            )
+          Feeding.move_to_back_limit(name)
 
-            Feeding.move_to_back_limit(equipment_name)
+          EquipmentLogger.log_start(name, "auto", "schedule", %{
+            "schedule_id" => schedule.id,
+            "action" => "move_to_back",
+            "move_to_back_time" => Time.to_string(schedule.move_to_back_limit_time)
+          })
 
-            EquipmentLogger.log_start(equipment_name, "auto", "schedule", %{
-              "schedule_id" => schedule.id,
-              "action" => "move_to_back",
-              "move_to_back_time" => Time.to_string(schedule.move_to_back_limit_time)
-            })
-
-          {:error, reason} ->
-            Logger.warning(
-              "FeedingScheduler: Skipping #{equipment_name} move to back - #{reason}"
-            )
-        end
+        {:error, reason} ->
+          Logger.warning("FeedingScheduler: Skipping #{name} move to back - #{reason}")
       end
     end
 
-    if schedule.move_to_front_limit_time do
-      front_time = %{schedule.move_to_front_limit_time | second: 0, microsecond: {0, 0}}
+    if schedule.move_to_front_limit_time &&
+         time_match?(schedule.move_to_front_limit_time, current_minute) &&
+         not front_limit do
+      case check_feedin_not_filling() do
+        :ok ->
+          Logger.info(
+            "FeedingScheduler: Moving #{name} to FRONT (schedule ##{schedule.id}, front_limit=OFF)"
+          )
 
-      if Time.compare(current_minute, front_time) == :eq and not front_limit do
-        case check_feedin_not_filling() do
-          :ok ->
-            Logger.info(
-              "FeedingScheduler: Moving #{equipment_name} to FRONT (schedule ##{schedule.id}, " <>
-                "front_limit=OFF)"
-            )
+          Feeding.move_to_front_limit(name)
 
-            Feeding.move_to_front_limit(equipment_name)
+          EquipmentLogger.log_start(name, "auto", "schedule", %{
+            "schedule_id" => schedule.id,
+            "action" => "move_to_front",
+            "move_to_front_time" => Time.to_string(schedule.move_to_front_limit_time)
+          })
 
-            EquipmentLogger.log_start(equipment_name, "auto", "schedule", %{
-              "schedule_id" => schedule.id,
-              "action" => "move_to_front",
-              "move_to_front_time" => Time.to_string(schedule.move_to_front_limit_time)
-            })
-
-          {:error, reason} ->
-            Logger.warning(
-              "FeedingScheduler: Skipping #{equipment_name} move to front - #{reason}"
-            )
-        end
+        {:error, reason} ->
+          Logger.warning("FeedingScheduler: Skipping #{name} move to front - #{reason}")
       end
     end
+  end
+
+  defp time_match?(time, current_minute) do
+    Time.compare(current_minute, %{time | second: 0, microsecond: {0, 0}}) == :eq
   end
 
   defp check_feedin_not_filling do
@@ -301,182 +294,214 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
   end
 
   # ——————————————————————————————————————————————————————————————
-  # Per-schedule fill state machine
+  # Fill arming
   # ——————————————————————————————————————————————————————————————
 
-  defp default_fill_state do
-    %{
-      state: :idle,
-      prev_at_front: nil,
-      reached_at: nil,
-      waiting_entered_at: nil,
-      fill_issued_at: nil,
-      last_fired_minute: nil
-    }
-  end
+  defp maybe_arm_for_fill(%State{} = state, current_minute, now_mono) do
+    armable =
+      Enum.find(state.schedules, fn schedule ->
+        wants_fill?(schedule) and
+          time_match?(schedule.move_to_front_limit_time, current_minute) and
+          state.last_armed_minute != current_minute
+      end)
 
-  defp reset_to_idle(current) do
-    %{default_fill_state() | last_fired_minute: current.last_fired_minute}
-  end
+    case armable do
+      nil ->
+        state
 
-  defp advance_fill_state(schedule, current, current_minute, now_mono) do
-    case current.state do
-      :idle -> maybe_enter_waiting(schedule, current, current_minute, now_mono)
-      :waiting_front_limit_signal -> check_for_edge_or_timeout(schedule, current, now_mono)
-      :pending_fill -> maybe_issue_fill(schedule, current, now_mono)
-      :verifying_fill_started -> maybe_finish_verify(schedule, current, now_mono)
-    end
-  end
-
-  defp maybe_enter_waiting(schedule, current, current_minute, now_mono) do
-    bucket_id = schedule.feedin_front_limit_bucket_id
-    front_time = schedule.move_to_front_limit_time
-
-    cond do
-      is_nil(bucket_id) ->
-        current
-
-      is_nil(front_time) ->
-        current
-
-      Time.compare(current_minute, %{front_time | second: 0, microsecond: {0, 0}}) != :eq ->
-        current
-
-      current.last_fired_minute == current_minute ->
-        current
-
-      true ->
+      schedule ->
         Logger.info(
-          "FeedingScheduler: schedule ##{schedule.id} entered :waiting_front_limit_signal " <>
-            "(trigger bucket: #{trigger_bucket_name(schedule)})"
+          "FeedingScheduler: schedule ##{schedule.id} armed for fill at " <>
+            "#{Time.to_string(current_minute)} (waiting for all feeding buckets at_front)"
         )
 
-        %{
-          current
-          | state: :waiting_front_limit_signal,
-            waiting_entered_at: now_mono,
-            prev_at_front: read_trigger_at_front(schedule),
-            reached_at: nil,
-            fill_issued_at: nil,
-            last_fired_minute: current_minute
+        %State{
+          state
+          | armed_fill_until_mono: now_mono + @arm_timeout_ms,
+            armed_for_schedule_id: schedule.id,
+            last_armed_minute: current_minute
         }
     end
   end
 
-  defp check_for_edge_or_timeout(schedule, current, now_mono) do
-    if now_mono - current.waiting_entered_at > @waiting_timeout_ms do
+  defp wants_fill?(schedule) do
+    schedule.move_to_front_limit_time != nil and schedule.trigger_fill == true
+  end
+
+  defp maybe_clear_armed_timeout(%State{armed_fill_until_mono: nil} = state, _), do: state
+
+  defp maybe_clear_armed_timeout(%State{} = state, now_mono) do
+    if now_mono > state.armed_fill_until_mono do
       Logger.warning(
-        "FeedingScheduler: schedule ##{schedule.id} timed out waiting for front_limit " <>
-          "signal from #{trigger_bucket_name(schedule)}; returning to idle"
+        "FeedingScheduler: fill arm (schedule ##{state.armed_for_schedule_id}) timed out — " <>
+          "not all buckets reached at_front within 30 min; returning to idle"
       )
 
-      reset_to_idle(current)
+      %State{state | armed_fill_until_mono: nil, armed_for_schedule_id: nil}
     else
-      case read_trigger_at_front(schedule) do
-        nil ->
-          current
+      state
+    end
+  end
 
-        curr_at_front ->
-          if current.prev_at_front == false and curr_at_front == true do
+  defp maybe_fire_fill(%State{armed_fill_until_mono: nil} = state, _now_mono), do: state
+
+  defp maybe_fire_fill(%State{} = state, _now_mono) do
+    cond do
+      not all_feeding_at_front?() ->
+        state
+
+      true ->
+        case feedin_precheck() do
+          {:ok, name} ->
+            max_fill_minutes = max_fill_minutes_for(state.schedules, state.armed_for_schedule_id)
+
             Logger.info(
-              "FeedingScheduler: schedule ##{schedule.id} detected " <>
-                "#{trigger_bucket_name(schedule)} at_front edge OFF→ON; " <>
-                "entering :pending_fill"
+              "FeedingScheduler: all feeding buckets at_front; starting FeedIn fill " <>
+                "(#{name}, max #{max_fill_minutes} min)"
             )
 
-            %{current | state: :pending_fill, reached_at: now_mono, prev_at_front: curr_at_front}
-          else
-            %{current | prev_at_front: curr_at_front}
-          end
-      end
-    end
-  end
+            FeedIn.turn_on(name, max_fill_minutes)
 
-  defp maybe_issue_fill(schedule, current, now_mono) do
-    if now_mono - current.reached_at < @fill_settle_delay_ms do
-      current
-    else
-      case feedin_precheck() do
-        {:ok, name} ->
-          Logger.info(
-            "FeedingScheduler: schedule ##{schedule.id} settle delay elapsed; " <>
-              "starting FeedIn fill (#{name})"
-          )
+            EquipmentLogger.log_start(name, "auto", "schedule", %{
+              "schedule_id" => state.armed_for_schedule_id,
+              "action" => "feedin_fill",
+              "max_fill_minutes" => max_fill_minutes
+            })
 
-          FeedIn.turn_on(name)
+            %State{state | armed_fill_until_mono: nil, armed_for_schedule_id: nil}
 
-          EquipmentLogger.log_start(name, "auto", "schedule", %{
-            "schedule_id" => schedule.id,
-            "action" => "feedin_fill",
-            "trigger_bucket" => trigger_bucket_name(schedule)
-          })
-
-          %{current | state: :verifying_fill_started, fill_issued_at: now_mono}
-
-        {:skip, reason} ->
-          Logger.info(
-            "FeedingScheduler: schedule ##{schedule.id} pre-check failed (#{reason}); " <>
-              "returning to idle without filling"
-          )
-
-          reset_to_idle(current)
-      end
-    end
-  end
-
-  defp maybe_finish_verify(schedule, current, now_mono) do
-    if now_mono - current.fill_issued_at < @verify_fill_started_ms do
-      current
-    else
-      case feedin_status_safe() do
-        %{is_running: true} ->
-          Logger.info(
-            "FeedingScheduler: schedule ##{schedule.id} FeedIn confirmed running; " <>
-              "returning to idle"
-          )
-
-        %{is_running: false} = status ->
-          Logger.warning(
-            "FeedingScheduler: schedule ##{schedule.id} FeedIn did not start within " <>
-              "verify window (status=#{inspect(status)}); returning to idle"
-          )
-
-        _ ->
-          Logger.warning(
-            "FeedingScheduler: schedule ##{schedule.id} FeedIn status unavailable in " <>
-              "verify window; returning to idle"
-          )
-      end
-
-      reset_to_idle(current)
-    end
-  end
-
-  # ——————————————————————————————————————————————————————————————
-  # FeedIn / trigger-bucket helpers
-  # ——————————————————————————————————————————————————————————————
-
-  defp trigger_bucket_name(schedule) do
-    case schedule.feedin_front_limit_bucket do
-      %{name: name} -> name
-      _ -> "<unknown>"
-    end
-  end
-
-  defp read_trigger_at_front(schedule) do
-    case schedule.feedin_front_limit_bucket do
-      %{name: name} ->
-        try do
-          case Feeding.status(name) do
-            %{at_front: at_front, mode: :auto, error: nil} -> at_front
-            _ -> nil
-          end
-        catch
-          :exit, _ -> nil
+          {:skip, reason} ->
+            Logger.debug("FeedingScheduler: fill arm waiting — FeedIn precheck: #{reason}")
+            state
         end
+    end
+  end
 
-      _ ->
-        nil
+  defp max_fill_minutes_for(schedules, schedule_id) do
+    case Enum.find(schedules, &(&1.id == schedule_id)) do
+      %{max_fill_minutes: m} when is_integer(m) and m > 0 -> m
+      _ -> 30
+    end
+  end
+
+  defp all_feeding_at_front? do
+    statuses = list_feeding_statuses()
+
+    statuses != [] and
+      Enum.all?(statuses, fn s ->
+        s[:at_front] == true and s[:mode] == :auto and s[:error] == nil
+      end)
+  end
+
+  # ——————————————————————————————————————————————————————————————
+  # Phase computation
+  # ——————————————————————————————————————————————————————————————
+
+  defp compute_phase do
+    feedin_status = feedin_status_safe()
+    feeding_statuses = list_feeding_statuses()
+
+    cond do
+      feedin_status && feedin_status[:is_running] ->
+        %{phase: :filling}
+
+      Enum.any?(feeding_statuses, &(&1[:moving] && &1[:target_limit] == :to_back_limit)) ->
+        %{phase: :moving_to_back}
+
+      Enum.any?(feeding_statuses, &(&1[:moving] && &1[:target_limit] == :to_front_limit)) ->
+        %{phase: :moving_to_front}
+
+      feeding_statuses != [] && Enum.all?(feeding_statuses, &(&1[:at_front] == true)) ->
+        %{phase: :idle_at_front}
+
+      feeding_statuses != [] && Enum.all?(feeding_statuses, &(&1[:at_back] == true)) ->
+        %{phase: :idle_at_back}
+
+      true ->
+        %{phase: :idle_position_error}
+    end
+  end
+
+  defp update_phase_history(%State{} = state) do
+    current_phase = compute_phase().phase
+
+    cond do
+      state.last_seen_phase == nil ->
+        %State{state | last_seen_phase: current_phase}
+
+      current_phase == state.last_seen_phase ->
+        state
+
+      true ->
+        %State{state | previous_phase: state.last_seen_phase, last_seen_phase: current_phase}
+    end
+  end
+
+  # ——————————————————————————————————————————————————————————————
+  # Next-step computation (UI display)
+  # ——————————————————————————————————————————————————————————————
+
+  defp compute_next(:filling, _schedules, _now), do: %{label: "waiting filling stop", time: nil}
+
+  defp compute_next(:moving_to_back, _, _), do: %{label: "waiting all back limits", time: nil}
+
+  defp compute_next(:moving_to_front, _, _), do: %{label: "waiting all front limits", time: nil}
+
+  defp compute_next(:idle_at_front, schedules, now) do
+    next_for_direction(:move_to_back, schedules, now)
+  end
+
+  defp compute_next(:idle_at_back, schedules, now) do
+    next_for_direction(:move_to_front, schedules, now)
+  end
+
+  defp compute_next(:idle_position_error, _, _) do
+    %{label: "waiting bucket position error clear", time: nil}
+  end
+
+  defp next_for_direction(direction, schedules, current_time) do
+    field =
+      case direction do
+        :move_to_back -> :move_to_back_limit_time
+        :move_to_front -> :move_to_front_limit_time
+      end
+
+    times =
+      schedules
+      |> Enum.map(&Map.get(&1, field))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.sort_by(&Time.to_erl/1)
+
+    case times do
+      [] ->
+        %{label: "waiting #{direction_label(direction)} time", time: nil}
+
+      sorted ->
+        upcoming = Enum.find(sorted, fn t -> Time.compare(t, current_time) == :gt end)
+        time = upcoming || hd(sorted)
+        %{label: direction_label(direction), time: time}
+    end
+  end
+
+  defp direction_label(:move_to_back), do: "move to BACK"
+  defp direction_label(:move_to_front), do: "move to FRONT"
+
+  # ——————————————————————————————————————————————————————————————
+  # FeedIn / equipment helpers
+  # ——————————————————————————————————————————————————————————————
+
+  defp list_feeding_statuses do
+    Devices.list_equipment()
+    |> Enum.filter(&(&1.type == "feeding"))
+    |> Enum.map(fn eq -> feeding_status_safe(eq.name) end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp feeding_status_safe(name) do
+    try do
+      Feeding.status(name)
+    catch
+      :exit, _ -> nil
     end
   end
 

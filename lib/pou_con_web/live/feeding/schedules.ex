@@ -3,16 +3,14 @@ defmodule PouConWeb.Live.Feeding.Schedules do
 
   alias PouCon.Automation.Feeding.FeedingSchedules
   alias PouCon.Automation.Feeding.Schemas.Schedule
-  alias PouCon.Equipment.Devices
 
   @impl true
   def mount(_params, _session, socket) do
     schedules = FeedingSchedules.list_schedules()
-    feeding_equipment = Devices.list_equipment() |> Enum.filter(&(&1.type == "feeding"))
 
     socket =
       socket
-      |> assign(schedules: schedules, editing_schedule: nil, feeding_equipment: feeding_equipment)
+      |> assign(schedules: schedules, editing_schedule: nil, editing_max_fill?: false)
       |> assign_new_schedule_form()
 
     {:ok, socket}
@@ -72,6 +70,41 @@ defmodule PouConWeb.Live.Feeding.Schedules do
     {:noreply, assign(socket, form: to_form(changeset))}
   end
 
+  def handle_event("toggle_trigger_fill", _, socket) do
+    next_value = !trigger_fill?(socket.assigns.form)
+
+    changeset =
+      (socket.assigns.editing_schedule || %Schedule{})
+      |> FeedingSchedules.change_schedule(
+        Map.put(socket.assigns.form.params || %{}, "trigger_fill", to_string(next_value))
+      )
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, form: to_form(changeset))}
+  end
+
+  def handle_event("open_max_fill", _, socket) do
+    {:noreply, assign(socket, editing_max_fill?: true)}
+  end
+
+  def handle_event("close_max_fill", _, socket) do
+    {:noreply, assign(socket, editing_max_fill?: false)}
+  end
+
+  def handle_event("step_max_fill", %{"dir" => dir}, socket) do
+    current = max_fill_value(socket.assigns.form)
+    new_value = if dir == "up", do: min(120, current + 1), else: max(1, current - 1)
+
+    changeset =
+      (socket.assigns.editing_schedule || %Schedule{})
+      |> FeedingSchedules.change_schedule(
+        Map.put(socket.assigns.form.params || %{}, "max_fill_minutes", to_string(new_value))
+      )
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, form: to_form(changeset))}
+  end
+
   def handle_event("toggle_schedule", %{"id" => id}, socket) do
     schedule = FeedingSchedules.get_schedule!(String.to_integer(id))
     {:ok, _} = FeedingSchedules.toggle_schedule(schedule)
@@ -123,6 +156,16 @@ defmodule PouConWeb.Live.Feeding.Schedules do
     assign(socket, editing_schedule: nil, form: to_form(changeset))
   end
 
+  defp trigger_fill?(form), do: form[:trigger_fill].value in [true, "true"]
+
+  defp max_fill_value(form) do
+    case form[:max_fill_minutes].value do
+      n when is_integer(n) -> n
+      n when is_binary(n) and n != "" -> String.to_integer(n)
+      _ -> 30
+    end
+  end
+
   # ———————————————————— Render ————————————————————
   @impl true
   def render(assigns) do
@@ -152,25 +195,43 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                 </div>
 
                 <div class="flex flex-col gap-1 grow">
-                  <select
-                    name={@form[:feedin_front_limit_bucket_id].name}
-                    id={@form[:feedin_front_limit_bucket_id].id}
-                    class="h-10 rounded-lg bg-base-200 border border-base-300 px-2 text-xl mb-2"
+                  <input
+                    type="hidden"
+                    name={@form[:trigger_fill].name}
+                    value={to_string(trigger_fill?(@form))}
+                  />
+                  <button
+                    type="button"
+                    phx-click="toggle_trigger_fill"
+                    class={[
+                      "h-10 px-4 font-semibold rounded-lg mb-2",
+                      if(trigger_fill?(@form),
+                        do: "bg-emerald-600 hover:bg-emerald-700 text-white",
+                        else: "bg-gray-600 hover:bg-gray-700 text-white"
+                      )
+                    ]}
                   >
-                    <option value="">No Filling Bucket</option>
-                    <%= for eq <- @feeding_equipment do %>
-                      <option
-                        value={eq.id}
-                        selected={
-                          to_string(@form[:feedin_front_limit_bucket_id].value) == to_string(eq.id)
-                        }
-                      >
-                        {eq.title || eq.name}
-                      </option>
+                    {if trigger_fill?(@form), do: "Fill After Front", else: "No Fill"}
+                  </button>
+
+                  <input
+                    type="hidden"
+                    name={@form[:max_fill_minutes].name}
+                    value={max_fill_value(@form)}
+                  />
+                  <div :if={trigger_fill?(@form)} class="flex mb-2">
+                    <label class="block font-medium text-gray-300 w-1/2 text-right mt-2">Max fill (min)</label>
+                    <button
+                      type="button"
+                      phx-click="open_max_fill"
+                      class="w-1/2 h-10 rounded-lg bg-base-300 text-xl font-mono font-bold text-center touch-manipulation hover:bg-base-content/20"
+                    >
+                      {max_fill_value(@form)}
+                    </button>
+                    <%= for err <- @form[:max_fill_minutes].errors do %>
+                      <span class="text-xs text-rose-400">{translate_error(err)}</span>
                     <% end %>
-                  </select>
-
-
+                  </div>
 
                   <input type="hidden" name={@form[:enabled].name} value={to_string(@form[:enabled].value in [true, "true"])} />
                   <button
@@ -235,13 +296,12 @@ defmodule PouConWeb.Live.Feeding.Schedules do
                         </div>
                       <% end %>
 
-                      <%= if schedule.feedin_front_limit_bucket do %>
+                      <%= if schedule.trigger_fill do %>
                         <div class="w-full text-center m-2 bg-emerald-600 text-white px-1.5 py-0.5 rounded font-bold">
-                          FILL: {schedule.feedin_front_limit_bucket.title ||
-                            schedule.feedin_front_limit_bucket.name}
+                          FILL ({schedule.max_fill_minutes}m)
                         </div>
                       <% else %>
-                        <div class="w-full text-center m-2 bg-emerald-600 text-white px-1.5 py-0.5 rounded font-bold">
+                        <div class="w-full text-center m-2 bg-gray-600 text-white px-1.5 py-0.5 rounded font-bold">
                           NOFILL
                         </div>
                       <% end %>
@@ -299,8 +359,9 @@ defmodule PouConWeb.Live.Feeding.Schedules do
             </li>
             <li>• Commands are sent at the scheduled times throughout the day</li>
             <li>
-              • You can specify which bucket should <strong>trigger FeedIn filling</strong>
-              when it reaches front limit (only if FeedIn is in AUTO mode)
+              • Toggle <strong>Fill After Front</strong>
+              to start FeedIn filling once <strong>all buckets</strong>
+              reach the front limit (only if FeedIn is in AUTO mode)
             </li>
             <li>• Create multiple schedules to move buckets back and front several times per day</li>
             <li>• At least one time (Back or Front) must be configured for each schedule</li>
@@ -308,6 +369,48 @@ defmodule PouConWeb.Live.Feeding.Schedules do
           </ul>
         </div>
       </div>
+
+      <%= if @editing_max_fill? do %>
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div class="fixed inset-0" phx-click="close_max_fill"></div>
+          <div class="relative z-10 bg-base-200 rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-4 min-w-[280px]">
+            <span class="text-lg font-semibold text-base-content/70">
+              Max fill (min)
+            </span>
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                phx-click="step_max_fill"
+                phx-value-dir="down"
+                class="h-14 w-14 text-2xl font-bold rounded-xl bg-base-300 hover:bg-base-content/20 active:bg-primary active:text-primary-content touch-manipulation"
+              >
+                −
+              </button>
+              <div class="text-5xl font-mono font-bold min-w-[120px] text-center">
+                {max_fill_value(@form)}
+              </div>
+              <button
+                type="button"
+                phx-click="step_max_fill"
+                phx-value-dir="up"
+                class="h-14 w-14 text-2xl font-bold rounded-xl bg-base-300 hover:bg-base-content/20 active:bg-primary active:text-primary-content touch-manipulation"
+              >
+                +
+              </button>
+            </div>
+            <%= for err <- @form[:max_fill_minutes].errors do %>
+              <span class="text-sm text-red-500 font-semibold">{translate_error(err)}</span>
+            <% end %>
+            <button
+              type="button"
+              phx-click="close_max_fill"
+              class="w-full py-3 text-lg font-semibold rounded-xl bg-primary text-primary-content hover:bg-primary/80 touch-manipulation"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      <% end %>
     </Layouts.app>
     """
   end

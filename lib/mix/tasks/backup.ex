@@ -394,7 +394,8 @@ defmodule Mix.Tasks.Backup do
         id: f.id,
         move_to_back_limit_time: f.move_to_back_limit_time,
         move_to_front_limit_time: f.move_to_front_limit_time,
-        feedin_front_limit_bucket_id: f.feedin_front_limit_bucket_id,
+        trigger_fill: f.trigger_fill,
+        max_fill_minutes: f.max_fill_minutes,
         enabled: f.enabled,
         inserted_at: f.inserted_at,
         updated_at: f.updated_at

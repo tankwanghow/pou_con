@@ -73,11 +73,11 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
             </span>
             <div class="flex flex-wrap gap-1 items-center">
               <%= for value <- List.wrap(values) do %>
-                <% dp_id = Map.get(@data_point_map, value) %>
+                <% dp_info = Map.get(@data_point_map, value) %>
                 <% cached = Map.get(@data_point_cache, value) %>
-                <%= if dp_id do %>
+                <%= if dp_info do %>
                   <.link
-                    navigate={~p"/admin/data_points/#{dp_id}/edit"}
+                    navigate={~p"/admin/data_points/#{dp_info.id}/edit"}
                     class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 hover:underline text-xs font-mono"
                   >
                     {value}
@@ -88,6 +88,30 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
                   ]}>
                     {format_cached_value(cached)}
                   </span>
+                  <%= if dp_info.type == "DO" and dp_info.write_fn do %>
+                    <button
+                      type="button"
+                      phx-click="force_do"
+                      phx-value-name={value}
+                      phx-value-state="1"
+                      data-confirm={"Force #{value} ON? This bypasses interlocks and automation."}
+                      class="px-1.5 py-0.5 bg-green-600 text-white rounded text-[10px] font-bold hover:bg-green-700"
+                      title="Force coil ON (writes 1; honors inversion)"
+                    >
+                      ON
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="force_do"
+                      phx-value-name={value}
+                      phx-value-state="0"
+                      data-confirm={"Force #{value} OFF? This bypasses interlocks and automation."}
+                      class="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[10px] font-bold hover:bg-rose-700"
+                      title="Force coil OFF (writes 0; honors inversion)"
+                    >
+                      OFF
+                    </button>
+                  <% end %>
                 <% else %>
                   <span
                     class="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs font-mono"
@@ -162,7 +186,7 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
 
   defp load_data_point_map do
     DataPoints.list_data_points()
-    |> Enum.map(fn dp -> {dp.name, dp.id} end)
+    |> Enum.map(fn dp -> {dp.name, %{id: dp.id, type: dp.type, write_fn: dp.write_fn}} end)
     |> Map.new()
   end
 
@@ -346,6 +370,23 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
      socket
      |> assign(:color_zones_errors, color_zones_errors)
      |> assign(form: to_form(changeset, action: :validate))}
+  end
+
+  def handle_event("force_do", %{"name" => name, "state" => state_str}, socket) do
+    state_val = String.to_integer(state_str)
+
+    case DataPointManager.command(name, :set_state, %{state: state_val}) do
+      :ok ->
+        label = if state_val == 1, do: "ON", else: "OFF"
+        {:noreply, put_flash(socket, :info, "Forced #{name} #{label}")}
+
+      {:ok, _} ->
+        label = if state_val == 1, do: "ON", else: "OFF"
+        {:noreply, put_flash(socket, :info, "Forced #{name} #{label}")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Force failed for #{name}: #{inspect(reason)}")}
+    end
   end
 
   def handle_event("save", %{"equipment" => equipment_params}, socket) do

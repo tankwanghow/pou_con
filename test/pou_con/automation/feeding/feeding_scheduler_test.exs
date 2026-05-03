@@ -56,12 +56,12 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulerTest do
       Process.sleep(100)
     end
 
-    test "preserves fill_state for schedules that still exist" do
+    test "preserves armed-fill state across reload" do
       stop_genserver(FeedingScheduler)
 
       trigger = create_equipment!("preserve_trigger", "feeding")
 
-      schedule =
+      _schedule =
         create_feeding_schedule!(
           move_to_front_limit_time: ~T[03:00:00],
           feedin_front_limit_bucket_id: trigger.id,
@@ -70,51 +70,20 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulerTest do
 
       {:ok, _pid} = FeedingScheduler.start_link()
 
-      :sys.replace_state(FeedingScheduler, fn state ->
-        fill_state = %{
-          state: :waiting_front_limit_signal,
-          prev_at_front: false,
-          reached_at: nil,
-          waiting_entered_at: System.monotonic_time(:millisecond),
-          fill_issued_at: nil,
-          last_fired_minute: ~T[03:00:00]
-        }
+      armed_until = System.monotonic_time(:millisecond) + :timer.minutes(10)
 
-        Map.put(state, :fill_states, %{schedule.id => fill_state})
+      :sys.replace_state(FeedingScheduler, fn state ->
+        state
+        |> Map.put(:armed_fill_until_mono, armed_until)
+        |> Map.put(:armed_for_schedule_id, 1234)
       end)
 
       assert :ok = FeedingScheduler.reload_schedules()
       Process.sleep(100)
 
       sched_state = :sys.get_state(FeedingScheduler)
-      preserved = sched_state.fill_states[schedule.id]
-      assert preserved.state == :waiting_front_limit_signal
-      assert preserved.last_fired_minute == ~T[03:00:00]
-    end
-
-    test "drops fill_state for schedules that no longer exist" do
-      stop_genserver(FeedingScheduler)
-
-      {:ok, _pid} = FeedingScheduler.start_link()
-
-      :sys.replace_state(FeedingScheduler, fn state ->
-        ghost = %{
-          state: :pending_fill,
-          prev_at_front: true,
-          reached_at: System.monotonic_time(:millisecond),
-          waiting_entered_at: nil,
-          fill_issued_at: nil,
-          last_fired_minute: nil
-        }
-
-        Map.put(state, :fill_states, %{99_999 => ghost})
-      end)
-
-      assert :ok = FeedingScheduler.reload_schedules()
-      Process.sleep(100)
-
-      sched_state = :sys.get_state(FeedingScheduler)
-      assert sched_state.fill_states == %{}
+      assert sched_state.armed_fill_until_mono == armed_until
+      assert sched_state.armed_for_schedule_id == 1234
     end
   end
 
@@ -251,16 +220,16 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulerTest do
   end
 
   # ——————————————————————————————————————————————————————————————
-  # Fill state machine
+  # Fill arming
   # ——————————————————————————————————————————————————————————————
 
-  describe "fill state machine — entry" do
-    test "schedule with no trigger bucket stays in :idle at front_time" do
+  describe "fill arming" do
+    test "schedule with no trigger flag does not arm at front_time" do
       stop_genserver(FeedingScheduler)
 
       now = current_time_truncated()
 
-      schedule =
+      _schedule =
         create_feeding_schedule!(
           move_to_front_limit_time: now,
           enabled: true
@@ -271,24 +240,14 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulerTest do
       Process.sleep(100)
 
       sched_state = :sys.get_state(FeedingScheduler)
-      fill = sched_state.fill_states[schedule.id] || %{state: :idle}
-      assert fill.state == :idle
+      assert sched_state.armed_fill_until_mono == nil
+      assert sched_state.armed_for_schedule_id == nil
     end
 
-    test "schedule with trigger bucket transitions to :waiting at front_time" do
+    test "schedule with trigger flag arms at front_time" do
       stop_genserver(FeedingScheduler)
 
-      trigger = create_equipment!("waiting_trigger", "feeding")
-      {_name, _pid, _devs} = start_feeding!(name: "waiting_trigger")
-
-      stub_read_direct(fn
-        "waiting_trigger_am" -> {:ok, %{state: 1}}
-        "waiting_trigger_front" -> {:ok, %{state: 0}}
-        "waiting_trigger_back" -> {:ok, %{state: 1}}
-        _ -> {:ok, %{state: 0}}
-      end)
-
-      wait_for_init()
+      trigger = create_equipment!("arm_trigger", "feeding")
 
       now = current_time_truncated()
 
@@ -304,26 +263,15 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulerTest do
       Process.sleep(150)
 
       sched_state = :sys.get_state(FeedingScheduler)
-      fill = sched_state.fill_states[schedule.id]
-      assert fill.state == :waiting_front_limit_signal
-      assert fill.prev_at_front == false
-      assert fill.last_fired_minute == now
+      assert is_integer(sched_state.armed_fill_until_mono)
+      assert sched_state.armed_for_schedule_id == schedule.id
+      assert sched_state.last_armed_minute == now
     end
 
-    test "does not double-fire :waiting in same minute after returning to :idle" do
+    test "does not re-arm in same minute" do
       stop_genserver(FeedingScheduler)
 
       trigger = create_equipment!("nodouble_trigger", "feeding")
-      {_name, _pid, _devs} = start_feeding!(name: "nodouble_trigger")
-
-      stub_read_direct(fn
-        "nodouble_trigger_am" -> {:ok, %{state: 1}}
-        "nodouble_trigger_front" -> {:ok, %{state: 0}}
-        "nodouble_trigger_back" -> {:ok, %{state: 1}}
-        _ -> {:ok, %{state: 0}}
-      end)
-
-      wait_for_init()
 
       now = current_time_truncated()
 
@@ -337,182 +285,41 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulerTest do
       {:ok, _pid} = FeedingScheduler.start_link()
 
       :sys.replace_state(FeedingScheduler, fn state ->
-        fill_state = %{
-          state: :idle,
-          prev_at_front: nil,
-          reached_at: nil,
-          waiting_entered_at: nil,
-          fill_issued_at: nil,
-          last_fired_minute: now
-        }
-
-        Map.put(state, :fill_states, %{schedule.id => fill_state})
+        state
+        |> Map.put(:armed_fill_until_mono, nil)
+        |> Map.put(:armed_for_schedule_id, nil)
+        |> Map.put(:last_armed_minute, now)
       end)
 
       FeedingScheduler.force_check()
       Process.sleep(150)
 
       sched_state = :sys.get_state(FeedingScheduler)
-      fill = sched_state.fill_states[schedule.id]
-      assert fill.state == :idle
+      assert sched_state.armed_fill_until_mono == nil
+      assert sched_state.armed_for_schedule_id == nil
+      _ = schedule
     end
   end
 
-  describe "fill state machine — edge detection and timeout" do
-    test "detects OFF→ON edge and transitions to :pending_fill" do
+  describe "fill firing" do
+    test "fires FeedIn.turn_on once all feeding buckets at_front" do
       stop_genserver(FeedingScheduler)
 
-      trigger = create_equipment!("edge_trigger", "feeding")
-      {_name, _pid, _devs} = start_feeding!(name: "edge_trigger")
+      bucket = create_equipment!("fire_bucket", "feeding")
+      {_n1, _p1, _d1} = start_feeding!(name: "fire_bucket")
+
+      create_equipment!("fire_feedin", "feed_in")
+      {_n2, _p2, _d2} = start_feed_in!(name: "fire_feedin")
 
       stub_read_direct(fn
-        "edge_trigger_am" -> {:ok, %{state: 1}}
-        "edge_trigger_front" -> {:ok, %{state: 1}}
-        "edge_trigger_back" -> {:ok, %{state: 0}}
-        _ -> {:ok, %{state: 0}}
-      end)
-
-      wait_for_init()
-
-      schedule =
-        create_feeding_schedule!(
-          move_to_front_limit_time: ~T[03:00:00],
-          feedin_front_limit_bucket_id: trigger.id,
-          enabled: true
-        )
-
-      {:ok, _pid} = FeedingScheduler.start_link()
-
-      :sys.replace_state(FeedingScheduler, fn state ->
-        fill_state = %{
-          state: :waiting_front_limit_signal,
-          prev_at_front: false,
-          reached_at: nil,
-          waiting_entered_at: System.monotonic_time(:millisecond),
-          fill_issued_at: nil,
-          last_fired_minute: ~T[03:00:00]
-        }
-
-        Map.put(state, :fill_states, %{schedule.id => fill_state})
-      end)
-
-      FeedingScheduler.force_check()
-      Process.sleep(150)
-
-      sched_state = :sys.get_state(FeedingScheduler)
-      fill = sched_state.fill_states[schedule.id]
-      assert fill.state == :pending_fill
-      assert fill.prev_at_front == true
-      assert is_integer(fill.reached_at)
-    end
-
-    test "stays in :waiting_front_limit_signal when no edge" do
-      stop_genserver(FeedingScheduler)
-
-      trigger = create_equipment!("noedge_trigger", "feeding")
-      {_name, _pid, _devs} = start_feeding!(name: "noedge_trigger")
-
-      stub_read_direct(fn
-        "noedge_trigger_am" -> {:ok, %{state: 1}}
-        "noedge_trigger_front" -> {:ok, %{state: 0}}
-        "noedge_trigger_back" -> {:ok, %{state: 1}}
-        _ -> {:ok, %{state: 0}}
-      end)
-
-      wait_for_init()
-
-      schedule =
-        create_feeding_schedule!(
-          move_to_front_limit_time: ~T[03:00:00],
-          feedin_front_limit_bucket_id: trigger.id,
-          enabled: true
-        )
-
-      {:ok, _pid} = FeedingScheduler.start_link()
-
-      :sys.replace_state(FeedingScheduler, fn state ->
-        fill_state = %{
-          state: :waiting_front_limit_signal,
-          prev_at_front: false,
-          reached_at: nil,
-          waiting_entered_at: System.monotonic_time(:millisecond),
-          fill_issued_at: nil,
-          last_fired_minute: ~T[03:00:00]
-        }
-
-        Map.put(state, :fill_states, %{schedule.id => fill_state})
-      end)
-
-      FeedingScheduler.force_check()
-      Process.sleep(150)
-
-      sched_state = :sys.get_state(FeedingScheduler)
-      fill = sched_state.fill_states[schedule.id]
-      assert fill.state == :waiting_front_limit_signal
-      assert fill.prev_at_front == false
-    end
-
-    test "30 minute timeout returns to :idle preserving last_fired_minute" do
-      stop_genserver(FeedingScheduler)
-
-      trigger = create_equipment!("timeout_trigger", "feeding")
-      {_name, _pid, _devs} = start_feeding!(name: "timeout_trigger")
-
-      stub_read_direct(fn
-        "timeout_trigger_am" -> {:ok, %{state: 1}}
-        "timeout_trigger_front" -> {:ok, %{state: 0}}
-        _ -> {:ok, %{state: 0}}
-      end)
-
-      wait_for_init()
-
-      schedule =
-        create_feeding_schedule!(
-          move_to_front_limit_time: ~T[03:00:00],
-          feedin_front_limit_bucket_id: trigger.id,
-          enabled: true
-        )
-
-      {:ok, _pid} = FeedingScheduler.start_link()
-
-      thirty_one_minutes_ago = System.monotonic_time(:millisecond) - :timer.minutes(31)
-
-      :sys.replace_state(FeedingScheduler, fn state ->
-        fill_state = %{
-          state: :waiting_front_limit_signal,
-          prev_at_front: false,
-          reached_at: nil,
-          waiting_entered_at: thirty_one_minutes_ago,
-          fill_issued_at: nil,
-          last_fired_minute: ~T[03:00:00]
-        }
-
-        Map.put(state, :fill_states, %{schedule.id => fill_state})
-      end)
-
-      FeedingScheduler.force_check()
-      Process.sleep(150)
-
-      sched_state = :sys.get_state(FeedingScheduler)
-      fill = sched_state.fill_states[schedule.id]
-      assert fill.state == :idle
-      assert fill.last_fired_minute == ~T[03:00:00]
-    end
-  end
-
-  describe "fill state machine — pending_fill" do
-    test "issues FeedIn.turn_on after settle delay when pre-check passes" do
-      stop_genserver(FeedingScheduler)
-
-      create_equipment!("pf_feedin", "feed_in")
-      {_n, _p, _d} = start_feed_in!(name: "pf_feedin")
-
-      stub_read_direct(fn
-        "pf_feedin_am" -> {:ok, %{state: 1}}
-        "pf_feedin_full" -> {:ok, %{state: 0}}
-        "pf_feedin_fb" -> {:ok, %{state: 0}}
-        "pf_feedin_fill" -> {:ok, %{state: 0}}
-        "pf_feedin_trip" -> {:ok, %{state: 0}}
+        "fire_bucket_am" -> {:ok, %{state: 1}}
+        "fire_bucket_front" -> {:ok, %{state: 1}}
+        "fire_bucket_back" -> {:ok, %{state: 0}}
+        "fire_feedin_am" -> {:ok, %{state: 1}}
+        "fire_feedin_full" -> {:ok, %{state: 0}}
+        "fire_feedin_fb" -> {:ok, %{state: 0}}
+        "fire_feedin_fill" -> {:ok, %{state: 0}}
+        "fire_feedin_trip" -> {:ok, %{state: 0}}
         _ -> {:ok, %{state: 0}}
       end)
 
@@ -521,47 +328,47 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulerTest do
       schedule =
         create_feeding_schedule!(
           move_to_front_limit_time: ~T[03:00:00],
+          feedin_front_limit_bucket_id: bucket.id,
           enabled: true
         )
 
       {:ok, _pid} = FeedingScheduler.start_link()
 
-      thirty_one_seconds_ago = System.monotonic_time(:millisecond) - :timer.seconds(31)
-
       :sys.replace_state(FeedingScheduler, fn state ->
-        fill_state = %{
-          state: :pending_fill,
-          prev_at_front: true,
-          reached_at: thirty_one_seconds_ago,
-          waiting_entered_at: nil,
-          fill_issued_at: nil,
-          last_fired_minute: ~T[03:00:00]
-        }
-
-        Map.put(state, :fill_states, %{schedule.id => fill_state})
+        state
+        |> Map.put(
+          :armed_fill_until_mono,
+          System.monotonic_time(:millisecond) + :timer.minutes(10)
+        )
+        |> Map.put(:armed_for_schedule_id, schedule.id)
       end)
 
       FeedingScheduler.force_check()
       Process.sleep(150)
 
       sched_state = :sys.get_state(FeedingScheduler)
-      fill = sched_state.fill_states[schedule.id]
-      assert fill.state == :verifying_fill_started
-      assert is_integer(fill.fill_issued_at)
+      assert sched_state.armed_fill_until_mono == nil
+      assert sched_state.armed_for_schedule_id == nil
 
-      # FeedIn should have been commanded on
-      status = FeedIn.status("pf_feedin")
+      status = FeedIn.status("fire_feedin")
       assert status.commanded_on == true
     end
 
-    test "stays in :pending_fill before settle delay elapses" do
+    test "does not fire when not all buckets at_front" do
       stop_genserver(FeedingScheduler)
 
-      create_equipment!("settle_feedin", "feed_in")
-      {_n, _p, _d} = start_feed_in!(name: "settle_feedin")
+      bucket = create_equipment!("hold_bucket", "feeding")
+      {_n1, _p1, _d1} = start_feeding!(name: "hold_bucket")
 
+      create_equipment!("hold_feedin", "feed_in")
+      {_n2, _p2, _d2} = start_feed_in!(name: "hold_feedin")
+
+      # bucket is NOT at front
       stub_read_direct(fn
-        "settle_feedin_am" -> {:ok, %{state: 1}}
+        "hold_bucket_am" -> {:ok, %{state: 1}}
+        "hold_bucket_front" -> {:ok, %{state: 0}}
+        "hold_bucket_back" -> {:ok, %{state: 1}}
+        "hold_feedin_am" -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
 
@@ -570,44 +377,77 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulerTest do
       schedule =
         create_feeding_schedule!(
           move_to_front_limit_time: ~T[03:00:00],
+          feedin_front_limit_bucket_id: bucket.id,
           enabled: true
         )
 
       {:ok, _pid} = FeedingScheduler.start_link()
 
-      :sys.replace_state(FeedingScheduler, fn state ->
-        fill_state = %{
-          state: :pending_fill,
-          prev_at_front: true,
-          # just reached, not 30s yet
-          reached_at: System.monotonic_time(:millisecond),
-          waiting_entered_at: nil,
-          fill_issued_at: nil,
-          last_fired_minute: ~T[03:00:00]
-        }
+      armed_until = System.monotonic_time(:millisecond) + :timer.minutes(10)
 
-        Map.put(state, :fill_states, %{schedule.id => fill_state})
+      :sys.replace_state(FeedingScheduler, fn state ->
+        state
+        |> Map.put(:armed_fill_until_mono, armed_until)
+        |> Map.put(:armed_for_schedule_id, schedule.id)
       end)
 
       FeedingScheduler.force_check()
-      Process.sleep(100)
+      Process.sleep(150)
 
       sched_state = :sys.get_state(FeedingScheduler)
-      fill = sched_state.fill_states[schedule.id]
-      assert fill.state == :pending_fill
+      assert sched_state.armed_fill_until_mono == armed_until
+      assert sched_state.armed_for_schedule_id == schedule.id
+
+      status = FeedIn.status("hold_feedin")
+      assert status.commanded_on == false
     end
 
-    test "skips fill and returns to :idle when FeedIn already running" do
+    test "30-minute arm timeout returns scheduler to idle" do
       stop_genserver(FeedingScheduler)
 
-      create_equipment!("running_feedin", "feed_in")
-      {_n, _p, _d} = start_feed_in!(name: "running_feedin")
+      trigger = create_equipment!("timeout_bucket", "feeding")
 
-      # Mode AUTO, running_feedback ON => is_running: true
+      _schedule =
+        create_feeding_schedule!(
+          move_to_front_limit_time: ~T[03:00:00],
+          feedin_front_limit_bucket_id: trigger.id,
+          enabled: true
+        )
+
+      {:ok, _pid} = FeedingScheduler.start_link()
+
+      stale_armed = System.monotonic_time(:millisecond) - :timer.minutes(1)
+
+      :sys.replace_state(FeedingScheduler, fn state ->
+        state
+        |> Map.put(:armed_fill_until_mono, stale_armed)
+        |> Map.put(:armed_for_schedule_id, 999)
+      end)
+
+      FeedingScheduler.force_check()
+      Process.sleep(150)
+
+      sched_state = :sys.get_state(FeedingScheduler)
+      assert sched_state.armed_fill_until_mono == nil
+      assert sched_state.armed_for_schedule_id == nil
+    end
+
+    test "skips fill when FeedIn already running" do
+      stop_genserver(FeedingScheduler)
+
+      bucket = create_equipment!("dup_bucket", "feeding")
+      {_n1, _p1, _d1} = start_feeding!(name: "dup_bucket")
+
+      create_equipment!("dup_feedin", "feed_in")
+      {_n2, _p2, _d2} = start_feed_in!(name: "dup_feedin")
+
       stub_read_direct(fn
-        "running_feedin_am" -> {:ok, %{state: 1}}
-        "running_feedin_fb" -> {:ok, %{state: 1}}
-        "running_feedin_fill" -> {:ok, %{state: 1}}
+        "dup_bucket_am" -> {:ok, %{state: 1}}
+        "dup_bucket_front" -> {:ok, %{state: 1}}
+        "dup_bucket_back" -> {:ok, %{state: 0}}
+        "dup_feedin_am" -> {:ok, %{state: 1}}
+        "dup_feedin_fb" -> {:ok, %{state: 1}}
+        "dup_feedin_fill" -> {:ok, %{state: 1}}
         _ -> {:ok, %{state: 0}}
       end)
 
@@ -616,158 +456,98 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulerTest do
       schedule =
         create_feeding_schedule!(
           move_to_front_limit_time: ~T[03:00:00],
+          feedin_front_limit_bucket_id: bucket.id,
           enabled: true
         )
 
       {:ok, _pid} = FeedingScheduler.start_link()
 
-      thirty_one_seconds_ago = System.monotonic_time(:millisecond) - :timer.seconds(31)
+      armed_until = System.monotonic_time(:millisecond) + :timer.minutes(10)
 
       :sys.replace_state(FeedingScheduler, fn state ->
-        fill_state = %{
-          state: :pending_fill,
-          prev_at_front: true,
-          reached_at: thirty_one_seconds_ago,
-          waiting_entered_at: nil,
-          fill_issued_at: nil,
-          last_fired_minute: ~T[03:00:00]
-        }
-
-        Map.put(state, :fill_states, %{schedule.id => fill_state})
+        state
+        |> Map.put(:armed_fill_until_mono, armed_until)
+        |> Map.put(:armed_for_schedule_id, schedule.id)
       end)
 
       FeedingScheduler.force_check()
-      Process.sleep(100)
+      Process.sleep(150)
 
       sched_state = :sys.get_state(FeedingScheduler)
-      fill = sched_state.fill_states[schedule.id]
-      assert fill.state == :idle
-      assert fill.last_fired_minute == ~T[03:00:00]
-    end
-
-    test "skips fill and returns to :idle when FeedIn in MANUAL mode" do
-      stop_genserver(FeedingScheduler)
-
-      create_equipment!("manual_feedin", "feed_in")
-      {_n, _p, _d} = start_feed_in!(name: "manual_feedin")
-
-      stub_read_direct(fn _ -> {:ok, %{state: 0}} end)
-      wait_for_init(300)
-
-      schedule =
-        create_feeding_schedule!(
-          move_to_front_limit_time: ~T[03:00:00],
-          enabled: true
-        )
-
-      {:ok, _pid} = FeedingScheduler.start_link()
-
-      thirty_one_seconds_ago = System.monotonic_time(:millisecond) - :timer.seconds(31)
-
-      :sys.replace_state(FeedingScheduler, fn state ->
-        fill_state = %{
-          state: :pending_fill,
-          prev_at_front: true,
-          reached_at: thirty_one_seconds_ago,
-          waiting_entered_at: nil,
-          fill_issued_at: nil,
-          last_fired_minute: ~T[03:00:00]
-        }
-
-        Map.put(state, :fill_states, %{schedule.id => fill_state})
-      end)
-
-      FeedingScheduler.force_check()
-      Process.sleep(100)
-
-      sched_state = :sys.get_state(FeedingScheduler)
-      fill = sched_state.fill_states[schedule.id]
-      assert fill.state == :idle
+      # arm stays — precheck blocked the fire, but the arm hasn't timed out
+      assert sched_state.armed_fill_until_mono == armed_until
     end
   end
 
-  describe "fill state machine — verify" do
-    test "returns to :idle after verify window elapses" do
+  # ——————————————————————————————————————————————————————————————
+  # Phase / timeline
+  # ——————————————————————————————————————————————————————————————
+
+  describe "get_timeline/0" do
+    test "returns offline timeline when scheduler not running" do
       stop_genserver(FeedingScheduler)
 
-      create_equipment!("verify_feedin", "feed_in")
-      {_n, _p, _d} = start_feed_in!(name: "verify_feedin")
+      timeline = FeedingScheduler.get_timeline()
+      assert timeline.current.phase == :unknown
+      assert timeline.previous == nil
+    end
+
+    test "reports idle_position_error when no buckets exist" do
+      stop_genserver(FeedingScheduler)
+
+      {:ok, _pid} = FeedingScheduler.start_link()
+      Process.sleep(100)
+
+      timeline = FeedingScheduler.get_timeline()
+      assert timeline.current.phase == :idle_position_error
+    end
+
+    test "reports idle_at_front when all buckets at_front" do
+      stop_genserver(FeedingScheduler)
+
+      create_equipment!("phase_at_front", "feeding")
+      {_n, _p, _d} = start_feeding!(name: "phase_at_front")
 
       stub_read_direct(fn
-        "verify_feedin_am" -> {:ok, %{state: 1}}
+        "phase_at_front_am" -> {:ok, %{state: 1}}
+        "phase_at_front_front" -> {:ok, %{state: 1}}
+        "phase_at_front_back" -> {:ok, %{state: 0}}
         _ -> {:ok, %{state: 0}}
       end)
 
       wait_for_init(300)
 
-      schedule =
-        create_feeding_schedule!(
-          move_to_front_limit_time: ~T[03:00:00],
-          enabled: true
-        )
+      now = current_time_truncated()
+      back_time = Time.add(now, 3600, :second)
+
+      create_feeding_schedule!(
+        move_to_back_limit_time: back_time,
+        enabled: true
+      )
 
       {:ok, _pid} = FeedingScheduler.start_link()
-
-      six_seconds_ago = System.monotonic_time(:millisecond) - :timer.seconds(6)
-
-      :sys.replace_state(FeedingScheduler, fn state ->
-        fill_state = %{
-          state: :verifying_fill_started,
-          prev_at_front: true,
-          reached_at: nil,
-          waiting_entered_at: nil,
-          fill_issued_at: six_seconds_ago,
-          last_fired_minute: ~T[03:00:00]
-        }
-
-        Map.put(state, :fill_states, %{schedule.id => fill_state})
-      end)
-
-      FeedingScheduler.force_check()
       Process.sleep(100)
 
-      sched_state = :sys.get_state(FeedingScheduler)
-      fill = sched_state.fill_states[schedule.id]
-      assert fill.state == :idle
-      assert fill.last_fired_minute == ~T[03:00:00]
+      timeline = FeedingScheduler.get_timeline()
+      assert timeline.current.phase == :idle_at_front
+      assert timeline.next.label == "move to BACK"
+      assert timeline.next.time == back_time
     end
 
-    test "stays in :verifying_fill_started before verify window elapses" do
+    test "tracks previous_phase across phase transitions" do
       stop_genserver(FeedingScheduler)
 
-      create_equipment!("v2_feedin", "feed_in")
-      {_n, _p, _d} = start_feed_in!(name: "v2_feedin")
-
-      stub_read_direct(fn _ -> {:ok, %{state: 0}} end)
-      wait_for_init(300)
-
-      schedule =
-        create_feeding_schedule!(
-          move_to_front_limit_time: ~T[03:00:00],
-          enabled: true
-        )
-
       {:ok, _pid} = FeedingScheduler.start_link()
+      Process.sleep(50)
 
       :sys.replace_state(FeedingScheduler, fn state ->
-        fill_state = %{
-          state: :verifying_fill_started,
-          prev_at_front: true,
-          reached_at: nil,
-          waiting_entered_at: nil,
-          fill_issued_at: System.monotonic_time(:millisecond),
-          last_fired_minute: ~T[03:00:00]
-        }
-
-        Map.put(state, :fill_states, %{schedule.id => fill_state})
+        state
+        |> Map.put(:last_seen_phase, :moving_to_back)
+        |> Map.put(:previous_phase, :idle_at_front)
       end)
 
-      FeedingScheduler.force_check()
-      Process.sleep(100)
-
-      sched_state = :sys.get_state(FeedingScheduler)
-      fill = sched_state.fill_states[schedule.id]
-      assert fill.state == :verifying_fill_started
+      timeline = FeedingScheduler.get_timeline()
+      assert timeline.previous == %{phase: :idle_at_front}
     end
   end
 

@@ -3,17 +3,11 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulesTest do
 
   alias PouCon.Automation.Feeding.FeedingSchedules
   alias PouCon.Automation.Feeding.Schemas.Schedule
-  alias PouCon.Equipment.Schemas.Equipment
 
   describe "list_schedules/0" do
-    setup do
-      {:ok, equipment} = create_equipment("feed_in1")
-      %{equipment: equipment}
-    end
-
-    test "returns all schedules", %{equipment: equipment} do
-      {:ok, schedule1} = create_schedule(equipment.id)
-      {:ok, schedule2} = create_schedule(equipment.id, move_to_front_limit_time: ~T[20:00:00])
+    test "returns all schedules" do
+      {:ok, schedule1} = create_schedule()
+      {:ok, schedule2} = create_schedule(move_to_front_limit_time: ~T[20:00:00])
 
       schedules = FeedingSchedules.list_schedules()
       assert length(schedules) == 2
@@ -25,24 +19,19 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulesTest do
       assert FeedingSchedules.list_schedules() == []
     end
 
-    test "preloads equipment association", %{equipment: equipment} do
-      {:ok, _schedule} = create_schedule(equipment.id)
+    test "returned schedules expose trigger_fill and max_fill_minutes" do
+      {:ok, _} = create_schedule(trigger_fill: true, max_fill_minutes: 45)
       [schedule] = FeedingSchedules.list_schedules()
-      assert %Equipment{} = schedule.feedin_front_limit_bucket
-      assert schedule.feedin_front_limit_bucket.id == equipment.id
+      assert schedule.trigger_fill == true
+      assert schedule.max_fill_minutes == 45
     end
   end
 
   describe "list_enabled_schedules/0" do
-    setup do
-      {:ok, equipment} = create_equipment("feed_in1")
-      %{equipment: equipment}
-    end
-
-    test "returns only enabled schedules", %{equipment: equipment} do
-      {:ok, enabled1} = create_schedule(equipment.id, enabled: true)
-      {:ok, enabled2} = create_schedule(equipment.id, enabled: true)
-      {:ok, _disabled} = create_schedule(equipment.id, enabled: false)
+    test "returns only enabled schedules" do
+      {:ok, enabled1} = create_schedule(enabled: true)
+      {:ok, enabled2} = create_schedule(enabled: true)
+      {:ok, _disabled} = create_schedule(enabled: false)
 
       schedules = FeedingSchedules.list_enabled_schedules()
       assert length(schedules) == 2
@@ -50,29 +39,22 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulesTest do
       assert Enum.any?(schedules, &(&1.id == enabled2.id))
     end
 
-    test "returns empty list when all schedules are disabled", %{equipment: equipment} do
-      {:ok, _disabled} = create_schedule(equipment.id, enabled: false)
+    test "returns empty list when all schedules are disabled" do
+      {:ok, _disabled} = create_schedule(enabled: false)
       assert FeedingSchedules.list_enabled_schedules() == []
     end
   end
 
   describe "get_schedule!/1" do
     setup do
-      {:ok, equipment} = create_equipment("feed_in1")
-      {:ok, schedule} = create_schedule(equipment.id)
-      %{equipment: equipment, schedule: schedule}
+      {:ok, schedule} = create_schedule()
+      %{schedule: schedule}
     end
 
     test "returns schedule by id", %{schedule: schedule} do
       fetched = FeedingSchedules.get_schedule!(schedule.id)
       assert fetched.id == schedule.id
       assert fetched.move_to_back_limit_time == ~T[06:00:00]
-    end
-
-    test "preloads equipment", %{schedule: schedule, equipment: equipment} do
-      fetched = FeedingSchedules.get_schedule!(schedule.id)
-      assert %Equipment{} = fetched.feedin_front_limit_bucket
-      assert fetched.feedin_front_limit_bucket.id == equipment.id
     end
 
     test "raises when schedule not found" do
@@ -83,14 +65,10 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulesTest do
   end
 
   describe "create_schedule/1" do
-    setup do
-      {:ok, equipment} = create_equipment("feed_in1")
-      %{equipment: equipment}
-    end
-
-    test "creates schedule with valid data", %{equipment: equipment} do
+    test "creates schedule with valid data" do
       attrs = %{
-        feedin_front_limit_bucket_id: equipment.id,
+        trigger_fill: true,
+        max_fill_minutes: 30,
         move_to_back_limit_time: ~T[06:00:00],
         move_to_front_limit_time: ~T[18:00:00],
         enabled: true
@@ -99,6 +77,8 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulesTest do
       assert {:ok, %Schedule{} = schedule} = FeedingSchedules.create_schedule(attrs)
       assert schedule.move_to_back_limit_time == ~T[06:00:00]
       assert schedule.move_to_front_limit_time == ~T[18:00:00]
+      assert schedule.trigger_fill == true
+      assert schedule.max_fill_minutes == 30
       assert schedule.enabled == true
     end
 
@@ -109,9 +89,8 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulesTest do
 
   describe "update_schedule/2" do
     setup do
-      {:ok, equipment} = create_equipment("feed_in1")
-      {:ok, schedule} = create_schedule(equipment.id)
-      %{equipment: equipment, schedule: schedule}
+      {:ok, schedule} = create_schedule()
+      %{schedule: schedule}
     end
 
     test "updates schedule with valid data", %{schedule: schedule} do
@@ -129,8 +108,7 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulesTest do
 
   describe "delete_schedule/1" do
     setup do
-      {:ok, equipment} = create_equipment("feed_in1")
-      {:ok, schedule} = create_schedule(equipment.id)
+      {:ok, schedule} = create_schedule()
       %{schedule: schedule}
     end
 
@@ -142,8 +120,7 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulesTest do
 
   describe "change_schedule/2" do
     setup do
-      {:ok, equipment} = create_equipment("feed_in1")
-      {:ok, schedule} = create_schedule(equipment.id)
+      {:ok, schedule} = create_schedule()
       %{schedule: schedule}
     end
 
@@ -161,8 +138,7 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulesTest do
 
   describe "toggle_schedule/1" do
     setup do
-      {:ok, equipment} = create_equipment("feed_in1")
-      {:ok, schedule} = create_schedule(equipment.id, enabled: true)
+      {:ok, schedule} = create_schedule(enabled: true)
       %{schedule: schedule}
     end
 
@@ -182,21 +158,11 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulesTest do
 
   # Helper functions
 
-  defp create_equipment(name) do
-    %Equipment{}
-    |> Equipment.changeset(%{
-      name: name,
-      type: "feed_in",
-      data_point_tree:
-        "filling_coil: fc\nrunning_feedback: rf\nauto_manual: am\nfull_switch: fs\ntrip: tr"
-    })
-    |> Repo.insert()
-  end
-
-  defp create_schedule(equipment_id, opts \\ []) do
+  defp create_schedule(opts \\ []) do
     attrs =
       %{
-        feedin_front_limit_bucket_id: equipment_id,
+        trigger_fill: Keyword.get(opts, :trigger_fill, false),
+        max_fill_minutes: Keyword.get(opts, :max_fill_minutes, 30),
         move_to_back_limit_time: Keyword.get(opts, :move_to_back_limit_time, ~T[06:00:00]),
         move_to_front_limit_time: Keyword.get(opts, :move_to_front_limit_time, nil),
         enabled: Keyword.get(opts, :enabled, true)

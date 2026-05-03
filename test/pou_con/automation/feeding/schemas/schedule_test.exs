@@ -2,29 +2,13 @@ defmodule PouCon.Automation.Feeding.Schemas.ScheduleTest do
   use PouCon.DataCase, async: false
 
   alias PouCon.Automation.Feeding.Schemas.Schedule
-  alias PouCon.Equipment.Schemas.Equipment
 
   describe "changeset/2" do
-    setup do
-      # Create equipment for schedules to reference
-      {:ok, equipment} =
-        %Equipment{}
-        |> Equipment.changeset(%{
-          name: "feed_in1",
-          type: "feed_in",
-          data_point_tree:
-            "filling_coil: fc\nrunning_feedback: rf\nauto_manual: am\nfull_switch: fs\ntrip: tr"
-        })
-        |> Repo.insert()
-
-      %{equipment: equipment}
-    end
-
-    test "valid changeset with both times", %{equipment: equipment} do
+    test "valid changeset with both times" do
       changeset =
         %Schedule{}
         |> Schedule.changeset(%{
-          feedin_front_limit_bucket_id: equipment.id,
+          trigger_fill: true,
           move_to_back_limit_time: ~T[06:00:00],
           move_to_front_limit_time: ~T[18:00:00],
           enabled: true
@@ -33,11 +17,11 @@ defmodule PouCon.Automation.Feeding.Schemas.ScheduleTest do
       assert changeset.valid?
     end
 
-    test "valid changeset with only move_to_back_limit_time", %{equipment: equipment} do
+    test "valid changeset with only move_to_back_limit_time" do
       changeset =
         %Schedule{}
         |> Schedule.changeset(%{
-          feedin_front_limit_bucket_id: equipment.id,
+          trigger_fill: true,
           move_to_back_limit_time: ~T[06:00:00],
           enabled: true
         })
@@ -45,11 +29,11 @@ defmodule PouCon.Automation.Feeding.Schemas.ScheduleTest do
       assert changeset.valid?
     end
 
-    test "valid changeset with only move_to_front_limit_time", %{equipment: equipment} do
+    test "valid changeset with only move_to_front_limit_time" do
       changeset =
         %Schedule{}
         |> Schedule.changeset(%{
-          feedin_front_limit_bucket_id: equipment.id,
+          trigger_fill: true,
           move_to_front_limit_time: ~T[18:00:00],
           enabled: true
         })
@@ -57,11 +41,11 @@ defmodule PouCon.Automation.Feeding.Schemas.ScheduleTest do
       assert changeset.valid?
     end
 
-    test "requires at least one time to be set", %{equipment: equipment} do
+    test "requires at least one time to be set" do
       changeset =
         %Schedule{}
         |> Schedule.changeset(%{
-          feedin_front_limit_bucket_id: equipment.id,
+          trigger_fill: true,
           enabled: true
         })
 
@@ -90,11 +74,17 @@ defmodule PouCon.Automation.Feeding.Schemas.ScheduleTest do
       assert get_field(changeset, :enabled) == true
     end
 
-    test "can set enabled to false", %{equipment: equipment} do
+    test "defaults trigger_fill to false and max_fill_minutes to 30" do
+      changeset = %Schedule{} |> Schedule.changeset(%{})
+      assert get_field(changeset, :trigger_fill) == false
+      assert get_field(changeset, :max_fill_minutes) == 30
+    end
+
+    test "can set enabled to false" do
       changeset =
         %Schedule{}
         |> Schedule.changeset(%{
-          feedin_front_limit_bucket_id: equipment.id,
+          trigger_fill: true,
           move_to_back_limit_time: ~T[06:00:00],
           enabled: false
         })
@@ -103,24 +93,20 @@ defmodule PouCon.Automation.Feeding.Schemas.ScheduleTest do
       assert get_change(changeset, :enabled) == false
     end
 
-    test "foreign key constraint on feedin_front_limit_bucket_id" do
-      changeset =
-        %Schedule{}
-        |> Schedule.changeset(%{
-          feedin_front_limit_bucket_id: 99999,
-          move_to_back_limit_time: ~T[06:00:00]
-        })
+    test "rejects max_fill_minutes outside 1..120" do
+      base = %{move_to_back_limit_time: ~T[06:00:00]}
 
-      assert_raise Ecto.ConstraintError, fn ->
-        Repo.insert(changeset)
-      end
+      refute Schedule.changeset(%Schedule{}, Map.put(base, :max_fill_minutes, 0)).valid?
+      refute Schedule.changeset(%Schedule{}, Map.put(base, :max_fill_minutes, 121)).valid?
+      assert Schedule.changeset(%Schedule{}, Map.put(base, :max_fill_minutes, 1)).valid?
+      assert Schedule.changeset(%Schedule{}, Map.put(base, :max_fill_minutes, 120)).valid?
     end
 
-    test "allows same times for both back and front", %{equipment: equipment} do
+    test "allows same times for both back and front" do
       changeset =
         %Schedule{}
         |> Schedule.changeset(%{
-          feedin_front_limit_bucket_id: equipment.id,
+          trigger_fill: true,
           move_to_back_limit_time: ~T[12:00:00],
           move_to_front_limit_time: ~T[12:00:00]
         })

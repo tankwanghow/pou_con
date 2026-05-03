@@ -5,9 +5,9 @@ defmodule PouCon.Automation.Feeding.Schemas.Schedule do
   schema "feeding_schedules" do
     field :move_to_back_limit_time, :time
     field :move_to_front_limit_time, :time
+    field :trigger_fill, :boolean, default: false
+    field :max_fill_minutes, :integer, default: 30
     field :enabled, :boolean, default: true
-
-    belongs_to :feedin_front_limit_bucket, PouCon.Equipment.Schemas.Equipment
 
     timestamps()
   end
@@ -18,11 +18,12 @@ defmodule PouCon.Automation.Feeding.Schemas.Schedule do
     |> cast(attrs, [
       :move_to_back_limit_time,
       :move_to_front_limit_time,
-      :feedin_front_limit_bucket_id,
+      :trigger_fill,
+      :max_fill_minutes,
       :enabled
     ])
     |> validate_at_least_one_time()
-    |> foreign_key_constraint(:feedin_front_limit_bucket_id)
+    |> validate_number(:max_fill_minutes, greater_than: 0, less_than_or_equal_to: 120)
   end
 
   defp validate_at_least_one_time(changeset) do

@@ -422,11 +422,15 @@ defmodule PouCon.AutomationTestHelpers do
   Create a feeding schedule.
   """
   def create_feeding_schedule!(opts \\ []) do
+    trigger_fill =
+      Keyword.get(opts, :trigger_fill, opts[:feedin_front_limit_bucket_id] != nil)
+
     %FeedingSchedule{}
     |> FeedingSchedule.changeset(%{
       move_to_back_limit_time: opts[:move_to_back_limit_time],
       move_to_front_limit_time: opts[:move_to_front_limit_time],
-      feedin_front_limit_bucket_id: opts[:feedin_front_limit_bucket_id],
+      trigger_fill: trigger_fill,
+      max_fill_minutes: Keyword.get(opts, :max_fill_minutes, 30),
       enabled: Keyword.get(opts, :enabled, true)
     })
     |> Repo.insert!()
