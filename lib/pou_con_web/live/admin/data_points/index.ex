@@ -86,14 +86,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
           label="Unit"
           sort_field={@sort_field}
           sort_order={@sort_order}
-          width="w-[8%]"
-        />
-        <.sort_link
-          field={:log_interval}
-          label="Log Int"
-          sort_field={@sort_field}
-          sort_order={@sort_order}
-          width="w-[8%]"
+          width="w-[16%]"
         />
         <div class="w-[16%]">Action</div>
       </div>
@@ -121,7 +114,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
                 <br :if={data_point.read_fn} />W: {data_point.write_fn}
               </span>
             </div>
-            <div class="w-[8%]">
+            <div class="w-[16%]">
               <%= if @readonly do %>
                 {data_point.unit}
               <% else %>
@@ -133,23 +126,6 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
                   phx-key="Enter"
                   phx-value-id={data_point.id}
                   phx-value-field="unit"
-                  class="w-full text-center text-xs px-1 py-0.5 border border-base-300 rounded bg-base-100 text-base-content focus:ring-1 focus:ring-blue-500"
-                />
-              <% end %>
-            </div>
-            <div class="w-[8%]">
-              <%= if @readonly do %>
-                {format_log_interval(data_point.log_interval)}
-              <% else %>
-                <input
-                  type="number"
-                  value={data_point.log_interval}
-                  phx-blur="inline_save"
-                  phx-keydown="inline_save"
-                  phx-key="Enter"
-                  phx-value-id={data_point.id}
-                  phx-value-field="log_interval"
-                  placeholder="nil"
                   class="w-full text-center text-xs px-1 py-0.5 border border-base-300 rounded bg-base-100 text-base-content focus:ring-1 focus:ring-blue-500"
                 />
               <% end %>
@@ -320,13 +296,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Index do
     end
   end
 
-  defp parse_inline_value("log_interval", ""), do: nil
-  defp parse_inline_value("log_interval", value), do: String.to_integer(value)
   defp parse_inline_value(_field, value), do: value
-
-  defp format_log_interval(nil), do: "on chg"
-  defp format_log_interval(0), do: "off"
-  defp format_log_interval(n), do: "#{n}s"
 
   defp list_data_points(sort_field, sort_order, filter) do
     DataPoints.list_data_points(sort_field: sort_field, sort_order: sort_order, filter: filter)

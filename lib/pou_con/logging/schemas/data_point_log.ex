@@ -12,18 +12,16 @@ defmodule PouCon.Logging.Schemas.DataPointLog do
   - `value` - The converted value (after applying scale_factor and offset)
   - `raw_value` - The raw value before conversion (optional)
   - `unit` - The unit of measurement (copied from data point config)
-  - `triggered_by` - What triggered this log entry:
-    - "self" - Value change detected or interval elapsed (default)
-    - Equipment name - If write was triggered by an equipment controller
-    - Username - If write was triggered by manual user action
+  - `triggered_by` - What produced this row:
+    - "interval" - Periodic sweep (every `app_config.data_point_log_interval_seconds`)
+    - "change" - Value transition on a discrete point (DI/DO/VDI/VDO)
+    - Equipment name or username - Logged from a write path (future use)
 
   ## Logging Modes
 
-  Logging behavior is controlled by the data point's `log_interval` field:
-
-  - `nil`: Log on value change (when value differs from last logged value)
-  - `0`: No logging
-  - `> 0`: Log every N seconds regardless of value change
+  Whether a data point is logged is controlled by `data_points.logging_enabled`.
+  The interval cadence is a single global setting; discrete points additionally
+  log on every value change.
 
   ## Retention
 

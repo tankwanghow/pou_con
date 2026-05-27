@@ -12,7 +12,7 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
   alias PouCon.Equipment.Schemas.DataPoint
 
   @valid_colors ~w(red green yellow blue purple)
-  @tabs [:conversion, :color_zones, :logging]
+  @tabs [:conversion, :color_zones]
 
   # ============================================================================
   # Tab Components
@@ -48,7 +48,6 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
 
   defp tab_label(:conversion), do: "Conversion"
   defp tab_label(:color_zones), do: "Color Zones"
-  defp tab_label(:logging), do: "Logging"
 
   # ============================================================================
   # Zone Preview Component
@@ -72,34 +71,6 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
             {zone["from"]} - {zone["to"]}
           </span>
         <% end %>
-      </div>
-    </div>
-    """
-  end
-
-  attr :form, :any, required: true
-
-  defp logging_fields(assigns) do
-    ~H"""
-    <p class="text-sm text-base-content/70">
-      Configure how often this data point's value is logged to the database.
-    </p>
-
-    <div class="w-1/3">
-      <.input
-        field={@form[:log_interval]}
-        type="number"
-        label="Log Interval (seconds)"
-        placeholder="Empty = on change"
-        min="0"
-      />
-    </div>
-
-    <div class="bg-info/10 p-4 rounded-lg border border-info/30">
-      <div class="text-sm space-y-1">
-        <div><strong>Empty</strong> = Log whenever the value changes</div>
-        <div><strong>0</strong> = No logging (disabled)</div>
-        <div><strong>> 0</strong> = Log at fixed interval (in seconds)</div>
       </div>
     </div>
     """
@@ -341,18 +312,6 @@ defmodule PouConWeb.Live.Admin.DataPoints.Form do
                 <.zone_preview zones={@color_zones} />
               </div>
 
-              <%!-- Logging Tab (AI) --%>
-              <div :if={@active_tab == :logging} class="space-y-4">
-                <.logging_fields form={@form} />
-              </div>
-            </div>
-          <% else %>
-            <%!-- Logging section for non-AI types --%>
-            <div class="mt-4 space-y-4">
-              <h4 class="font-medium text-sm text-base-content/70 border-b border-base-300 pb-2">
-                Logging
-              </h4>
-              <.logging_fields form={@form} />
             </div>
           <% end %>
 

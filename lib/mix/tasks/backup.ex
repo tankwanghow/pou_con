@@ -255,7 +255,6 @@ defmodule Mix.Tasks.Backup do
         value_type: d.value_type,
         min_valid: d.min_valid,
         max_valid: d.max_valid,
-        log_interval: d.log_interval,
         color_zones: d.color_zones,
         byte_order: d.byte_order,
         inverted: d.inverted,

@@ -5,14 +5,14 @@ defmodule PouConWeb.Live.Reports.Index do
   ## Tabs
 
   - **Equipment Events**: Start/stop/error events from equipment controllers
-  - **Data Point Logs**: Value snapshots from data points (based on log_interval settings)
+  - **Data Point Logs**: Value snapshots from data points (global interval + change events)
   - **Errors**: Filtered view of error events only
   - **Efficiency**: Hourly analysis of temp, humidity, fan/pump usage for tuning environment control
   """
 
   use PouConWeb, :live_view
 
-  alias PouCon.Logging.{EquipmentLogger, DataPointLogger}
+  alias PouCon.Logging.{EquipmentLogger, DataPointLogger, EnvironmentLog}
   alias PouCon.Equipment.{Devices, DataPoints}
 
 
@@ -83,6 +83,13 @@ defmodule PouConWeb.Live.Reports.Index do
     {:noreply, socket}
   end
 
+  def handle_event("filter_environment", params, socket) do
+    {:noreply,
+     socket
+     |> assign(:filter_hours, params["hours"] || "24")
+     |> load_data()}
+  end
+
   def handle_event("filter_system_logs", params, socket) do
     socket =
       socket
@@ -101,8 +108,15 @@ defmodule PouConWeb.Live.Reports.Index do
       "errors" -> load_errors(socket)
       "efficiency" -> load_efficiency(socket)
       "system_logs" -> load_system_logs(socket)
+      "environment" -> load_environment(socket)
       _ -> socket
     end
+  end
+
+  defp load_environment(socket) do
+    hours = String.to_integer(socket.assigns.filter_hours)
+    rows = EnvironmentLog.get_rows(hours: hours)
+    assign(socket, :environment_rows, rows)
   end
 
   defp load_events(socket) do
@@ -169,7 +183,7 @@ defmodule PouConWeb.Live.Reports.Index do
     search = socket.assigns.log_search
 
     logs =
-      RingLogger.get(0)
+      safe_ring_logger_get()
       |> Enum.filter(fn entry ->
         level == "all" or normalize_level(entry.level) == level
       end)
@@ -192,6 +206,14 @@ defmodule PouConWeb.Live.Reports.Index do
       |> Enum.reverse()
 
     assign(socket, :system_logs, logs)
+  end
+
+  defp safe_ring_logger_get do
+    try do
+      RingLogger.get(0)
+    catch
+      :exit, _ -> []
+    end
   end
 
   defp load_efficiency(socket) do
@@ -251,6 +273,13 @@ defmodule PouConWeb.Live.Reports.Index do
           class={"px-4 py-2 rounded " <> if @view_mode == "system_logs", do: "bg-amber-600 text-white", else: "bg-gray-700 text-gray-300"}
         >
           System Logs
+        </button>
+        <button
+          phx-click="change_view"
+          phx-value-view="environment"
+          class={"px-4 py-2 rounded " <> if @view_mode == "environment", do: "bg-emerald-600 text-white", else: "bg-gray-700 text-gray-300"}
+        >
+          Environment
         </button>
       </div>
 
@@ -416,7 +445,7 @@ defmodule PouConWeb.Live.Reports.Index do
           </table>
           <%= if Enum.empty?(@data_point_logs) do %>
             <div class="p-8 text-center">
-              No data point logs found. Configure log_interval on data points to enable logging.
+              No data point logs found. Check that data point logging is enabled in System settings.
             </div>
           <% end %>
         </div>
@@ -621,6 +650,92 @@ defmodule PouConWeb.Live.Reports.Index do
           </div>
         </div>
       <% end %>
+
+      <%!-- Environment View --%>
+      <%= if @view_mode == "environment" do %>
+        <div class="bg-gray-400 p-4 rounded-lg mb-4">
+          <h3 class="text-lg font-semibold mb-3">Filter Environment Log</h3>
+          <.form for={%{}} phx-change="filter_environment" class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm mb-1">Time Range</label>
+              <select name="hours" class="w-full bg-gray-900 border-gray-600 rounded text-white p-2">
+                <option value="6" selected={@filter_hours == "6"}>Last 6 hours</option>
+                <option value="24" selected={@filter_hours == "24"}>Last 24 hours</option>
+                <option value="72" selected={@filter_hours == "72"}>Last 3 days</option>
+                <option value="168" selected={@filter_hours == "168"}>Last 7 days</option>
+              </select>
+            </div>
+          </.form>
+        </div>
+
+        <div class="bg-gray-400 rounded-lg overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-emerald-700 text-white">
+              <tr>
+                <th class="p-2 text-left w-40">Time</th>
+                <th class="p-2 text-left">Sensors</th>
+                <th class="p-2 text-left">Fans Running</th>
+                <th class="p-2 text-left">Pumps Running</th>
+              </tr>
+            </thead>
+            <tbody>
+              <%= for row <- @environment_rows do %>
+                <tr class="border-t border-gray-700 hover:bg-gray-500 align-top">
+                  <td class="p-2 whitespace-nowrap">
+                    {Calendar.strftime(to_local(row.datetime), "%d-%m-%Y %H:%M")}
+                  </td>
+                  <td class="p-2">
+                    <%= if row.sensors == [] do %>
+                      <span class="text-gray-600">—</span>
+                    <% else %>
+                      <div class="flex flex-wrap gap-x-3 gap-y-1">
+                        <%= for s <- row.sensors do %>
+                          <span>
+                            <span class="font-medium">{s.title}:</span>
+                            <span class="font-mono">{s.readings}</span>
+                          </span>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </td>
+                  <td class="p-2">
+                    <%= if row.fans_running == [] do %>
+                      <span class="text-gray-600">—</span>
+                    <% else %>
+                      <div class="flex flex-wrap gap-1">
+                        <%= for f <- row.fans_running do %>
+                          <span class={env_eq_badge(f)}>
+                            {f.title} {mode_marker(f.mode)}
+                          </span>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </td>
+                  <td class="p-2">
+                    <%= if row.pumps_running == [] do %>
+                      <span class="text-gray-600">—</span>
+                    <% else %>
+                      <div class="flex flex-wrap gap-1">
+                        <%= for p <- row.pumps_running do %>
+                          <span class={env_eq_badge(p)}>
+                            {p.title} {mode_marker(p.mode)}
+                          </span>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+          <%= if @environment_rows == [] do %>
+            <div class="p-8 text-center">
+              No environment data yet for this window. Data point logging must be enabled
+              (System → Data Point Logging) and the global interval has to elapse before rows appear.
+            </div>
+          <% end %>
+        </div>
+      <% end %>
     </Layouts.app>
     """
   end
@@ -634,6 +749,18 @@ defmodule PouConWeb.Live.Reports.Index do
   defp mode_badge("auto"), do: "px-2 py-1 rounded bg-blue-600 text-white text-xs"
   defp mode_badge("manual"), do: "px-2 py-1 rounded bg-amber-600 text-white text-xs"
   defp mode_badge(_), do: "px-2 py-1 rounded bg-gray-600 text-white text-xs"
+
+  defp mode_marker("auto"), do: "[A]"
+  defp mode_marker("manual"), do: "[M]"
+  defp mode_marker(_), do: ""
+
+  defp env_eq_badge(%{error: err}) when not is_nil(err),
+    do: "px-2 py-1 rounded text-xs bg-rose-700 text-white"
+
+  defp env_eq_badge(%{mode: "manual"}),
+    do: "px-2 py-1 rounded text-xs bg-amber-600 text-white"
+
+  defp env_eq_badge(_), do: "px-2 py-1 rounded text-xs bg-emerald-700 text-white"
 
   defp format_value(nil), do: "-"
   defp format_value(value) when is_float(value), do: Float.round(value, 3)

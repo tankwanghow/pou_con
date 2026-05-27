@@ -397,7 +397,7 @@ defmodule PouCon.Backup do
     |> Enum.chunk_every(@batch_size)
     |> Enum.each(fn batch ->
       # Transform all rows and get consistent column order from ALL rows
-      # This ensures columns like color_zones/log_interval are included even if
+      # This ensures columns like color_zones are included even if
       # nil in the first row (since clean_nil_values removes nil fields from backup)
       transformed_batch = Enum.map(batch, transform_fn)
 

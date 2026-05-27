@@ -78,6 +78,8 @@ defmodule PouCon.Application do
 
   @impl true
   def start(_type, _args) do
+    ensure_ring_logger_backend()
+
     children =
       [
         PouConWeb.Telemetry,
@@ -160,8 +162,11 @@ defmodule PouCon.Application do
             # Periodic UI refresh broadcaster (1 second interval)
             PouCon.Equipment.StatusBroadcaster,
 
-            # Logging system - data point value logging based on log_interval settings
+            # Logging system - data point value logging (global interval + change events)
             PouCon.Logging.DataPointLogger,
+
+            # Logging system - equipment runtime state (running/mode/error/commanded_on)
+            PouCon.Logging.EquipmentStateLogger,
 
             # Logging system - cleanup old data daily at 3 AM
             PouCon.Logging.CleanupTask,
@@ -204,5 +209,22 @@ defmodule PouCon.Application do
 
   defp skip_migrations?() do
     System.get_env("RELEASE_NAME") == nil
+  end
+
+  # Migration off the deprecated `config :logger, backends:` API moved RingLogger
+  # under :logger_backends, but that package does not auto-add configured
+  # backends in 1.x — we have to call LoggerBackends.add/1 ourselves.
+  defp ensure_ring_logger_backend do
+    try do
+      case LoggerBackends.add(RingLogger) do
+        {:ok, _} -> :ok
+        {:error, :already_present} -> :ok
+        _ -> :ok
+      end
+    rescue
+      _ -> :ok
+    catch
+      _, _ -> :ok
+    end
   end
 end

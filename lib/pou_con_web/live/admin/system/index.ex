@@ -12,6 +12,8 @@ defmodule PouConWeb.Live.Admin.System.Index do
   use PouConWeb, :live_view
 
   alias PouCon.System, as: PouConSystem
+  alias PouCon.Auth.AppConfig
+  alias PouCon.Repo
 
   @impl true
   def render(assigns) do
@@ -42,6 +44,53 @@ defmodule PouConWeb.Live.Admin.System.Index do
               Refresh Status
             </button>
           </div>
+        </div>
+
+        <%!-- Data Point Logging Settings --%>
+        <div class="p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+          <h3 class="text-lg font-semibold mb-2">Data Point Logging</h3>
+          <p class="text-sm text-base-content/70 mb-4">
+            Periodically samples every data point and writes the value to
+            <code class="bg-base-200 px-1 rounded">data_point_logs</code>. Discrete
+            points (DI/DO/VDI/VDO) additionally log on every value change so short
+            pulses (auger, egg collector, etc.) are not missed. Analog points
+            (AI) rely on the interval only.
+          </p>
+
+          <.form for={%{}} phx-submit="save_logging_settings" class="space-y-3">
+            <label class="flex items-center gap-3">
+              <input
+                type="checkbox"
+                name="logging_enabled"
+                value="true"
+                checked={@logging_enabled}
+                class="checkbox checkbox-sm"
+              />
+              <span class="text-sm">Enable data point logging</span>
+            </label>
+
+            <div class="flex items-center gap-3">
+              <label class="text-sm w-48">Interval (seconds)</label>
+              <input
+                type="number"
+                name="log_interval_seconds"
+                value={@log_interval_seconds}
+                min="10"
+                max="3600"
+                class="w-32 px-3 py-1 text-sm border border-base-300 rounded bg-base-100"
+              />
+              <span class="text-xs text-base-content/60">
+                300s recommended for SD card longevity; lower for finer playback.
+              </span>
+            </div>
+
+            <button
+              type="submit"
+              class="inline-flex items-center px-3 py-1.5 text-sm bg-purple-600 text-white rounded hover:bg-purple-700"
+            >
+              Save Logging Settings
+            </button>
+          </.form>
         </div>
 
         <%!-- Reload Configuration --%>
@@ -372,7 +421,43 @@ defmodule PouConWeb.Live.Admin.System.Index do
      |> assign(:status, status)
      |> assign(:reload_state, :idle)
      |> assign(:reload_error, nil)
-     |> assign(:restart_state, :idle)}
+     |> assign(:restart_state, :idle)
+     |> assign(:logging_enabled, get_logging_enabled())
+     |> assign(:log_interval_seconds, get_log_interval_seconds())}
+  end
+
+  defp get_logging_enabled do
+    case Repo.get_by(AppConfig, key: "data_point_logging_enabled") do
+      %{value: "false"} -> false
+      _ -> true
+    end
+  end
+
+  defp get_log_interval_seconds do
+    case Repo.get_by(AppConfig, key: "data_point_log_interval_seconds") do
+      %{value: v} when is_binary(v) ->
+        case Integer.parse(v) do
+          {n, _} when n > 0 -> n
+          _ -> 300
+        end
+
+      _ ->
+        300
+    end
+  end
+
+  defp put_app_config(key, value) do
+    case Repo.get_by(AppConfig, key: key) do
+      nil ->
+        %AppConfig{}
+        |> AppConfig.changeset(%{key: key, value: value})
+        |> Repo.insert()
+
+      config ->
+        config
+        |> AppConfig.changeset(%{value: value})
+        |> Repo.update()
+    end
   end
 
   @impl true
@@ -424,6 +509,29 @@ defmodule PouConWeb.Live.Admin.System.Index do
         {:noreply,
          socket
          |> put_flash(:error, "Not running under systemd. Use Application Restart instead.")}
+    end
+  end
+
+  @impl true
+  def handle_event("save_logging_settings", params, socket) do
+    enabled = Map.get(params, "logging_enabled") == "true"
+
+    interval =
+      case Integer.parse(Map.get(params, "log_interval_seconds", "300")) do
+        {n, _} when n >= 10 and n <= 3600 -> n
+        _ -> 300
+      end
+
+    with {:ok, _} <- put_app_config("data_point_logging_enabled", to_string(enabled)),
+         {:ok, _} <- put_app_config("data_point_log_interval_seconds", Integer.to_string(interval)) do
+      {:noreply,
+       socket
+       |> assign(:logging_enabled, enabled)
+       |> assign(:log_interval_seconds, interval)
+       |> put_flash(:info, "Logging settings saved. Takes effect within 60 seconds.")}
+    else
+      {:error, changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to save: #{inspect(changeset.errors)}")}
     end
   end
 

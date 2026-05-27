@@ -7,7 +7,7 @@ defmodule PouCon.Logging.CleanupTask do
   use GenServer
   require Logger
 
-  alias PouCon.Logging.Schemas.{EquipmentEvent, DataPointLog}
+  alias PouCon.Logging.Schemas.{EquipmentEvent, DataPointLog, EquipmentStateLog}
   alias PouCon.Repo
 
   import Ecto.Query
@@ -83,6 +83,12 @@ defmodule PouCon.Logging.CleanupTask do
       Repo.delete_all(from d in DataPointLog, where: d.inserted_at < ^data_point_cutoff)
 
     Logger.info("Deleted #{data_point_count} old data point logs")
+
+    # Delete old equipment state logs (same retention as data point logs)
+    {state_count, _} =
+      Repo.delete_all(from s in EquipmentStateLog, where: s.inserted_at < ^data_point_cutoff)
+
+    Logger.info("Deleted #{state_count} old equipment state logs")
 
     # Run VACUUM on Sunday
     if Date.day_of_week(Date.utc_today()) == @vacuum_day do

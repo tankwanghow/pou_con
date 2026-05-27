@@ -7,11 +7,13 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
 
   ## Logging Configuration
 
-  The `log_interval` field controls how this data point's values are logged:
+  Logging is controlled globally, not per data point. Two `app_config` keys drive it:
 
-  - `nil` (default): Log on value change - whenever the value differs from the last logged value
-  - `0`: No logging - this data point is not logged
-  - `> 0`: Interval logging - log every N seconds regardless of value change
+  - `data_point_logging_enabled` ("true"/"false") — master on/off.
+  - `data_point_log_interval_seconds` — sample cadence.
+
+  Discrete points (DI/DO/VDI/VDO) additionally log on value change; analog points
+  (AI) log on interval only.
 
   ## Configuration
 
@@ -88,9 +90,6 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
     # Use min_valid/max_valid as the overall valid range for UI guidance
     field :color_zones, :string
 
-    # Logging configuration
-    # nil = log on change, 0 = no logging, > 0 = interval in seconds
-    field :log_interval, :integer
 
     # Digital output inversion for NC (normally closed) relay wiring
     # When true: coil OFF (0) = equipment ON, coil ON (1) = equipment OFF
@@ -127,12 +126,9 @@ defmodule PouCon.Equipment.Schemas.DataPoint do
       :max_valid,
       # Zone-based color system
       :color_zones,
-      # Logging
-      :log_interval,
       # Digital output inversion
       :inverted
     ])
-    |> validate_number(:log_interval, greater_than_or_equal_to: 0)
     |> validate_color_zones()
     |> validate_required([:name, :type, :slave_id, :port_path])
     |> unique_constraint(:name)

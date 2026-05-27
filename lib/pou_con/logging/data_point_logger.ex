@@ -1,42 +1,39 @@
 defmodule PouCon.Logging.DataPointLogger do
   @moduledoc """
-  GenServer that logs data point values based on their `log_interval` settings.
+  GenServer that logs data point values into `data_point_logs`.
 
-  ## Logging Modes
+  ## Logging Behavior
 
-  Each data point's `log_interval` field controls its logging behavior:
+  Logging is controlled globally via two `app_config` keys:
 
-  - `nil` (default): Log on value change - when the value differs from the last logged value
-  - `0`: No logging - this data point is skipped entirely
-  - `> 0`: Interval logging - log every N seconds regardless of value change
+  - `data_point_logging_enabled` ("true" / "false") — master on/off.
+  - `data_point_log_interval_seconds` — sample cadence (default 300).
 
-  ## Architecture
+  When the master switch is on, every data point is logged. There is no
+  per-point opt-out.
 
-  The logger runs a periodic check (every second) that:
+  Two write triggers feed the same table:
 
-  1. Loads all data points with logging enabled (log_interval != 0)
-  2. Groups them by logging mode (change-based vs interval-based)
-  3. For change-based: compares current cache value with last logged value
-  4. For interval-based: checks if enough time has elapsed since last log
+  - **Interval** — every global interval (default 300s) every enabled point is
+    sampled and written with `triggered_by = "interval"`. Eliminates the
+    "stable state for weeks" blind spot.
+  - **Change** — for **discrete** points (DI, DO, VDI, VDO) only, a row is
+    written immediately when the value flips, with `triggered_by = "change"`.
+    Captures short pulses that fall between interval ticks (e.g. a feed auger
+    that runs for 90 seconds).
 
-  Values are read from the DataPointManager's ETS cache, which is populated
-  by equipment controllers via `read_direct()`. This means we log whatever
-  the hardware reports, including nil values when sensors are offline.
+  Analog points (AI) deliberately skip change-logging — small sensor drift
+  would otherwise produce a flood of rows. The interval sweep covers them.
 
-  ## Triggered By
+  ## Reading the cadence
 
-  The `triggered_by` field tracks what caused the log entry:
-
-  - "self" - Value change detected or interval elapsed (default for all entries)
-
-  Future enhancement: Equipment controllers could pass context when writing,
-  allowing tracking of user vs automation triggered changes.
+  The global interval is cached in state and refreshed every 60s so admin
+  changes propagate without restarting the GenServer.
 
   ## Performance
 
-  - Uses async Task writes to prevent blocking
-  - Batches inserts when multiple data points log at the same time
-  - Minimal memory footprint - only tracks last logged values
+  - Async writes via `PouCon.TaskSupervisor` to keep the tick non-blocking.
+  - Single batched `insert_all` per tick.
   """
 
   use GenServer
@@ -52,16 +49,31 @@ defmodule PouCon.Logging.DataPointLogger do
   # Check every second for data points that need logging
   @check_interval_ms 1000
 
+  # How often to re-read the global interval from app_config (ms)
+  @config_refresh_ms 60_000
+
+  # Fallback if app_config row is missing or invalid
+  @default_interval_seconds 300
+
   # Capture Mix.env at compile time since Mix is not available in releases
   @env Mix.env()
+
+  # Data point `type` values treated as discrete (log on change in addition to interval)
+  @discrete_types ~w(DI DO VDI VDO)
 
   defmodule State do
     @moduledoc false
     defstruct [
-      # %{data_point_name => last_logged_value}
+      # %{data_point_name => last_observed_value} — for change detection
       last_values: %{},
-      # %{data_point_name => last_logged_timestamp_ms}
-      last_logged_at: %{}
+      # %{data_point_name => monotonic_ms of last interval log}
+      last_interval_at: %{},
+      # cached global interval in seconds
+      global_interval_seconds: 300,
+      # cached master on/off switch
+      logging_enabled: true,
+      # monotonic_ms when settings were last read from DB
+      config_loaded_at: 0
     ]
   end
 
@@ -95,82 +107,114 @@ defmodule PouCon.Logging.DataPointLogger do
       Logger.debug("Skipping data point logging - system time invalid")
       state
     else
-      # Get all data points with logging enabled (log_interval != 0)
-      data_points = get_loggable_data_points()
-
       now_ms = System.monotonic_time(:millisecond)
-      timestamp = DateTime.utc_now()
+      state = maybe_refresh_config(state, now_ms)
 
-      # Process each data point and collect logs to insert
-      {logs_to_insert, new_state} =
-        Enum.reduce(data_points, {[], state}, fn dp, {logs, acc_state} ->
-          case should_log?(dp, acc_state, now_ms) do
-            {:log, cached_value, current_value} ->
-              log_entry = build_log_entry(dp, cached_value, timestamp)
-              # Store extracted value for comparison, not the full cached structure
-              new_last_values = Map.put(acc_state.last_values, dp.name, current_value)
-              new_last_logged = Map.put(acc_state.last_logged_at, dp.name, now_ms)
-
-              new_state = %{
-                acc_state
-                | last_values: new_last_values,
-                  last_logged_at: new_last_logged
-              }
-
-              {[log_entry | logs], new_state}
-
-            :skip ->
-              {logs, acc_state}
-          end
-        end)
-
-      # Batch insert all logs
-      if logs_to_insert != [] do
-        insert_logs_async(logs_to_insert)
+      if not state.logging_enabled do
+        state
+      else
+        do_check_and_log(state, now_ms)
       end
-
-      new_state
     end
   end
 
-  # Determine if a data point should be logged
-  # Returns {:log, cached_value, extracted_value} or :skip
-  defp should_log?(data_point, state, now_ms) do
-    cached = get_cached_value(data_point.name)
-    current_value = extract_value(cached)
+  defp do_check_and_log(state, now_ms) do
+    timestamp = DateTime.utc_now()
+    interval_ms = state.global_interval_seconds * 1000
+    data_points = get_loggable_data_points()
 
-    case data_point.log_interval do
-      # Change-based logging (nil)
-      nil ->
-        last_value = Map.get(state.last_values, data_point.name)
+    {logs_to_insert, new_state} =
+      Enum.reduce(data_points, {[], state}, fn dp, {logs, acc_state} ->
+        cached = get_cached_value(dp.name)
+        current_value = extract_value(cached)
 
-        if value_changed?(last_value, current_value) do
-          {:log, cached, current_value}
-        else
-          :skip
+        last_value = Map.get(acc_state.last_values, dp.name, :unset)
+        last_interval = Map.get(acc_state.last_interval_at, dp.name)
+
+        log_change? =
+          discrete?(dp) and last_value != :unset and
+            value_changed?(last_value, current_value)
+
+        log_interval? =
+          is_nil(last_interval) or now_ms - last_interval >= interval_ms
+
+        new_logs =
+          cond do
+            log_change? ->
+              # When both fire, change wins (more diagnostic value)
+              [build_log_entry(dp, cached, timestamp, "change") | logs]
+
+            log_interval? ->
+              [build_log_entry(dp, cached, timestamp, "interval") | logs]
+
+            true ->
+              logs
+          end
+
+        new_last_interval_at =
+          if log_interval? do
+            Map.put(acc_state.last_interval_at, dp.name, now_ms)
+          else
+            acc_state.last_interval_at
+          end
+
+        new_acc = %{
+          acc_state
+          | last_values: Map.put(acc_state.last_values, dp.name, current_value),
+            last_interval_at: new_last_interval_at
+        }
+
+        {new_logs, new_acc}
+      end)
+
+    if logs_to_insert != [] do
+      insert_logs_async(logs_to_insert)
+    end
+
+    new_state
+  end
+
+  defp discrete?(%{type: t}) when t in @discrete_types, do: true
+  defp discrete?(_), do: false
+
+  defp maybe_refresh_config(%State{config_loaded_at: loaded_at} = state, now_ms)
+       when now_ms - loaded_at < @config_refresh_ms and loaded_at > 0,
+       do: state
+
+  defp maybe_refresh_config(state, now_ms) do
+    %{
+      state
+      | global_interval_seconds: load_app_config_int("data_point_log_interval_seconds", @default_interval_seconds),
+        logging_enabled: load_app_config_bool("data_point_logging_enabled", true),
+        config_loaded_at: now_ms
+    }
+  end
+
+  defp load_app_config_int(key, default) do
+    case load_app_config_value(key) do
+      {:ok, value} ->
+        case Integer.parse(value) do
+          {n, _} when n > 0 -> n
+          _ -> default
         end
 
-      # Interval-based logging (> 0)
-      interval when is_integer(interval) and interval > 0 ->
-        case Map.fetch(state.last_logged_at, data_point.name) do
-          # First time seeing this data point - log immediately to establish baseline
-          :error ->
-            {:log, cached, current_value}
+      :error ->
+        default
+    end
+  end
 
-          # Check if enough time has elapsed since last log
-          {:ok, last_logged} ->
-            elapsed_ms = now_ms - last_logged
+  defp load_app_config_bool(key, default) do
+    case load_app_config_value(key) do
+      {:ok, "true"} -> true
+      {:ok, "false"} -> false
+      _ -> default
+    end
+  end
 
-            if elapsed_ms >= interval * 1000 do
-              {:log, cached, current_value}
-            else
-              :skip
-            end
-        end
-
-      # No logging (0 or invalid)
-      _ ->
-        :skip
+  defp load_app_config_value(key) do
+    case Repo.query("SELECT value FROM app_config WHERE key = ?", [key]) do
+      {:ok, %{rows: [[value]]}} when is_binary(value) -> {:ok, value}
+      _ -> :error
     end
   end
 
@@ -206,14 +250,14 @@ defmodule PouCon.Logging.DataPointLogger do
   end
 
   # Build a log entry map for batch insert
-  defp build_log_entry(data_point, cached_value, timestamp) do
+  defp build_log_entry(data_point, cached_value, timestamp, triggered_by) do
     %{
       house_id: get_house_id(),
       data_point_name: data_point.name,
       value: extract_value({:ok, cached_value_to_map(cached_value)}),
       raw_value: extract_raw_value({:ok, cached_value_to_map(cached_value)}),
       unit: data_point.unit,
-      triggered_by: "self",
+      triggered_by: triggered_by,
       inserted_at: timestamp
     }
   end
@@ -229,13 +273,12 @@ defmodule PouCon.Logging.DataPointLogger do
   defp cached_value_to_map(map) when is_map(map), do: map
   defp cached_value_to_map(_), do: %{}
 
-  # Query data points with logging enabled
+  # Query all data points (master switch decides whether we even reach here)
   defp get_loggable_data_points do
     from(d in DataPoint,
-      where: is_nil(d.log_interval) or d.log_interval > 0,
       select: %{
         name: d.name,
-        log_interval: d.log_interval,
+        type: d.type,
         unit: d.unit
       }
     )
