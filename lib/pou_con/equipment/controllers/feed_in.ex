@@ -186,12 +186,13 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   def handle_continue(:initial_poll, state) do
     new_state = poll_and_update(state)
 
-    # Ensure OFF state after reboot if hardware reports ON but we haven't commanded it.
-    # For inverted (NC) wiring, the DataPointManager handles coil inversion transparently.
+    # Adopt the hardware's current state instead of forcing it OFF. Equipment
+    # running before a restart should keep running — the FeedingScheduler will
+    # re-evaluate fill conditions on its next cycle and stop it when appropriate.
     new_state =
       if new_state.actual_on and not new_state.commanded_on do
-        Logger.info("[#{new_state.name}] Startup sync: turning OFF equipment")
-        sync_coil(new_state)
+        Logger.info("[#{new_state.name}] Startup: adopting hardware ON state")
+        %{new_state | commanded_on: true}
       else
         new_state
       end

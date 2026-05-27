@@ -96,6 +96,42 @@ defmodule PouCon.Equipment.Controllers.FanTest do
       assert status.error == nil
     end
 
+    test "adopts hardware ON state on init instead of forcing OFF", %{devices: devices} do
+      name = "test_fan_adopt_#{System.unique_integer([:positive])}"
+
+      # Hardware shows the fan is running in AUTO (coil=1, fb=1, mode=1).
+      # Simulates the case where the app restarted while the fan was on.
+      stub(DataPointManagerMock, :read_direct, fn
+        n when n == devices.on_off_coil -> {:ok, %{state: 1}}
+        n when n == devices.running_feedback -> {:ok, %{state: 1}}
+        n when n == devices.auto_manual -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+
+      # Track every command call so we can assert no write happened during init.
+      test_pid = self()
+
+      stub(DataPointManagerMock, :command, fn name, cmd, params ->
+        send(test_pid, {:command_called, name, cmd, params})
+        {:ok, :success}
+      end)
+
+      opts = [
+        name: name,
+        on_off_coil: devices.on_off_coil,
+        running_feedback: devices.running_feedback,
+        auto_manual: devices.auto_manual
+      ]
+
+      {:ok, _pid} = Fan.start(opts)
+      Process.sleep(50)
+
+      status = Fan.status(name)
+      assert status.actual_on == true
+      assert status.commanded_on == true, "controller must adopt hardware state, not force OFF"
+      refute_received {:command_called, _, _, _}
+    end
+
     test "reflects state from DataPointManager - AUTO mode", %{devices: devices} do
       name = "test_fan_state_#{System.unique_integer([:positive])}"
 

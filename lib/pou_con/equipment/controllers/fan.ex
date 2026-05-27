@@ -172,13 +172,13 @@ defmodule PouCon.Equipment.Controllers.Fan do
   def handle_continue(:initial_poll, state) do
     new_state = poll_and_update(state)
 
-    # Ensure OFF state after reboot if hardware reports ON but we haven't commanded it.
-    # For inverted (NC) wiring, the DataPointManager handles coil inversion transparently,
-    # so actual_on == true means the equipment is logically ON regardless of wiring.
+    # Adopt the hardware's current state instead of forcing it OFF. Equipment
+    # running before a restart should keep running — automation will re-evaluate
+    # on its next cycle and turn it off only if conditions warrant.
     new_state =
       if new_state.actual_on and not new_state.commanded_on do
-        Logger.info("[#{new_state.name}] Startup sync: turning OFF equipment")
-        sync_coil(new_state)
+        Logger.info("[#{new_state.name}] Startup: adopting hardware ON state")
+        %{new_state | commanded_on: true}
       else
         new_state
       end
