@@ -146,8 +146,11 @@ defmodule PouCon.Automation.Environment.EnvironmentControllerTest do
       {_name, _pid, _devs} = start_fan!(name: "step_fan_2")
       {_name, _pid, _devs} = start_fan!(name: "step_fan_3")
 
-      # Set all fans to AUTO mode
+      # Set all fans to AUTO mode and sensor_1 to a valid 26.0°C reading
       stub_read_direct(fn
+        "sensor_1" ->
+          {:ok, %{value: 26.0, valid: true}}
+
         name when name in ["step_fan_1_am", "step_fan_2_am", "step_fan_3_am"] ->
           {:ok, %{state: 1}}
 
@@ -155,10 +158,20 @@ defmodule PouCon.Automation.Environment.EnvironmentControllerTest do
           {:ok, %{state: 0}}
       end)
 
-      # Stub get_cached_data for average sensor
+      # Stub get_cached_data — used by EnvironmentController's delta calc.
       stub(PouCon.DataPointManagerMock, :get_cached_data, fn _name ->
         {:ok, %{value: 26.0}}
       end)
+
+      # Start AverageSensor so EnvironmentController gets a real avg_temp
+      # instead of nil — without this, startup_phase never exits.
+      {:ok, _avg_pid} =
+        PouCon.Equipment.Controllers.AverageSensor.start(
+          name: "avg_sensor",
+          temp_sensors: ["sensor_1"],
+          humidity_sensors: [],
+          poll_interval_ms: 100
+        )
 
       wait_for_init()
 
@@ -166,8 +179,9 @@ defmodule PouCon.Automation.Environment.EnvironmentControllerTest do
       create_equipment!("failsafe_fan", "fan")
       {_name, _pid, _devs} = start_fan!(name: "failsafe_fan")
 
-      # Override stub to include failsafe fan
+      # Add failsafe fan data points to the stub
       stub_read_direct(fn
+        "sensor_1" -> {:ok, %{value: 26.0, valid: true}}
         "failsafe_fan_am" -> {:ok, %{state: 0}}
         "failsafe_fan_fb" -> {:ok, %{state: 1}}
         name when name in ["step_fan_1_am", "step_fan_2_am", "step_fan_3_am"] ->

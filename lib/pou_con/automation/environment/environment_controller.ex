@@ -3,6 +3,32 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   Event-driven controller that automatically manages fans and pumps based on
   average temperature and humidity.
 
+  ## Startup Phase (Post-Restart Blind Period)
+
+  On application restart, the controller enters a startup phase where it
+  collects sensor data and polls equipment state but issues **no control
+  commands**. This prevents acting on incomplete or stale observations while
+  equipment controllers are still starting and adopting hardware state.
+
+  The controller exits the startup phase on the first poll where either:
+  - Valid temperature data is available (`avg_temp` is a number), or
+  - 10 consecutive polls have passed with no valid temperature data
+    (safety fallback — see below).
+
+  On exit, the controller applies its decision immediately (bypassing the
+  normal `delay_between_step_seconds`), while still respecting
+  `stagger_delay_seconds` for individual relay operations.
+
+  ## Sensor Loss Safety (Permanent)
+
+  A single counter tracks consecutive polls without valid temperature data.
+  When this counter reaches 10 (both during startup and in normal operation),
+  the controller forces step 4 (or the highest configured step) as a safety
+  measure to protect against overheating when sensors are unreliable.
+
+  In normal operation this safety action goes through the normal step-delay
+  mechanism. During startup the safety action forces immediate application.
+
   ## Fan Control Model
 
   Fans are split into two groups:
@@ -37,6 +63,11 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
 
   @default_poll_interval 5000
 
+  # Number of consecutive polls without valid temperature data that triggers
+  # the safety fallback (force step 4 / highest step). Applies both during
+  # the startup phase and in normal operation.
+  @max_consecutive_invalid_polls 10
+
   defmodule State do
     defstruct poll_interval_ms: 5000,
               avg_temp: nil,
@@ -63,7 +94,15 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
               last_step_change_time: nil,
               last_switch_time: nil,
               humidity_override: :normal,
-              enabled: false
+              enabled: false,
+              # --- Startup phase and sensor-loss safety ---
+              # True only for the initial period after this GenServer starts (app restart).
+              # During this phase we collect data but issue no control commands.
+              startup_phase: true,
+              # Consecutive polls without a valid numeric avg_temp.
+              # When this reaches @max_consecutive_invalid_polls we force step 4
+              # (safety against sensor failure / overheating).
+              consecutive_invalid_sensor_polls: 0
   end
 
   # ------------------------------------------------------------------ #
@@ -112,7 +151,51 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   defp poll_and_update(state) do
     state
     |> calculate_averages()
+    |> update_sensor_safety_state()
     |> apply_control_logic()
+  end
+
+  # Track consecutive polls without valid temperature data and decide whether
+  # to exit the post-restart startup phase. See moduledoc.
+  defp update_sensor_safety_state(%State{} = state) do
+    new_counter =
+      if is_number(state.avg_temp) do
+        0
+      else
+        state.consecutive_invalid_sensor_polls + 1
+      end
+
+    exit_startup? =
+      state.startup_phase and
+        (is_number(state.avg_temp) or new_counter >= @max_consecutive_invalid_polls)
+
+    cond do
+      exit_startup? and is_number(state.avg_temp) ->
+        Logger.info(
+          "[Environment] Exiting startup phase: valid temperature received (#{inspect(state.avg_temp)})"
+        )
+
+      exit_startup? ->
+        Logger.warning(
+          "[Environment] Exiting startup phase via safety fallback: " <>
+            "#{new_counter} consecutive polls without valid temperature"
+        )
+
+      not state.startup_phase and new_counter == @max_consecutive_invalid_polls ->
+        Logger.warning(
+          "[Environment] Sensor-loss safety active: #{@max_consecutive_invalid_polls} " <>
+            "consecutive invalid polls, forcing safety step"
+        )
+
+      true ->
+        :ok
+    end
+
+    %State{
+      state
+      | consecutive_invalid_sensor_polls: new_counter,
+        startup_phase: state.startup_phase and not exit_startup?
+    }
   end
 
   @impl GenServer
@@ -373,6 +456,12 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
   # Private - Control Logic
   # ------------------------------------------------------------------ #
 
+  # Startup phase: collect data only, issue no control commands.
+  # Exit is decided in update_sensor_safety_state/1; once startup_phase flips
+  # to false, the next poll runs the full control logic with current_step == nil,
+  # which naturally bypasses delay_between_step_seconds for the first decision.
+  defp apply_control_logic(%State{startup_phase: true} = state), do: state
+
   defp apply_control_logic(%State{} = state) do
     config = Configs.get_config()
 
@@ -406,6 +495,18 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
 
       # Get the current step based on temperature (or override temp if delta too high)
       new_step_num = determine_step_number(config, effective_temp)
+
+      # Sensor-loss safety: if too many consecutive polls without valid temp,
+      # force the safety step regardless of what determine_step_number returned.
+      # The step-delay machinery below still applies in normal operation
+      # (current_step != nil); on the first poll after exiting startup phase
+      # the override applies immediately (current_step == nil branch).
+      new_step_num =
+        if state.consecutive_invalid_sensor_polls >= @max_consecutive_invalid_polls do
+          get_safety_step(config)
+        else
+          new_step_num
+        end
 
       # Track when delta boost started (for display purposes)
       delta_boost_start_time =
@@ -916,6 +1017,23 @@ defmodule PouCon.Automation.Environment.EnvironmentController do
       _ -> :error
     catch
       :exit, _ -> :error
+    end
+  end
+
+  # ------------------------------------------------------------------ #
+  # Startup / Sensor Safety Helpers
+  # ------------------------------------------------------------------ #
+
+  defp get_safety_step(config) do
+    active_steps = ConfigSchema.get_active_steps(config)
+
+    case Enum.find(active_steps, fn s -> s.step == 4 end) do
+      nil -> List.last(active_steps)
+      step -> step
+    end
+    |> case do
+      nil -> 1
+      step -> step.step
     end
   end
 end
