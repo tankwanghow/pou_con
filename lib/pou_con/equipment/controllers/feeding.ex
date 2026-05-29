@@ -1,54 +1,37 @@
 defmodule PouCon.Equipment.Controllers.Feeding do
   @moduledoc """
-  Controller for chain/belt feeding systems.
+  Controller for chain/belt feeding systems (physical panel primary + automation).
 
-  Manages feed distribution equipment that moves along cage rows, dispensing
-  feed from a central hopper. The feeder travels between front and back
-  limit switches, controlled by the FeedingScheduler.
+  Movement is normally done from the physical panel buttons/switches.
+  This controller observes the command coils, limits, feedbacks and trip input
+  to provide accurate status for the UI and the FeedingScheduler.
+
+  Software issues directional commands only for automatic scheduled cycles.
 
   ## Device Tree Configuration
 
   ```yaml
-  to_back_limit: WS-15-O-01    # Motor command: move toward back
-  to_front_limit: WS-15-O-02   # Motor command: move toward front
-  fwd_feedback: WS-15-I-01     # Contactor feedback: forward engaged
-  rev_feedback: WS-15-I-02     # Contactor feedback: reverse engaged
-  front_limit: WS-15-I-03      # Limit switch at front position
-  back_limit: WS-15-I-04       # Limit switch at back position
-  pulse_sensor: WS-15-I-05     # Rotation/distance sensor for stall detection
-  auto_manual: VT-200-30       # Virtual device for mode selection
-  ```
-
-  ## Movement State Machine
-
-  Unlike simple on/off equipment, the feeder has directional movement:
-  - `commanded_target` - `:to_front_limit` or `:to_back_limit` or `nil`
-  - `is_moving` - Currently in motion
-  - `at_front_limit` - Front limit switch triggered
-  - `at_back_limit` - Back limit switch triggered
-  - `mode` - `:auto` (scheduler allowed) or `:manual` (user control only)
-
-  ## Automatic Operation
-
-  The FeedingScheduler controls feeders based on configured schedules:
-  1. At `move_to_back_limit_time`: Command move to back limit
-  2. At `move_to_front_limit_time`: Command move to front limit
-
-  This creates a feeding cycle where the feeder distributes feed while
-  traveling in one direction, then returns.
+  to_back_limit:      WS-15-O-01    # Command coil: move toward back
+  to_front_limit:     WS-15-O-02    # Command coil: move toward front
+  to_back_feedback:   WS-15-I-01    # Contactor feedback when moving to back
+  to_front_feedback:  WS-15-I-02    # Contactor feedback when moving to front
+  front_limit:        WS-15-I-03    # Hardwired limit switch at front
+  back_limit:         WS-15-I-04    # Hardwired limit switch at back
+  auto_manual:        VT-200-30     # Mode switch (virtual or physical)
+  # pulse_sensor:    WS-15-I-05    # Optional - only needed if you want rotation-based movement detection
 
   ## Error Detection
-
-  - `:timeout` - No response from Modbus device
-  - `:sensor_timeout` - Limit switches not responding
-  - `:movement_timeout` - Feeder didn't reach limit in expected time
-  - `:command_failed` - Modbus write command failed
+  - `:timeout` / `:invalid_data` — comms or bad data
+  - `:motor_fault` ("MOTOR STOPPED") — active direction with no contactor feedback
+    (not at hardwired limit) or trip input active.
+  - `:direction_mismatch` ("DIRECTION MISMATCH") — commanded one direction but the
+    opposite contactor is the one actually engaged (crossed wiring or physical panel
+    driving the wrong contactor).
 
   ## Safety Features
-
-  - Movement stops automatically when limit switch is triggered
-  - Timeout protection if feeder gets stuck mid-travel
-  - Manual mode allows operator override during maintenance
+  - Hardwired limits physically stop the motor.
+  - Motor fault detection works for both panel-initiated and software-initiated moves.
+  - Auto-off when switching manual → auto.
   """
 
   use GenServer
@@ -70,9 +53,9 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       # Output coils (commands)
       :to_back_limit,
       :to_front_limit,
-      # Input feedback (contactor status)
-      :fwd_feedback,
-      :rev_feedback,
+      # Contactor feedback (directional)
+      :to_back_feedback,
+      :to_front_feedback,
       # Limit switches
       :front_limit,
       :back_limit,
@@ -82,10 +65,9 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       :trip,
       # Runtime state
       commanded_target: nil,
-      command_timestamp: nil,
       is_moving: false,
-      fwd_engaged: false,
-      rev_engaged: false,
+      to_back_contactor: false,
+      to_front_contactor: false,
       is_tripped: false,
       mode: :auto,
       error: nil,
@@ -140,8 +122,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
     with {:ok, auto_manual} <- fetch_required(opts, :auto_manual),
          {:ok, to_back_limit} <- fetch_required(opts, :to_back_limit),
          {:ok, to_front_limit} <- fetch_required(opts, :to_front_limit),
-         {:ok, fwd_feedback} <- fetch_required(opts, :fwd_feedback),
-         {:ok, rev_feedback} <- fetch_required(opts, :rev_feedback),
+         {:ok, to_back_feedback}  <- fetch_required(opts, :to_back_feedback),
+         {:ok, to_front_feedback} <- fetch_required(opts, :to_front_feedback),
          {:ok, front_limit} <- fetch_required(opts, :front_limit),
          {:ok, back_limit} <- fetch_required(opts, :back_limit) do
       # Check if auto_manual data point is virtual (software-controlled mode)
@@ -152,8 +134,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
         title: opts[:title] || name,
         to_back_limit: to_back_limit,
         to_front_limit: to_front_limit,
-        fwd_feedback: fwd_feedback,
-        rev_feedback: rev_feedback,
+        to_back_feedback:  to_back_feedback,
+        to_front_feedback: to_front_feedback,
         front_limit: front_limit,
         back_limit: back_limit,
         pulse_sensor: opts[:pulse_sensor],
@@ -217,7 +199,6 @@ defmodule PouCon.Equipment.Controllers.Feeding do
         new_state = %State{
           state
           | commanded_target: target,
-            command_timestamp: DateTime.utc_now(),
             error: nil
         }
 
@@ -284,10 +265,12 @@ defmodule PouCon.Equipment.Controllers.Feeding do
         else: {:ok, :no_sensor}
 
     inputs = [
+      # We read the command coils so we can observe what direction the physical panel
+      # (or software) is currently driving the hopper toward.
       @data_point_manager.read_direct(state.to_back_limit),
       @data_point_manager.read_direct(state.to_front_limit),
-      @data_point_manager.read_direct(state.fwd_feedback),
-      @data_point_manager.read_direct(state.rev_feedback),
+      @data_point_manager.read_direct(state.to_back_feedback),
+      @data_point_manager.read_direct(state.to_front_feedback),
       @data_point_manager.read_direct(state.front_limit),
       @data_point_manager.read_direct(state.back_limit),
       pulse_res,
@@ -303,8 +286,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
           safe = %State{
             state
             | is_moving: false,
-              fwd_engaged: false,
-              rev_engaged: false,
+              to_back_contactor: false,
+              to_front_contactor: false,
               is_tripped: false,
               at_front_limit: false,
               at_back_limit: false,
@@ -319,56 +302,53 @@ defmodule PouCon.Equipment.Controllers.Feeding do
             [
               {:ok, %{:state => back_coil}},
               {:ok, %{:state => front_coil}},
-              {:ok, %{:state => fwd_fb}},
-              {:ok, %{:state => rev_fb}},
+              {:ok, %{:state => back_fb}},
+              {:ok, %{:state => front_fb}},
               {:ok, %{:state => f_lim}},
               {:ok, %{:state => b_lim}},
-              {:ok, pulse_result},
+              pulse_result,
               {:ok, %{:state => mode_val}},
               {:ok, %{:state => trip_state}}
             ] = inputs
 
-            fwd_engaged = fwd_fb == 1
-            rev_engaged = rev_fb == 1
+            to_back_contactor  = back_fb == 1
+            to_front_contactor = front_fb == 1
             is_tripped = trip_state == 1
             mode = if mode_val == 1, do: :auto, else: :manual
             at_front = f_lim == 1
             at_back = b_lim == 1
 
-            # is_moving: use pulse sensor if available, otherwise infer from contactor feedback
-            is_moving =
-              case pulse_result do
-                :no_sensor -> fwd_engaged or rev_engaged
-                %{state: pulse} -> pulse == 1
-              end
-
-            # Infer commanded_target from hardware coil states
-            inferred_target =
+            # Derive current target from the actual command coils (physical panel or software).
+            observed_target =
               cond do
                 back_coil == 1 -> :to_back_limit
                 front_coil == 1 -> :to_front_limit
                 true -> nil
               end
 
-            # Set command_timestamp if we're inferring a new target
-            new_timestamp =
-              if inferred_target != nil and state.commanded_target != inferred_target do
-                DateTime.utc_now()
-              else
-                state.command_timestamp
+            # is_moving prefers pulse if available. Otherwise use the observed direction's feedback.
+            is_moving =
+              case pulse_result do
+                {:ok, %{state: 1}} -> true
+                {:ok, :no_sensor} ->
+                  case observed_target do
+                    :to_front_limit -> to_front_contactor
+                    :to_back_limit -> to_back_contactor
+                    _ -> to_back_contactor or to_front_contactor
+                  end
+                _ -> false
               end
 
             updated = %State{
               state
               | is_moving: is_moving,
-                fwd_engaged: fwd_engaged,
-                rev_engaged: rev_engaged,
+                to_back_contactor:  to_back_contactor,
+                to_front_contactor: to_front_contactor,
                 is_tripped: is_tripped,
                 mode: mode,
                 at_front_limit: at_front,
                 at_back_limit: at_back,
-                commanded_target: inferred_target,
-                command_timestamp: new_timestamp
+                commanded_target: observed_target
             }
 
             {updated, nil}
@@ -379,12 +359,10 @@ defmodule PouCon.Equipment.Controllers.Feeding do
           end
       end
 
-    # Clear coil when limit reached (housekeeping — hardwired circuit already stopped motor)
-    %State{} =
-      state_after_limits =
+    # Hardwired limit reached in the observed direction — motor is physically stopped.
+    # Log for manual operations; next poll will show the real coil state.
+    state_after_limits =
       if base_state.commanded_target != nil && limit_hit_in_direction?(base_state) do
-        Logger.info("[#{state.name}] Limit reached → clearing coil")
-
         if base_state.mode == :manual do
           limit = if base_state.commanded_target == :to_back_limit, do: "back", else: "front"
 
@@ -394,25 +372,32 @@ defmodule PouCon.Equipment.Controllers.Feeding do
           })
         end
 
-        stop_and_reset(base_state)
+        base_state
       else
         base_state
       end
 
-    # Grace period for startup (2 seconds)
-    grace_active? =
-      state_after_limits.commanded_target != nil &&
-        state_after_limits.command_timestamp != nil &&
-        DateTime.diff(DateTime.utc_now(), state_after_limits.command_timestamp, :millisecond) <
-          2000
+    # Motor fault detection.
+    # We distinguish two cases for better diagnostics:
+    # 1. Direction mismatch: The opposite contactor is engaged (crossed wiring / wrong direction driven)
+    # 2. General motor fault: Commanded direction but no contactor engaged at all (stall, overload, contactor drop, etc.)
+    commanded = state_after_limits.commanded_target
 
-    # Check if contactor is engaged for the commanded direction
-    contactor_engaged? =
-      case state_after_limits.commanded_target do
-        :to_front_limit -> state_after_limits.fwd_engaged
-        :to_back_limit -> state_after_limits.rev_engaged
-        nil -> false
+    matching_contactor? =
+      case commanded do
+        :to_front_limit -> state_after_limits.to_front_contactor
+        :to_back_limit -> state_after_limits.to_back_contactor
+        _ -> false
       end
+
+    opposite_contactor? =
+      case commanded do
+        :to_front_limit -> state_after_limits.to_back_contactor
+        :to_back_limit -> state_after_limits.to_front_contactor
+        _ -> false
+      end
+
+    at_limit? = limit_hit_in_direction?(state_after_limits)
 
     new_error =
       cond do
@@ -420,11 +405,14 @@ defmodule PouCon.Equipment.Controllers.Feeding do
           temp_error
 
         state_after_limits.is_tripped ->
-          :tripped
+          :motor_fault
 
-        # Commanded but contactor not engaged (after grace period)
-        state_after_limits.commanded_target != nil && !contactor_engaged? && !grace_active? ->
-          :contactor_failure
+        commanded != nil and not matching_contactor? and not at_limit? ->
+          if opposite_contactor? do
+            :direction_mismatch
+          else
+            :motor_fault
+          end
 
         true ->
           nil
@@ -446,8 +434,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   defp command_blocked_reason(%State{} = state, target) do
     cond do
       state.mode != :auto -> :not_in_auto_mode
-      state.error == :tripped -> :motor_tripped
-      state.error == :contactor_failure -> :contactor_failure
+      state.error == :motor_fault -> :motor_fault
+      state.error == :direction_mismatch -> :direction_mismatch
       state.error == :timeout -> :sensor_timeout
       state.error == :invalid_data -> :invalid_data
       state.error == :crashed_previously -> :crashed_previously
@@ -476,10 +464,12 @@ defmodule PouCon.Equipment.Controllers.Feeding do
     @data_point_manager.command(state.to_front_limit, :set_state, %{state: 1})
   end
 
+  # Explicit stop from software (stop_movement button or mode change).
+  # Force both coils off. Used mainly for automation safety or manual override.
   defp stop_and_reset(%State{} = state) do
     @data_point_manager.command(state.to_back_limit, :set_state, %{state: 0})
     @data_point_manager.command(state.to_front_limit, :set_state, %{state: 0})
-    %State{state | commanded_target: nil, command_timestamp: nil}
+    %State{state | commanded_target: nil}
   end
 
   defp log_error(name, old, new) do
@@ -491,8 +481,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
           case new do
             :timeout -> "sensor_timeout"
             :invalid_data -> "invalid_data"
-            :tripped -> "motor_tripped"
-            :contactor_failure -> "contactor_failure"
+            :motor_fault -> "motor_fault"
+            :direction_mismatch -> "direction_mismatch"
             :crashed_previously -> "crashed_previously"
             _ -> "unknown_error"
           end
@@ -529,12 +519,11 @@ defmodule PouCon.Equipment.Controllers.Feeding do
       name: state.name,
       title: state.title || state.name,
       moving: state.is_moving,
-      fwd_engaged: state.fwd_engaged,
-      rev_engaged: state.rev_engaged,
-      is_tripped: state.is_tripped,
       target_limit: state.commanded_target,
       at_front: state.at_front_limit,
       at_back: state.at_back_limit,
+      to_back_contactor:  state.to_back_contactor,
+      to_front_contactor: state.to_front_contactor,
       mode: state.mode,
       error: state.error,
       error_message: error_message(state.error),
@@ -547,8 +536,8 @@ defmodule PouCon.Equipment.Controllers.Feeding do
   defp error_message(nil), do: "OK"
   defp error_message(:timeout), do: "SENSOR TIMEOUT"
   defp error_message(:invalid_data), do: "INVALID DATA"
-  defp error_message(:tripped), do: "MOTOR TRIPPED"
-  defp error_message(:contactor_failure), do: "CONTACTOR NOT ENGAGED"
+  defp error_message(:motor_fault), do: "MOTOR STOPPED"
+  defp error_message(:direction_mismatch), do: "DIRECTION MISMATCH"
   defp error_message(:crashed_previously), do: "RECOVERED FROM CRASH"
   defp error_message(_), do: "UNKNOWN ERROR"
 end

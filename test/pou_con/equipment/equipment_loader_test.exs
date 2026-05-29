@@ -116,7 +116,7 @@ defmodule PouCon.EquipmentLoaderTest do
           name: "test_feeding",
           type: "feeding",
           data_point_tree:
-            "to_back_limit: d1\nto_front_limit: d2\nfwd_feedback: ff\nrev_feedback: rf\nfront_limit: f\nback_limit: b\npulse_sensor: p\nauto_manual: a"
+            "to_back_limit: d1\nto_front_limit: d2\nto_back_feedback: back_fb\nto_front_feedback: front_fb\nfront_limit: f\nback_limit: b\nauto_manual: a"
         })
 
       assert equipment.type == "feeding"

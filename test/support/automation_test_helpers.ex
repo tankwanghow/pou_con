@@ -87,8 +87,8 @@ defmodule PouCon.AutomationTestHelpers do
     """
     to_back_limit: #{name}_to_back
     to_front_limit: #{name}_to_front
-    fwd_feedback: #{name}_fwd_fb
-    rev_feedback: #{name}_rev_fb
+    to_back_feedback:  #{name}_back_fb
+    to_front_feedback: #{name}_front_fb
     front_limit: #{name}_front
     back_limit: #{name}_back
     pulse_sensor: #{name}_pulse
@@ -272,8 +272,8 @@ defmodule PouCon.AutomationTestHelpers do
     device_names = %{
       to_back_limit: "#{name}_to_back",
       to_front_limit: "#{name}_to_front",
-      fwd_feedback: "#{name}_fwd_fb",
-      rev_feedback: "#{name}_rev_fb",
+      to_back_feedback:  "#{name}_back_fb",
+      to_front_feedback: "#{name}_front_fb",
       front_limit: "#{name}_front",
       back_limit: "#{name}_back",
       pulse_sensor: "#{name}_pulse",
@@ -285,8 +285,8 @@ defmodule PouCon.AutomationTestHelpers do
       title: opts[:title] || name,
       to_back_limit: device_names.to_back_limit,
       to_front_limit: device_names.to_front_limit,
-      fwd_feedback: device_names.fwd_feedback,
-      rev_feedback: device_names.rev_feedback,
+      to_back_feedback:  device_names.to_back_feedback,
+      to_front_feedback: device_names.to_front_feedback,
       front_limit: device_names.front_limit,
       back_limit: device_names.back_limit,
       pulse_sensor: device_names.pulse_sensor,

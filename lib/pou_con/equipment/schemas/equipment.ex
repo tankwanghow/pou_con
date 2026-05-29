@@ -189,11 +189,10 @@ defmodule PouCon.Equipment.Schemas.Equipment do
     do: [
       :to_back_limit,
       :to_front_limit,
-      :fwd_feedback,
-      :rev_feedback,
+      :to_back_feedback,
+      :to_front_feedback,
       :front_limit,
       :back_limit,
-      :pulse_sensor,
       :auto_manual
     ]
 
@@ -202,8 +201,8 @@ defmodule PouCon.Equipment.Schemas.Equipment do
       :filling_coil,
       :running_feedback,
       :auto_manual,
-      :full_switch,
       :trip
+      # full_switch is optional temporarily (hardwired only until electrician wires the DI)
     ]
 
   # Average sensor uses list values, validation handled separately

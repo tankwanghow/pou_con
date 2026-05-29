@@ -1,6 +1,7 @@
 defmodule PouConWeb.SimulationLive do
   use PouConWeb, :live_view
   alias PouCon.Hardware.DataPointManager
+  alias PouCon.Equipment.EquipmentLoader
 
   alias PouCon.Repo
   alias PouCon.Equipment.Schemas.Equipment
@@ -114,6 +115,17 @@ defmodule PouConWeb.SimulationLive do
       end
 
     {:noreply, assign(socket, sort_by: sort_by, sort_order: sort_order)}
+  end
+
+  @impl true
+  def handle_event("reload_controllers", _params, socket) do
+    EquipmentLoader.reload_controllers()
+    data_points = list_data_points()
+    {:noreply,
+     socket
+     |> assign(:data_points, data_points)
+     |> assign(:port_statuses, DataPointManager.get_port_statuses())
+     |> put_flash(:info, "Controllers and data points reloaded from current database state")}
   end
 
   @impl true
@@ -262,7 +274,16 @@ defmodule PouConWeb.SimulationLive do
       </div>
 
       <div class="flex justify-between items-center mb-4">
-        <h1 class="text-xl font-bold">Data Point Simulation</h1>
+        <div class="flex items-center gap-3">
+          <h1 class="text-xl font-bold">Data Point Simulation</h1>
+          <button
+            phx-click="reload_controllers"
+            class="btn btn-sm btn-outline btn-info"
+            data-confirm="Reload all equipment controllers from the current database? This will restart equipment GenServers."
+          >
+            Reload Controllers
+          </button>
+        </div>
         <div class="form-control w-full max-w-xs">
           <input
             type="text"

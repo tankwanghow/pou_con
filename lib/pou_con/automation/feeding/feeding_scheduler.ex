@@ -536,8 +536,24 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
           %{mode: :manual} -> {:skip, "FeedIn in MANUAL mode"}
           %{is_running: true} -> {:skip, "FeedIn already running"}
           %{is_tripped: true} -> {:skip, "FeedIn is tripped"}
-          %{bucket_full: true} -> {:skip, "FeedIn bucket full"}
-          %{mode: :auto} -> {:ok, name}
+
+          # When real full_switch DI is present: only real bucket_full allows next cycle
+          %{has_full_switch: true, bucket_full: true} ->
+            {:skip, "FeedIn bucket full"}
+          %{has_full_switch: true, mode: :auto} ->
+            {:ok, name}
+
+          # When full_switch DI is missing (temporary mode):
+          # The ONLY condition that allows the next schedule cycle is a successful
+          # hardwired full detection after running >= half the max-fill timer.
+          %{has_full_switch: false, fill_completed: true} ->
+            {:ok, name}
+
+          # All other situations in temporary mode block the next cycle
+          # (early stop, max-fill timer, trip, etc.)
+          %{has_full_switch: false} ->
+            {:skip, "FeedIn requires successful hardwired full detection (≥ half timer) to continue schedule"}
+
           _ -> {:skip, "FeedIn pre-check unmatched"}
         end
     end

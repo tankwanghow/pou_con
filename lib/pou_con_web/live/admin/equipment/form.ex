@@ -22,14 +22,14 @@ defmodule PouConWeb.Live.Admin.Equipment.Form do
     "feeding" => [
       :to_back_limit,
       :to_front_limit,
-      :fwd_feedback,
-      :rev_feedback,
+      :to_back_feedback,
+      :to_front_feedback,
       :front_limit,
       :back_limit,
-      :pulse_sensor,
       :auto_manual
     ],
-    "feed_in" => [:filling_coil, :running_feedback, :auto_manual, :full_switch],
+    "feed_in" => [:filling_coil, :running_feedback, :auto_manual, :trip],
+    # full_switch is optional for now (can operate with hardwired full switch + max-fill timer)
     "siren" => [:on_off_coil, :auto_manual],
     "power_indicator" => [:indicator],
     # Average sensor (uses comma-separated lists of data point names)

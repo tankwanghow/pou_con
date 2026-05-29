@@ -4,6 +4,10 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
   alias PouCon.Equipment.Controllers.Feeding
   alias PouConWeb.Components.Equipment.Shared
 
+  # This component is display/monitoring only.
+  # Movement of feeding hoppers is controlled from the physical panel buttons/switches.
+  # Software commands are used only by the scheduler for automatic operation.
+
   @impl true
   def update(assigns, socket) do
     equipment = assigns[:equipment]
@@ -126,44 +130,11 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
         <Shared.system_button />
       <% @is_interlocked -> %>
         <Shared.blocked_button />
-      <% @is_moving or @is_error -> %>
-        <button
-          phx-click="stop"
-          phx-target={@myself}
-          class="w-full py-4 px-2 rounded font-bold text-lg shadow-sm transition-all text-white bg-red-500 hover:bg-red-600 active:scale-95 flex items-center justify-center gap-2"
-        >
-          <div class="w-3 h-3 bg-white rounded-sm"></div>
-          {if @is_error, do: "RESET", else: "STOP"}
-        </button>
       <% true -> %>
-        <div class="flex gap-2">
-          <button
-            phx-click="move"
-            phx-value-dir="front"
-            phx-target={@myself}
-            disabled={@at_front}
-            class={[
-              "flex-1 py-4 rounded font-bold text-lg shadow-sm transition-all text-white flex items-center justify-center active:scale-95",
-              @at_front && "bg-gray-300 cursor-not-allowed opacity-50",
-              !@at_front && "bg-blue-500 hover:bg-blue-600"
-            ]}
-          >
-            <.icon name="hero-chevron-left" class="w-5 h-5" /> Fr
-          </button>
-
-          <button
-            phx-click="move"
-            phx-value-dir="back"
-            phx-target={@myself}
-            disabled={@at_back}
-            class={[
-              "flex-1 py-4 rounded font-bold text-lg shadow-sm transition-all text-white flex items-center justify-center active:scale-95",
-              @at_back && "bg-gray-300 cursor-not-allowed opacity-50",
-              !@at_back && "bg-blue-500 hover:bg-blue-600"
-            ]}
-          >
-            Bk <.icon name="hero-chevron-right" class="w-5 h-5" />
-          </button>
+        <%!-- Display-only: movement is controlled from the physical panel --%>
+        <div class="w-full text-center py-3 px-2 rounded bg-base-200 text-sm font-medium text-base-content/70 flex items-center justify-center gap-2">
+          <.icon name="hero-cog-6-tooth" class="w-4 h-4" />
+          Physical panel control
         </div>
     <% end %>
     """
@@ -185,33 +156,19 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
     {:noreply, socket}
   end
 
-  @impl true
-  def handle_event("stop", _, socket) do
-    Feeding.stop_movement(socket.assigns.device_name)
-    {:noreply, socket}
-  end
+  # Note: Move and stop handlers removed — feeding hoppers are controlled from the physical panel.
+  # Software commands are only used by the scheduler for automatic cycles.
 
-  @impl true
-  def handle_event("move", %{"dir" => dir}, socket) do
-    name = socket.assigns.device_name
-
-    case dir do
-      "front" -> Feeding.move_to_front_limit(name)
-      "back" -> Feeding.move_to_back_limit(name)
-    end
-
-    {:noreply, socket}
-  end
-
-  defp calculate_display_data(%{error: :invalid_data}) do
+  # Handle any error state from the controller (not running, timeout, unresponsive, etc.)
+  defp calculate_display_data(%{error: error} = status) when not is_nil(error) do
     %{
-      is_error: false,
+      is_error: true,
       is_moving: false,
       is_interlocked: false,
-      is_auto_manual_virtual_di: false,
+      is_auto_manual_virtual_di: Map.get(status, :is_auto_manual_virtual_di, false),
       mode: :auto,
-      state_text: "OFFLINE",
-      color: "gray"
+      state_text: Map.get(status, :error_message) || "ERROR",
+      color: "rose"
     }
   end
 
@@ -221,15 +178,12 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
 
     {color, text} =
       cond do
-        status.error != nil ->
-          {"rose", status.error_message || "ERROR"}
-
         is_interlocked ->
           {"amber", "BLOCKED"}
 
-        status.moving ->
+        Map.get(status, :moving) ->
           dir_text =
-            case status.target_limit do
+            case Map.get(status, :target_limit) do
               :to_front_limit -> "MOVING TO FRONT"
               :to_back_limit -> "MOVING TO BACK"
               _ -> "FORCED MOVE"
@@ -237,10 +191,10 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
 
           {"green", dir_text}
 
-        status.at_front ->
+        Map.get(status, :at_front) ->
           {"violet", "AT FRONT LIMIT"}
 
-        status.at_back ->
+        Map.get(status, :at_back) ->
           {"violet", "AT BACK LIMIT"}
 
         true ->
@@ -248,11 +202,11 @@ defmodule PouConWeb.Components.Equipment.FeedingComponent do
       end
 
     %{
-      is_error: status.error != nil,
-      is_moving: status.moving,
+      is_error: false,
+      is_moving: Map.get(status, :moving, false),
       is_interlocked: is_interlocked,
       is_auto_manual_virtual_di: is_auto_manual_virtual_di,
-      mode: status.mode,
+      mode: Map.get(status, :mode, :auto),
       state_text: text,
       color: color
     }

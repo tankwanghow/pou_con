@@ -48,6 +48,14 @@ defmodule PouConWeb.Components.Equipment.FeedInComponent do
             <div class={"text-lg font-bold text-center truncate text-#{@display.color}-700"}>
               {@display.state_text}
             </div>
+
+            <%!-- Temporary warning while full switch DI is not yet wired --%>
+            <%= if not Map.get(@status, :has_full_switch, true) do %>
+              <div class="text-xs text-center px-2 py-1 rounded bg-amber-900/60 text-amber-300">
+                ⚠ No full switch visibility – using max-fill timer only
+              </div>
+            <% end %>
+
             <.feed_in_control
               mode={@display.mode}
               is_interlocked={@display.is_interlocked}

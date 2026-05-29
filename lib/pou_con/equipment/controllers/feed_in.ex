@@ -11,8 +11,8 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   ```yaml
   filling_coil: WS-15-O-05      # Digital output to control auger motor
   running_feedback: WS-15-I-05   # Digital input for motor running status
-  full_switch: WS-15-I-06        # Level switch indicating hopper is full
-  auto_manual: VT-200-35         # Virtual device for mode selection
+  # full_switch:  WS-15-I-06     # Optional - Level switch (currently hardwired only)
+  auto_manual:  VT-200-35        # Virtual or physical mode switch
   ```
 
   ## State Machine
@@ -91,6 +91,7 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
       # :auto | :manual
       mode: :auto,
       bucket_full: false,
+      has_full_switch: false,   # Whether we have visibility into the full switch (temporary until DI is wired)
       error: nil,
       interlocked: false,
       # True if auto_manual data point is virtual (software-controlled mode)
@@ -101,7 +102,13 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
       # Consecutive mismatch error count for debouncing
       error_count: 0,
       # Max-fill safety timer (cancellable Process timer ref); cleared when not running
-      fill_timeout_ref: nil
+      fill_timeout_ref: nil,
+
+      # Temporary logic for when we have no full_switch DI visibility
+      max_fill_minutes: nil,
+      fill_started_at: nil,          # When is_running first became true after a turn_on
+      fill_halfway_reached: false,
+      fill_completed: false   # Temporary: true when we successfully inferred a full fill via hardwired switch after >= half timer
     ]
   end
 
@@ -154,9 +161,9 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
 
     with {:ok, auto_manual} <- fetch_required(opts, :auto_manual),
          {:ok, filling_coil} <- fetch_required(opts, :filling_coil),
-         {:ok, running_feedback} <- fetch_required(opts, :running_feedback),
-         {:ok, full_switch} <- fetch_required(opts, :full_switch) do
+         {:ok, running_feedback} <- fetch_required(opts, :running_feedback) do
       is_virtual = DataPoints.is_virtual?(auto_manual)
+      full_switch = opts[:full_switch]  # Optional for now (hardwired only until DI is wired)
 
       state = %State{
         name: name,
@@ -165,6 +172,7 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
         running_feedback: running_feedback,
         auto_manual: auto_manual,
         full_switch: full_switch,
+        has_full_switch: not is_nil(full_switch),
         trip: opts[:trip],
         is_auto_manual_virtual_di: is_virtual,
         inverted: DataPoints.is_inverted?(filling_coil),
@@ -209,14 +217,20 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   end
 
   def handle_info(:fill_timeout, %State{commanded_on: true} = state) do
-    Logger.warning("[#{state.name}] Max-fill timer expired — forcing OFF as safety stop")
+    Logger.warning("[#{state.name}] Max-fill timer expired — possible silo bridging (no full switch signal received)")
 
-    EquipmentLogger.log_stop(state.name, mode_str(state.mode), "max_fill_timeout", "on")
+    EquipmentLogger.log_stop(state.name, mode_str(state.mode), "silo_bridging", "on")
 
+    # When max-fill timer fires without the hardwired full switch activating:
+    # - Treat as "silo bridging" (feed not flowing properly)
+    # - This blocks the scheduler from running the next cycle (as required)
+    # - Raise error so operators are alerted
     new_state =
       state
       |> Map.put(:fill_timeout_ref, nil)
       |> Map.put(:commanded_on, false)
+      |> Map.put(:bucket_full, false)
+      |> Map.put(:error, :silo_bridging)
       |> sync_coil()
 
     {:noreply, new_state}
@@ -249,6 +263,11 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
         state
         |> arm_fill_timer(max_fill_minutes)
         |> Map.put(:commanded_on, true)
+        |> Map.put(:max_fill_minutes, max_fill_minutes)
+        |> Map.put(:fill_started_at, nil)
+        |> Map.put(:fill_halfway_reached, false)
+        |> Map.put(:fill_completed, false)
+        |> Map.put(:bucket_full, false)   # Clear any previous inferred full state
 
       {:noreply, sync_coil(armed_state)}
     else
@@ -320,6 +339,9 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
       is_tripped: state.is_tripped,
       mode: if(state.mode == :manual, do: :manual, else: :auto),
       bucket_full: state.bucket_full,
+      has_full_switch: state.has_full_switch,
+      fill_halfway_reached: state.fill_halfway_reached,
+      fill_completed: state.fill_completed,
       can_fill: state.mode == :manual && !state.bucket_full,
       error: state.error,
       error_message: error_message(state.error),
@@ -335,7 +357,6 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   # Core Sync Logic — Now 100% Crash-Safe
   # ——————————————————————————————————————————————————————————————
   defp poll_and_update(%State{} = state) do
-    full_res = @data_point_manager.read_direct(state.full_switch)
     coil_res = @data_point_manager.read_direct(state.filling_coil)
     fb_res = @data_point_manager.read_direct(state.running_feedback)
     am_res = @data_point_manager.read_direct(state.auto_manual)
@@ -343,7 +364,12 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
     trip_res =
       if state.trip, do: @data_point_manager.read_direct(state.trip), else: {:ok, %{state: 0}}
 
-    critical_results = [full_res, coil_res, fb_res, am_res, trip_res]
+    full_res =
+      if state.full_switch,
+        do: @data_point_manager.read_direct(state.full_switch),
+        else: {:ok, %{state: 0}}   # No visibility → treat as not full
+
+    critical_results = [coil_res, fb_res, am_res, trip_res]
 
     {%State{} = new_state, temp_error} =
       cond do
@@ -357,7 +383,7 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
               is_running: false,
               is_tripped: false,
               mode: :auto,
-              bucket_full: true,
+              bucket_full: false,   # Don't assume full on timeout when we may not even have the sensor
               error: :timeout
           }
 
@@ -366,18 +392,47 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
 
         true ->
           try do
-            {:ok, %{:state => full_state}} = full_res
             {:ok, %{:state => coil_state}} = coil_res
             {:ok, %{:state => fb_state}} = fb_res
             {:ok, %{:state => manual_state}} = am_res
             {:ok, %{:state => trip_state}} = trip_res
 
             is_manual = manual_state == 0
-            is_full = full_state == 1
             is_running = fb_state == 1
             # DataPointManager already inverts for NC wiring
             actual_on = coil_state == 1
             is_tripped = trip_state == 1
+
+            # --- Temporary logic when we have no full_switch DI visibility ---
+            now = DateTime.utc_now()
+
+            # Track when actual running started during this fill command
+            fill_started_at =
+              cond do
+                state.fill_started_at != nil -> state.fill_started_at
+                is_running and state.commanded_on -> now
+                true -> nil
+              end
+
+            # Have we been running long enough to trust a hardwired stop as "full"?
+            fill_halfway_reached =
+              cond do
+                state.fill_halfway_reached -> true
+                is_nil(fill_started_at) or is_nil(state.max_fill_minutes) -> false
+                true ->
+                  duration_ms = DateTime.diff(now, fill_started_at, :millisecond)
+                  duration_ms >= trunc(state.max_fill_minutes * 60_000 / 2)
+              end
+
+            # Decide bucket_full for the no-DI case
+            is_full =
+              if state.has_full_switch do
+                match?({:ok, %{state: 1}}, full_res)
+              else
+                # Only consider full if the hardwired switch stopped us after running >= half the timer
+                not state.is_running and state.commanded_on and fill_halfway_reached
+              end
+            # -------------------------------------------------------------
 
             # Detect mode switch: manual -> auto (for physical DI)
             mode = if is_manual, do: :manual, else: :auto
@@ -385,12 +440,19 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
 
             commanded_on =
               cond do
-                # Safety: Always stop if bucket is full
+                # Safety: Always stop if bucket is full (real or inferred from long run + hardwired stop)
                 is_full -> false
                 # When switching to AUTO, reset to OFF (clean slate for automation)
                 mode_switched_to_auto -> false
                 # Manual mode: follow actual hardware state
                 is_manual -> actual_on
+                # Temporary (no full_switch DI): Any trip during a commanded fill
+                # → Force stop immediately. Error will be set to :tripped ("MOTOR TRIPPED")
+                #   and scheduler will block the next cycle.
+                not state.has_full_switch and
+                state.commanded_on and
+                is_tripped ->
+                  false
                 # Auto mode: maintain commanded state (set by turn_on/turn_off)
                 true -> state.commanded_on
               end
@@ -402,6 +464,21 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
               @data_point_manager.command(state.filling_coil, :set_state, %{state: 0})
             end
 
+            # Early stop before halfway in no-full-switch mode.
+            # If the stop was caused by trip → let it become :tripped (MOTOR TRIPPED).
+            # Only set :unexpected_stop for non-trip early stops.
+            early_stop_error =
+              if not state.has_full_switch and
+                 state.commanded_on and
+                 not fill_halfway_reached and
+                 state.is_running and
+                 not is_running and
+                 not is_tripped do
+                :unexpected_stop
+              else
+                nil
+              end
+
             updated_state = %State{
               state
               | commanded_on: commanded_on,
@@ -410,7 +487,10 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
                 is_tripped: is_tripped,
                 mode: mode,
                 bucket_full: is_full,
-                error: nil
+                fill_started_at: fill_started_at,
+                fill_halfway_reached: fill_halfway_reached,
+                fill_completed: is_full and not state.has_full_switch,
+                error: early_stop_error || nil
             }
 
             {sync_coil(updated_state), nil}
@@ -563,6 +643,8 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
             :tripped -> "motor_tripped"
             :on_but_not_running -> "on_but_not_running"
             :off_but_running -> "off_but_running"
+            :unexpected_stop -> "unexpected_stop"
+            :silo_bridging -> "silo_bridging"
             :crashed_previously -> "crashed_previously"
             _ -> "unknown_error"
           end
@@ -587,6 +669,8 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   defp error_message(:tripped), do: "MOTOR TRIPPED"
   defp error_message(:on_but_not_running), do: "ON BUT NOT RUNNING"
   defp error_message(:off_but_running), do: "OFF BUT RUNNING"
+  defp error_message(:unexpected_stop), do: "UNEXPECTED STOP (possible trip)"
+  defp error_message(:silo_bridging), do: "SILO BRIDGING"
   defp error_message(:crashed_previously), do: "RECOVERED FROM CRASH"
   defp error_message(_), do: "UNKNOWN ERROR"
 end
