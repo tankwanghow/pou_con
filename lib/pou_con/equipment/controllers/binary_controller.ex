@@ -18,6 +18,18 @@ defmodule PouCon.Equipment.Controllers.BinaryController do
   end
   ```
 
+  Example with full options (Fan):
+
+  ```elixir
+  defmodule PouCon.Equipment.Controllers.Fan do
+    use PouCon.Equipment.Controllers.BinaryController,
+      equipment_type: "fan",
+      has_running_feedback: true,
+      has_auto_manual: true,
+      has_trip_signal: true
+  end
+  ```
+
   ## Configuration Options
 
   - `:equipment_type` - String for logging (e.g., "fan", "pump", "light")

@@ -74,10 +74,7 @@ defmodule PouCon.Equipment.Controllers.Sensor do
 
   @data_point_manager Application.compile_env(:pou_con, :data_point_manager)
 
-  # Reserved keys that are not data point mappings
   @reserved_keys [:name, :title, :poll_interval_ms]
-
-  # Default polling interval (5 seconds - sensors change slowly)
   @default_poll_interval 5000
 
   defmodule State do
@@ -164,7 +161,6 @@ defmodule PouCon.Equipment.Controllers.Sensor do
     {:noreply, new_state}
   end
 
-  # Ignore unknown messages
   @impl GenServer
   def handle_info(_msg, state), do: {:noreply, state}
 
@@ -172,9 +168,6 @@ defmodule PouCon.Equipment.Controllers.Sensor do
     Process.send_after(self(), :poll, interval_ms)
   end
 
-  # ——————————————————————————————————————————————————————————————
-  # Self-Polling: Read all configured data points
-  # ——————————————————————————————————————————————————————————————
   defp poll_and_update(%State{} = state) do
     # Read all configured data points - returns {value, thresholds} tuples
     results =

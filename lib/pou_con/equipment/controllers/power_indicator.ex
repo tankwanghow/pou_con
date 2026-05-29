@@ -40,9 +40,6 @@ defmodule PouCon.Equipment.Controllers.PowerIndicator do
     ]
   end
 
-  # ——————————————————————————————————————————————————————————————
-  # Public API
-  # ——————————————————————————————————————————————————————————————
   def start_link(opts) do
     name = Keyword.fetch!(opts, :name)
     GenServer.start_link(__MODULE__, opts, name: Helpers.via(name))
@@ -65,9 +62,6 @@ defmodule PouCon.Equipment.Controllers.PowerIndicator do
 
   def status(name), do: GenServer.call(Helpers.via(name), :status)
 
-  # ——————————————————————————————————————————————————————————————
-  # Init (Self-Polling Architecture)
-  # ——————————————————————————————————————————————————————————————
   @impl GenServer
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
@@ -104,7 +98,6 @@ defmodule PouCon.Equipment.Controllers.PowerIndicator do
     {:noreply, new_state}
   end
 
-  # Ignore unknown messages
   @impl GenServer
   def handle_info(_msg, state), do: {:noreply, state}
 
@@ -112,9 +105,6 @@ defmodule PouCon.Equipment.Controllers.PowerIndicator do
     Process.send_after(self(), :poll, interval_ms)
   end
 
-  # ——————————————————————————————————————————————————————————————
-  # Self-Polling: Read indicator status from hardware
-  # ——————————————————————————————————————————————————————————————
   defp poll_and_update(%State{} = state) do
     indicator_res = @data_point_manager.read_direct(state.indicator)
 
@@ -136,15 +126,11 @@ defmodule PouCon.Equipment.Controllers.PowerIndicator do
     end
   end
 
-  # Defensive: never crash on nil state
   defp poll_and_update(nil) do
     Logger.error("PowerIndicator: poll_and_update called with nil state!")
     %State{name: "recovered", error: :crashed_previously}
   end
 
-  # ——————————————————————————————————————————————————————————————
-  # Status
-  # ——————————————————————————————————————————————————————————————
   @impl GenServer
   def handle_call(:status, _from, state) do
     reply = %{
@@ -159,7 +145,7 @@ defmodule PouCon.Equipment.Controllers.PowerIndicator do
     {:reply, reply, state}
   end
 
-  defp error_message(nil), do: nil
+  defp error_message(nil), do: "OK"
   defp error_message(:timeout), do: "OFFLINE"
   defp error_message(:invalid_data), do: "INVALID DATA"
   defp error_message(error), do: "ERROR: #{inspect(error)}"
