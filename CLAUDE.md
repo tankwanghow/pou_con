@@ -2,6 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Skill Authoring Convention
+
+When, during a session, you discover **reusable domain knowledge** that isn't yet captured
+in a `.claude/skills/*.md` file — a non-obvious pattern, gotcha, workflow, schema/API contract,
+or convention that future sessions would benefit from — proactively **draft a new skill** (or
+extend the closest existing one) and **ask the user to confirm** before finalizing. Do not
+auto-create silently and do not skip the confirmation.
+
+- Skills live in `.claude/skills/` (project, e.g. the `pou-con-*.md` set). Each is one markdown
+  file with frontmatter (`name`, `description`) — the `description` is the trigger text, so make
+  it specific about *when* the skill applies.
+- Prefer **extending an existing skill** over creating a near-duplicate.
+- Use the `superpowers:writing-skills` skill for structure/verification when authoring.
+- Triggers worth capturing: a bug that took real digging, a "you must do X before Y" rule, a
+  schema/protocol contract, or anything you wished a skill had told you at the start of the task.
+- Keep skills in sync with code — the `skill-drift-check` commit hook flags structural files
+  whose docs may have drifted.
+
 ## Project Overview
 
 **PouCon** is an industrial automation and control system for poultry farms built with Elixir and Phoenix LiveView. It provides real-time hardware monitoring and control for poultry farm equipment through Modbus RTU, Modbus TCP, RTU-over-TCP, and Siemens S7 protocol communication. The system runs on embedded hardware (Raspberry Pi) with SQLite database for persistence.
