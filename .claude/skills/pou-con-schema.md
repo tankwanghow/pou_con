@@ -29,8 +29,13 @@
 | Table | Purpose | Retention |
 |-------|---------|-----------|
 | `equipment_events` | State changes, commands, errors | 30 days |
-| `data_point_logs` | Periodic sensor/output value samples | 30 days |
-| `daily_summaries` | Aggregated daily statistics | 365 days |
+| `data_point_logs` | Periodic sensor/output value samples (hybrid: interval + on-change for discrete) | 30 days |
+| `equipment_state_logs` | Periodic equipment on/off + running state samples | 30 days |
+
+> **Logging was overhauled** (migrations `logging_refactor`, `global_logging_toggle`,
+> `drop_daily_summaries_table`). The old `daily_summaries` table and `DailySummaryTask`/
+> `PeriodicLogger` are **gone**. Logging is now globally toggled via `app_config` keys
+> `data_point_logging_enabled` and `data_point_log_interval_seconds` (default 300s).
 
 ### Auth & Operations
 | Table | Purpose | Retention |
@@ -58,19 +63,24 @@ end
 
 ### Valid Equipment Types
 
+Default poll interval is set by `Equipment.changeset` — `@sensor_meter_types`
+(temp/humidity/co2/nh3/water_meter/power_meter/average_sensor/**power_indicator**) default
+to **5000 ms**; every other type defaults to **500 ms**. (Override per-equipment via
+`poll_interval_ms`, validated to 100–60000 ms.)
+
 | Type | Controller | Default Poll (ms) | Required data_point_tree Keys |
 |------|-----------|-------------------|-------------------------------|
 | `"fan"` | Fan | 500 | `on_off_coil`, `running_feedback`, `auto_manual` |
 | `"pump"` | Pump | 500 | `on_off_coil`, `running_feedback`, `auto_manual` |
-| `"light"` | Light | 1000 | `on_off_coil`, `auto_manual` |
-| `"siren"` | Siren | 1000 | `on_off_coil`, `auto_manual` |
+| `"light"` | Light | 500 | `on_off_coil`, `auto_manual` |
+| `"siren"` | Siren | 500 | `on_off_coil`, `auto_manual` |
 | `"egg"` | Egg | 500 | `on_off_coil`, `running_feedback`, `auto_manual` |
 | `"feed_in"` | FeedIn | 500 | `on_off_coil`, `auto_manual` |
 | `"dung"` | Dung | 500 | `on_off_coil`, `running_feedback` |
 | `"dung_horz"` | DungHor | 500 | `on_off_coil`, `running_feedback` |
 | `"dung_exit"` | DungExit | 500 | `on_off_coil`, `running_feedback` |
 | `"feeding"` | Feeding | 500 | `on_off_coil`, `running_feedback`, `front_limit`, `back_limit`, `auto_manual` |
-| `"power_indicator"` | PowerIndicator | 500 | `on_off_coil` |
+| `"power_indicator"` | PowerIndicator | 5000 | `on_off_coil` |
 | `"temp_sensor"` | Sensor | 5000 | `value` |
 | `"humidity_sensor"` | Sensor | 5000 | `value` |
 | `"co2_sensor"` | Sensor | 5000 | `value` |
@@ -79,36 +89,50 @@ end
 | `"power_meter"` | Sensor | 5000 | `value` |
 | `"average_sensor"` | AverageSensor | 5000 | `sensors` (list) |
 
-Optional keys for controllable equipment: `trip` (motor protection DI)
+Optional keys for controllable equipment: `trip` (motor protection DI). The full valid-type
+list lives in `Equipment.changeset`'s `validate_inclusion`.
 
 ## DataPoint Schema
 
 ```elixir
 # lib/pou_con/equipment/schemas/data_point.ex
 schema "data_points" do
-  field :name, :string            # Unique: "WS-11-O-01"
-  field :type, :string            # "DO", "DI", "AI", "AO"
+  field :name, :string            # Unique: "relay_1"
+  field :type, :string            # "DO", "DI", "AI", "AO" (VDI/VDO virtual)
+  field :slave_id, :integer       # Modbus slave ID (or S7 byte address)
+  field :register, :integer       # Register/coil number
+  field :channel, :integer        # Bit/channel within register (digital), or nil
+  field :read_fn, :string         # Function in DigitalIO/AnalogIO, e.g. "read_digital_output"
+  field :write_fn, :string        # nil for read-only points
   field :description, :string     # Human-readable
-  belongs_to :port, Port          # FK: which hardware connection
-  field :device_address, :integer # Modbus slave ID or S7 byte address
-  field :data_address, :integer   # Register/coil number
-  field :io_function, :string     # "fc", "rc", "rhr", "phr"
   field :scale_factor, :float, default: 1.0   # Analog: multiply raw value
   field :offset, :float, default: 0.0         # Analog: add after scaling
-  field :inverted, :boolean, default: false    # Digital: NC wiring flip
-  field :log_interval, :integer   # Seconds between logged samples (nil=don't log)
+  field :unit, :string            # Display unit, e.g. "°C"
+  field :value_type, :string      # Decode: int16/uint16/int32/uint32/float32
+  field :byte_order, :string, default: "high_low"  # 32-bit word order
+  field :min_valid, :float        # Validation range (optional)
+  field :max_valid, :float
   field :color_zones, :string     # JSON: threshold-based UI coloring
+  field :inverted, :boolean, default: false    # Digital: NC wiring flip
+  # FK is by STRING device_path, not integer port_id
+  belongs_to :port, PouCon.Hardware.Ports.Port,
+    foreign_key: :port_path, references: :device_path, type: :string
   timestamps()
 end
 ```
 
-### io_function Values
-| Value | Modbux Tuple | S7 Function | Direction |
-|-------|-------------|-------------|-----------|
-| `"fc"` | `{:fc, ...}` | `ab_write` | Write digital |
-| `"rc"` | `{:rc, ...}` | `eb_read`/`ab_read` | Read digital |
-| `"rhr"` | `{:rhr, ...}` | `db_read` | Read analog |
-| `"phr"` | `{:phr, ...}` | `db_write` | Write analog |
+> No `io_function`, `device_address`, `data_address`, `port_id`, or `log_interval` fields.
+
+### read_fn / write_fn Values
+Self-describing function names dispatched to the unified device modules (work across all
+protocols — RTU, TCP, RTU-over-TCP, S7):
+
+| read_fn / write_fn | Module | Direction |
+|--------------------|--------|-----------|
+| `read_digital_input` | `DigitalIO` | Read digital (DI) |
+| `read_digital_output` / `write_digital_output` | `DigitalIO` | Read/write digital (DO) |
+| `read_analog_input` | `AnalogIO` | Read analog (AI) |
+| `read_analog_output` / `write_analog_output` | `AnalogIO` | Read/write analog (AO) |
 
 ## Port Schema
 
@@ -116,17 +140,18 @@ end
 # lib/pou_con/hardware/ports/port.ex
 schema "ports" do
   field :name, :string            # Unique: "modbus-usb0", "plc-rack1"
-  field :protocol, :string        # "modbus_rtu", "modbus_tcp", "s7", "virtual"
+  # @protocols = ~w(modbus_rtu modbus_tcp rtu_over_tcp s7 virtual)
+  field :protocol, :string, default: "modbus_rtu"
   field :active, :boolean, default: true
   # Serial (modbus_rtu)
-  field :device_path, :string     # "/dev/ttyUSB0"
+  field :device_path, :string     # "/dev/ttyUSB0" — also the FK target for data_points.port_path
   field :speed, :integer, default: 9600
   field :parity, :string, default: "none"
   field :data_bits, :integer, default: 8
   field :stop_bits, :integer, default: 1
-  # Network (modbus_tcp, s7)
+  # Network (modbus_tcp, rtu_over_tcp, s7)
   field :ip_address, :string      # "192.168.1.10"
-  field :tcp_port, :integer, default: 502
+  field :tcp_port, :integer, default: 502   # rtu_over_tcp/serial servers often use 2001, etc.
   # S7-specific
   field :s7_rack, :integer, default: 0
   field :s7_slot, :integer, default: 1
@@ -139,7 +164,8 @@ end
 Port.modbus_rtu?(%Port{protocol: "modbus_rtu"})  # true
 Port.modbus_tcp?(%Port{protocol: "modbus_tcp"})  # true
 Port.s7?(%Port{protocol: "s7"})                  # true
-Port.virtual?(%Port{protocol: "virtual"})        # true
+Port.virtual?(%Port{protocol: "virtual"})        # true (also true when device_path == "virtual")
+# NOTE: there is no rtu_over_tcp?/1 helper — match protocol == "rtu_over_tcp" directly
 ```
 
 ## Migration Conventions
@@ -181,7 +207,7 @@ When adding new tables or fields:
 ### Tables in export_seeds.ex
 ```
 ports, data_points, equipment, virtual_digital_states,
-interlock_rules, environment_control_configs,
+interlock_rules, environment_control_config (singular table name),
 light_schedules, egg_collection_schedules, feeding_schedules,
 alarm_rules, alarm_conditions, task_categories, task_templates
 ```

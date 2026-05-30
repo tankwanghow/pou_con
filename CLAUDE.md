@@ -335,7 +335,7 @@ end
 **Zero Impact (90% of codebase):**
 - Equipment controllers (fan.ex, pump.ex, light.ex, etc.)
 - Automation layer (environment control, schedulers, interlocks)
-- Logging system (EquipmentLogger, PeriodicLogger, DailySummaryTask)
+- Logging system (EquipmentLogger, DataPointLogger, EquipmentStateLogger)
 - UI layer (LiveView components, dashboard)
 - Business logic (state machines, error detection)
 
@@ -373,14 +373,21 @@ PouCon has a comprehensive logging system designed for embedded deployment with 
 
 **Components:**
 1. **EquipmentLogger** - API for logging equipment events (start, stop, error)
-2. **PeriodicLogger** - Takes sensor snapshots every 30 minutes
-3. **DailySummaryTask** - Generates daily summaries at midnight
-4. **CleanupTask** - Deletes old data daily at 3 AM, runs VACUUM on Sundays
+2. **DataPointLogger** - Samples data point values (hybrid: on interval, plus on-change for discrete points)
+3. **EquipmentStateLogger** - Samples equipment on/off + running state on interval
+4. **EnvironmentLog** - Environment Log view/query helpers for the reports UI
+5. **CleanupTask** - Deletes old data daily at 3 AM, runs VACUUM on Sundays
+
+> **Logging refactor (2026-05):** `PeriodicLogger`, `DailySummaryTask`, the `sensor_snapshots`
+> and `daily_summaries` tables were **removed**. Logging is now globally toggled via `app_config`
+> keys `data_point_logging_enabled` (master on/off) and `data_point_log_interval_seconds`
+> (sample cadence, default 300). See migrations `logging_refactor`, `global_logging_toggle`,
+> `drop_daily_summaries_table`.
 
 **Database Tables:**
 - `equipment_events` - All state changes, commands, errors (30-day retention)
-- `sensor_snapshots` - Periodic temperature/humidity readings (30-day retention)
-- `daily_summaries` - Aggregated daily statistics (365-day retention)
+- `data_point_logs` - Periodic data point value samples, hybrid interval + on-change (30-day retention)
+- `equipment_state_logs` - Periodic equipment on/off + running state samples (30-day retention)
 
 **Logging Integration Pattern:**
 
@@ -435,7 +442,7 @@ lib/pou_con/
 │   ├── modbus/            # Modbus adapters (real/simulated)
 │   └── ports/             # Serial/TCP port management
 ├── logging/           # Event logging and reporting system
-│   └── schemas/           # Event, Snapshot, Summary schemas
+│   └── schemas/           # EquipmentEvent, DataPointLog, EquipmentStateLog schemas
 └── schema/            # Shared Ecto schemas
 
 lib/pou_con_web/

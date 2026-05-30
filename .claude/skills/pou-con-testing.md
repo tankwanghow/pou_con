@@ -128,10 +128,12 @@ you need database records:
 
 ```elixir
 setup do
-  # Create a port for virtual data points
+  # Create a virtual port. NOTE: data_points reference the port by STRING
+  # device_path (port_path), not an integer port_id.
   {:ok, port} = PouCon.Hardware.Ports.create_port(%{
     name: "test-virtual",
     protocol: "virtual",
+    device_path: "virtual",
     active: true
   })
 
@@ -139,10 +141,11 @@ setup do
   {:ok, _dp} = PouCon.Equipment.DataPoints.create_data_point(%{
     name: "TEST-VDI-01",
     type: "DI",
-    port_id: port.id,
-    device_address: 1,
-    data_address: 1,
-    io_function: "rc"
+    port_path: port.device_path,
+    slave_id: 1,
+    register: 1,
+    channel: 1,
+    read_fn: "read_digital_input"
   })
 
   :ok

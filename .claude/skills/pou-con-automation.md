@@ -11,28 +11,44 @@ The automation layer sits between controllers and the UI, making decisions based
 **Purpose**: Auto-controls fans and pumps based on temperature and humidity.
 
 **Architecture**:
-- GenServer with configurable poll interval (default 10s)
-- Loads config from `environment_control_configs` table
-- Splits fans into **failsafe** (always manual, 24/7) and **auto** groups
-- Uses 5-step temperature escalation
+- GenServer that polls periodically (`poll_interval_ms` from config)
+- Loads config from the `environment_control_config` table (singular)
+- **Count-based fan model** (not named fan lists): fans split into a **failsafe** count
+  (`failsafe_fans_count`, user-controlled MANUAL fans running 24/7 for minimum ventilation)
+  and **auto** fans the controller drives via per-step `step_N_extra_fans` counts
+- Total fans at step N = `failsafe_fans_count + step_N_extra_fans`
 
-**Temperature Step Ladder**:
+**Temperature Step Ladder** (count-based):
 ```
-Step 1: temp > step_1_temp → turn on step_1_fans
-Step 2: temp > step_2_temp → turn on step_1 + step_2_fans
-Step 3: temp > step_3_temp → turn on step_1 + step_2 + step_3_fans
-Step 4: temp > step_4_temp → turn on all fans
-Step 5: temp > step_5_temp → turn on all fans + pumps (emergency cooling)
+Each step has a temperature threshold + step_N_extra_fans (extra AUTO fans above failsafe).
+temp crosses step_N_temp → target = failsafe_fans_count + step_N_extra_fans
+Each poll SCANS actual fan states from hardware (handles users flipping the 3-way switch)
+then turns AUTO fans on/off to reach the target count — no stale tracking.
+Pumps: humidity >= hum_max → all pumps stop; <= hum_min → all pumps run; else per step.
 ```
 
-**Key behaviors**:
+**Startup Phase (post-restart blind period)**:
+- On restart the controller collects sensor/equipment data but issues **no commands**,
+  so it doesn't act on stale observations while controllers are still adopting hardware state.
+- Exits on the first poll with valid `avg_temp`, OR after 10 consecutive invalid-temp polls
+  (safety fallback). On exit it applies its decision immediately (bypasses
+  `delay_between_step_seconds`, still respects `stagger_delay_seconds`).
+
+**Sensor Loss Safety (permanent)**:
+- One counter tracks consecutive polls with no valid temperature.
+- At 10 (during startup or normal operation) it forces step 4 / highest configured step to
+  protect against overheating when sensors are unreliable.
+
+**Other key behaviors**:
 - **Step delay**: Waits `delay_between_step_seconds` before transitioning to prevent hunting
-- **Stagger delay**: Prevents rapid on/off switching within a cycle
-- **Delta boost**: If front-to-back temperature difference exceeds threshold, jumps to highest step
-- **Humidity override**: Can activate pumps based on humidity threshold regardless of temperature
-- **Reality scanning**: Each poll reads actual hardware state (handles manual mode switches)
+- **Stagger delay**: `stagger_delay_seconds` between individual relay operations
+- **Delta boost**: front-to-back temperature difference over threshold jumps to highest step
+- **Reality scanning**: each poll reads actual hardware state (handles manual switches)
 
 **Critical rule**: Only controls equipment in `:auto` mode. Skips equipment in `:manual`.
+
+**FailsafeValidator**: a separate child that reports actual failsafe-fan status; the
+controller reconciles `configured_failsafe` vs `actual_failsafe` each cycle.
 
 **PubSub**: Publishes to `"environment_config"` on config changes.
 
@@ -148,16 +164,15 @@ end
 
 **Key file**: `lib/pou_con/automation/alarm/alarm_controller.ex`
 
-## FeedInController
+## FeedIn (now an equipment controller, not an automation service)
 
-**Purpose**: Monitors feed-in bucket sensor and triggers filling.
-
-**Architecture**:
-- Polls feed_in equipment status
-- When bucket is empty (sensor triggers), commands feed_in to fill
-- Stops when bucket is full
-
-**Key file**: `lib/pou_con/automation/feeding/feed_in_controller.ex`
+The old `FeedInController` automation module was **removed**. Feed-in is now the `FeedIn`
+equipment controller (`lib/pou_con/equipment/controllers/feed_in.ex`, type `"feed_in"`):
+- Watches the configured **trigger** bucket's front-limit edge to start a fill.
+- `turn_on(name, max_fill_minutes \\ 30)` — `max_fill_minutes` (1..120) is a safety upper
+  bound. Temporary logic infers "full" via timer/hardwired switch until a full-switch DI is
+  wired (`has_full_switch`, `fill_completed` are temporary fields).
+- The `FeedingScheduler` checks FeedIn status before allowing `move_to_back`.
 
 ## PubSub Topics Reference
 
@@ -184,5 +199,5 @@ end
 - `lib/pou_con/automation/lighting/light_scheduler.ex` — Light on/off scheduling
 - `lib/pou_con/automation/egg_collection/egg_collection_scheduler.ex` — Egg collection scheduling
 - `lib/pou_con/automation/feeding/feeding_scheduler.ex` — Feeding motor scheduling
-- `lib/pou_con/automation/feeding/feed_in_controller.ex` — Feed-in bucket monitoring
+- `lib/pou_con/equipment/controllers/feed_in.ex` — Feed-in controller (replaced FeedInController)
 - `lib/pou_con/automation/alarm/alarm_controller.ex` — Alarm/siren management

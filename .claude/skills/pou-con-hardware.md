@@ -4,14 +4,29 @@
 
 `DataPointManager` is the central I/O hub — a GenServer that:
 1. Manages an ETS cache (`:data_point_cache`) for fast reads
-2. Routes commands to the correct protocol adapter (Modbus RTU/TCP, S7, Virtual)
+2. Acts as a fast router: dispatches each non-virtual read/write to the per-port `PortWorker`
 3. Applies analog conversions (`scale_factor`/`offset`) and digital NC inversion
-4. Is protocol-agnostic — controllers never know what protocol is used
+4. Handles virtual (DB-backed) data points inline (bypassing PortWorker)
+5. Is protocol-agnostic — controllers never know what protocol is used
 
 ```
-Controller → DataPointManager → PortSupervisor → Protocol Adapter → Hardware
-                │                                        │
-                └── ETS Cache (read_direct)              └── Modbus RTU/TCP, S7, Virtual
+Controller → DataPointManager → PortWorker (one per non-virtual port) → Protocol Adapter → Hardware
+                │                     │
+                │                     └── owns skipped_slaves + failure_counts per port,
+                │                         serializes all I/O for that port
+                └── ETS Cache (read_direct), virtual data points handled inline
+```
+
+**PortWorker isolation** (see `port_worker.ex`): every non-virtual port has a dedicated
+`PortWorker` GenServer (supervised by `PortWorkerSupervisor`). DataPointManager stays a
+thin router and no longer holds `skipped_slaves`/`failure_counts` — those live per-port in
+the worker. `PortWorker.reset(port_path)` is called on `reload_port` and auto-reconnect.
+
+API:
+```elixir
+PortWorker.read(port_path, data_point, conn_pid, protocol)
+PortWorker.write(port_path, data_point, conn_pid, protocol_str, action, params)
+PortWorker.reset(port_path)
 ```
 
 ## DataPointManagerBehaviour Callbacks
@@ -41,32 +56,48 @@ actual_on = coil_state == 1  # Always logical: 1=ON, 0=OFF
 
 ## Data Point Types
 
-| Type | io_function | Protocol Command | Description |
-|------|-------------|-----------------|-------------|
-| DO (Digital Output) | `:fc` | Force Coil | Relay control (on/off) |
-| DI (Digital Input) | `:rc` | Read Coil | Sensor, feedback, switch |
-| AI (Analog Input) | `:rhr` | Read Holding Register | Temperature, humidity, etc. |
-| AO (Analog Output) | `:phr` | Preset Holding Register | Setpoint writing |
-| VDI (Virtual Digital Input) | N/A | In-memory | Software-controlled switch |
+The data point is **self-describing**: instead of a single `io_function`, it carries
+`read_fn` / `write_fn` strings that name functions in the unified device modules
+(`DigitalIO`, `AnalogIO`). These work across all protocols (RTU, TCP, RTU-over-TCP, S7).
+
+| Type | read_fn | write_fn | Description |
+|------|---------|----------|-------------|
+| DO (Digital Output) | `read_digital_output` | `write_digital_output` | Relay control (on/off) |
+| DI (Digital Input) | `read_digital_input` | (none) | Sensor, feedback, switch |
+| AI (Analog Input) | `read_analog_input` | (none) | Temperature, humidity, etc. |
+| AO (Analog Output) | `read_analog_output` | `write_analog_output` | Setpoint read/write |
+| VDI/VDO (Virtual) | DB-backed | DB-backed | Software-controlled switch |
 
 ## Data Point Schema Fields
 
+> Real fields — there is **no** `io_function`, `device_address`, `data_address`, `port_id`,
+> or `log_interval` field. The port FK is `port_path` (string) → `ports.device_path`.
+
 ```elixir
 %DataPoint{
-  name: "WS-11-O-01",          # Unique identifier
-  type: "DO",                    # DO, DI, AI, AO
+  name: "relay_1",              # Unique identifier
+  type: "DO",                    # DO, DI, AI, AO (VDI/VDO for virtual)
   description: "Fan 1 relay",   # Human-readable
-  port_id: 1,                   # FK to Port (hardware connection)
-  device_address: 11,           # Modbus slave ID or S7 byte address
-  data_address: 1,              # Register/coil number
-  io_function: "fc",            # Modbus function code atom
+  slave_id: 11,                 # Modbus slave ID (or S7 byte address)
+  register: 1,                  # Register/coil number
+  channel: 1,                   # Bit/channel within register (digital), or nil
+  read_fn: "read_digital_output",  # Function name in DigitalIO/AnalogIO
+  write_fn: "write_digital_output", # nil for read-only points
   scale_factor: 1.0,            # Analog: (raw * scale_factor) + offset
   offset: 0.0,                  # Analog: added after scaling
+  unit: "°C",                   # Display unit
+  value_type: "int16",          # Analog decode: int16/uint16/int32/uint32/float32
+  byte_order: "high_low",       # 32-bit word order ("high_low" | "low_high")
+  min_valid: -40.0,             # Validation range (optional)
+  max_valid: 80.0,
   inverted: false,              # Digital: NC wiring (true = flip 0↔1)
-  log_interval: nil,            # Seconds between logged samples (nil = don't log)
-  color_zones: nil              # JSON: threshold-based UI coloring
+  color_zones: nil,             # JSON: threshold-based UI coloring
+  port_path: "/dev/ttyUSB0"     # FK → ports.device_path (string, not integer id)
 }
 ```
+
+> Logging is **global**, not per data point (no `log_interval` field). Controlled by
+> `app_config` keys `data_point_logging_enabled` and `data_point_log_interval_seconds`.
 
 ## Protocol Routing
 
@@ -75,9 +106,10 @@ DataPointManager determines protocol from the Port record:
 | Port Type | Adapter | Transport |
 |-----------|---------|-----------|
 | `"modbus_rtu"` | `Modbus.RtuAdapter` | RS485 serial via `circuits_uart` |
-| `"modbus_tcp"` | `Modbus.TcpAdapter` | TCP/IP socket |
+| `"modbus_tcp"` | `Modbus.TcpAdapter` | Modbus TCP (MBAP header) over TCP/IP — gateways/native devices |
+| `"rtu_over_tcp"` | `Modbus.RtuOverTcpAdapter` | RTU frames (CRC16) over raw TCP socket — serial servers |
 | `"s7"` | `S7.Adapter` | TCP/IP to Siemens PLC |
-| `"virtual"` | In-memory GenServer | No hardware |
+| `"virtual"` | DB-backed (`Devices.Virtual`) | No hardware (handled inline in DataPointManager) |
 
 ## Analog Conversion Formula
 
@@ -217,10 +249,13 @@ SIMULATE_DEVICES=1 iex -S mix phx.server
 # config/config.exs
 if System.get_env("SIMULATE_DEVICES") == "1" do
   config :pou_con, :modbus_adapter, PouCon.Hardware.Modbus.SimulatedAdapter
+  config :pou_con, :modbus_tcp_adapter, PouCon.Hardware.Modbus.SimulatedAdapter
+  config :pou_con, :rtu_over_tcp_adapter, PouCon.Hardware.Modbus.SimulatedAdapter
   config :pou_con, :s7_adapter, PouCon.Hardware.S7.SimulatedAdapter
 else
   config :pou_con, :modbus_adapter, PouCon.Hardware.Modbus.RtuAdapter
   config :pou_con, :s7_adapter, PouCon.Hardware.S7.Adapter
+  # modbus_tcp_adapter / rtu_over_tcp_adapter default to their real adapters
 end
 ```
 
@@ -281,13 +316,17 @@ This lets tests use `Mox.stub/3` and `Mox.expect/3` for precise control.
 
 ## Key Files
 
-- `lib/pou_con/hardware/data_point_manager.ex` — Central I/O hub GenServer
+- `lib/pou_con/hardware/data_point_manager.ex` — Central I/O router + ETS cache + inline virtual handling
 - `lib/pou_con/hardware/data_point_manager_behaviour.ex` — Behaviour for mocking
-- `lib/pou_con/hardware/port_supervisor.ex` — Manages protocol connections
+- `lib/pou_con/hardware/port_worker.ex` — Per-port GenServer; serializes I/O, owns skipped_slaves/failure_counts
+- `lib/pou_con/hardware/port_supervisor.ex` — DynamicSupervisor for hardware connection processes
 - `lib/pou_con/equipment/schemas/data_point.ex` — DataPoint schema
 - `lib/pou_con/hardware/data_point_tree_parser.ex` — JSON→keyword parser
+- `lib/pou_con/hardware/devices/digital_io.ex` — read_digital_input/output, write_digital_output (all protocols)
+- `lib/pou_con/hardware/devices/analog_io.ex` — read_analog_input/output, write_analog_output (all protocols)
 - `lib/pou_con/hardware/modbus/rtu_adapter.ex` — Modbus RTU adapter
-- `lib/pou_con/hardware/modbus/tcp_adapter.ex` — Modbus TCP adapter
+- `lib/pou_con/hardware/modbus/tcp_adapter.ex` — Modbus TCP adapter (MBAP)
+- `lib/pou_con/hardware/modbus/rtu_over_tcp_adapter.ex` — RTU-over-TCP adapter (raw serial servers)
 - `lib/pou_con/hardware/s7/adapter.ex` — Siemens S7 adapter
 - `lib/pou_con/hardware/modbus/simulated_adapter.ex` — Modbus simulation (dev)
 - `lib/pou_con/hardware/s7/simulated_adapter.ex` — S7 simulation (dev)

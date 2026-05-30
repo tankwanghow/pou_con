@@ -165,6 +165,18 @@ poll_and_update(state)
 
 ## Safety Patterns
 
+### Startup: Adopt Hardware State (not force OFF)
+On controller init/first poll, the controller **adopts the hardware's current state** rather
+than forcing equipment OFF. If the relay reads ON at startup, it sets `commanded_on: true` so
+it doesn't fight equipment that was already running (e.g. after a quick restart):
+```elixir
+if new_state.actual_on and not new_state.commanded_on do
+  %{new_state | commanded_on: true}   # adopt hardware ON state
+end
+```
+This pairs with EnvironmentController's startup blind period (it issues no commands until
+controllers have adopted state). Auto-off still applies on the manual→auto *transition* below.
+
 ### Auto-Off on Mode Switch
 When switching from MANUAL to AUTO, equipment is turned OFF automatically:
 ```elixir
