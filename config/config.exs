@@ -7,6 +7,15 @@
 # General application configuration
 import Config
 
+workspace_assets_config = Path.expand("../../shared_config/assets.exs", __DIR__)
+
+if File.exists?(workspace_assets_config) do
+  import_config workspace_assets_config
+else
+  config :esbuild, version: "0.28.1"
+  config :tailwind, version: "4.3.1"
+end
+
 # Configure timezone database
 config :elixir, :time_zone_database, Tzdata.TimeZoneDatabase
 
@@ -37,9 +46,8 @@ config :pou_con, PouConWeb.Endpoint,
   pubsub_server: PouCon.PubSub,
   live_view: [signing_salt: "v5G37gFm"]
 
-# Configure esbuild (the version is required)
+# Configure esbuild
 config :esbuild,
-  version: "0.25.4",
   pou_con: [
     args:
       ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --alias:@=.),
@@ -47,11 +55,9 @@ config :esbuild,
     env: %{"NODE_PATH" => [Path.expand("../deps", __DIR__), Mix.Project.build_path()]}
   ]
 
-# Configure tailwind (the version is required)
-# In prod, use local ARM64 binary to avoid download issues during Docker builds
-# In dev/test, let it download the appropriate binary for your platform
+# Configure tailwind
+# In prod, ARM64 binaries are configured in config/prod.exs
 config :tailwind,
-  version: "4.1.7",
   pou_con: [
     args: ~w(
       --config=assets/tailwind.config.js
