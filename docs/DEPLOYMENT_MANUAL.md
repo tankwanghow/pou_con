@@ -372,15 +372,57 @@ The `Dockerfile.arm` uses Docker buildx with QEMU emulation:
 
 ```dockerfile
 FROM hexpm/elixir:<version>-debian-bookworm-slim AS builder
+WORKDIR /app/pou_con
 
-# Build dependencies, compile, create release
-# All happens in ARM64 emulation
+# Monorepo root is the build context (see below)
+COPY shared_config /app/shared_config
+COPY .global_assets /app/.global_assets
+COPY pou_con/...
+
+RUN mix assets.deploy && mix release
+# All of the above runs inside emulated ARM64
 
 FROM scratch AS export
-COPY --from=builder /app/pou_con_release_arm.tar.gz /
+COPY --from=builder /pou_con_release_arm.tar.gz /
 ```
 
 The exact Elixir/Erlang version in the Dockerfile should match the project's current requirements (Elixir 1.19+, OTP 28+).
+
+### Monorepo workspace assets (different from Linode siblings)
+
+PouCon lives in the shared `~/Projects/elixir/` monorepo beside `shared_config/` and
+`.global_assets/`, like Peggy, full_circle, argus, and least_cost_feed. The ARM build
+scripts (`build_arm.sh`, `build_and_package_quick.sh`, `deploy_to_cm4.sh`) source
+`shared_config/docker_deploy.sh`, which:
+
+1. Ensures `.global_assets/setup.sh` has been run (esbuild, tailwindcss, heroicons)
+2. Stages `pou_con/.dockerignore` at the monorepo root for the build
+3. Invokes buildx with the **monorepo root** as context and `-f pou_con/Dockerfile.arm`
+
+That part is shared with the Linode apps. What differs is **which binaries** the release
+build uses and **what the Docker output is**:
+
+| | Linode apps (peggy, full_circle, …) | PouCon |
+|---|---|---|
+| Dockerfile | `Dockerfile` | `Dockerfile.arm` / `Dockerfile.arm.quick` |
+| Build command | `docker build` | `docker buildx build --platform linux/arm64` |
+| Asset binaries | linux-**x64** via `shared_config/assets.exs` | linux-**arm64** via `shared_config/prod_arm64.exs` (loaded from `config/prod.exs`) |
+| Output | Runnable amd64 container image | `output/pou_con_release_arm.tar.gz` (+ optional runtime debs) |
+| Deploy target | Linode server | Raspberry Pi / CM4 |
+
+PouCon is the only sibling that imports `prod_arm64.exs` in production config. That is
+intentional: buildx runs the builder stage as ARM64, so `mix assets.deploy` must use
+`.global_assets/bin/esbuild-linux-arm64` and `.global_assets/bin/tailwindcss-linux-arm64`,
+not the x64 binaries used by server-side Docker images.
+
+One-time setup (from any machine in the monorepo):
+
+```bash
+~/Projects/elixir/.global_assets/setup.sh
+```
+
+This fetches both x64 and arm64 toolchains plus heroicons. Subsequent `./scripts/build_arm.sh`
+runs reuse the cached copies and do not download them during the image build.
 
 ## 4.4 Pi Build Server (Alternative)
 
