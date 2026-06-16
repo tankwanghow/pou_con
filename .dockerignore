@@ -1,0 +1,26 @@
+# Docker build context is the elixir monorepo root (see scripts/build_arm.sh).
+
+argus/
+full_circle/
+least_cost_feed/
+orgmind/
+peggy/
+usbboot/
+
+pou_con/_build/
+pou_con/deps/
+pou_con/cover/
+pou_con/doc/
+pou_con/test/
+pou_con/tmp/
+pou_con/.elixir_ls/
+pou_con/.git/
+pou_con/assets/node_modules/
+pou_con/priv/static/assets/
+pou_con/priv/static/cache_manifest.json
+pou_con/output/
+pou_con/scripts/
+
+.global_assets/heroicons/.git/
+
+.git/

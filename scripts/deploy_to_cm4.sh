@@ -16,7 +16,11 @@ NC='\033[0m' # No Color
 # Configuration
 CM4_IP=$1
 BUILD_ONLY=$2
-PROJECT_DIR=$(pwd)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../shared_config/docker_deploy.sh
+source "$(cd "$SCRIPT_DIR/../.." && pwd)/shared_config/docker_deploy.sh"
+docker_deploy_init "$SCRIPT_DIR"
+PROJECT_DIR="$PROJECT_ROOT"
 RELEASE_TAR="pou_con_release_arm.tar.gz"
 REMOTE_USER="pi"
 REMOTE_DIR="/opt/pou_con"
@@ -63,17 +67,18 @@ build_release() {
     print_step "Building ARM64 release using Docker buildx..."
     print_step "This uses Dockerfile.arm with cross-compilation (10-20 minutes)..."
 
-    # Clean previous builds
-    rm -rf output
-    mkdir -p output
+    ensure_global_assets
+    stage_dockerignore
 
-    # Build for ARM64 using Dockerfile.arm and buildx
+    rm -rf "$PROJECT_ROOT/output"
+    mkdir -p "$PROJECT_ROOT/output"
+
     docker buildx build \
         --platform linux/arm64 \
-        --output type=local,dest=./output \
-        -f Dockerfile.arm \
+        --output type=local,dest="$PROJECT_ROOT/output" \
+        -f "$PROJECT_ROOT/Dockerfile.arm" \
         --progress=plain \
-        .
+        "$MONOREPO_ROOT"
 
     # Check if build succeeded
     if [ ! -f "output/$RELEASE_TAR" ]; then

@@ -9,6 +9,11 @@
 
 set -e
 
+script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../shared_config/docker_deploy.sh
+source "$(cd "$script_path/../.." && pwd)/shared_config/docker_deploy.sh"
+docker_deploy_init "$script_path"
+
 echo "=== PouCon ARM Build Script ==="
 echo ""
 echo "Target: Raspberry Pi OS Bookworm (64-bit)"
@@ -30,26 +35,26 @@ if ! docker buildx version &> /dev/null; then
     exit 1
 fi
 
-# Check if running in project root
-if [ ! -f "mix.exs" ]; then
-    echo "ERROR: Must run from project root (where mix.exs is located)"
+if [ ! -f "$PROJECT_ROOT/mix.exs" ]; then
+    echo "ERROR: mix.exs not found at $PROJECT_ROOT"
     exit 1
 fi
 
-# Check if Dockerfile exists
-if [ ! -f "Dockerfile.arm" ]; then
-    echo "ERROR: Dockerfile.arm not found"
+if [ ! -f "$PROJECT_ROOT/Dockerfile.arm" ]; then
+    echo "ERROR: Dockerfile.arm not found at $PROJECT_ROOT"
     exit 1
 fi
+
+ensure_global_assets
+stage_dockerignore
 
 echo "Building PouCon for ARM64 (Raspberry Pi 3B+/4/CM4)..."
 echo "Using: Dockerfile.arm"
 echo "This will take 10-20 minutes..."
 echo ""
 
-# Clean previous output
-rm -rf output
-mkdir -p output
+rm -rf "$PROJECT_ROOT/output"
+mkdir -p "$PROJECT_ROOT/output"
 
 # Recreate buildx builder fresh to prevent export-phase hangs
 # The docker-container driver accumulates state that causes hangs
@@ -64,11 +69,11 @@ docker buildx inspect --bootstrap
 echo "Starting ARM64 build (timeout: 30 minutes)..."
 timeout 1800 docker buildx build \
   --platform linux/arm64 \
-  --output type=local,dest=./output \
+  --output type=local,dest="$PROJECT_ROOT/output" \
   --provenance=false \
-  -f Dockerfile.arm \
+  -f "$PROJECT_ROOT/Dockerfile.arm" \
   --progress=plain \
-  .
+  "$MONOREPO_ROOT"
 
 BUILD_STATUS=$?
 if [ $BUILD_STATUS -eq 124 ]; then
@@ -87,7 +92,7 @@ elif [ $BUILD_STATUS -ne 0 ]; then
 fi
 
 # Check if build succeeded
-if [ ! -f "output/pou_con_release_arm.tar.gz" ]; then
+if [ ! -f "$PROJECT_ROOT/output/pou_con_release_arm.tar.gz" ]; then
     echo "ERROR: Build failed - release tarball not found"
     exit 1
 fi
@@ -96,14 +101,14 @@ echo ""
 echo "=== Build Complete! ==="
 echo ""
 echo "Target: Raspberry Pi OS Bookworm (64-bit)"
-echo "Release: output/pou_con_release_arm.tar.gz"
-echo "Size: $(du -h output/pou_con_release_arm.tar.gz | cut -f1)"
+echo "Release: $PROJECT_ROOT/output/pou_con_release_arm.tar.gz"
+echo "Size: $(du -h "$PROJECT_ROOT/output/pou_con_release_arm.tar.gz" | cut -f1)"
 
 # Check for runtime debs
-if [ -f "output/runtime_debs_arm.tar.gz" ]; then
+if [ -f "$PROJECT_ROOT/output/runtime_debs_arm.tar.gz" ]; then
     echo ""
-    echo "Runtime dependencies: output/runtime_debs_arm.tar.gz"
-    echo "Size: $(du -h output/runtime_debs_arm.tar.gz | cut -f1)"
+    echo "Runtime dependencies: $PROJECT_ROOT/output/runtime_debs_arm.tar.gz"
+    echo "Size: $(du -h "$PROJECT_ROOT/output/runtime_debs_arm.tar.gz" | cut -f1)"
     echo "  ✓ Offline deployment enabled"
 else
     echo ""

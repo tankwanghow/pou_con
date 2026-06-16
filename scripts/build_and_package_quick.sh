@@ -15,7 +15,9 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=../../shared_config/docker_deploy.sh
+source "$(cd "$SCRIPT_DIR/../.." && pwd)/shared_config/docker_deploy.sh"
+docker_deploy_init "$SCRIPT_DIR"
 
 cd "$PROJECT_ROOT"
 
@@ -50,10 +52,13 @@ if [ ! -f "mix.exs" ]; then
     exit 1
 fi
 
-if [ ! -f "Dockerfile.arm.quick" ]; then
+if [ ! -f "$PROJECT_ROOT/Dockerfile.arm.quick" ]; then
     echo "ERROR: Dockerfile.arm.quick not found"
     exit 1
 fi
+
+ensure_global_assets
+stage_dockerignore
 
 # Step 1: Build ARM release (quick mode)
 echo ""
@@ -76,11 +81,11 @@ fi
 echo "Starting ARM64 quick build (timeout: 30 minutes)..."
 timeout 1800 docker buildx build \
   --platform linux/arm64 \
-  --output type=local,dest=./output \
+  --output type=local,dest="$PROJECT_ROOT/output" \
   --provenance=false \
-  -f Dockerfile.arm.quick \
+  -f "$PROJECT_ROOT/Dockerfile.arm.quick" \
   --progress=plain \
-  .
+  "$MONOREPO_ROOT"
 
 BUILD_STATUS=$?
 if [ $BUILD_STATUS -eq 124 ]; then
