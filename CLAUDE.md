@@ -704,6 +704,9 @@ LiveView pages use function components from `lib/pou_con_web/components/` for re
 
 ## Deployment Notes
 
+- **ARM Docker build & monorepo assets:** see `docs/DEPLOYMENT_MANUAL.md` §4.3 and
+  `~/Projects/elixir/shared_config/WORKSPACE_ASSETS.md` (PouCon uses arm64 binaries and
+  buildx, not the Linode amd64 flow)
 - Designed for Raspberry Pi or similar embedded Linux systems
 - Expects serial ports at `/dev/ttyUSB*` for Modbus RTU
 - Supports Modbus TCP for gateways and native TCP devices (default port 502)
