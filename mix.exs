@@ -40,7 +40,7 @@ defmodule PouCon.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.8.5"},
+      {:phoenix, "~> 1.8"},
       {:phoenix_ecto, "~> 4.5"},
       {:ecto_sql, "~> 3.13"},
       {:ecto_sqlite3, ">= 0.0.0"},
@@ -49,8 +49,8 @@ defmodule PouCon.MixProject do
       {:phoenix_live_view, "~> 1.2"},
       {:lazy_html, ">= 0.1.0", only: :test},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
-      {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
-      {:tidewave, "~> 0.5", only: :dev},
+      {:tailwind, "~> 0.5", runtime: Mix.env() == :dev},
+      {:tidewave, "~> 0.6", only: :dev},
       heroicons_dep(),
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
