@@ -65,16 +65,20 @@ defmodule PouCon.Hardware.PortSupervisor do
   def start_modbus_master(port) do
     Logger.info("[PortSupervisor] Starting Modbus RTU connection to #{port.device_path}")
 
+    # Slave timeout is a top-level Modbux option (it ignores :timeout inside uart_opts
+    # and falls back to 1000ms). Keep it under DataPointManager's 3000ms Task.await.
+    # Custom uart_opts replace Modbux's defaults, so rx_framing_timeout must be set
+    # here or partial frames are never flushed and corrupt the next response.
     spec =
       {PouCon.Utils.Modbus,
        tty: port.device_path,
+       timeout: 2000,
        uart_opts: [
          speed: port.speed,
          parity: String.to_atom(port.parity || "even"),
          data_bits: port.data_bits || 8,
          stop_bits: port.stop_bits || 1,
-         timeout: 6000,
-         debug: false
+         rx_framing_timeout: 1000
        ]}
 
     case DynamicSupervisor.start_child(__MODULE__, spec) do

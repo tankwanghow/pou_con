@@ -147,8 +147,8 @@ defmodule PouCon.Hardware.DataPointManager do
   @impl true
   def get_cached_data(device_name) do
     case :ets.lookup(:data_point_cache, device_name) do
-      [{^device_name, data}] -> {:ok, data}
       [{^device_name, {:error, _} = err}] -> err
+      [{^device_name, data}] -> {:ok, data}
       [] -> {:error, :no_data}
     end
   end
@@ -305,7 +305,7 @@ defmodule PouCon.Hardware.DataPointManager do
           true ->
             # For Modbus protocols (RTU/TCP)
             if conn_pid do
-              address = dev.register + (dev.channel || 1) - 1
+              address = DigitalIO.modbus_address(dev.register, dev.channel)
 
               if dev.read_fn == :read_digital_output do
                 PouCon.Hardware.Modbus.SimulatedAdapter.set_coil(
@@ -975,7 +975,7 @@ defmodule PouCon.Hardware.DataPointManager do
   end
 
   defp set_inverted_raw_value(dev, pid, _modbus, name) do
-    address = dev.register + (dev.channel || 1) - 1
+    address = DigitalIO.modbus_address(dev.register, dev.channel)
 
     if dev.read_fn == :read_digital_output do
       PouCon.Hardware.Modbus.SimulatedAdapter.set_coil(pid, dev.slave_id, address, 1)

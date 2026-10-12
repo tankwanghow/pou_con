@@ -98,6 +98,11 @@ defmodule PouCon.Hardware.Modbus.TcpAdapter do
         safe_close(state.socket)
         {:stop, :normal, {:error, :disconnected}, %{state | socket: nil}}
 
+      # A Modbus exception is a complete, in-sync response (e.g. illegal address on
+      # one slave). Keep the socket so other slaves on this gateway are unaffected.
+      {:error, {:modbus_exception, _}} = error ->
+        {:reply, error, state}
+
       # Any other error (transaction mismatch, malformed response) — stop process so
       # DataPointManager detects :DOWN, resets PortWorker skipped_slaves,
       # and starts a fresh connection with a clean socket buffer

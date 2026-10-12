@@ -40,6 +40,16 @@ defmodule PouCon.Hardware.Devices.DigitalIO do
     Application.get_env(:pou_con, :s7_adapter, PouCon.Hardware.S7.Adapter)
   end
 
+  @doc """
+  Modbus coil/discrete-input address for a data point: `register` is the base
+  (in groups of 8), `channel` is 1-indexed. With no channel, `register` is used as-is.
+
+  Shared with the simulation paths in DataPointManager so simulated writes land on
+  the same address the live read polls.
+  """
+  def modbus_address(register, nil), do: register
+  def modbus_address(register, channel), do: register * 8 + (channel - 1)
+
   # ------------------------------------------------------------------ #
   # Read Functions - Single Channel
   # ------------------------------------------------------------------ #
@@ -63,8 +73,7 @@ defmodule PouCon.Hardware.Devices.DigitalIO do
 
   def read_digital_input(conn, protocol, slave_id, register, channel)
       when protocol in [:modbus_rtu, :modbus_tcp, :rtu_over_tcp] do
-    # Calculate actual address: register is base, channel is 1-indexed
-    address = if channel, do: register * 8 + (channel - 1), else: register
+    address = modbus_address(register, channel)
 
     case PouCon.Utils.Modbus.request(conn, {:ri, slave_id, address, 1}, protocol) do
       {:ok, [value]} ->
@@ -100,8 +109,7 @@ defmodule PouCon.Hardware.Devices.DigitalIO do
 
   def read_digital_output(conn, protocol, slave_id, register, channel)
       when protocol in [:modbus_rtu, :modbus_tcp, :rtu_over_tcp] do
-    # Calculate actual address: register is base, channel is 1-indexed
-    address = if channel, do: register * 8 + (channel - 1), else: register
+    address = modbus_address(register, channel)
 
     case PouCon.Utils.Modbus.request(conn, {:rc, slave_id, address, 1}, protocol) do
       {:ok, [value]} ->
@@ -156,8 +164,7 @@ defmodule PouCon.Hardware.Devices.DigitalIO do
         channel
       )
       when protocol in [:modbus_rtu, :modbus_tcp, :rtu_over_tcp] and value in [0, 1] do
-    # Calculate actual coil address
-    address = if channel, do: register * 8 + (channel - 1), else: register
+    address = modbus_address(register, channel)
 
     case PouCon.Utils.Modbus.request(conn, {:fc, slave_id, address, value}, protocol) do
       :ok ->

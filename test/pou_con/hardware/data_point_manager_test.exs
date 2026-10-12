@@ -267,19 +267,15 @@ defmodule PouCon.Hardware.DataPointManagerTest do
       assert {:error, :no_data} = result
     end
 
-    test "returns wrapped error tuple when error is cached" do
+    test "returns the cached error unchanged" do
       # Ensure table exists before test
       if :ets.whereis(:data_point_cache) == :undefined do
         :ets.new(:data_point_cache, [:named_table, :public, :set])
       end
 
-      # Insert error tuple
-      # Note: The implementation's pattern matching means error tuples get wrapped in {:ok, ...}
-      # because the first pattern [{^device_name, data}] matches before the error pattern
       :ets.insert(:data_point_cache, {"error_device_456", {:error, :timeout}})
 
-      result = DataPointManager.get_cached_data("error_device_456")
-      assert {:ok, {:error, :timeout}} = result
+      assert {:error, :timeout} = DataPointManager.get_cached_data("error_device_456")
     end
   end
 
