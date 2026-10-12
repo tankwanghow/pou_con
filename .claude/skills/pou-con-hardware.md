@@ -1,3 +1,8 @@
+---
+name: pou-con-hardware
+description: Use when working on PouCon's hardware layer — DataPointManager, PortWorker, PortSupervisor, Modbus RTU/TCP/RTU-over-TCP or S7 adapters, DigitalIO/AnalogIO, the ETS data point cache, simulation mode — or when debugging false timeouts, slaves being skipped, gateways disconnecting, or simulated inputs not showing up.
+---
+
 # PouCon Hardware Integration Skill
 
 ## DataPointManager Architecture
@@ -28,6 +33,50 @@ PortWorker.read(port_path, data_point, conn_pid, protocol)
 PortWorker.write(port_path, data_point, conn_pid, protocol_str, action, params)
 PortWorker.reset(port_path)
 ```
+
+## Timeout Budget (must nest)
+
+Each layer's timeout must be shorter than the one wrapping it, or the outer layer gives up
+first and the inner request is still in flight on the bus:
+
+| Layer | Timeout | Where |
+|---|---|---|
+| Adapter slave/socket timeout | 2000 ms | `PortSupervisor` (`timeout:`), TCP adapters `@default_timeout` |
+| `call_io_read`/`call_io_write` `Task.await` | 3000 ms | `DataPointManager` `@modbus_timeout` |
+| `PortWorker` call | 3500 ms | `port_worker.ex` |
+| `read_direct` `GenServer.call` | 4000 ms | `@modbus_timeout + 1000` |
+| `Modbux.Rtu.Master.request` | 5000 ms | Modbux default `GenServer.call` |
+
+**Modbux RTU gotcha:** the slave timeout is a **top-level** `Modbux.Rtu.Master` option.
+`:timeout` inside `uart_opts` is silently ignored (circuits_uart doesn't know it) and Modbux
+falls back to 1000 ms. Passing your own `uart_opts` also **replaces** Modbux's default
+`[speed: 115200, rx_framing_timeout: 1000]`, so set `rx_framing_timeout` yourself — without
+it a truncated frame stays buffered and corrupts the next response.
+
+```elixir
+{PouCon.Utils.Modbus,
+ tty: port.device_path,
+ timeout: 2000,                        # top level, NOT in uart_opts
+ uart_opts: [speed: ..., parity: ..., rx_framing_timeout: 1000]}
+```
+
+## Error Handling Contract
+
+How errors flow matters, because `PortWorker` counts `:timeout` and `:disconnected` toward
+the 3-strike slave skip (`@max_consecutive_timeouts`); a skipped slave stays skipped until
+`PortWorker.reset/1` (port reload or reconnect).
+
+| Error | Adapter action | Counts toward skip? |
+|---|---|---|
+| `:closed`/`:enotconn`/`:einval`/`:timeout`/`:etimedout` | Close socket, stop → `{:error, :disconnected}` | Yes |
+| `{:modbus_exception, code}` | **Keep socket** — complete, in-sync response | No |
+| CRC mismatch, tx-id mismatch, malformed/unknown FC | Close socket, stop (buffer may be desynced) | No |
+
+Never drop a TCP gateway connection on a Modbus exception: one bad address on one slave
+would surface as `:disconnected` on every other slave behind that gateway.
+
+`get_cached_data/1` returns cached errors as `{:error, reason}`, never `{:ok, {:error, _}}` —
+the `{:error, _}` clause must come before the catch-all `data` clause.
 
 ## DataPointManagerBehaviour Callbacks
 
@@ -156,15 +205,11 @@ Modbux.Rtu.Master.request(pid, {:fc, 11, 1, 1})  # → :ok
 Modbux.Rtu.Master.request(pid, {:phr, 11, 1, 100})  # → :ok
 ```
 
-### TCP Client (2-step)
-```elixir
-# Step 1: Send request
-:ok = Modbux.Tcp.Client.request(pid, {:rc, 11, 1, 1})
-# Step 2: Get confirmation
-{:ok, [1]} = Modbux.Tcp.Client.confirmation(pid)
-```
-
-The `TcpAdapter` wraps this into a single `request/2` call with auto-reconnect.
+### Modbus TCP / RTU-over-TCP
+`TcpAdapter` and `RtuOverTcpAdapter` do **not** use `Modbux.Tcp.Client`. Each is its own
+GenServer that frames requests directly on a `gen_tcp` socket (MBAP or RTU+CRC), connects
+asynchronously (init never blocks), and exposes the same single-call
+`request(pid, cmd)` with the command tuples above.
 
 ### IEEE754 Float Helpers
 ```elixir
@@ -265,15 +310,20 @@ end
 - Realistic sensor simulation: CO2 (SenseCAP), NH3, temperature/humidity (Cytron)
 - Water meter with cumulative flow + jitter
 - Power meter (DELAB PQM-1000s) with 3-phase calculations
-- Device offline simulation via `set_offline/2`
+- Device offline simulation via `set_offline/3`
 
 API:
 ```elixir
-SimulatedAdapter.set_input(pid, {slave_id, channel}, value)   # Simulate DI
-SimulatedAdapter.set_coil(pid, {slave_id, channel}, value)     # Simulate DO
-SimulatedAdapter.set_register(pid, {slave_id, channel}, value) # Simulate AI
-SimulatedAdapter.set_offline(pid, slave_id)                     # Simulate timeout
+SimulatedAdapter.set_input(pid, slave_id, address, value)    # Simulate DI
+SimulatedAdapter.set_coil(pid, slave_id, address, value)     # Simulate DO
+SimulatedAdapter.set_register(pid, slave_id, address, value) # Simulate AI
+SimulatedAdapter.set_offline(pid, slave_id, true)            # Simulate timeout
 ```
+
+`address` must be the same Modbus address the live read polls. For digital points always
+compute it with `DigitalIO.modbus_address(register, channel)` (`register * 8 + channel - 1`,
+or `register` when `channel` is nil) — never `register + channel - 1`, which only agrees
+when `register` is 0.
 
 ### Simulated S7 Adapter
 `S7.SimulatedAdapter` is a GenServer with binary storage for:
