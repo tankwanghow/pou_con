@@ -1,3 +1,8 @@
+---
+name: pou-con-libraries
+description: Use when calling Modbux (Modbus RTU), Snapex7 (Siemens S7), Circuits.UART, or Ecto.SQLite3 directly in PouCon — request tuple formats, IEEE754 float helpers, endianness, S7 bit extraction, SQLite limitations and transaction timeouts.
+---
+
 # PouCon Library Quick Reference
 
 ## Modbux (Modbus RTU + TCP)
@@ -6,11 +11,12 @@
 
 ```elixir
 # Start
+# Slave timeout is TOP-LEVEL; serial settings go in uart_opts (which replaces
+# Modbux's defaults, so include rx_framing_timeout). See pou-con-hardware.
 {:ok, pid} = Modbux.Rtu.Master.start_link(
-  device: "/dev/ttyUSB0",
-  speed: 9600,
-  parity: :none,
-  timeout: 2000
+  tty: "/dev/ttyUSB0",
+  timeout: 2000,
+  uart_opts: [speed: 9600, parity: :none, rx_framing_timeout: 1000]
 )
 
 # Read coil (digital input/output state)
@@ -41,28 +47,12 @@ Modbux.Rtu.Master.stop(pid)
 | `{:fc, slave, addr, value}` | FC05 Force Single Coil | Write digital output |
 | `{:phr, slave, addr, value}` | FC06 Preset Single Register | Write analog output |
 
-### TCP Client — 2-Step API
+### Modbus TCP — not via Modbux
 
-```elixir
-# Start + connect
-{:ok, pid} = Modbux.Tcp.Client.start_link(
-  ip: {192, 168, 1, 10},
-  tcp_port: 502,
-  timeout: 2000,
-  active: false
-)
-:ok = Modbux.Tcp.Client.connect(pid)
-
-# Request (2 steps)
-:ok = Modbux.Tcp.Client.request(pid, {:rc, slave_id, address, count})
-{:ok, [value]} = Modbux.Tcp.Client.confirmation(pid)
-
-# Close
-Modbux.Tcp.Client.close(pid)
-Modbux.Tcp.Client.stop(pid)
-```
-
-**Note**: PouCon's `TcpAdapter` wraps the 2-step pattern into a single `request/2` with auto-reconnect on `:closed`.
+PouCon does **not** use `Modbux.Tcp.Client`. `TcpAdapter` (MBAP) and `RtuOverTcpAdapter`
+(RTU + CRC) frame requests directly on a `gen_tcp` socket and expose a single-call
+`request(pid, cmd)` taking the same request tuples as above. See pou-con-hardware for their
+error-handling contract.
 
 ### IEEE754 Float Helpers
 

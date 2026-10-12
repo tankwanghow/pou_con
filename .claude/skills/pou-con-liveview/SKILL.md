@@ -1,3 +1,8 @@
+---
+name: pou-con-liveview
+description: Use when building or changing PouCon LiveView pages or equipment components — equipment page template, Shared.ex function components, the three control variants (physical switch, virtual mode, manual only), the UI color system, router conventions, or event handlers.
+---
+
 # PouCon LiveView Skill
 
 ## Equipment Page Template

@@ -1,3 +1,8 @@
+---
+name: pou-con-automation
+description: Use when working on PouCon's automation layer — EnvironmentController (temperature/humidity fan staging), InterlockController safety chains, Light/EggCollection/Feeding schedulers, AlarmController rules and sirens, FeedIn triggers, or PubSub topics — or when debugging equipment that automation doesn't start, stop, or that ignores schedules.
+---
+
 # PouCon Automation Layer Skill
 
 ## Overview

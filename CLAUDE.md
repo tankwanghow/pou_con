@@ -5,13 +5,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Skill Authoring Convention
 
 When, during a session, you discover **reusable domain knowledge** that isn't yet captured
-in a `.claude/skills/*.md` file — a non-obvious pattern, gotcha, workflow, schema/API contract,
+in a `.claude/skills/<name>/SKILL.md` file — a non-obvious pattern, gotcha, workflow, schema/API contract,
 or convention that future sessions would benefit from — proactively **draft a new skill** (or
 extend the closest existing one) and **ask the user to confirm** before finalizing. Do not
 auto-create silently and do not skip the confirmation.
 
-- Skills live in `.claude/skills/` (project, e.g. the `pou-con-*.md` set). Each is one markdown
-  file with frontmatter (`name`, `description`) — the `description` is the trigger text, so make
+- Skills live in `.claude/skills/<name>/SKILL.md` (project, e.g. the `pou-con-*` set). Claude Code
+  only discovers a skill in that folder layout with frontmatter (`name`, `description`); a flat
+  `.claude/skills/foo.md` is never loaded. The `description` is the trigger text, so make
   it specific about *when* the skill applies.
 - Prefer **extending an existing skill** over creating a near-duplicate.
 - Use the `superpowers:writing-skills` skill for structure/verification when authoring.

@@ -1,3 +1,8 @@
+---
+name: pou-con-controller
+description: Use when adding, modifying, or debugging a PouCon equipment controller GenServer (fan, pump, light, siren, egg, dung, feeding, sensors) — BinaryController macro, auto/manual mode, commanded vs actual sync, error debouncing, startup state adoption, or registering a new equipment type in EquipmentLoader.
+---
+
 # PouCon Equipment Controller Skill
 
 ## Controller Taxonomy

@@ -1,7 +1,7 @@
 # AGENTS.md — PouCon AI Coding Agent Rules
 
 > Consolidated rules for any AI coding agent working on PouCon.
-> See `.claude/skills/pou-con-*.md` for detailed patterns and templates.
+> See `.claude/skills/pou-con-*/SKILL.md` for detailed patterns and templates.
 
 ## Critical Safety Rules
 
@@ -120,9 +120,9 @@ SIMULATE_DEVICES=1 iex -S mix phx.server
 
 - `SIMULATE_DEVICES=1` swaps real Modbus/S7 adapters for in-memory simulations
 - Web UI at `/admin/simulation` for toggling I/O, setting analog values, simulating offline
-- Tests use Mox mocks (not SimulatedAdapter) — see `pou-con-testing.md`
+- Tests use Mox mocks (not SimulatedAdapter) — see `pou-con-testing/SKILL.md`
 - Virtual devices (auto/manual mode switches) use DB-backed `virtual_digital_states` table
-- See `pou-con-hardware.md` for full simulation API reference
+- See `pou-con-hardware/SKILL.md` for full simulation API reference
 
 ## Key File Quick Reference
 
@@ -142,10 +142,10 @@ SIMULATE_DEVICES=1 iex -S mix phx.server
 
 | Skill | When to Read |
 |-------|-------------|
-| `pou-con-controller.md` | Adding/modifying equipment controllers |
-| `pou-con-hardware.md` | DataPointManager, protocols, data points |
-| `pou-con-testing.md` | Writing or fixing tests |
-| `pou-con-liveview.md` | UI pages and equipment components |
-| `pou-con-automation.md` | Environment, interlocks, schedulers, alarms |
-| `pou-con-schema.md` | Database schemas, migrations, seeds/backup |
-| `pou-con-libraries.md` | Modbux, Snapex7, Circuits.UART API reference |
+| `pou-con-controller/SKILL.md` | Adding/modifying equipment controllers |
+| `pou-con-hardware/SKILL.md` | DataPointManager, protocols, data points |
+| `pou-con-testing/SKILL.md` | Writing or fixing tests |
+| `pou-con-liveview/SKILL.md` | UI pages and equipment components |
+| `pou-con-automation/SKILL.md` | Environment, interlocks, schedulers, alarms |
+| `pou-con-schema/SKILL.md` | Database schemas, migrations, seeds/backup |
+| `pou-con-libraries/SKILL.md` | Modbux, Snapex7, Circuits.UART API reference |

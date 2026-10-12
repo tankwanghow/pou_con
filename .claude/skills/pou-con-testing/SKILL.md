@@ -1,3 +1,8 @@
+---
+name: pou-con-testing
+description: Use when writing or fixing PouCon tests — Mox DataPointManager mocks, controller test templates, virtual data point DB setup for mode tests, :sys.get_state synchronization, error debouncing across polls, stub vs expect, or flaky controller tests.
+---
+
 # PouCon Testing Skill
 
 ## Test Environment Setup

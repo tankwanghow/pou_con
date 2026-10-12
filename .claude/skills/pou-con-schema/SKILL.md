@@ -1,3 +1,8 @@
+---
+name: pou-con-schema
+description: Use when changing PouCon database schemas or migrations — Equipment, DataPoint, Port, automation and logging tables, valid equipment types, read_fn/write_fn values, SQLite migration conventions, seed data, or keeping export_seeds.ex and backup.ex in sync.
+---
+
 # PouCon Schema & Database Skill
 
 ## Table Catalog
