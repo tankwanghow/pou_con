@@ -153,8 +153,12 @@ defmodule PouCon.Equipment.Controllers.FeedInTest do
           }
         end)
 
+      # A value of :error simulates a failed read (e.g. S7 timeout)
       stub(DataPointManagerMock, :read_direct, fn n ->
-        {:ok, %{state: Agent.get(hw, &Map.get(&1, n, 0))}}
+        case Agent.get(hw, &Map.get(&1, n, 0)) do
+          :error -> {:error, :timeout}
+          v -> {:ok, %{state: v}}
+        end
       end)
 
       stub(DataPointManagerMock, :command, fn n, :set_state, %{state: v} ->
@@ -275,6 +279,56 @@ defmodule PouCon.Equipment.Controllers.FeedInTest do
       assert [event] = wait_for_events(name, "stop")
       assert event.triggered_by == "system"
       assert %{"reason" => "silo_bridging"} = Jason.decode!(event.metadata)
+    end
+
+    test "a single missed read does not abort an AUTO fill",
+         %{devices: devices, hw: hw, trip: trip} do
+      {name, pid} = start_feedin(devices, trip, devices.full_switch)
+
+      FeedIn.turn_on(name)
+      :sys.get_state(pid)
+      set_hw(hw, %{devices.running_feedback => 1})
+      poll(pid)
+
+      # One failed read of a critical input, then comms recover
+      set_hw(hw, %{devices.running_feedback => :error})
+      poll(pid)
+
+      assert hw_value(hw, devices.filling_coil) == 1
+      assert FeedIn.status(name).commanded_on == true
+      assert FeedIn.status(name).error == nil
+
+      set_hw(hw, %{devices.running_feedback => 1})
+      poll(pid)
+      poll(pid)
+
+      assert hw_value(hw, devices.filling_coil) == 1
+      assert FeedIn.status(name).commanded_on == true
+    end
+
+    test "three consecutive missed reads still enter the safe state",
+         %{devices: devices, hw: hw, trip: trip} do
+      {name, pid} = start_feedin(devices, trip, devices.full_switch)
+
+      FeedIn.turn_on(name)
+      :sys.get_state(pid)
+      set_hw(hw, %{devices.running_feedback => 1})
+      poll(pid)
+
+      set_hw(hw, %{devices.running_feedback => :error})
+      poll(pid)
+      poll(pid)
+      assert FeedIn.status(name).error == nil
+      poll(pid)
+
+      status = FeedIn.status(name)
+      assert status.commanded_on == false
+      assert status.error == :timeout
+
+      # Comms recover: the fill stays aborted and START-CMD is dropped
+      set_hw(hw, %{devices.running_feedback => 1})
+      poll(pid)
+      assert hw_value(hw, devices.filling_coil) == 0
     end
 
     test "turn_on is refused while tripped", %{devices: devices, hw: hw, trip: trip} do

@@ -41,7 +41,9 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
 
   ## Error Detection
 
-  - `:timeout` - No response from Modbus device
+  - `:timeout` - Critical inputs (coil, running, auto/manual, trip) failed to read on
+    3 consecutive polls. Fewer misses just hold the last state, so a flaky S7/Modbus
+    link does not abort a fill.
   - `:sensor_timeout` - Full switch not responding
   - `:on_but_not_running` - Motor commanded ON but not running
   - `:off_but_running` - Motor commanded OFF but still running
@@ -103,6 +105,8 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
       poll_interval_ms: 500,
       # Consecutive mismatch error count for debouncing
       error_count: 0,
+      # Consecutive polls with a failed critical read (debounces comms blips)
+      read_fail_count: 0,
       # Max-fill safety timer (cancellable Process timer ref); cleared when not running
       fill_timeout_ref: nil,
 
@@ -379,10 +383,42 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
         else: {:ok, %{state: 0}}   # No visibility → treat as not full
 
     critical_results = [coil_res, fb_res, am_res, trip_res]
+    read_failed = Enum.any?(critical_results, &match?({:error, _}, &1))
+    read_fail_count = if read_failed, do: state.read_fail_count + 1, else: 0
 
+    if read_failed and read_fail_count < @error_debounce_threshold do
+      # A single missed read (e.g. a flaky S7 link) must not abort a fill: keep the
+      # last known state and leave the coil alone. Only after
+      # @error_debounce_threshold consecutive failures do we enter the safe state.
+      Logger.warning(
+        "[#{state.name}] Critical read failed " <>
+          "(#{read_fail_count}/#{@error_debounce_threshold}) — holding last state"
+      )
+
+      %State{state | read_fail_count: read_fail_count}
+    else
+      apply_poll_results(
+        %State{state | read_fail_count: read_fail_count},
+        read_failed,
+        {coil_res, fb_res, am_res, trip_res, full_res}
+      )
+    end
+  end
+
+  # Fallback: should never happen, but prevents crash loop
+  defp poll_and_update(nil) do
+    Logger.error("FeedIn: poll_and_update called with nil state — recovering")
+    %State{name: "recovered_nil_state", error: :crashed_previously}
+  end
+
+  defp apply_poll_results(
+         %State{} = state,
+         read_failed,
+         {coil_res, fb_res, am_res, trip_res, full_res}
+       ) do
     {%State{} = new_state, temp_error} =
       cond do
-        Enum.any?(critical_results, &match?({:error, _}, &1)) ->
+        read_failed ->
           Logger.error("[#{state.name}] Critical sensor timeout — entering safe fault state")
 
           safe_state = %State{
@@ -555,12 +591,6 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
       end
 
     %State{new_state | error: error, error_count: error_count, interlocked: interlocked}
-  end
-
-  # Fallback: should never happen, but prevents crash loop
-  defp poll_and_update(nil) do
-    Logger.error("FeedIn: poll_and_update called with nil state — recovering")
-    %State{name: "recovered_nil_state", error: :crashed_previously}
   end
 
   defp detect_runtime_error(_state, temp_error) when temp_error != nil, do: temp_error

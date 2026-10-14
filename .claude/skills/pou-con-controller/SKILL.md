@@ -221,6 +221,13 @@ err when err in [:on_but_not_running, :off_but_running] ->
 ```
 At 500ms polling, this gives 1.5s grace period for physical equipment response.
 
+**Read failures are debounced too (FeedIn).** A single `{:error, _}` from a critical
+`read_direct` must not drop a running fill — FeedIn holds its last state (no coil write)
+until `read_fail_count` reaches `@error_debounce_threshold`, then enters the safe state.
+Without this, one missed S7 read set `commanded_on: false` and the next good poll wrote
+the coil OFF ("auger starts then stops after ~1s"). Other controllers still enter the safe
+state on the first failed read — apply the same pattern if they show the same symptom.
+
 ## Common Pitfalls
 
 1. **Compile-time DataPointManager**: Never call DPM directly — always use `@data_point_manager Application.compile_env(:pou_con, :data_point_manager)` so tests can mock it
