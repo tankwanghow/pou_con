@@ -96,7 +96,7 @@ defmodule PouConWeb.Components.Summaries.FeedingSummaryComponent do
     end
   end
 
-  defp position_text(:front), do: "ALL AT FRONT"
-  defp position_text(:back), do: "ALL AT BACK"
+  defp position_text(:front), do: "AT FRONT"
+  defp position_text(:back), do: "AT BACK"
   defp position_text(:mixed), do: "IDLE"
 end

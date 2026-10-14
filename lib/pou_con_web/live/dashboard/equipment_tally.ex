@@ -20,8 +20,9 @@ defmodule PouConWeb.Live.Dashboard.EquipmentTally do
     }
   end
 
-  @doc "\"ALL OFF\" / \"2 / 3 RUNNING\" / \"ALL RUNNING\"; `idle_text` replaces \"ALL OFF\"."
+  @doc "\"ALL OFF\" / \"2 / 3 RUNNING\" / \"ALL RUNNING\" / \"NOT SET UP\"; `idle_text` replaces \"ALL OFF\"."
   def status_text(tally, verb, idle_text \\ "ALL OFF")
+  def status_text(%{total: 0}, _verb, _idle_text), do: "NOT SET UP"
   def status_text(%{running: 0}, _verb, idle_text), do: idle_text
   def status_text(%{running: n, total: n}, verb, _idle_text), do: "ALL #{verb}"
   def status_text(%{running: r, total: t}, verb, _idle_text), do: "#{r} / #{t} #{verb}"

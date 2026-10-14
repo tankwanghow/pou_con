@@ -64,6 +64,11 @@ defmodule PouConWeb.Live.Dashboard.EquipmentTallyTest do
       assert EquipmentTally.status_text(%{total: 3, running: 3}, "ON") == "ALL ON"
     end
 
+    test "no equipment of the type" do
+      assert EquipmentTally.status_text(%{total: 0, running: 0}, "RUNNING") == "NOT SET UP"
+      assert EquipmentTally.status_text(%{total: 0, running: 0}, "MOVING", "IDLE") == "NOT SET UP"
+    end
+
     test "idle text can be overridden" do
       assert EquipmentTally.status_text(%{total: 2, running: 0}, "MOVING", "ALL AT FRONT") ==
                "ALL AT FRONT"

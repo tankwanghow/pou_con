@@ -29,7 +29,7 @@ defmodule PouConWeb.Components.Summaries.LightSummaryComponent do
       phx-target={@myself}
       class="flex cursor-pointer transition-colors hover:bg-base-200"
     >
-      <SummaryTile.tile label="Lights" tally={@tally} verb="ON" active_color="amber">
+      <SummaryTile.tile label="Lights" tally={@tally} active_color="amber">
         <:icon :let={active}>
           <div class={active && "animate-pulse"}>
             <svg width="54" height="48" fill="currentColor" viewBox="0 0 279.682 279.682">

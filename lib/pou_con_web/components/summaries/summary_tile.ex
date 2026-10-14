@@ -1,11 +1,15 @@
 defmodule PouConWeb.Components.Summaries.SummaryTile do
   @moduledoc """
   One dashboard tile summarising every piece of equipment of a type:
-  icon, "2 / 8 RUNNING" style count, MANUAL count and error count.
+  icon, "2 / 8 ON" style count, MANUAL count and error count.
 
   Feed it a tally from `PouConWeb.Live.Dashboard.EquipmentTally.tally/1`.
+  Status words are kept short ("11 / 12 ON", "AT FRONT") so every state fits
+  one line in the 92px tile and the tile never changes height.
+
   The `:icon` slot receives `active` (anything running) so the caller can
-  animate its own icon.
+  animate its own icon. A type with no equipment still renders, dimmed, as
+  "NOT SET UP", so the dashboard always shows every type.
   """
 
   use Phoenix.Component
@@ -14,7 +18,7 @@ defmodule PouConWeb.Components.Summaries.SummaryTile do
 
   attr :label, :string, required: true
   attr :tally, :map, required: true
-  attr :verb, :string, default: "RUNNING"
+  attr :verb, :string, default: "ON"
   attr :idle_text, :string, default: "ALL OFF"
   attr :active_color, :string, default: "green"
   attr :show_manual, :boolean, default: true
@@ -29,7 +33,10 @@ defmodule PouConWeb.Components.Summaries.SummaryTile do
       |> assign(:color, color(assigns.tally, assigns.active_color))
 
     ~H"""
-    <div :if={@tally.total > 0} class="w-24 px-1 py-1 flex flex-col items-center text-center">
+    <div class={[
+      "w-[92px] px-1 py-1 flex flex-col items-center text-center",
+      @tally.total == 0 && "opacity-40"
+    ]}>
       <div class={"text-xs font-semibold uppercase tracking-wide text-#{@color}-500"}>{@label}</div>
       <div class={"text-#{@color}-500"}>{render_slot(@icon, @active)}</div>
       <div class={"text-xs font-bold text-#{@color}-500"}>

@@ -219,38 +219,32 @@ defmodule PouConWeb.Live.Dashboard.Index do
 
         <.dash_section title="Equipment" card>
           <.live_component
-            :if={of.("fan") != []}
             module={PouConWeb.Components.Summaries.FansSummaryComponent}
             id="fans"
             fans={of.("fan")}
           />
           <.live_component
-            :if={of.("pump") != []}
             module={PouConWeb.Components.Summaries.PumpsSummaryComponent}
             id="pumps"
             pumps={of.("pump")}
           />
           <.live_component
-            :if={of.("light") != []}
             module={PouConWeb.Components.Summaries.LightSummaryComponent}
             id="light_summ"
             equipments={of.("light")}
           />
           <.live_component
-            :if={of.("feeding") != [] or of.("feed_in") != []}
             module={PouConWeb.Components.Summaries.FeedingSummaryComponent}
             id="feeding_summ"
             equipments={of.("feeding")}
             feed_ins={of.("feed_in")}
           />
           <.live_component
-            :if={of.("egg") != []}
             module={PouConWeb.Components.Summaries.EggSummaryComponent}
             id="egg_summ"
             equipments={of.("egg")}
           />
           <.live_component
-            :if={Enum.any?(~w(dung dung_horz dung_exit), &(of.(&1) != []))}
             module={PouConWeb.Components.Summaries.DungSummaryComponent}
             id="dung_summ"
             equipments={of.("dung")}
@@ -258,7 +252,6 @@ defmodule PouConWeb.Live.Dashboard.Index do
             dung_exits={of.("dung_exit")}
           />
           <.live_component
-            :if={of.("siren") != []}
             module={PouConWeb.Components.Summaries.SirenSummaryComponent}
             id="siren_summ"
             equipments={of.("siren")}
@@ -309,8 +302,11 @@ defmodule PouConWeb.Live.Dashboard.Index do
     <section
       aria-label={@title}
       class={[
-        "flex flex-wrap items-stretch justify-center gap-2",
-        @card && "bg-base-100 shadow-md rounded-xl border border-base-300 divide-x divide-base-300"
+        "flex flex-wrap items-stretch justify-center",
+        if(@card,
+          do: "bg-base-100 shadow-md rounded-xl border border-base-300 divide-x divide-base-300",
+          else: "gap-2"
+        )
       ]}
     >
       {render_slot(@inner_block)}

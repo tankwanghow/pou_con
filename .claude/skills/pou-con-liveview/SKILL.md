@@ -1,6 +1,6 @@
 ---
 name: pou-con-liveview
-description: Use when building or changing PouCon LiveView pages or equipment components — equipment page template, Shared.ex function components, the three control variants (physical switch, virtual mode, manual only), the UI color system, router conventions, or event handlers.
+description: Use when building or changing PouCon LiveView pages or equipment components — equipment page template, Shared.ex function components, the three control variants (physical switch, virtual mode, manual only), the UI color system, router conventions, event handlers, or the dashboard (summary tiles, Upcoming row, 1024x768 fit) — or when a LiveComponent errors with "must have a single static HTML tag at the root".
 ---
 
 # PouCon LiveView Skill
@@ -324,6 +324,63 @@ def handle_event("toggle_power", _params, socket) do
 end
 ```
 
+## LiveComponent Gotchas
+
+- **Root tag must be static.** A stateful LiveComponent (`live_component`) cannot put `:if`
+  on its root element — it raises `ArgumentError ... Stateful components must have a single
+  static HTML tag at the root`. Decide visibility in the **parent** (`<.live_component :if={...}>`),
+  or keep an always-present root and put `:if` on its children.
+- **Dynamic Tailwind classes** like `"text-#{color}-500"` are only generated if that exact
+  class string appears literally somewhere under `lib/pou_con_web` (Tailwind scans source,
+  there is no safelist). Before using a new colour dynamically, `grep -r "text-pink-500"`.
+
+## Dashboard (`live/dashboard/index.ex`)
+
+Target screen is **1024x768 with no scrolling** (production panel). The page is a column of
+rows built with the private `dash_section` component (`card` attr = render children inside
+one shared card with dividers); row names are only `aria-label`s.
+
+| Row | Contents |
+|---|---|
+| Overview | Flock, Tasks, PSU indicators (2x2 grid) |
+| Environment | Temp / humidity / CO2 / NH3 / average sensor summaries |
+| Equipment | One **summary tile per equipment type**, in one shared card |
+| Utilities | Water meter, power meters (>6 readings wrap to rows of 6) |
+| Upcoming | `UpcomingSummaryComponent` |
+
+**Equipment tiles** — never one icon per machine on the dashboard (the equipment pages show
+those). Each `*_summary_component.ex` computes `EquipmentTally.tally(list)` →
+`%{total, running, manual, errors}` and renders `SummaryTile.tile` with its own icon in the
+`:icon` slot (`:let={active}` to animate). "Running" = `status.is_running` or
+`status.moving` (feeding); any non-nil `status.error` is an error. Tiles show the count
+("2 / 8 ON", ALL ON, ALL OFF), "N MANUAL" and "N ERROR" (count only, no names).
+**Every equipment type always has a tile**; a type with no equipment renders dimmed as
+"NOT SET UP". All 10 tiles must fit one line at 1024px, so tiles are 92px wide and every
+status word must fit one line in that width ("11 / 12 RUNNING" and "ALL AT FRONT" wrap —
+use ON / AT FRONT) or the tile changes height.
+
+**Upcoming row** — `PouConWeb.Live.Dashboard.Upcoming` is pure (testable without
+GenServers): `feeding(timeline, now)` from `FeedingScheduler.get_timeline/0`,
+`environment(status)` from `EnvironmentController.status/0` (current step + pending change),
+`next_light/2` and `next_egg/2` from enabled schedules (an event at exactly `now` counts as
+tomorrow), `when_text/2` = `in MM:SS` under an hour else `at HH:MM` (same width). The
+component re-renders on the parent's 1s `refresh_tick` and re-reads light/egg schedules only
+every 60 ticks. Each column `.link navigate`s to its `/admin/...` schedule page.
+
+**Layout stability:** values that change every second must keep a fixed character width
+(pad in a monospace font) so the layout doesn't jump; prefer icons/symbols over sentences.
+
+**Verifying the fit** (no browser extension needed) — headless Chrome needs a hard
+`timeout`, because LiveView's socket means the page never goes idle:
+
+```bash
+timeout 40 google-chrome --headless=new --disable-gpu --hide-scrollbars \
+  --user-data-dir=/tmp/chrome-prof --window-size=1024,768 \
+  --screenshot=/tmp/dash.png http://localhost:4000/
+```
+
+Use a taller `--window-size` (e.g. 1024,1600) to see how far the content actually extends.
+
 ## Key Files
 
 - `lib/pou_con_web/components/equipment/shared.ex` — Shared function components
@@ -332,3 +389,8 @@ end
 - `lib/pou_con_web/components/equipment/dung_component.ex` — Manual-only example
 - `lib/pou_con_web/live/fans/index.ex` — Equipment page example
 - `lib/pou_con_web/router.ex` — Route definitions
+- `lib/pou_con_web/live/dashboard/index.ex` — Dashboard rows (`dash_section`)
+- `lib/pou_con_web/live/dashboard/equipment_tally.ex` — Running/manual/error counts per type
+- `lib/pou_con_web/live/dashboard/upcoming.ex` — Next-event calculations (pure)
+- `lib/pou_con_web/components/summaries/summary_tile.ex` — Shared dashboard tile
+- `lib/pou_con_web/components/summaries/upcoming_summary_component.ex` — Upcoming row
