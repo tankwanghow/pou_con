@@ -16,7 +16,6 @@ Minimal code — just `use` statement + options. The macro generates the full Ge
 | Siren | `"siren"` | yes | no | no | no |
 | Pump | `"pump"` | yes | yes | yes | no |
 | Egg | `"egg"` | yes | yes | yes | no |
-| FeedIn | `"feed_in"` | yes | no | no | no |
 | Dung | `"dung"` | no | yes | yes | yes |
 | DungHor | `"dung_horz"` | no | yes | yes | yes |
 | DungExit | `"dung_exit"` | no | yes | yes | yes |
@@ -27,6 +26,13 @@ Full hand-written GenServer. Fan is custom because it has a **physical 3-way swi
 - DI=1 (24V): AUTO position — software controls
 - DI=0: ON or OFF position — physical bypass, software is read-only
 - Uses `is_auto_manual_virtual_di` flag to distinguish virtual vs physical switches
+
+**FeedIn** (`feed_in.ex`, type `"feed_in"`) is also hand-written (not the macro): auto/manual,
+running feedback, optional `trip` and `full_switch`. Started only by `FeedingScheduler`.
+Precedence in its `commanded_on` decision: hopper full → off, **trip → off in any mode**
+(and `turn_on` is refused while tripped, so an overload reset never restarts the auger),
+MANUAL→AUTO switch → off, manual → mirror coil, auto → keep command. See pou-con-automation
+for the scheduler interaction and stop-event logging.
 
 ### Tier 3: Non-Binary (Sensor, AverageSensor, Feeding)
 Different state machines — not on/off equipment:
