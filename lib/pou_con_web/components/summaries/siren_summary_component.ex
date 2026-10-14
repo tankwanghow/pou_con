@@ -1,28 +1,28 @@
 defmodule PouConWeb.Components.Summaries.SirenSummaryComponent do
+  @moduledoc """
+  Dashboard tile for all sirens: ALARM count, MUTED count, MANUAL count and errors.
+  """
+
   use PouConWeb, :live_component
+
+  alias PouConWeb.Components.Summaries.SummaryTile
+  alias PouConWeb.Live.Dashboard.EquipmentTally
 
   @impl true
   def update(assigns, socket) do
-    equipments = assigns[:equipments] || []
-    muted_sirens = assigns[:muted_sirens] || MapSet.new()
-
-    equipments =
-      equipments
-      |> Enum.map(fn x ->
-        is_muted = x.name in muted_sirens
-        Map.merge(x.status, calculate_display_data(x.status, is_muted))
-      end)
-      |> Enum.sort_by(fn x -> x.title end)
+    muted = assigns[:muted_sirens] || MapSet.new()
+    muted_count = Enum.count(assigns[:equipments] || [], &(&1.name in muted))
+    socket = assign(socket, :muted_count, muted_count)
 
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(:equipments, equipments)}
+     |> assign(:tally, EquipmentTally.tally(assigns[:equipments] || []))}
   end
 
   @impl true
   def handle_event("go_to_sirens", _, socket) do
-    {:noreply, socket |> push_navigate(to: ~p"/sirens")}
+    {:noreply, push_navigate(socket, to: ~p"/sirens")}
   end
 
   @impl true
@@ -31,19 +31,26 @@ defmodule PouConWeb.Components.Summaries.SirenSummaryComponent do
     <div
       phx-click="go_to_sirens"
       phx-target={@myself}
-      class="bg-base-100 shadow-md rounded-xl border border-base-300 overflow-hidden transition-all"
+      class="flex cursor-pointer transition-colors hover:bg-base-200"
     >
-      <div class="flex flex-wrap">
-        <%= for eq <- @equipments do %>
-          <div class="px-3 flex flex-col items-center justify-center transition-colors">
-            <div class={"text-#{eq.color}-500"}>{eq.title}</div>
-            <div class={[eq.anim_class, "text-#{eq.color}-500"]}>
-              <.siren_icon is_on={eq.is_running} />
-            </div>
-            <div class={"text-#{eq.color}-500 text-[10px] uppercase"}>{eq.mode}</div>
+      <SummaryTile.tile
+        label="Sirens"
+        tally={@tally}
+        verb="ALARM"
+        idle_text="STANDBY"
+        active_color="red"
+      >
+        <:icon :let={active}>
+          <div class={active && "animate-pulse"}>
+            <.siren_icon is_on={active} />
           </div>
-        <% end %>
-      </div>
+        </:icon>
+        <:extra>
+          <div :if={@muted_count > 0} class="text-[10px] font-semibold text-pink-500">
+            {@muted_count} MUTED
+          </div>
+        </:extra>
+      </SummaryTile.tile>
     </div>
     """
   end
@@ -106,59 +113,5 @@ defmodule PouConWeb.Components.Summaries.SirenSummaryComponent do
       <% end %>
     </svg>
     """
-  end
-
-  # ——————————————————————————————————————————————
-  # Logic Helpers
-  # ——————————————————————————————————————————————
-
-  defp calculate_display_data(%{error: :invalid_data}, _is_muted) do
-    %{
-      is_offline: true,
-      is_error: true,
-      is_running: false,
-      is_muted: false,
-      mode: :auto,
-      state_text: "OFFLINE",
-      color: "gray",
-      anim_class: ""
-    }
-  end
-
-  defp calculate_display_data(%{error: :not_running}, _is_muted) do
-    %{
-      is_offline: true,
-      is_error: true,
-      is_running: false,
-      is_muted: false,
-      mode: :auto,
-      state_text: "OFFLINE",
-      color: "gray",
-      anim_class: ""
-    }
-  end
-
-  defp calculate_display_data(status, is_muted) do
-    is_running = status.is_running
-    has_error = not is_nil(status.error)
-
-    {color, anim_class, state_text} =
-      cond do
-        has_error -> {"orange", "", if(is_running, do: "ALARM", else: "STANDBY")}
-        is_muted -> {"pink", "", "MUTED"}
-        is_running -> {"red", "animate-pulse", "ALARM"}
-        true -> {"green", "", "STANDBY"}
-      end
-
-    %{
-      is_offline: false,
-      is_error: has_error,
-      is_running: is_running,
-      is_muted: is_muted,
-      mode: status.mode,
-      state_text: state_text,
-      color: color,
-      anim_class: anim_class
-    }
   end
 end

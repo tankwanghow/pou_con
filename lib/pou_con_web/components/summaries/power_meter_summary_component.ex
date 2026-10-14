@@ -52,7 +52,11 @@ defmodule PouConWeb.Components.Summaries.PowerMeterSummaryComponent do
           {@meter.title}
         </span>
       </div>
-      <div class="flex gap-3">
+      <%!-- Many readings (e.g. 12 fan currents) wrap to rows of 6 to save width --%>
+      <div class={[
+        "grid gap-x-3",
+        if(length(@meter.rows) > 6, do: "grid-cols-6", else: "grid-flow-col")
+      ]}>
         <%= for {label, value, color, _bold} <- @meter.rows do %>
           <div class="flex flex-col items-center">
             <span class="text-[10px] text-base-content/50 uppercase tracking-wide">{label}</span>

@@ -33,9 +33,9 @@ defmodule PouConWeb.Components.Summaries.PowerIndicatorSummaryComponent do
       phx-target={@myself}
       class="bg-base-100 shadow-md rounded-xl border border-base-300 overflow-hidden transition-all cursor-pointer hover:shadow-lg"
     >
-      <div class="flex flex-wrap">
+      <div class="grid grid-rows-2 grid-flow-col">
         <%= for eq <- @equipments do %>
-          <div class="px-3 py-2 flex flex-col items-center justify-center transition-colors">
+          <div class="px-3 py-1 flex flex-col items-center justify-center transition-colors">
             <div
               class={"text-xs font-medium text-#{eq.color}-600 truncate max-w-[60px]"}
               title={eq.title}

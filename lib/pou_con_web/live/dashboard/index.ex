@@ -27,7 +27,7 @@ defmodule PouConWeb.Live.Dashboard.Index do
       |> assign(:flock_data, flock_data)
       |> assign(equipment: equipment, now: DateTime.utc_now(), current_role: role)
       |> assign(:muted_sirens, get_muted_siren_names())
-      |> assign(:env_refresh_tick, 0)
+      |> assign(:refresh_tick, 0)
 
     {:ok, fetch_all_status(socket)}
   end
@@ -50,7 +50,7 @@ defmodule PouConWeb.Live.Dashboard.Index do
     {:noreply,
      socket
      |> assign(:muted_sirens, get_muted_siren_names())
-     |> update(:env_refresh_tick, &(&1 + 1))}
+     |> update(:refresh_tick, &(&1 + 1))}
   end
 
   defp schedule_alarm_refresh do
@@ -158,160 +158,163 @@ defmodule PouConWeb.Live.Dashboard.Index do
     ~H"""
     <Layouts.app
       flash={@flash}
-      class="xs:w-full lg:w-3/4 xl:w-4/5"
+      class="w-full"
       current_role={@current_role}
       critical_alerts={assigns[:critical_alerts] || []}
     >
-      <div class="flex flex-wrap items-center gap-1 mb-1 justify-center items-center">
-        <%!-- Flock Summary --%>
+      <% by_type = Enum.group_by(@equipment, & &1.type) %>
+      <% of = fn type -> Map.get(by_type, type, []) end %>
 
-        <.live_component
-          module={PouConWeb.Components.Summaries.FlockSummaryComponent}
-          id="flock_summary"
-          flock_data={@flock_data}
-        />
+      <div class="flex flex-col gap-2">
+        <.dash_section title="Overview">
+          <.live_component
+            module={PouConWeb.Components.Summaries.FlockSummaryComponent}
+            id="flock_summary"
+            flock_data={@flock_data}
+          />
+          <.live_component
+            module={PouConWeb.Components.Summaries.TasksSummaryComponent}
+            id="tasks_summary"
+          />
+          <.live_component
+            :if={of.("power_indicator") != []}
+            module={PouConWeb.Components.Summaries.PowerIndicatorSummaryComponent}
+            id="power_indicators"
+            equipments={of.("power_indicator")}
+          />
+        </.dash_section>
 
-        <%!-- Operations Tasks Summary --%>
-        <.live_component
-          module={PouConWeb.Components.Summaries.TasksSummaryComponent}
-          id="tasks_summary"
-        />
+        <.dash_section title="Environment">
+          <.live_component
+            :if={of.("temp_sensor") != []}
+            module={PouConWeb.Components.Summaries.TempSummaryComponent}
+            id="temp_sensors"
+            sensors={of.("temp_sensor")}
+          />
+          <.live_component
+            :if={of.("humidity_sensor") != []}
+            module={PouConWeb.Components.Summaries.HumSummaryComponent}
+            id="hum_sensors"
+            sensors={of.("humidity_sensor")}
+          />
+          <.live_component
+            :if={of.("co2_sensor") != []}
+            module={PouConWeb.Components.Summaries.Co2SummaryComponent}
+            id="co2_sensors"
+            sensors={of.("co2_sensor")}
+          />
+          <.live_component
+            :if={of.("nh3_sensor") != []}
+            module={PouConWeb.Components.Summaries.Nh3SummaryComponent}
+            id="nh3_sensors"
+            sensors={of.("nh3_sensor")}
+          />
+          <.live_component
+            :if={of.("average_sensor") != []}
+            module={PouConWeb.Components.Summaries.AverageSensorSummaryComponent}
+            id="average_sensors"
+            sensors={of.("average_sensor")}
+          />
+        </.dash_section>
 
-        <%!-- Environment (Temperature, Humidity, Fans, Pumps, Water) --%>
-        <% temp_sensors = Enum.filter(@equipment, &(&1.type == "temp_sensor")) %>
-        <% hum_sensors = Enum.filter(@equipment, &(&1.type == "humidity_sensor")) %>
-        <% co2_sensors = Enum.filter(@equipment, &(&1.type == "co2_sensor")) %>
-        <% nh3_sensors = Enum.filter(@equipment, &(&1.type == "nh3_sensor")) %>
-        <% average_sensors = Enum.filter(@equipment, &(&1.type == "average_sensor")) %>
-        <% fans = Enum.filter(@equipment, &(&1.type == "fan")) %>
-        <% pumps = Enum.filter(@equipment, &(&1.type == "pump")) %>
-        <% water_meters = Enum.filter(@equipment, &(&1.type == "water_meter")) %>
-        <% power_meters = Enum.filter(@equipment, &(&1.type == "power_meter")) %>
-        <% power_indicators = Enum.filter(@equipment, &(&1.type == "power_indicator")) %>
+        <.dash_section title="Equipment" card>
+          <.live_component
+            :if={of.("fan") != []}
+            module={PouConWeb.Components.Summaries.FansSummaryComponent}
+            id="fans"
+            fans={of.("fan")}
+          />
+          <.live_component
+            :if={of.("pump") != []}
+            module={PouConWeb.Components.Summaries.PumpsSummaryComponent}
+            id="pumps"
+            pumps={of.("pump")}
+          />
+          <.live_component
+            :if={of.("light") != []}
+            module={PouConWeb.Components.Summaries.LightSummaryComponent}
+            id="light_summ"
+            equipments={of.("light")}
+          />
+          <.live_component
+            :if={of.("feeding") != [] or of.("feed_in") != []}
+            module={PouConWeb.Components.Summaries.FeedingSummaryComponent}
+            id="feeding_summ"
+            equipments={of.("feeding")}
+            feed_ins={of.("feed_in")}
+          />
+          <.live_component
+            :if={of.("egg") != []}
+            module={PouConWeb.Components.Summaries.EggSummaryComponent}
+            id="egg_summ"
+            equipments={of.("egg")}
+          />
+          <.live_component
+            :if={Enum.any?(~w(dung dung_horz dung_exit), &(of.(&1) != []))}
+            module={PouConWeb.Components.Summaries.DungSummaryComponent}
+            id="dung_summ"
+            equipments={of.("dung")}
+            dung_horzs={of.("dung_horz")}
+            dung_exits={of.("dung_exit")}
+          />
+          <.live_component
+            :if={of.("siren") != []}
+            module={PouConWeb.Components.Summaries.SirenSummaryComponent}
+            id="siren_summ"
+            equipments={of.("siren")}
+            muted_sirens={@muted_sirens}
+          />
+        </.dash_section>
 
-        <.live_component
-          :if={length(power_indicators) > 0}
-          module={PouConWeb.Components.Summaries.PowerIndicatorSummaryComponent}
-          id="power_indicators"
-          equipments={power_indicators}
-        />
+        <.dash_section title="Utilities">
+          <.live_component
+            module={PouConWeb.Components.Summaries.WaterMeterSummaryComponent}
+            id="watermeters"
+            water_meters={of.("water_meter")}
+          />
+          <.live_component
+            :if={of.("power_meter") != []}
+            module={PouConWeb.Components.Summaries.PowerMeterSummaryComponent}
+            id="power_meter_summ"
+            power_meters={of.("power_meter")}
+          />
+        </.dash_section>
 
-        <.live_component
-          :if={length(temp_sensors) > 0}
-          module={PouConWeb.Components.Summaries.TempSummaryComponent}
-          id="temp_sensors"
-          sensors={temp_sensors}
-        />
-
-        <.live_component
-          :if={length(hum_sensors) > 0}
-          module={PouConWeb.Components.Summaries.HumSummaryComponent}
-          id="hum_sensors"
-          sensors={hum_sensors}
-        />
-
-        <.live_component
-          :if={length(co2_sensors) > 0}
-          module={PouConWeb.Components.Summaries.Co2SummaryComponent}
-          id="co2_sensors"
-          sensors={co2_sensors}
-        />
-
-        <.live_component
-          :if={length(nh3_sensors) > 0}
-          module={PouConWeb.Components.Summaries.Nh3SummaryComponent}
-          id="nh3_sensors"
-          sensors={nh3_sensors}
-        />
-
-        <.live_component
-          :if={length(average_sensors) > 0}
-          module={PouConWeb.Components.Summaries.AverageSensorSummaryComponent}
-          id="average_sensors"
-          sensors={average_sensors}
-        />
-
-        <.live_component
-          module={PouConWeb.Components.Summaries.WaterMeterSummaryComponent}
-          id="watermeters"
-          water_meters={water_meters}
-        />
-
-        <.live_component
-          :if={length(power_meters) > 0}
-          module={PouConWeb.Components.Summaries.PowerMeterSummaryComponent}
-          id="power_meter_summ"
-          power_meters={power_meters}
-        />
-
-        <%!-- Egg Collection --%>
-        <% eggs = Enum.filter(@equipment, &(&1.type == "egg")) %>
-        <.live_component
-          module={PouConWeb.Components.Summaries.EggSummaryComponent}
-          id="egg_summ"
-          equipments={eggs}
-        />
-
-        <.live_component
-          module={PouConWeb.Components.Summaries.PumpsSummaryComponent}
-          id="pumps"
-          pumps={pumps}
-        />
-
-    <!-- Environment Status Summary -->
-        <.live_component
-          module={PouConWeb.Components.Summaries.EnvStatusSummaryComponent}
-          id="env_status_summary"
-          refresh_tick={@env_refresh_tick}
-        />
-
-        <.live_component
-          module={PouConWeb.Components.Summaries.FansSummaryComponent}
-          id="fans"
-          fans={fans}
-        />
-
-        <%!-- Feeding --%>
-        <% feedings = Enum.filter(@equipment, &(&1.type == "feeding")) %>
-        <% feed_ins = Enum.filter(@equipment, &(&1.type == "feed_in")) %>
-        <.live_component
-          module={PouConWeb.Components.Summaries.FeedingSummaryComponent}
-          id="feeding_summ"
-          equipments={feedings}
-          feed_ins={feed_ins}
-        />
-
-        <%!-- Lighting --%>
-        <% lights = Enum.filter(@equipment, &(&1.type == "light")) %>
-        <.live_component
-          module={PouConWeb.Components.Summaries.LightSummaryComponent}
-          id="light_summ"
-          equipments={lights}
-        />
-
-        <%!-- Sirens --%>
-        <% sirens = Enum.filter(@equipment, &(&1.type == "siren")) %>
-        <.live_component
-          :if={length(sirens) > 0}
-          module={PouConWeb.Components.Summaries.SirenSummaryComponent}
-          id="siren_summ"
-          equipments={sirens}
-          muted_sirens={@muted_sirens}
-        />
-
-        <%!-- Dung/Manure --%>
-        <% dungs = Enum.filter(@equipment, &(&1.type == "dung")) %>
-        <% dunghs = Enum.filter(@equipment, &(&1.type == "dung_horz")) %>
-        <% dunges = Enum.filter(@equipment, &(&1.type == "dung_exit")) %>
-        <.live_component
-          module={PouConWeb.Components.Summaries.DungSummaryComponent}
-          id="dung_summ"
-          equipments={dungs}
-          dung_horzs={dunghs}
-          dung_exits={dunges}
-        />
+        <.dash_section title="Upcoming" card>
+          <.live_component
+            module={PouConWeb.Components.Summaries.UpcomingSummaryComponent}
+            id="upcoming"
+            refresh_tick={@refresh_tick}
+            show={
+              %{
+                feeding: of.("feeding") != [],
+                environment: of.("fan") != [] or of.("pump") != [],
+                lights: of.("light") != [],
+                eggs: of.("egg") != []
+              }
+            }
+          />
+        </.dash_section>
       </div>
     </Layouts.app>
+    """
+  end
+
+  attr :title, :string, required: true
+  attr :card, :boolean, default: false, doc: "Render children as one shared card"
+  slot :inner_block, required: true
+
+  defp dash_section(assigns) do
+    ~H"""
+    <section
+      aria-label={@title}
+      class={[
+        "flex flex-wrap items-stretch justify-center gap-2",
+        @card && "bg-base-100 shadow-md rounded-xl border border-base-300 divide-x divide-base-300"
+      ]}
+    >
+      {render_slot(@inner_block)}
+    </section>
     """
   end
 end

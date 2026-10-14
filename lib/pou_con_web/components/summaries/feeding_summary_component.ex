@@ -1,26 +1,28 @@
 defmodule PouConWeb.Components.Summaries.FeedingSummaryComponent do
+  @moduledoc """
+  Dashboard tiles for feeding: one for the feeding buckets (moving count, or
+  their common position when idle) and one for the feed-in auger.
+  """
+
   use PouConWeb, :live_component
+
+  alias PouConWeb.Components.Summaries.SummaryTile
+  alias PouConWeb.Live.Dashboard.EquipmentTally
 
   @impl true
   def update(assigns, socket) do
-    equipments = assigns[:equipments] || []
-    feed_ins = assigns[:feed_ins] || nil
-
-    equipments =
-      equipments
-      |> Enum.map(fn x -> Map.merge(x.status, calculate_display_data(x.status)) end)
-      |> Enum.sort_by(fn x -> x.title end)
-
-    feed_ins =
-      feed_ins
-      |> Enum.map(fn x -> Map.merge(x.status, calculate_feed_in_display_data(x.status)) end)
-      |> Enum.sort_by(fn x -> x.title end)
+    buckets = assigns[:equipments] || []
+    feed_ins = assigns[:feed_ins] || []
+    bucket_tally = EquipmentTally.tally(buckets)
+    feed_in_tally = EquipmentTally.tally(feed_ins)
 
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(feed_ins: feed_ins)
-     |> assign(equipments: equipments)}
+     |> assign(:bucket_tally, bucket_tally)
+     |> assign(:feed_in_tally, feed_in_tally)
+     |> assign(:position, common_position(buckets))
+     |> assign(:hopper_full, Enum.any?(feed_ins, &(&1.status[:bucket_full] == true)))}
   end
 
   @impl true
@@ -34,186 +36,67 @@ defmodule PouConWeb.Components.Summaries.FeedingSummaryComponent do
     <div
       phx-click="feed"
       phx-target={@myself}
-      class="bg-base-100 shadow-md rounded-xl border border-base-300 overflow-hidden transition-all"
+      class="flex cursor-pointer transition-colors hover:bg-base-200"
     >
-      <div class="flex flex-wrap">
-        <%= for eq <- @equipments do %>
-          <div class="px-3 flex flex-col items-center justify-center transition-colors">
-            <div class={"text-#{eq.color}-500"}>{eq.title}</div>
-            <div class={[
-              "relative h-10 w-10 flex items-center justify-center overflow-hidden"
-            ]}>
+      <div class="flex">
+        <SummaryTile.tile
+          label="Feeding"
+          tally={@bucket_tally}
+          verb="MOVING"
+          idle_text={position_text(@position)}
+        >
+          <:icon :let={active}>
+            <div class="relative h-10 w-10 flex items-center justify-center">
               <div class={[
-                "absolute left-1 h-6 w-1 rounded-full transition-colors z-0",
-                eq.at_front && "bg-blue-500",
-                !eq.at_front && "bg-gray-300"
+                "absolute left-1 h-6 w-1 rounded-full",
+                if(@position == :front, do: "bg-blue-500", else: "bg-gray-300")
               ]}>
               </div>
-
               <div class={[
-                "absolute right-1 h-6 w-1 rounded-full transition-colors z-0",
-                eq.at_back && "bg-blue-500",
-                !eq.at_back && "bg-gray-300"
+                "absolute right-1 h-6 w-1 rounded-full",
+                if(@position == :back, do: "bg-blue-500", else: "bg-gray-300")
               ]}>
               </div>
-
-              <div class={
-                [
-                  "relative z-10 h-3 w-3 rounded-sm transition-transform duration-300 shadow-sm",
-
-                  # 1. Static Snap
-                  eq.at_front && "-translate-x-2 bg-#{eq.color}-500",
-                  eq.at_back && "translate-x-2 bg-#{eq.color}-500",
-
-                  # 2. Moving Animation
-                  eq.target_limit == :to_front_limit && !eq.at_front &&
-                    "-translate-x-2 bg-green-500 animate-spin",
-                  eq.target_limit == :to_back_limit && !eq.at_back &&
-                    "translate-x-2 bg-green-500 animate-spin",
-
-                  # 3. Idle
-                  (!eq.at_back and !eq.at_front and !eq.is_moving and eq.state_text != "OFFLINE") &&
-                    "bg-#{eq.color}-500",
-                  eq.state_text == "OFFLINE" && "bg-gray-500",
-                  (eq.state_text != "OFFLINE" and eq.error != nil) && "bg-rose-500"
-                ]
-              }>
+              <div class={[
+                "h-3 w-3 rounded-sm bg-current",
+                active && "animate-spin",
+                !active && @position == :front && "-translate-x-2",
+                !active && @position == :back && "translate-x-2"
+              ]}>
               </div>
             </div>
-            <div class={"text-#{eq.color}-500 text-[10px] uppercase"}>{eq.mode}</div>
-          </div>
-        <% end %>
-        <%= for fi <- @feed_ins do %>
-          <div class="px-3 flex flex-col items-center transition-colors">
-            <div class={"text-#{fi.color}-500"}>{fi.title}</div>
-            <div class={"text-#{fi.color}-500 " <> if(fi.is_running, do: "animate-bounce", else: "")}>
-              <.icon
-                name="hero-arrow-down-tray"
-                class="w-10 h-10"
-              />
+          </:icon>
+        </SummaryTile.tile>
+
+        <SummaryTile.tile
+          label="Feed In"
+          tally={@feed_in_tally}
+          verb="FILLING"
+          idle_text={if(@hopper_full, do: "HOPPER FULL", else: "IDLE")}
+        >
+          <:icon :let={active}>
+            <div class={active && "animate-bounce"}>
+              <.icon name="hero-arrow-down-tray" class="w-10 h-10" />
             </div>
-            <div class={"text-#{fi.color}-500 text-[10px] uppercase"}>
-              {fi.mode}
-            </div>
-          </div>
-        <% end %>
+          </:icon>
+        </SummaryTile.tile>
       </div>
     </div>
     """
   end
 
-  # ——————————————————————————————————————————————————————————————
-  # Calculation Logic
-  # ——————————————————————————————————————————————————————————————
-  defp calculate_display_data(%{error: :invalid_data}) do
-    %{
-      is_error: false,
-      is_moving: false,
-      mode: :auto,
-      state_text: "OFFLINE",
-      at_front: false,
-      at_back: false,
-      color: "gray",
-      target_limit: nil
-    }
+  # :front / :back when every bucket rests at the same limit, else :mixed
+  defp common_position([]), do: :mixed
+
+  defp common_position(buckets) do
+    cond do
+      Enum.all?(buckets, &(&1.status[:at_front] == true)) -> :front
+      Enum.all?(buckets, &(&1.status[:at_back] == true)) -> :back
+      true -> :mixed
+    end
   end
 
-  defp calculate_display_data(%{error: :not_running}) do
-    %{
-      is_error: false,
-      is_moving: false,
-      mode: :auto,
-      state_text: "OFFLINE",
-      at_front: false,
-      at_back: false,
-      color: "gray",
-      target_limit: nil
-    }
-  end
-
-  defp calculate_display_data(status) do
-    {color, text} =
-      cond do
-        status.error != nil ->
-          {"rose", status.error_message || "ERROR"}
-
-        status.moving ->
-          dir_text =
-            case status.target_limit do
-              :to_front_limit -> "MOVING TO FRONT"
-              :to_back_limit -> "MOVING TO BACK"
-              _ -> "FORCED MOVE"
-            end
-
-          {"green", dir_text}
-
-        status.at_front ->
-          {"violet", "AT FRONT LIMIT"}
-
-        status.at_back ->
-          {"violet", "AT BACK LIMIT"}
-
-        true ->
-          {"violet", "IDLE"}
-      end
-
-    %{
-      is_error: status.error != nil,
-      is_moving: status.moving,
-      mode: status.mode,
-      state_text: text,
-      at_front: status.at_front,
-      at_back: status.at_back,
-      target_limit: status.target_limit,
-      color: color
-    }
-  end
-
-  defp calculate_feed_in_display_data(%{error: :invalid_data}) do
-    %{
-      is_error: false,
-      is_moving: false,
-      mode: :auto,
-      state_text: "OFFLINE",
-      at_front: false,
-      at_back: false,
-      color: "gray",
-      target_limit: nil
-    }
-  end
-
-  defp calculate_feed_in_display_data(%{error: :not_running}) do
-    %{
-      is_error: false,
-      is_moving: false,
-      mode: :auto,
-      state_text: "OFFLINE",
-      at_front: false,
-      at_back: false,
-      color: "gray",
-      target_limit: nil
-    }
-  end
-
-  defp calculate_feed_in_display_data(status) do
-    mode = if status.mode == :manual, do: :manual, else: :auto
-
-    {color, text} =
-      cond do
-        status.error != nil -> {"rose", status.error_message || "ERROR"}
-        mode == :manual && !status.commanded_on -> {"violet", "MANUAL STOP"}
-        mode == :manual && status.commanded_on -> {"emerald", "MANUAL RUN"}
-        status.is_running -> {"amber", "FILLING..."}
-        status.bucket_full -> {"green", "BUCKET FULL"}
-        true -> {"violet", "WAITING FOR COND."}
-      end
-
-    %{
-      is_error: status.error != nil,
-      is_running: status.is_running,
-      mode: mode,
-      state_text: text,
-      color: color
-    }
-  end
+  defp position_text(:front), do: "ALL AT FRONT"
+  defp position_text(:back), do: "ALL AT BACK"
+  defp position_text(:mixed), do: "IDLE"
 end
