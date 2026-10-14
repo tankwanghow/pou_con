@@ -2,10 +2,11 @@ defmodule PouConWeb.Components.Summaries.UpcomingSummaryComponent do
   @moduledoc """
   Dashboard "Upcoming" row: the next feeding move, the current environment
   step (and any pending change), light on/off and egg start/stop. One fixed
-  column per configured category; each opens that category's schedule page.
+  column per category, always shown; each opens that category's schedule page.
 
   Assigns: `refresh_tick` (parent's 1s counter; re-renders the countdowns) and
-  `show` (`%{feeding:, environment:, lights:, eggs:}` booleans). Light/egg
+  `show` (`%{feeding:, environment:, lights:, eggs:}` booleans; a false category
+  still gets its column, dimmed "not set up"). Light/egg
   schedules are re-read from the DB only once a minute.
   """
 
@@ -61,21 +62,25 @@ defmodule PouConWeb.Components.Summaries.UpcomingSummaryComponent do
     ~H"""
     <div class="flex-1 flex divide-x divide-base-300">
       <.cell
-        :if={@show.feeding}
         path={~p"/admin/feeding_schedule"}
         icon="hero-arrows-right-left"
-        {feeding_lines(@feeding)}
+        {set_up(@show.feeding, "Feeding", &feeding_lines/1, @feeding)}
       />
-      <.cell :if={@show.environment} path={~p"/admin/environment/control"} {env_lines(@environment)}>
+      <.cell
+        path={~p"/admin/environment/control"}
+        {set_up(@show.environment, "Fans", &env_lines/1, @environment)}
+      >
         <:glyph><.mini_fan /></:glyph>
       </.cell>
       <.cell
-        :if={@show.lights}
         path={~p"/admin/lighting/schedules"}
         icon="hero-light-bulb"
-        {schedule_lines(@light)}
+        {set_up(@show.lights, "Lights", &schedule_lines/1, @light)}
       />
-      <.cell :if={@show.eggs} path={~p"/admin/egg_collection/schedules"} {schedule_lines(@egg)}>
+      <.cell
+        path={~p"/admin/egg_collection/schedules"}
+        {set_up(@show.eggs, "Egg", &schedule_lines/1, @egg)}
+      >
         <:glyph><.mini_egg /></:glyph>
       </.cell>
     </div>
@@ -113,6 +118,12 @@ defmodule PouConWeb.Components.Summaries.UpcomingSummaryComponent do
   # ——————————————————————————————————————————————————————————————
   # Cell text
   # ——————————————————————————————————————————————————————————————
+
+  # Every category always has a column; one with no equipment says so, dimmed
+  defp set_up(true, _label, lines_fun, value), do: lines_fun.(value)
+
+  defp set_up(false, label, _lines_fun, _value),
+    do: %{title: label, detail: "not set up", active: false}
 
   defp feeding_lines({:now, text}), do: %{title: "Feeding #{text}", detail: "now", active: true}
 

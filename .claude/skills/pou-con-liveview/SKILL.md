@@ -365,7 +365,8 @@ GenServers): `feeding(timeline, now)` from `FeedingScheduler.get_timeline/0`,
 `next_light/2` and `next_egg/2` from enabled schedules (an event at exactly `now` counts as
 tomorrow), `when_text/2` = `in MM:SS` under an hour else `at HH:MM` (same width). The
 component re-renders on the parent's 1s `refresh_tick` and re-reads light/egg schedules only
-every 60 ticks. Each column `.link navigate`s to its `/admin/...` schedule page.
+every 60 ticks. All four columns always render (a category with no equipment shows a
+dimmed "not set up"); each column `.link navigate`s to its `/admin/...` schedule page.
 
 **Layout stability:** values that change every second must keep a fixed character width
 (pad in a monospace font) so the layout doesn't jump; prefer icons/symbols over sentences.
