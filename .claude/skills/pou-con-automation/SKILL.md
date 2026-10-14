@@ -173,11 +173,25 @@ end
 
 The old `FeedInController` automation module was **removed**. Feed-in is now the `FeedIn`
 equipment controller (`lib/pou_con/equipment/controllers/feed_in.ex`, type `"feed_in"`):
-- Watches the configured **trigger** bucket's front-limit edge to start a fill.
-- `turn_on(name, max_fill_minutes \\ 30)` — `max_fill_minutes` (1..120) is a safety upper
-  bound. Temporary logic infers "full" via timer/hardwired switch until a full-switch DI is
-  wired (`has_full_switch`, `fill_completed` are temporary fields).
-- The `FeedingScheduler` checks FeedIn status before allowing `move_to_back`.
+- Started only by `FeedingScheduler`: a schedule with `trigger_fill: true` arms a fill at its
+  `move_to_front_limit_time` (arm expires after 30 min); the fill fires once **every** feeding
+  bucket is at_front, AUTO, no error, and `feedin_precheck/0` passes (not MANUAL, not running,
+  not tripped, not interlocked, hopper not full). No settle delay. Only the first `feed_in`
+  equipment is used.
+- `turn_on` is a cast: the scheduler confirms via `FeedIn.status` (`commanded_on: true`)
+  before logging the fill start and disarming; a refusal keeps the arm.
+- The scheduler never stops FeedIn. Stop = hardwired full contact in series with the
+  contactor, plus FeedIn dropping the coil on full/trip, plus the `max_fill_minutes` (1..120)
+  safety timer.
+- Without `full_switch` in the device tree, "full" is inferred (motor stopped after ≥ half
+  of `max_fill_minutes`) and only `fill_completed: true` lets the next cycle run. With
+  `full_switch`, the DI is read directly and the next fill is allowed whenever not full.
+- A trip drops the coil in any mode and `turn_on` is refused while tripped.
+- Stop events: `bucket_full` and `silo_bridging` are logged as `stop`/`system` with the reason
+  in metadata. `triggered_by` must be one of the `EquipmentEvent` enum values
+  (user/schedule/auto_control/interlock/system/alarm_controller) or the insert is silently
+  dropped.
+- FeedIn running blocks **both** bucket moves; a move skipped that minute is not retried.
 
 ## PubSub Topics Reference
 

@@ -362,13 +362,23 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
 
             FeedIn.turn_on(name, max_fill_minutes)
 
-            EquipmentLogger.log_start(name, "auto", "schedule", %{
-              "schedule_id" => state.armed_for_schedule_id,
-              "action" => "feedin_fill",
-              "max_fill_minutes" => max_fill_minutes
-            })
+            # turn_on is a cast; this status call is queued behind it, so it shows
+            # whether FeedIn accepted the command. Only a real start is logged and
+            # disarms; a refusal keeps the arm so the next tick retries.
+            case feedin_status_safe(name) do
+              %{commanded_on: true} ->
+                EquipmentLogger.log_start(name, "auto", "schedule", %{
+                  "schedule_id" => state.armed_for_schedule_id,
+                  "action" => "feedin_fill",
+                  "max_fill_minutes" => max_fill_minutes
+                })
 
-            %State{state | armed_fill_until_mono: nil, armed_for_schedule_id: nil}
+                %State{state | armed_fill_until_mono: nil, armed_for_schedule_id: nil}
+
+              _ ->
+                Logger.warning("FeedingScheduler: FeedIn #{name} refused fill start; arm kept")
+                state
+            end
 
           {:skip, reason} ->
             Logger.debug("FeedingScheduler: fill arm waiting — FeedIn precheck: #{reason}")
@@ -536,6 +546,7 @@ defmodule PouCon.Automation.Feeding.FeedingScheduler do
           %{mode: :manual} -> {:skip, "FeedIn in MANUAL mode"}
           %{is_running: true} -> {:skip, "FeedIn already running"}
           %{is_tripped: true} -> {:skip, "FeedIn is tripped"}
+          %{interlocked: true} -> {:skip, "FeedIn blocked by interlock"}
 
           # When real full_switch DI is present: only real bucket_full allows next cycle
           %{has_full_switch: true, bucket_full: true} ->

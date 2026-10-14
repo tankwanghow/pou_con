@@ -5,6 +5,7 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulerTest do
 
   alias PouCon.Automation.Feeding.FeedingScheduler
   alias PouCon.Equipment.Controllers.{FeedIn, Feeding}
+  alias PouCon.Logging.EquipmentLogger
 
   setup :verify_on_exit!
 
@@ -352,6 +353,70 @@ defmodule PouCon.Automation.Feeding.FeedingSchedulerTest do
 
       status = FeedIn.status("fire_feedin")
       assert status.commanded_on == true
+    end
+
+    test "interlock-blocked FeedIn: no fill start logged and the arm is kept" do
+      stop_genserver(FeedingScheduler)
+      start_supervised!({Task.Supervisor, name: PouCon.TaskSupervisor})
+
+      bucket = create_equipment!("ilk_bucket", "feeding")
+      {_n1, _p1, _d1} = start_feeding!(name: "ilk_bucket")
+
+      create_equipment!("ilk_feedin", "feed_in")
+
+      # InterlockController publishes can_start? results through this ETS table
+      if :ets.whereis(:interlock_can_start_cache) == :undefined do
+        :ets.new(:interlock_can_start_cache, [:named_table, :set, :public])
+      end
+
+      :ets.insert(:interlock_can_start_cache, {"ilk_feedin", {:error, :upstream_not_running}})
+
+      on_exit(fn ->
+        # Table may already be gone if this test process owned it
+        try do
+          :ets.delete(:interlock_can_start_cache, "ilk_feedin")
+        rescue
+          ArgumentError -> :ok
+        end
+      end)
+
+      {_n2, _p2, _d2} = start_feed_in!(name: "ilk_feedin")
+
+      stub_read_direct(fn
+        "ilk_bucket_am" -> {:ok, %{state: 1}}
+        "ilk_bucket_front" -> {:ok, %{state: 1}}
+        "ilk_feedin_am" -> {:ok, %{state: 1}}
+        _ -> {:ok, %{state: 0}}
+      end)
+
+      wait_for_init(300)
+
+      schedule =
+        create_feeding_schedule!(
+          move_to_front_limit_time: ~T[03:00:00],
+          feedin_front_limit_bucket_id: bucket.id,
+          enabled: true
+        )
+
+      {:ok, _pid} = FeedingScheduler.start_link()
+      armed_until = System.monotonic_time(:millisecond) + :timer.minutes(10)
+
+      :sys.replace_state(FeedingScheduler, fn state ->
+        state
+        |> Map.put(:armed_fill_until_mono, armed_until)
+        |> Map.put(:armed_for_schedule_id, schedule.id)
+      end)
+
+      FeedingScheduler.force_check()
+      Process.sleep(150)
+
+      sched_state = :sys.get_state(FeedingScheduler)
+      assert sched_state.armed_fill_until_mono == armed_until
+      assert sched_state.armed_for_schedule_id == schedule.id
+      assert FeedIn.status("ilk_feedin").commanded_on == false
+
+      Process.sleep(100)
+      assert EquipmentLogger.query_events(equipment_name: "ilk_feedin", event_type: "start") == []
     end
 
     test "does not fire when not all buckets at_front" do

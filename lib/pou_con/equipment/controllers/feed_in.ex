@@ -26,12 +26,12 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   ## Automatic Operation
 
   Fills are started by `PouCon.Automation.Feeding.FeedingScheduler`, which
-  watches the configured trigger bucket's front-limit edge and calls
-  `turn_on/1` after a settle delay when:
-  1. A schedule's `move_to_front_limit_time` has fired and the trigger
-     bucket has reached its front limit
-  2. The feed-in is in `:auto` mode, not running, and not tripped
-  3. The hopper level switch is not full
+  arms a fill when a schedule with `trigger_fill: true` reaches its
+  `move_to_front_limit_time`, then calls `turn_on/2` (no settle delay) once:
+  1. Every feeding bucket is at its front limit, in `:auto`, with no error
+  2. The feed-in is in `:auto` mode, not running, not tripped, not interlocked
+  3. The hopper is not full (with `full_switch`), or the previous fill was
+     inferred full (without `full_switch`)
 
   Stop is hardwired (full-limit switch in series with the contactor coil)
   — the contactor drops out automatically when the hopper is full. As a
@@ -50,6 +50,8 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   ## Safety Features
 
   - Automatic stop when hopper is full (prevents overflow)
+  - Motor trip drops the filling coil in any mode, and `turn_on` is refused while
+    tripped, so resetting the overload never restarts the auger by itself
   - Interlock can require other equipment running before fill allowed
   - Manual mode for maintenance and testing
   """
@@ -219,7 +221,9 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   def handle_info(:fill_timeout, %State{commanded_on: true} = state) do
     Logger.warning("[#{state.name}] Max-fill timer expired — possible silo bridging (no full switch signal received)")
 
-    EquipmentLogger.log_stop(state.name, mode_str(state.mode), "silo_bridging", "on")
+    EquipmentLogger.log_stop(state.name, mode_str(state.mode), "system", "on", %{
+      "reason" => "silo_bridging"
+    })
 
     # When max-fill timer fires without the hardwired full switch activating:
     # - Treat as "silo bridging" (feed not flowing properly)
@@ -245,6 +249,11 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
   end
 
   @impl GenServer
+  def handle_cast({:turn_on, _max_fill_minutes}, %State{is_tripped: true} = state) do
+    Logger.warning("[#{state.name}] Turn ON refused: motor tripped")
+    {:noreply, state}
+  end
+
   def handle_cast({:turn_on, max_fill_minutes}, state) do
     can_start =
       try do
@@ -442,17 +451,14 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
               cond do
                 # Safety: Always stop if bucket is full (real or inferred from long run + hardwired stop)
                 is_full -> false
+                # Safety: a trip drops START-CMD in any mode, so resetting the overload
+                # never restarts the auger by itself. Error becomes :tripped ("MOTOR TRIPPED")
+                # and the scheduler blocks the next cycle while tripped.
+                is_tripped -> false
                 # When switching to AUTO, reset to OFF (clean slate for automation)
                 mode_switched_to_auto -> false
                 # Manual mode: follow actual hardware state
                 is_manual -> actual_on
-                # Temporary (no full_switch DI): Any trip during a commanded fill
-                # → Force stop immediately. Error will be set to :tripped ("MOTOR TRIPPED")
-                #   and scheduler will block the next cycle.
-                not state.has_full_switch and
-                state.commanded_on and
-                is_tripped ->
-                  false
                 # Auto mode: maintain commanded state (set by turn_on/turn_off)
                 true -> state.commanded_on
               end
@@ -492,6 +498,11 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
                 fill_completed: is_full and not state.has_full_switch,
                 error: early_stop_error || nil
             }
+
+            # Log the full-stop once, on the edge, only if it ended a fill
+            if is_full and not state.bucket_full and (state.commanded_on or state.is_running) do
+              log_bucket_full(updated_state)
+            end
 
             {sync_coil(updated_state), nil}
           rescue
@@ -567,8 +578,9 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
        when is_boolean(cmd) and is_boolean(act) and cmd != act do
     Logger.info("[#{state.name}] #{if cmd, do: "Starting", else: "Stopping"} filling")
 
-    # Only log if in MANUAL mode (automation controllers handle auto mode logging with metadata)
-    if state.mode == :manual do
+    # Only log if in MANUAL mode (automation controllers handle auto mode logging with metadata).
+    # Stops forced by a full hopper or a trip are logged by their own events instead.
+    if state.mode == :manual and not (state.bucket_full or state.is_tripped) do
       if cmd do
         EquipmentLogger.log_start(state.name, "manual", "user")
       else
@@ -587,6 +599,16 @@ defmodule PouCon.Equipment.Controllers.FeedIn do
 
   defp sync_coil(%State{commanded_on: false} = state), do: cancel_fill_timer(state)
   defp sync_coil(state), do: state
+
+  defp log_bucket_full(%State{} = state) do
+    source = if state.has_full_switch, do: "full_switch", else: "inferred"
+    Logger.info("[#{state.name}] Hopper full (#{source}) — fill complete")
+
+    EquipmentLogger.log_stop(state.name, mode_str(state.mode), "system", "on", %{
+      "reason" => "bucket_full",
+      "source" => source
+    })
+  end
 
   defp arm_fill_timer(%State{} = state, max_fill_minutes) do
     state = cancel_fill_timer(state)
